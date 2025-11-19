@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// Setup creates and configures a new logger instance.
+// This is an infrastructure component that provides logging functionality.
 func Setup(level string) *slog.Logger {
 	var l slog.Level
 	switch strings.ToLower(level) {
@@ -32,6 +34,7 @@ func Setup(level string) *slog.Logger {
 	return logger
 }
 
+// Logger creates a default logger with info level.
 func Logger() *slog.Logger {
 	return Setup("info")
 }

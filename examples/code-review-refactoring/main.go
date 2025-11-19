@@ -31,14 +31,15 @@ func main() {
 	ctx := context.Background()
 
 	workflowID := uuid.NewString()
+	spec := map[string]any{
+		"description": "Automated code review with AI-powered analysis, refactoring suggestions, and quality gates",
+		"features":    []string{"code_analysis", "security_scan", "ai_review", "auto_refactoring", "quality_gates"},
+	}
 	workflow := mbflow.NewWorkflow(
 		workflowID,
 		"AI-Powered Code Review and Refactoring",
 		"1.0.0",
-		[]byte(`{
-			"description": "Automated code review with AI-powered analysis, refactoring suggestions, and quality gates",
-			"features": ["code_analysis", "security_scan", "ai_review", "auto_refactoring", "quality_gates"]
-		}`),
+		spec,
 	)
 
 	if err := storage.SaveWorkflow(ctx, workflow); err != nil {

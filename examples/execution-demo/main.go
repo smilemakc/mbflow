@@ -19,7 +19,6 @@ import (
 // 3. Viewing execution metrics and results
 func main() {
 	fmt.Println("=== Workflow Execution Engine Demo ===\n")
-
 	// Get OpenAI API key from environment (optional for this demo)
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
@@ -34,7 +33,13 @@ func main() {
 		EnableMonitoring: true,
 		VerboseLogging:   true,
 	})
-
+	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackConfig{
+		CallbackURL: "https://heabot.nl.tuna.am",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create HTTP callback observer: %v", err)
+	}
+	executor.AddObserver(httpObserver)
 	// Create a simple workflow
 	workflowID := uuid.NewString()
 	executionID := uuid.NewString()
@@ -90,11 +95,10 @@ func main() {
 			NodeID:   "node-openai",
 			NodeType: "openai-completion",
 			Config: map[string]any{
-				"model":       "gpt-4",
-				"prompt":      "Summarize this data in one sentence: {{merged_data}}",
-				"max_tokens":  100,
-				"temperature": 0.7,
-				"output_key":  "ai_summary",
+				"model":      "gpt-4o",
+				"prompt":     "Summarize this data in one sentence: {{merged_data}}",
+				"max_tokens": 100,
+				"output_key": "ai_summary",
 			},
 		}
 		nodes = append(nodes, openaiNode)
@@ -102,7 +106,7 @@ func main() {
 
 	// Set initial variables
 	initialVariables := map[string]interface{}{
-		"input_data": `✅ **Execution Engine Core**
+		"input_data": `**Execution Engine Core**
 
 - Workflow orchestration and state management
 - Node-by-node execution with dependency handling
@@ -114,9 +118,9 @@ func main() {
 
 	fmt.Println("=== Executing Workflow ===\n")
 
-	// Execute workflow
+	// Execute workflow (with empty edges for sequential execution)
 	ctx := context.Background()
-	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodes, initialVariables)
+	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodes, nil, initialVariables)
 
 	if err != nil {
 		log.Fatalf("Workflow execution failed: %v", err)

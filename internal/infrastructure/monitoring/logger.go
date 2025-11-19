@@ -5,6 +5,8 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	"mbflow/internal/domain"
 )
 
 // ExecutionLogger provides structured logging for workflow execution.
@@ -50,53 +52,190 @@ func (l *ExecutionLogger) LogExecutionFailed(workflowID, executionID string, err
 }
 
 // LogNodeStarted logs when a node starts executing.
-func (l *ExecutionLogger) LogNodeStarted(executionID, nodeID, nodeType string, attemptNumber int) {
+// It accepts either a domain.Node or its configuration.
+// If node is nil, LogNodeStartedFromConfig should be used instead.
+func (l *ExecutionLogger) LogNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	if node == nil {
+		log.Printf("[%s] Node started: execution=%s node=<nil> attempt=%d",
+			l.prefix, executionID, attemptNumber)
+		return
+	}
+
 	if attemptNumber > 1 {
-		log.Printf("[%s] Node started (retry %d): execution=%s node=%s type=%s",
-			l.prefix, attemptNumber, executionID, nodeID, nodeType)
+		log.Printf("[%s] Node started (retry %d): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
+			l.prefix, attemptNumber, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config())
 	} else {
-		log.Printf("[%s] Node started: execution=%s node=%s type=%s",
-			l.prefix, executionID, nodeID, nodeType)
+		log.Printf("[%s] Node started: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
+			l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config())
+	}
+}
+
+// LogNodeStartedFromConfig logs when a node starts executing from its configuration.
+// This method is used when you have the node configuration but not the full domain.Node object.
+func (l *ExecutionLogger) LogNodeStartedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if attemptNumber > 1 {
+		log.Printf("[%s] Node started (retry %d): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
+			l.prefix, attemptNumber, executionID, nodeID, workflowID, nodeType, name, config)
+	} else {
+		log.Printf("[%s] Node started: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
+			l.prefix, executionID, nodeID, workflowID, nodeType, name, config)
 	}
 }
 
 // LogNodeCompleted logs when a node completes successfully.
-func (l *ExecutionLogger) LogNodeCompleted(executionID, nodeID, nodeType string, duration time.Duration) {
+// It accepts either a domain.Node or its configuration.
+// If node is nil, LogNodeCompletedFromConfig should be used instead.
+func (l *ExecutionLogger) LogNodeCompleted(executionID string, node *domain.Node, duration time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	log.Printf("[%s] Node completed: execution=%s node=%s type=%s duration=%s",
-		l.prefix, executionID, nodeID, nodeType, duration)
+
+	if node == nil {
+		log.Printf("[%s] Node completed: execution=%s node=<nil> duration=%s",
+			l.prefix, executionID, duration)
+		return
+	}
+
+	log.Printf("[%s] Node completed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s",
+		l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), duration)
+}
+
+// LogNodeCompletedFromConfig logs when a node completes successfully from its configuration.
+// This method is used when you have the node configuration but not the full domain.Node object.
+func (l *ExecutionLogger) LogNodeCompletedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, duration time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	log.Printf("[%s] Node completed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s",
+		l.prefix, executionID, nodeID, workflowID, nodeType, name, config, duration)
 }
 
 // LogNodeFailed logs when a node fails.
-func (l *ExecutionLogger) LogNodeFailed(executionID, nodeID, nodeType string, err error, duration time.Duration, willRetry bool) {
+// It accepts either a domain.Node or its configuration.
+// If node is nil, LogNodeFailedFromConfig should be used instead.
+func (l *ExecutionLogger) LogNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	if node == nil {
+		if willRetry {
+			log.Printf("[%s] Node failed (will retry): execution=%s node=<nil> duration=%s error=%v",
+				l.prefix, executionID, duration, err)
+		} else {
+			log.Printf("[%s] Node failed: execution=%s node=<nil> duration=%s error=%v",
+				l.prefix, executionID, duration, err)
+		}
+		return
+	}
+
 	if willRetry {
-		log.Printf("[%s] Node failed (will retry): execution=%s node=%s type=%s duration=%s error=%v",
-			l.prefix, executionID, nodeID, nodeType, duration, err)
+		log.Printf("[%s] Node failed (will retry): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
+			l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), duration, err)
 	} else {
-		log.Printf("[%s] Node failed: execution=%s node=%s type=%s duration=%s error=%v",
-			l.prefix, executionID, nodeID, nodeType, duration, err)
+		log.Printf("[%s] Node failed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
+			l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), duration, err)
+	}
+}
+
+// LogNodeFailedFromConfig logs when a node fails from its configuration.
+// This method is used when you have the node configuration but not the full domain.Node object.
+func (l *ExecutionLogger) LogNodeFailedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, err error, duration time.Duration, willRetry bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if willRetry {
+		log.Printf("[%s] Node failed (will retry): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
+			l.prefix, executionID, nodeID, workflowID, nodeType, name, config, duration, err)
+	} else {
+		log.Printf("[%s] Node failed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
+			l.prefix, executionID, nodeID, workflowID, nodeType, name, config, duration, err)
 	}
 }
 
 // LogNodeRetrying logs when a node is being retried.
-func (l *ExecutionLogger) LogNodeRetrying(executionID, nodeID string, attemptNumber int, delay time.Duration) {
+// It accepts either a domain.Node or its configuration.
+// If node is nil, LogNodeRetryingFromConfig should be used instead.
+func (l *ExecutionLogger) LogNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	log.Printf("[%s] Node retrying: execution=%s node=%s attempt=%d delay=%s",
-		l.prefix, executionID, nodeID, attemptNumber, delay)
+
+	if node == nil {
+		log.Printf("[%s] Node retrying: execution=%s node=<nil> attempt=%d delay=%s",
+			l.prefix, executionID, attemptNumber, delay)
+		return
+	}
+
+	log.Printf("[%s] Node retrying: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v attempt=%d delay=%s",
+		l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), attemptNumber, delay)
+}
+
+// LogNodeRetryingFromConfig logs when a node is being retried from its configuration.
+// This method is used when you have the node configuration but not the full domain.Node object.
+func (l *ExecutionLogger) LogNodeRetryingFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int, delay time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	log.Printf("[%s] Node retrying: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v attempt=%d delay=%s",
+		l.prefix, executionID, nodeID, workflowID, nodeType, name, config, attemptNumber, delay)
 }
 
 // LogNodeSkipped logs when a node is skipped.
-func (l *ExecutionLogger) LogNodeSkipped(executionID, nodeID, nodeType, reason string) {
+// It accepts either a domain.Node or its configuration.
+// If node is nil, LogNodeSkippedFromConfig should be used instead.
+func (l *ExecutionLogger) LogNodeSkipped(executionID string, node *domain.Node, reason string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	log.Printf("[%s] Node skipped: execution=%s node=%s type=%s reason=%s",
-		l.prefix, executionID, nodeID, nodeType, reason)
+
+	if node == nil {
+		log.Printf("[%s] Node skipped: execution=%s node=<nil> reason=%s",
+			l.prefix, executionID, reason)
+		return
+	}
+
+	log.Printf("[%s] Node skipped: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v reason=%s",
+		l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), reason)
+}
+
+// LogNodeSkippedFromConfig logs when a node is skipped from its configuration.
+// This method is used when you have the node configuration but not the full domain.Node object.
+func (l *ExecutionLogger) LogNodeSkippedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, reason string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	log.Printf("[%s] Node skipped: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v reason=%s",
+		l.prefix, executionID, nodeID, workflowID, nodeType, name, config, reason)
+}
+
+// LogNode logs all fields of a node.
+// It accepts either a domain.Node or its configuration.
+// If node is provided, all fields are extracted from it.
+// If node is nil, LogNodeFromConfig should be used instead.
+func (l *ExecutionLogger) LogNode(executionID string, node *domain.Node) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if node == nil {
+		log.Printf("[%s] Node info: execution=%s node=<nil>", l.prefix, executionID)
+		return
+	}
+
+	log.Printf("[%s] Node info: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
+		l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config())
+}
+
+// LogNodeFromConfig logs all fields of a node from its configuration and metadata.
+// This method is used when you have the node configuration but not the full domain.Node object.
+func (l *ExecutionLogger) LogNodeFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	log.Printf("[%s] Node info: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
+		l.prefix, executionID, nodeID, workflowID, nodeType, name, config)
 }
 
 // LogVariableSet logs when a variable is set (verbose mode only).

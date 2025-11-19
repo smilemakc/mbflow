@@ -5,103 +5,9 @@ import (
 	"time"
 
 	"mbflow/internal/application/executor"
+	"mbflow/internal/domain"
 	"mbflow/internal/infrastructure/monitoring"
 )
-
-// Executor represents a workflow executor.
-// It provides methods for executing workflows and nodes.
-type Executor interface {
-	// ExecuteWorkflow executes a complete workflow
-	ExecuteWorkflow(ctx context.Context, workflowID, executionID string, nodes []ExecutorNodeConfig, initialVariables map[string]interface{}) (ExecutorState, error)
-
-	// ExecuteNode executes a single node
-	ExecuteNode(ctx context.Context, state ExecutorState, nodeConfig ExecutorNodeConfig) error
-
-	// AddObserver adds an execution observer
-	AddObserver(observer ExecutionObserver)
-
-	// GetMetrics returns execution metrics
-	GetMetrics() ExecutorMetrics
-}
-
-// ExecutorNodeConfig represents the configuration for executing a node.
-type ExecutorNodeConfig struct {
-	NodeID   string
-	NodeType string
-	Config   map[string]any
-}
-
-// ExecutorState represents the state of a workflow execution.
-type ExecutorState interface {
-	// ExecutionID returns the execution ID
-	ExecutionID() string
-
-	// WorkflowID returns the workflow ID
-	WorkflowID() string
-
-	// Status returns the current status
-	Status() string
-
-	// GetVariable retrieves a variable
-	GetVariable(key string) (interface{}, bool)
-
-	// GetAllVariables returns all variables
-	GetAllVariables() map[string]interface{}
-
-	// GetExecutionDuration returns the execution duration
-	GetExecutionDuration() string
-}
-
-// ExecutionObserver defines the interface for observing workflow execution events.
-type ExecutionObserver interface {
-	// OnExecutionStarted is called when a workflow execution starts
-	OnExecutionStarted(workflowID, executionID string)
-
-	// OnExecutionCompleted is called when a workflow execution completes successfully
-	OnExecutionCompleted(workflowID, executionID string, duration string)
-
-	// OnExecutionFailed is called when a workflow execution fails
-	OnExecutionFailed(workflowID, executionID string, err error, duration string)
-
-	// OnNodeStarted is called when a node starts executing
-	OnNodeStarted(executionID, nodeID, nodeType string, attemptNumber int)
-
-	// OnNodeCompleted is called when a node completes successfully
-	OnNodeCompleted(executionID, nodeID, nodeType string, output interface{}, duration string)
-
-	// OnNodeFailed is called when a node fails
-	OnNodeFailed(executionID, nodeID, nodeType string, err error, duration string, willRetry bool)
-}
-
-// ExecutorMetrics provides execution metrics.
-type ExecutorMetrics interface {
-	// GetWorkflowMetrics returns metrics for a workflow
-	GetWorkflowMetrics(workflowID string) map[string]interface{}
-
-	// GetNodeMetrics returns metrics for a node type
-	GetNodeMetrics(nodeType string) map[string]interface{}
-
-	// GetAIMetrics returns AI API usage metrics
-	GetAIMetrics() map[string]interface{}
-
-	// GetSummary returns a summary of all metrics
-	GetSummary() map[string]interface{}
-}
-
-// ExecutorConfig configures the workflow executor.
-type ExecutorConfig struct {
-	// OpenAIAPIKey is the API key for OpenAI
-	OpenAIAPIKey string
-
-	// MaxRetryAttempts is the maximum number of retry attempts
-	MaxRetryAttempts int
-
-	// EnableMonitoring enables monitoring and logging
-	EnableMonitoring bool
-
-	// VerboseLogging enables verbose logging
-	VerboseLogging bool
-}
 
 // workflowExecutor is the internal implementation of Executor.
 type workflowExecutor struct {
@@ -144,6 +50,10 @@ func NewExecutor(config *ExecutorConfig) Executor {
 		engine.AddObserver(observer)
 	}
 
+	// Register OpenAI executor (API key can come from node config or context)
+	// Always register to allow API key from node config or execution context
+	engine.RegisterExecutor(executor.NewOpenAICompletionExecutorWithMetrics(config.OpenAIAPIKey, metrics))
+
 	return &workflowExecutor{
 		engine:  engine,
 		metrics: metrics,
@@ -151,19 +61,9 @@ func NewExecutor(config *ExecutorConfig) Executor {
 }
 
 // ExecuteWorkflow implements Executor.
-func (we *workflowExecutor) ExecuteWorkflow(ctx context.Context, workflowID, executionID string, nodes []ExecutorNodeConfig, initialVariables map[string]interface{}) (ExecutorState, error) {
-	// Convert to internal node configs
-	internalNodes := make([]executor.NodeConfig, len(nodes))
-	for i, n := range nodes {
-		internalNodes[i] = executor.NodeConfig{
-			NodeID:   n.NodeID,
-			NodeType: n.NodeType,
-			Config:   n.Config,
-		}
-	}
-
+func (we *workflowExecutor) ExecuteWorkflow(ctx context.Context, workflowID, executionID string, nodes []ExecutorNodeConfig, edges []ExecutorEdgeConfig, initialVariables map[string]interface{}) (ExecutorState, error) {
 	// Execute workflow
-	state, err := we.engine.ExecuteWorkflow(ctx, workflowID, executionID, internalNodes, initialVariables)
+	state, err := we.engine.ExecuteWorkflow(ctx, workflowID, executionID, nodes, edges, initialVariables)
 
 	return &executorStateAdapter{state: state}, err
 }
@@ -179,15 +79,8 @@ func (we *workflowExecutor) ExecuteNode(ctx context.Context, state ExecutorState
 	// Create execution context
 	execCtx := executor.NewExecutionContext(ctx, stateAdapter.state)
 
-	// Convert node config
-	internalConfig := executor.NodeConfig{
-		NodeID:   nodeConfig.NodeID,
-		NodeType: nodeConfig.NodeType,
-		Config:   nodeConfig.Config,
-	}
-
 	// Execute node
-	return we.engine.ExecuteNode(ctx, execCtx, internalConfig)
+	return we.engine.ExecuteNode(ctx, execCtx, nodeConfig)
 }
 
 // AddObserver implements Executor.
@@ -311,26 +204,39 @@ func (oa *observerAdapter) OnExecutionStarted(workflowID, executionID string) {
 }
 
 func (oa *observerAdapter) OnExecutionCompleted(workflowID, executionID string, duration time.Duration) {
-	oa.observer.OnExecutionCompleted(workflowID, executionID, duration.String())
+	oa.observer.OnExecutionCompleted(workflowID, executionID, duration)
 }
 
 func (oa *observerAdapter) OnExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
-	oa.observer.OnExecutionFailed(workflowID, executionID, err, duration.String())
+	oa.observer.OnExecutionFailed(workflowID, executionID, err, duration)
 }
 
-func (oa *observerAdapter) OnNodeStarted(executionID, nodeID, nodeType string, attemptNumber int) {
-	oa.observer.OnNodeStarted(executionID, nodeID, nodeType, attemptNumber)
+func (oa *observerAdapter) OnNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
+	// Convert domain.Node to public Node interface
+	var publicNode Node
+	if node != nil {
+		publicNode = &nodeAdapter{node: node}
+	}
+	oa.observer.OnNodeStarted(executionID, publicNode, attemptNumber)
 }
 
-func (oa *observerAdapter) OnNodeCompleted(executionID, nodeID, nodeType string, output interface{}, duration time.Duration) {
-	oa.observer.OnNodeCompleted(executionID, nodeID, nodeType, output, duration.String())
+func (oa *observerAdapter) OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
+	var publicNode Node
+	if node != nil {
+		publicNode = &nodeAdapter{node: node}
+	}
+	oa.observer.OnNodeCompleted(executionID, publicNode, output, duration)
 }
 
-func (oa *observerAdapter) OnNodeFailed(executionID, nodeID, nodeType string, err error, duration time.Duration, willRetry bool) {
-	oa.observer.OnNodeFailed(executionID, nodeID, nodeType, err, duration.String(), willRetry)
+func (oa *observerAdapter) OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
+	var publicNode Node
+	if node != nil {
+		publicNode = &nodeAdapter{node: node}
+	}
+	oa.observer.OnNodeFailed(executionID, publicNode, err, duration, willRetry)
 }
 
-func (oa *observerAdapter) OnNodeRetrying(executionID, nodeID string, attemptNumber int, delay time.Duration) {
+func (oa *observerAdapter) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
 	// Not exposed in public API
 }
 
@@ -351,16 +257,41 @@ func (moa *metricsObserverAdapter) OnExecutionCompleted(workflowID, executionID 
 func (moa *metricsObserverAdapter) OnExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
 }
 
-func (moa *metricsObserverAdapter) OnNodeStarted(executionID, nodeID, nodeType string, attemptNumber int) {
+func (moa *metricsObserverAdapter) OnNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
 }
 
-func (moa *metricsObserverAdapter) OnNodeCompleted(executionID, nodeID, nodeType string, output interface{}, duration time.Duration) {
+func (moa *metricsObserverAdapter) OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
 }
 
-func (moa *metricsObserverAdapter) OnNodeFailed(executionID, nodeID, nodeType string, err error, duration time.Duration, willRetry bool) {
+func (moa *metricsObserverAdapter) OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
 }
 
-func (moa *metricsObserverAdapter) OnNodeRetrying(executionID, nodeID string, attemptNumber int, delay time.Duration) {
+func (moa *metricsObserverAdapter) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
 }
 
 func (moa *metricsObserverAdapter) OnVariableSet(executionID, key string, value interface{}) {}
+
+// nodeAdapter adapts domain.Node to public Node interface.
+type nodeAdapter struct {
+	node *domain.Node
+}
+
+func (na *nodeAdapter) ID() string {
+	return na.node.ID()
+}
+
+func (na *nodeAdapter) WorkflowID() string {
+	return na.node.WorkflowID()
+}
+
+func (na *nodeAdapter) Type() string {
+	return na.node.Type()
+}
+
+func (na *nodeAdapter) Name() string {
+	return na.node.Name()
+}
+
+func (na *nodeAdapter) Config() map[string]any {
+	return na.node.Config()
+}

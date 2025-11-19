@@ -3,27 +3,31 @@ package storage
 import (
 	"context"
 	"fmt"
-	"mbflow/internal/domain"
 	"sync"
+	"time"
+
+	"mbflow/internal/domain"
 )
 
 type MemoryStore struct {
-	mu         sync.RWMutex
-	workflows  map[string]*domain.Workflow
-	executions map[string]*domain.Execution
-	events     []*domain.Event
-	nodes      map[string]*domain.Node
-	edges      map[string]*domain.Edge
-	triggers   map[string]*domain.Trigger
+	mu              sync.RWMutex
+	workflows       map[string]*domain.Workflow
+	executions      map[string]*domain.Execution
+	executionStates map[string]*domain.ExecutionState
+	events          []*domain.Event
+	nodes           map[string]*domain.Node
+	edges           map[string]*domain.Edge
+	triggers        map[string]*domain.Trigger
 }
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		workflows:  make(map[string]*domain.Workflow),
-		executions: make(map[string]*domain.Execution),
-		nodes:      make(map[string]*domain.Node),
-		edges:      make(map[string]*domain.Edge),
-		triggers:   make(map[string]*domain.Trigger),
+		workflows:       make(map[string]*domain.Workflow),
+		executions:      make(map[string]*domain.Execution),
+		executionStates: make(map[string]*domain.ExecutionState),
+		nodes:           make(map[string]*domain.Node),
+		edges:           make(map[string]*domain.Edge),
+		triggers:        make(map[string]*domain.Trigger),
 	}
 }
 
@@ -185,4 +189,87 @@ func (s *MemoryStore) ListTriggers(ctx context.Context, workflowID string) ([]*d
 		}
 	}
 	return out, nil
+}
+
+// ExecutionState storage methods
+
+func (s *MemoryStore) SaveExecutionState(ctx context.Context, state *domain.ExecutionState) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Create a deep copy to avoid external modifications
+	// Serialize and deserialize to ensure clean copy with JSON handling
+	stateCopy := s.cloneExecutionState(state)
+	s.executionStates[state.ExecutionID()] = stateCopy
+	return nil
+}
+
+func (s *MemoryStore) GetExecutionState(ctx context.Context, executionID string) (*domain.ExecutionState, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	state, ok := s.executionStates[executionID]
+	if !ok {
+		return nil, fmt.Errorf("execution state not found")
+	}
+	// Return a copy to avoid external modifications
+	return s.cloneExecutionState(state), nil
+}
+
+func (s *MemoryStore) DeleteExecutionState(ctx context.Context, executionID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.executionStates, executionID)
+	return nil
+}
+
+// cloneExecutionState creates a deep copy of ExecutionState
+// This ensures external modifications don't affect stored state
+func (s *MemoryStore) cloneExecutionState(state *domain.ExecutionState) *domain.ExecutionState {
+	// Copy variables
+	variables := make(map[string]interface{})
+	for k, v := range state.Variables() {
+		variables[k] = v
+	}
+
+	// Copy node states
+	nodeStates := make(map[string]*domain.NodeState)
+	for nodeID, ns := range state.NodeStates() {
+		var startedAt, finishedAt *time.Time
+		if ns.StartedAt() != nil {
+			t := *ns.StartedAt()
+			startedAt = &t
+		}
+		if ns.FinishedAt() != nil {
+			t := *ns.FinishedAt()
+			finishedAt = &t
+		}
+
+		nodeStates[nodeID] = domain.ReconstructNodeState(
+			ns.NodeID(),
+			ns.Status(),
+			startedAt,
+			finishedAt,
+			ns.Output(),
+			ns.ErrorMessage(),
+			ns.AttemptNumber(),
+			ns.MaxAttempts(),
+		)
+	}
+
+	var finishedAt *time.Time
+	if state.FinishedAt() != nil {
+		t := *state.FinishedAt()
+		finishedAt = &t
+	}
+
+	return domain.ReconstructExecutionState(
+		state.ExecutionID(),
+		state.WorkflowID(),
+		state.Status(),
+		variables,
+		nodeStates,
+		state.StartedAt(),
+		finishedAt,
+		state.ErrorMessage(),
+	)
 }

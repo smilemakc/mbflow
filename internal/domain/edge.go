@@ -1,6 +1,8 @@
 package domain
 
-// Edge represents a connection between two nodes.
+// Edge is a domain entity that represents a connection between two nodes in a workflow.
+// It defines the control flow and data transformation rules between workflow steps.
+// Edges are immutable entities that are part of a Workflow aggregate.
 type Edge struct {
 	id         string
 	workflowID string
@@ -12,18 +14,6 @@ type Edge struct {
 
 // NewEdge creates a new Edge instance.
 func NewEdge(id, workflowID, fromNodeID, toNodeID, edgeType string, config map[string]any) *Edge {
-	return &Edge{
-		id:         id,
-		workflowID: workflowID,
-		fromNodeID: fromNodeID,
-		toNodeID:   toNodeID,
-		edgeType:   edgeType,
-		config:     config,
-	}
-}
-
-// ReconstructEdge reconstructs an Edge from persistence.
-func ReconstructEdge(id, workflowID, fromNodeID, toNodeID, edgeType string, config map[string]any) *Edge {
 	return &Edge{
 		id:         id,
 		workflowID: workflowID,

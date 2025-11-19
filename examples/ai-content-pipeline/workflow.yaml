@@ -17,7 +17,7 @@ nodes:
     name: Generate Initial Content
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Write a comprehensive blog post about {{topic}}"
       max_tokens: 2000
       temperature: 0.7
@@ -28,7 +28,7 @@ nodes:
     name: Analyze Content Quality
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Analyze the following content and rate its quality as 'high', 'medium', or 'low'"
       max_tokens: 10
       temperature: 0.1
@@ -50,7 +50,7 @@ nodes:
     name: Enhance Content
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Improve the following content by adding examples, improving transitions, and enhancing the conclusion"
       max_tokens: 2500
       temperature: 0.6
@@ -61,7 +61,7 @@ nodes:
     name: Regenerate Content
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Write a high-quality, engaging blog post about {{topic}} with clear structure and specific examples"
       max_tokens: 2500
       temperature: 0.8
@@ -84,7 +84,7 @@ nodes:
     name: Translate to Spanish
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Translate the following content to Spanish, maintaining the tone and style"
       max_tokens: 2500
       temperature: 0.3
@@ -94,7 +94,7 @@ nodes:
     name: Translate to French
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Translate the following content to French, maintaining the tone and style"
       max_tokens: 2500
       temperature: 0.3
@@ -104,7 +104,7 @@ nodes:
     name: Translate to German
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Translate the following content to German, maintaining the tone and style"
       max_tokens: 2500
       temperature: 0.3
@@ -115,7 +115,7 @@ nodes:
     name: Generate SEO Metadata (EN)
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Generate SEO metadata for the content in JSON format"
       max_tokens: 300
       temperature: 0.4
@@ -125,7 +125,7 @@ nodes:
     name: Generate SEO Metadata (ES)
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Generate SEO metadata for the Spanish content in JSON format"
       max_tokens: 300
       temperature: 0.4
@@ -135,7 +135,7 @@ nodes:
     name: Generate SEO Metadata (FR)
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Generate SEO metadata for the French content in JSON format"
       max_tokens: 300
       temperature: 0.4
@@ -145,7 +145,7 @@ nodes:
     name: Generate SEO Metadata (DE)
     type: openai-completion
     config:
-      model: gpt-4
+      model: gpt-4o
       prompt: "Generate SEO metadata for the German content in JSON format"
       max_tokens: 300
       temperature: 0.4

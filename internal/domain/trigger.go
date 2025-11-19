@@ -1,6 +1,8 @@
 package domain
 
-// Trigger represents an event source that starts a workflow.
+// Trigger is a domain entity that represents an event source that can initiate a workflow execution.
+// It defines the conditions and configuration for starting a workflow instance.
+// Triggers are immutable entities that are part of a Workflow aggregate.
 type Trigger struct {
 	id          string
 	workflowID  string
@@ -10,16 +12,6 @@ type Trigger struct {
 
 // NewTrigger creates a new Trigger instance.
 func NewTrigger(id, workflowID, triggerType string, config map[string]any) *Trigger {
-	return &Trigger{
-		id:          id,
-		workflowID:  workflowID,
-		triggerType: triggerType,
-		config:      config,
-	}
-}
-
-// ReconstructTrigger reconstructs a Trigger from persistence.
-func ReconstructTrigger(id, workflowID, triggerType string, config map[string]any) *Trigger {
 	return &Trigger{
 		id:          id,
 		workflowID:  workflowID,

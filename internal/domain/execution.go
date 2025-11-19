@@ -14,7 +14,10 @@ const (
 	ExecutionStatusFailed   ExecutionStatus = "failed"
 )
 
-// Execution represents a running instance of a workflow.
+// Execution is a domain entity that represents a workflow execution instance.
+// It tracks the high-level execution metadata such as ID, workflow ID, status, and timestamps.
+// This entity is separate from ExecutionState, which contains detailed execution context,
+// variables, and node states. Execution serves as a lightweight record of execution lifecycle.
 type Execution struct {
 	id         string
 	workflowID string

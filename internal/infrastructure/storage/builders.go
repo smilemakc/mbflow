@@ -1,26 +1,27 @@
 package storage
 
 import (
-	"mbflow/internal/domain"
 	"time"
+
+	"mbflow/internal/domain"
 )
 
 type WorkflowBuilder struct {
 	id        string
 	name      string
 	version   string
-	spec      []byte
+	spec      map[string]any
 	createdAt time.Time
 }
 
 func NewWorkflowBuilder() *WorkflowBuilder {
 	return &WorkflowBuilder{createdAt: time.Now()}
 }
-func (b *WorkflowBuilder) ID(id string) *WorkflowBuilder          { b.id = id; return b }
-func (b *WorkflowBuilder) Name(name string) *WorkflowBuilder      { b.name = name; return b }
-func (b *WorkflowBuilder) Version(v string) *WorkflowBuilder      { b.version = v; return b }
-func (b *WorkflowBuilder) SpecBytes(spec []byte) *WorkflowBuilder { b.spec = spec; return b }
-func (b *WorkflowBuilder) CreatedAt(t time.Time) *WorkflowBuilder { b.createdAt = t; return b }
+func (b *WorkflowBuilder) ID(id string) *WorkflowBuilder             { b.id = id; return b }
+func (b *WorkflowBuilder) Name(name string) *WorkflowBuilder         { b.name = name; return b }
+func (b *WorkflowBuilder) Version(v string) *WorkflowBuilder         { b.version = v; return b }
+func (b *WorkflowBuilder) Spec(spec map[string]any) *WorkflowBuilder { b.spec = spec; return b }
+func (b *WorkflowBuilder) CreatedAt(t time.Time) *WorkflowBuilder    { b.createdAt = t; return b }
 func (b *WorkflowBuilder) Build() *domain.Workflow {
 	return domain.ReconstructWorkflow(b.id, b.name, b.version, b.spec, b.createdAt)
 }
@@ -77,4 +78,93 @@ func (b *EventBuilder) MetadataKV(k, v string) *EventBuilder {
 }
 func (b *EventBuilder) Build() *domain.Event {
 	return domain.ReconstructEvent(b.eventID, b.eventType, b.workflowID, b.executionID, b.workflowName, b.nodeID, b.timestamp, b.payload, b.metadata)
+}
+
+type ExecutionStateBuilder struct {
+	executionID string
+	workflowID  string
+	status      domain.ExecutionStateStatus
+	variables   map[string]interface{}
+	nodeStates  map[string]*domain.NodeState
+	startedAt   time.Time
+	finishedAt  *time.Time
+	errorMsg    string
+}
+
+func NewExecutionStateBuilder() *ExecutionStateBuilder {
+	return &ExecutionStateBuilder{
+		startedAt:  time.Now(),
+		status:     domain.ExecutionStateStatusPending,
+		variables:  make(map[string]interface{}),
+		nodeStates: make(map[string]*domain.NodeState),
+	}
+}
+
+func (b *ExecutionStateBuilder) ExecutionID(id string) *ExecutionStateBuilder {
+	b.executionID = id
+	return b
+}
+
+func (b *ExecutionStateBuilder) WorkflowID(id string) *ExecutionStateBuilder {
+	b.workflowID = id
+	return b
+}
+
+func (b *ExecutionStateBuilder) Status(s domain.ExecutionStateStatus) *ExecutionStateBuilder {
+	b.status = s
+	return b
+}
+
+func (b *ExecutionStateBuilder) Variable(key string, value interface{}) *ExecutionStateBuilder {
+	if b.variables == nil {
+		b.variables = make(map[string]interface{})
+	}
+	b.variables[key] = value
+	return b
+}
+
+func (b *ExecutionStateBuilder) Variables(vars map[string]interface{}) *ExecutionStateBuilder {
+	b.variables = vars
+	return b
+}
+
+func (b *ExecutionStateBuilder) NodeState(nodeID string, state *domain.NodeState) *ExecutionStateBuilder {
+	if b.nodeStates == nil {
+		b.nodeStates = make(map[string]*domain.NodeState)
+	}
+	b.nodeStates[nodeID] = state
+	return b
+}
+
+func (b *ExecutionStateBuilder) NodeStates(states map[string]*domain.NodeState) *ExecutionStateBuilder {
+	b.nodeStates = states
+	return b
+}
+
+func (b *ExecutionStateBuilder) StartedAt(t time.Time) *ExecutionStateBuilder {
+	b.startedAt = t
+	return b
+}
+
+func (b *ExecutionStateBuilder) FinishedAt(t time.Time) *ExecutionStateBuilder {
+	b.finishedAt = &t
+	return b
+}
+
+func (b *ExecutionStateBuilder) ErrorMsg(msg string) *ExecutionStateBuilder {
+	b.errorMsg = msg
+	return b
+}
+
+func (b *ExecutionStateBuilder) Build() *domain.ExecutionState {
+	return domain.ReconstructExecutionState(
+		b.executionID,
+		b.workflowID,
+		b.status,
+		b.variables,
+		b.nodeStates,
+		b.startedAt,
+		b.finishedAt,
+		b.errorMsg,
+	)
 }

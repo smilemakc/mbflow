@@ -93,7 +93,7 @@ func (a *storageAdapter) ListEventsByExecution(ctx context.Context, executionID 
 func (a *storageAdapter) SaveNode(ctx context.Context, n Node) error {
 	domainNode, ok := n.(*domain.Node)
 	if !ok {
-		domainNode = domain.ReconstructNode(n.ID(), n.WorkflowID(), n.Type(), n.Name(), n.Config())
+		domainNode = domain.NewNode(n.ID(), n.WorkflowID(), n.Type(), n.Name(), n.Config())
 	}
 	return a.store.SaveNode(ctx, domainNode)
 }
@@ -119,7 +119,7 @@ func (a *storageAdapter) ListNodes(ctx context.Context, workflowID string) ([]No
 func (a *storageAdapter) SaveEdge(ctx context.Context, e Edge) error {
 	domainEdge, ok := e.(*domain.Edge)
 	if !ok {
-		domainEdge = domain.ReconstructEdge(e.ID(), e.WorkflowID(), e.FromNodeID(), e.ToNodeID(), e.Type(), e.Config())
+		domainEdge = domain.NewEdge(e.ID(), e.WorkflowID(), e.FromNodeID(), e.ToNodeID(), e.Type(), e.Config())
 	}
 	return a.store.SaveEdge(ctx, domainEdge)
 }
@@ -145,7 +145,7 @@ func (a *storageAdapter) ListEdges(ctx context.Context, workflowID string) ([]Ed
 func (a *storageAdapter) SaveTrigger(ctx context.Context, t Trigger) error {
 	domainTrigger, ok := t.(*domain.Trigger)
 	if !ok {
-		domainTrigger = domain.ReconstructTrigger(t.ID(), t.WorkflowID(), t.Type(), t.Config())
+		domainTrigger = domain.NewTrigger(t.ID(), t.WorkflowID(), t.Type(), t.Config())
 	}
 	return a.store.SaveTrigger(ctx, domainTrigger)
 }

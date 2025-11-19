@@ -32,5 +32,3 @@ func unwrapExecution(e Execution) *domain.Execution {
 		e.FinishedAt(),
 	)
 }
-
-// Similarly for other entities if needed

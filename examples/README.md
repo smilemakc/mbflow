@@ -1,4 +1,4 @@
-# Complex Workflow Examples
+# Workflow Examples
 
 This directory contains advanced workflow examples demonstrating complex patterns with branching logic, parallel processing, and data transformation using OpenAI API.
 

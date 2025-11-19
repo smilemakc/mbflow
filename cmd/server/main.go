@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"errors"
-	"mbflow/internal/config"
 	"mbflow/internal/infrastructure/api/rest"
+	"mbflow/internal/infrastructure/config"
+	"mbflow/internal/infrastructure/logger"
 	"mbflow/internal/infrastructure/storage"
-	"mbflow/internal/logger"
 	"net/http"
 	"os"
 	"os/signal"

@@ -15,6 +15,7 @@ package main
 
 import (
     "context"
+    "encoding/json"
     "fmt"
     "log"
     
@@ -29,11 +30,13 @@ func main() {
     ctx := context.Background()
     
     // Создаем новый рабочий процесс
+    var spec map[string]any
+    json.Unmarshal([]byte(`{"description": "My first workflow"}`), &spec)
     workflow := mbflow.NewWorkflow(
         uuid.NewString(),
         "My Workflow",
         "1.0.0",
-        []byte(`{"description": "My first workflow"}`),
+        spec,
     )
     
     // Сохраняем workflow

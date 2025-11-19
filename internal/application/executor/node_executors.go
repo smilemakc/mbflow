@@ -11,9 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 
 	"mbflow/internal/domain/errors"
+	"mbflow/internal/infrastructure/monitoring"
 )
 
 // NodeExecutor defines the interface for executing different types of nodes.
@@ -28,15 +30,29 @@ type NodeExecutor interface {
 
 // OpenAICompletionExecutor executes OpenAI completion nodes.
 // It sends requests to the OpenAI API and returns the generated text.
+// API key can be provided in node config, execution context, or as default during construction.
 type OpenAICompletionExecutor struct {
-	client *openai.Client
+	// defaultAPIKey is optional; used as fallback if not provided in config or context
+	defaultAPIKey string
+	// metrics is optional; when set, AI request usage will be recorded
+	metrics *monitoring.MetricsCollector
 }
 
 // NewOpenAICompletionExecutor creates a new OpenAICompletionExecutor.
+// apiKey is optional and used as fallback if not provided in node config or execution context.
 func NewOpenAICompletionExecutor(apiKey string) *OpenAICompletionExecutor {
-	client := openai.NewClient(apiKey)
 	return &OpenAICompletionExecutor{
-		client: client,
+		defaultAPIKey: apiKey,
+		metrics:       nil,
+	}
+}
+
+// NewOpenAICompletionExecutorWithMetrics creates a new OpenAICompletionExecutor with metrics collection enabled.
+// apiKey is optional and used as fallback if not provided in node config or execution context.
+func NewOpenAICompletionExecutorWithMetrics(apiKey string, metrics *monitoring.MetricsCollector) *OpenAICompletionExecutor {
+	return &OpenAICompletionExecutor{
+		defaultAPIKey: apiKey,
+		metrics:       metrics,
 	}
 }
 
@@ -46,43 +62,68 @@ func (e *OpenAICompletionExecutor) Type() string {
 }
 
 // Execute executes an OpenAI completion node.
+// API key is resolved in the following order:
+// 1. From node config["api_key"]
+// 2. From execution context variable "openai_api_key" or "OPENAI_API_KEY"
+// 3. From default API key provided during construction
 func (e *OpenAICompletionExecutor) Execute(ctx context.Context, execCtx *ExecutionContext, nodeID string, config map[string]any) (interface{}, error) {
-	// Extract configuration
-	model, ok := config["model"].(string)
-	if !ok {
-		model = "gpt-4"
+	// Parse configuration
+	cfg, err := parseConfig[OpenAICompletionConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("openai-completion", fmt.Sprintf("failed to parse config: %v", err))
 	}
 
-	promptTemplate, ok := config["prompt"].(string)
-	if !ok {
+	// Validate required fields
+	if cfg.Prompt == "" {
 		return nil, errors.NewConfigurationError("openai-completion", "missing 'prompt' in config")
 	}
 
-	maxTokens := 1000
-	if mt, ok := config["max_tokens"].(int); ok {
-		maxTokens = mt
-	} else if mt, ok := config["max_tokens"].(float64); ok {
-		maxTokens = int(mt)
+	// Set defaults
+	if cfg.Model == "" {
+		cfg.Model = "gpt-4o"
+	}
+	if cfg.OutputKey == "" {
+		cfg.OutputKey = "output"
 	}
 
-	temperature := 0.7
-	if temp, ok := config["temperature"].(float64); ok {
-		temperature = temp
+	// Resolve API key: priority: config > context variable > default
+	// Create a temporary map for resolveAPIKey compatibility
+	tempConfig := map[string]any{"api_key": cfg.APIKey}
+	apiKey, err := e.resolveAPIKey(tempConfig, execCtx)
+	if err != nil {
+		return nil, err
 	}
 
-	outputKey, ok := config["output_key"].(string)
-	if !ok {
-		outputKey = "output"
-	}
+	// Create OpenAI client with resolved API key
+	client := openai.NewClient(apiKey)
+
+	// Get all variables for substitution
+	allVars := execCtx.GetAllVariables()
+
+	// Log available variables for debugging (only if verbose logging is enabled)
+	log.Debug().
+		Str("node_id", nodeID).
+		Interface("available_variables", allVars).
+		Msg("Substituting variables in prompt")
 
 	// Substitute variables in prompt
-	prompt := substituteVariables(promptTemplate, execCtx.GetAllVariables())
+	prompt := substituteVariables(cfg.Prompt, allVars)
+
+	// Log the final prompt (truncated if too long)
+	promptPreview := prompt
+	if len(promptPreview) > 500 {
+		promptPreview = promptPreview[:500] + "..."
+	}
+	log.Debug().
+		Str("node_id", nodeID).
+		Str("prompt_preview", promptPreview).
+		Msg("Final prompt after variable substitution")
 
 	// Create OpenAI request
 	req := openai.ChatCompletionRequest{
-		Model:       model,
-		MaxTokens:   maxTokens,
-		Temperature: float32(temperature),
+		Model:               cfg.Model,
+		MaxCompletionTokens: cfg.MaxTokens,
+		Temperature:         float32(cfg.Temperature),
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleUser,
@@ -93,7 +134,7 @@ func (e *OpenAICompletionExecutor) Execute(ctx context.Context, execCtx *Executi
 
 	// Call OpenAI API
 	startTime := time.Now()
-	resp, err := e.client.CreateChatCompletion(ctx, req)
+	resp, err := client.CreateChatCompletion(ctx, req)
 	latency := time.Since(startTime)
 
 	if err != nil {
@@ -122,11 +163,16 @@ func (e *OpenAICompletionExecutor) Execute(ctx context.Context, execCtx *Executi
 		)
 	}
 
-	// Extract response
-	content := resp.Choices[0].Message.Content
-
+	// Extract response and trim whitespace
+	content := strings.TrimSpace(resp.Choices[0].Message.Content)
 	// Store output in execution context
-	execCtx.SetVariable(outputKey, content)
+	execCtx.SetVariable(cfg.OutputKey, content)
+	// Record AI request metrics if enabled
+	if e.metrics != nil {
+		e.metrics.RecordAIRequest(resp.Usage.PromptTokens, resp.Usage.CompletionTokens, latency)
+	}
+
+	log.Debug().Str("node_id", nodeID).Msgf("OpenAI completion: %s", content)
 	// Return result with metadata
 	return map[string]interface{}{
 		"content":           content,
@@ -134,6 +180,7 @@ func (e *OpenAICompletionExecutor) Execute(ctx context.Context, execCtx *Executi
 		"prompt_tokens":     resp.Usage.PromptTokens,
 		"completion_tokens": resp.Usage.CompletionTokens,
 		"total_tokens":      resp.Usage.TotalTokens,
+		"usage":             resp.Usage,
 		"latency_ms":        latency.Milliseconds(),
 	}, nil
 }
@@ -160,32 +207,35 @@ func (e *HTTPRequestExecutor) Type() string {
 
 // Execute executes an HTTP request node.
 func (e *HTTPRequestExecutor) Execute(ctx context.Context, execCtx *ExecutionContext, nodeID string, config map[string]any) (interface{}, error) {
-	// Extract configuration
-	urlTemplate, ok := config["url"].(string)
-	if !ok {
+	// Parse configuration
+	cfg, err := parseConfig[HTTPRequestConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("http-request", fmt.Sprintf("failed to parse config: %v", err))
+	}
+
+	// Validate required fields
+	if cfg.URL == "" {
 		return nil, errors.NewConfigurationError("http-request", "missing 'url' in config")
 	}
 
-	method, ok := config["method"].(string)
-	if !ok {
-		method = "GET"
+	// Set defaults
+	if cfg.Method == "" {
+		cfg.Method = "GET"
 	}
-
-	outputKey, ok := config["output_key"].(string)
-	if !ok {
-		outputKey = "output"
+	if cfg.OutputKey == "" {
+		cfg.OutputKey = "output"
 	}
 
 	// Substitute variables
-	url := substituteVariables(urlTemplate, execCtx.GetAllVariables())
+	url := substituteVariables(cfg.URL, execCtx.GetAllVariables())
 
 	// Prepare request body
 	var body io.Reader
-	if bodyData, ok := config["body"]; ok {
+	if cfg.Body != nil {
 		var bodyBytes []byte
 		var err error
 
-		switch v := bodyData.(type) {
+		switch v := cfg.Body.(type) {
 		case string:
 			// Substitute variables in string body
 			bodyStr := substituteVariables(v, execCtx.GetAllVariables())
@@ -207,7 +257,7 @@ func (e *HTTPRequestExecutor) Execute(ctx context.Context, execCtx *ExecutionCon
 	}
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	req, err := http.NewRequestWithContext(ctx, cfg.Method, url, body)
 	if err != nil {
 		return nil, errors.NewNodeExecutionError(
 			execCtx.State().WorkflowID,
@@ -222,14 +272,8 @@ func (e *HTTPRequestExecutor) Execute(ctx context.Context, execCtx *ExecutionCon
 	}
 
 	// Set headers
-	if headers, ok := config["headers"].(map[string]interface{}); ok {
-		for key, value := range headers {
-			if strValue, ok := value.(string); ok {
-				req.Header.Set(key, substituteVariables(strValue, execCtx.GetAllVariables()))
-			}
-		}
-	} else if headers, ok := config["headers"].(map[string]string); ok {
-		for key, value := range headers {
+	if cfg.Headers != nil {
+		for key, value := range cfg.Headers {
 			req.Header.Set(key, substituteVariables(value, execCtx.GetAllVariables()))
 		}
 	}
@@ -272,8 +316,7 @@ func (e *HTTPRequestExecutor) Execute(ctx context.Context, execCtx *ExecutionCon
 	var jsonResp interface{}
 	if err := json.Unmarshal(respBody, &jsonResp); err == nil {
 		// Store JSON response
-		execCtx.SetVariable(outputKey, jsonResp)
-
+		execCtx.SetVariable(cfg.OutputKey, jsonResp)
 		return map[string]interface{}{
 			"status_code": resp.StatusCode,
 			"body":        jsonResp,
@@ -283,7 +326,7 @@ func (e *HTTPRequestExecutor) Execute(ctx context.Context, execCtx *ExecutionCon
 
 	// Store as string if not JSON
 	respStr := string(respBody)
-	execCtx.SetVariable(outputKey, respStr)
+	execCtx.SetVariable(cfg.OutputKey, respStr)
 
 	return map[string]interface{}{
 		"status_code": resp.StatusCode,
@@ -308,28 +351,22 @@ func (e *ConditionalRouterExecutor) Type() string {
 
 // Execute executes a conditional router node.
 func (e *ConditionalRouterExecutor) Execute(ctx context.Context, execCtx *ExecutionContext, nodeID string, config map[string]any) (interface{}, error) {
-	// Extract configuration
-	inputKey, ok := config["input_key"].(string)
-	if !ok {
-		return nil, errors.NewConfigurationError("conditional-router", "missing 'input_key' in config")
+	// Parse configuration
+	cfg, err := parseConfig[ConditionalRouterConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("conditional-router", fmt.Sprintf("failed to parse config: %v", err))
 	}
 
-	// Handle routes as either map[string]interface{} or map[string]string
-	var routes map[string]interface{}
-	if r, ok := config["routes"].(map[string]interface{}); ok {
-		routes = r
-	} else if r, ok := config["routes"].(map[string]string); ok {
-		// Convert map[string]string to map[string]interface{}
-		routes = make(map[string]interface{})
-		for k, v := range r {
-			routes[k] = v
-		}
-	} else {
+	// Validate required fields
+	if cfg.InputKey == "" {
+		return nil, errors.NewConfigurationError("conditional-router", "missing 'input_key' in config")
+	}
+	if len(cfg.Routes) == 0 {
 		return nil, errors.NewConfigurationError("conditional-router", "missing or invalid 'routes' in config")
 	}
 
 	// Get input value
-	inputValue, ok := execCtx.GetVariable(inputKey)
+	inputValue, ok := execCtx.GetVariable(cfg.InputKey)
 	if !ok {
 		return nil, errors.NewNodeExecutionError(
 			execCtx.State().WorkflowID,
@@ -337,7 +374,7 @@ func (e *ConditionalRouterExecutor) Execute(ctx context.Context, execCtx *Execut
 			nodeID,
 			"conditional-router",
 			1,
-			fmt.Sprintf("input variable '%s' not found", inputKey),
+			fmt.Sprintf("input variable '%s' not found", cfg.InputKey),
 			nil,
 			false,
 		)
@@ -345,11 +382,14 @@ func (e *ConditionalRouterExecutor) Execute(ctx context.Context, execCtx *Execut
 
 	// Convert input to string for comparison
 	inputStr := fmt.Sprintf("%v", inputValue)
+	// Normalize to lowercase for case-insensitive comparison
+	inputStrLower := strings.ToLower(strings.TrimSpace(inputStr))
 
-	// Find matching route
+	// Find matching route (case-insensitive comparison)
 	var selectedRoute string
-	for condition, route := range routes {
-		if condition == inputStr {
+	for condition, route := range cfg.Routes {
+		conditionLower := strings.ToLower(strings.TrimSpace(condition))
+		if conditionLower == inputStrLower {
 			selectedRoute = fmt.Sprintf("%v", route)
 			break
 		}
@@ -357,7 +397,7 @@ func (e *ConditionalRouterExecutor) Execute(ctx context.Context, execCtx *Execut
 
 	// Check for default route
 	if selectedRoute == "" {
-		if defaultRoute, ok := routes["default"]; ok {
+		if defaultRoute, ok := cfg.Routes["default"]; ok {
 			selectedRoute = fmt.Sprintf("%v", defaultRoute)
 		} else {
 			return nil, errors.NewNodeExecutionError(
@@ -395,37 +435,32 @@ func (e *DataMergerExecutor) Type() string {
 
 // Execute executes a data merger node.
 func (e *DataMergerExecutor) Execute(ctx context.Context, execCtx *ExecutionContext, nodeID string, config map[string]any) (interface{}, error) {
-	// Extract configuration
-	strategy, ok := config["strategy"].(string)
-	if !ok {
-		strategy = "select_first_available"
+	// Parse configuration
+	cfg, err := parseConfig[DataMergerConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("data-merger", fmt.Sprintf("failed to parse config: %v", err))
 	}
 
-	sources, ok := config["sources"].([]interface{})
-	if !ok {
-		if strSources, ok := config["sources"].([]string); ok {
-			sources = make([]interface{}, len(strSources))
-			for i, s := range strSources {
-				sources[i] = s
-			}
-		} else {
-			return nil, errors.NewConfigurationError("data-merger", "missing or invalid 'sources' in config")
-		}
+	// Validate required fields
+	if len(cfg.Sources) == 0 {
+		return nil, errors.NewConfigurationError("data-merger", "missing or invalid 'sources' in config")
 	}
 
-	outputKey, ok := config["output_key"].(string)
-	if !ok {
-		outputKey = "output"
+	// Set defaults
+	if cfg.Strategy == "" {
+		cfg.Strategy = "select_first_available"
+	}
+	if cfg.OutputKey == "" {
+		cfg.OutputKey = "output"
 	}
 
 	// Merge based on strategy
 	var result interface{}
 
-	switch strategy {
+	switch cfg.Strategy {
 	case "select_first_available":
 		// Return the first non-nil source
-		for _, source := range sources {
-			sourceKey := fmt.Sprintf("%v", source)
+		for _, sourceKey := range cfg.Sources {
 			if value, ok := execCtx.GetVariable(sourceKey); ok && value != nil {
 				result = value
 				break
@@ -435,8 +470,7 @@ func (e *DataMergerExecutor) Execute(ctx context.Context, execCtx *ExecutionCont
 	case "merge_all":
 		// Merge all sources into a map
 		merged := make(map[string]interface{})
-		for _, source := range sources {
-			sourceKey := fmt.Sprintf("%v", source)
+		for _, sourceKey := range cfg.Sources {
 			if value, ok := execCtx.GetVariable(sourceKey); ok {
 				merged[sourceKey] = value
 			}
@@ -444,14 +478,14 @@ func (e *DataMergerExecutor) Execute(ctx context.Context, execCtx *ExecutionCont
 		result = merged
 
 	default:
-		return nil, errors.NewConfigurationError("data-merger", fmt.Sprintf("unknown strategy '%s'", strategy))
+		return nil, errors.NewConfigurationError("data-merger", fmt.Sprintf("unknown strategy '%s'", cfg.Strategy))
 	}
 
 	// Store result
-	execCtx.SetVariable(outputKey, result)
+	execCtx.SetVariable(cfg.OutputKey, result)
 
 	return map[string]interface{}{
-		"strategy": strategy,
+		"strategy": cfg.Strategy,
 		"result":   result,
 	}, nil
 }
@@ -472,37 +506,32 @@ func (e *DataAggregatorExecutor) Type() string {
 
 // Execute executes a data aggregator node.
 func (e *DataAggregatorExecutor) Execute(ctx context.Context, execCtx *ExecutionContext, nodeID string, config map[string]any) (interface{}, error) {
-	// Extract configuration
-	// Handle fields as either map[string]interface{} or map[string]string
-	var fields map[string]interface{}
-	if f, ok := config["fields"].(map[string]interface{}); ok {
-		fields = f
-	} else if f, ok := config["fields"].(map[string]string); ok {
-		// Convert map[string]string to map[string]interface{}
-		fields = make(map[string]interface{})
-		for k, v := range f {
-			fields[k] = v
-		}
-	} else {
+	// Parse configuration
+	cfg, err := parseConfig[DataAggregatorConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("data-aggregator", fmt.Sprintf("failed to parse config: %v", err))
+	}
+
+	// Validate required fields
+	if len(cfg.Fields) == 0 {
 		return nil, errors.NewConfigurationError("data-aggregator", "missing or invalid 'fields' in config")
 	}
 
-	outputKey, ok := config["output_key"].(string)
-	if !ok {
-		outputKey = "output"
+	// Set defaults
+	if cfg.OutputKey == "" {
+		cfg.OutputKey = "output"
 	}
 
 	// Aggregate data
 	aggregated := make(map[string]interface{})
-	for outputField, sourceField := range fields {
-		sourceKey := fmt.Sprintf("%v", sourceField)
+	for outputField, sourceKey := range cfg.Fields {
 		if value, ok := execCtx.GetVariable(sourceKey); ok {
 			aggregated[outputField] = value
 		}
 	}
 
 	// Store result
-	execCtx.SetVariable(outputKey, aggregated)
+	execCtx.SetVariable(cfg.OutputKey, aggregated)
 
 	return aggregated, nil
 }
@@ -526,9 +555,15 @@ func (e *ScriptExecutorExecutor) Execute(ctx context.Context, execCtx *Execution
 	// This is a placeholder implementation
 	// In a real implementation, you would use a JavaScript engine like goja or otto
 
-	outputKey, ok := config["output_key"].(string)
-	if !ok {
-		outputKey = "output"
+	// Parse configuration
+	cfg, err := parseConfig[ScriptExecutorConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("script-executor", fmt.Sprintf("failed to parse config: %v", err))
+	}
+
+	// Set defaults
+	if cfg.OutputKey == "" {
+		cfg.OutputKey = "output"
 	}
 
 	// For now, just return a placeholder result
@@ -537,7 +572,7 @@ func (e *ScriptExecutorExecutor) Execute(ctx context.Context, execCtx *Execution
 		"note":   "Script execution requires a JavaScript engine",
 	}
 
-	execCtx.SetVariable(outputKey, result)
+	execCtx.SetVariable(cfg.OutputKey, result)
 
 	return result, nil
 }
@@ -564,7 +599,20 @@ func substituteVariables(template string, variables map[string]interface{}) stri
 		// Replace placeholder with value
 		if value != nil {
 			valueStr := fmt.Sprintf("%v", value)
-			result = strings.ReplaceAll(result, placeholder, valueStr)
+			// Check if value is empty string
+			if valueStr == "" {
+				log.Warn().
+					Str("variable", varPath).
+					Msgf("Variable {{%s}} is empty, leaving placeholder", varPath)
+			} else {
+				result = strings.ReplaceAll(result, placeholder, valueStr)
+			}
+		} else {
+			// Log warning if variable is not found
+			log.Warn().
+				Str("variable", varPath).
+				Interface("available_variables", getVariableKeys(variables)).
+				Msgf("Variable {{%s}} not found in execution context, leaving placeholder", varPath)
 		}
 	}
 
@@ -585,4 +633,44 @@ func getNestedValue(data map[string]interface{}, path string) interface{} {
 	}
 
 	return current
+}
+
+// getVariableKeys returns a list of all top-level variable keys for debugging.
+func getVariableKeys(variables map[string]interface{}) []string {
+	keys := make([]string, 0, len(variables))
+	for k := range variables {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// resolveAPIKey resolves the API key from config, context, or default.
+// Priority: 1) node config["api_key"], 2) context variable, 3) default API key.
+// Returns an error if the API key cannot be resolved from any source.
+func (e *OpenAICompletionExecutor) resolveAPIKey(config map[string]any, execCtx *ExecutionContext) (string, error) {
+	// Priority 1: Check node config
+	if apiKey, ok := config["api_key"].(string); ok && apiKey != "" {
+		return apiKey, nil
+	}
+
+	// Priority 2: Check execution context variables
+	// Try common variable names
+	if apiKey, ok := execCtx.GetVariable("openai_api_key"); ok {
+		if keyStr, ok := apiKey.(string); ok && keyStr != "" {
+			return keyStr, nil
+		}
+	}
+	if apiKey, ok := execCtx.GetVariable("OPENAI_API_KEY"); ok {
+		if keyStr, ok := apiKey.(string); ok && keyStr != "" {
+			return keyStr, nil
+		}
+	}
+
+	// Priority 3: Use default API key from constructor
+	if e.defaultAPIKey != "" {
+		return e.defaultAPIKey, nil
+	}
+
+	// No API key found in any source
+	return "", errors.NewConfigurationError("openai-completion", "API key not found in node config, execution context, or default configuration")
 }

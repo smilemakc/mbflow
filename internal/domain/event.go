@@ -4,7 +4,10 @@ import (
 	"time"
 )
 
-// Event represents a significant occurrence within the system.
+// Event is a domain entity that represents a significant occurrence within the system.
+// Events are immutable records of things that have happened, such as workflow executions,
+// node completions, or errors. They follow the event sourcing pattern and serve as
+// an audit trail and history of system activities.
 type Event struct {
 	eventID      string
 	eventType    string

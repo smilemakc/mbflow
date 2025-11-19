@@ -1,6 +1,8 @@
 package domain
 
-// Node represents a step in a workflow.
+// Node is a domain entity that represents a step in a workflow definition.
+// It defines the configuration and metadata for a single processing unit within a workflow.
+// Nodes are immutable entities that are part of a Workflow aggregate.
 type Node struct {
 	id         string
 	workflowID string
@@ -11,17 +13,6 @@ type Node struct {
 
 // NewNode creates a new Node instance.
 func NewNode(id, workflowID, nodeType, name string, config map[string]any) *Node {
-	return &Node{
-		id:         id,
-		workflowID: workflowID,
-		nodeType:   nodeType,
-		name:       name,
-		config:     config,
-	}
-}
-
-// ReconstructNode reconstructs a Node from persistence.
-func ReconstructNode(id, workflowID, nodeType, name string, config map[string]any) *Node {
 	return &Node{
 		id:         id,
 		workflowID: workflowID,

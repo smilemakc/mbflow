@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"mbflow/internal/domain"
 	"net/http"
+
+	"mbflow/internal/domain"
 )
 
 type Server struct {

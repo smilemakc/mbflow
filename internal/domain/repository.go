@@ -4,7 +4,9 @@ import (
 	"context"
 )
 
-// WorkflowRepository defines the interface for storing and retrieving workflows.
+// WorkflowRepository defines the repository interface for workflow persistence.
+// Repositories abstract data access and provide a collection-like interface for domain entities.
+// This is part of the infrastructure layer but the interface belongs to the domain layer.
 type WorkflowRepository interface {
 	SaveWorkflow(ctx context.Context, w *Workflow) error
 	GetWorkflow(ctx context.Context, id string) (*Workflow, error)
@@ -45,7 +47,16 @@ type TriggerRepository interface {
 	ListTriggers(ctx context.Context, workflowID string) ([]*Trigger, error)
 }
 
-// Storage is an aggregate interface combining all repositories.
+// ExecutionStateRepository defines the interface for storing and retrieving execution states.
+type ExecutionStateRepository interface {
+	SaveExecutionState(ctx context.Context, state *ExecutionState) error
+	GetExecutionState(ctx context.Context, executionID string) (*ExecutionState, error)
+	DeleteExecutionState(ctx context.Context, executionID string) error
+}
+
+// Storage is an aggregate repository interface that combines all domain repositories.
+// This interface provides a unified access point to all persistence operations
+// for domain entities, following the repository pattern from DDD.
 type Storage interface {
 	WorkflowRepository
 	ExecutionRepository
@@ -53,4 +64,5 @@ type Storage interface {
 	NodeRepository
 	EdgeRepository
 	TriggerRepository
+	ExecutionStateRepository
 }

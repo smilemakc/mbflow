@@ -27,7 +27,7 @@ func NewPostgresStorage(dsn string) Storage {
 }
 
 // NewWorkflow creates a new workflow.
-func NewWorkflow(id, name, version string, spec []byte) Workflow {
+func NewWorkflow(id, name, version string, spec map[string]any) Workflow {
 	return domain.NewWorkflow(id, name, version, spec)
 }
 

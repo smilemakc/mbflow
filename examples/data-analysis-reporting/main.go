@@ -25,18 +25,21 @@ import (
 // 9. Create detailed report
 // 10. Distribute report based on severity
 func main() {
-	storage := mbflow.NewMemoryStorage()
+	// storage := mbflow.NewMemoryStorage()
+	storage := mbflow.NewPostgresStorage("postgres://postgres:postgres@localhost:5566/postgres?sslmode=disable")
+
 	ctx := context.Background()
 
 	workflowID := uuid.NewString()
+	spec := map[string]any{
+		"description": "Automated data analysis with AI-generated insights and intelligent reporting",
+		"features":    []string{"multi_source_data", "anomaly_detection", "ai_insights", "conditional_alerts", "automated_reporting"},
+	}
 	workflow := mbflow.NewWorkflow(
 		workflowID,
 		"AI-Powered Data Analysis and Reporting",
 		"1.0.0",
-		[]byte(`{
-			"description": "Automated data analysis with AI-generated insights and intelligent reporting",
-			"features": ["multi_source_data", "anomaly_detection", "ai_insights", "conditional_alerts", "automated_reporting"]
-		}`),
+		spec,
 	)
 
 	if err := storage.SaveWorkflow(ctx, workflow); err != nil {

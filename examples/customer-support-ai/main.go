@@ -32,14 +32,15 @@ func main() {
 	ctx := context.Background()
 
 	workflowID := uuid.NewString()
+	spec := map[string]any{
+		"description": "Intelligent customer support automation with classification, sentiment analysis, and smart routing",
+		"features":    []string{"classification", "sentiment_analysis", "conditional_routing", "quality_control", "escalation"},
+	}
 	workflow := mbflow.NewWorkflow(
 		workflowID,
 		"AI-Powered Customer Support Workflow",
 		"1.0.0",
-		[]byte(`{
-			"description": "Intelligent customer support automation with classification, sentiment analysis, and smart routing",
-			"features": ["classification", "sentiment_analysis", "conditional_routing", "quality_control", "escalation"]
-		}`),
+		spec,
 	)
 
 	if err := storage.SaveWorkflow(ctx, workflow); err != nil {

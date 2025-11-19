@@ -2,17 +2,24 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"mbflow"
 
 	"github.com/google/uuid"
 )
 
-// AIContentPipelineWorkflow demonstrates a complex workflow with branching logic
+// AIContentPipelineDemo demonstrates a complex workflow with branching logic
 // where OpenAI API is used to generate content, analyze it, and make decisions
-// based on the analysis results.
+// based on the analysis results. This example shows:
+// 1. Complex workflow with conditional branching
+// 2. Parallel execution of translation tasks
+// 3. Join node aggregating results from parallel branches
+// 4. Graph-based execution with edges
 //
 // Workflow structure:
 // 1. Generate initial content using OpenAI
@@ -24,35 +31,52 @@ import (
 // 3. Translate to multiple languages (parallel processing)
 // 4. Generate SEO metadata for each language version
 func main() {
-	storage := mbflow.NewMemoryStorage()
-	ctx := context.Background()
+	// Parse command line arguments
+	topicFlag := flag.String("topic", "artificial intelligence and machine learning", "Topic for the blog post")
+	flag.Parse()
 
-	// Create the workflow
-	workflowID := uuid.NewString()
-	workflow := mbflow.NewWorkflow(
-		workflowID,
-		"AI Content Pipeline with Branching",
-		"1.0.0",
-		[]byte(`{
-			"description": "Complex AI content generation pipeline with quality checks and branching logic",
-			"features": ["branching", "parallel_processing", "iterative_refinement"]
-		}`),
-	)
-
-	if err := storage.SaveWorkflow(ctx, workflow); err != nil {
-		log.Fatalf("Failed to save workflow: %v", err)
+	topic := *topicFlag
+	if topic == "" {
+		topic = "artificial intelligence and machine learning"
 	}
 
-	fmt.Printf("Created workflow: %s (ID: %s)\n\n", workflow.Name(), workflow.ID())
+	fmt.Println("=== AI Content Pipeline Demo ===\n")
+	fmt.Printf("Topic: %s\n\n", topic)
 
+	// Get OpenAI API key from environment
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		fmt.Println("ERROR: OPENAI_API_KEY environment variable is required for this demo.")
+		fmt.Println("Please set OPENAI_API_KEY to run this example.\n")
+		os.Exit(1)
+	}
+	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackConfig{
+		CallbackURL: "https://heabot.nl.tuna.am",
+	})
+	// Create executor with monitoring enabled
+	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+		OpenAIAPIKey:     apiKey,
+		MaxRetryAttempts: 3,
+		EnableMonitoring: true,
+		VerboseLogging:   true,
+	})
+	executor.AddObserver(httpObserver)
+	// Create workflow and execution IDs
+	workflowID := uuid.NewString()
+	executionID := uuid.NewString()
+
+	fmt.Printf("Workflow ID: %s\n", workflowID)
+	fmt.Printf("Execution ID: %s\n\n", executionID)
+
+	// Create domain nodes (for demonstration of workflow structure)
 	// Node 1: Generate initial content using OpenAI
 	nodeGenerateContent := mbflow.NewNode(
-		uuid.NewString(),
+		"generate-content",
 		workflowID,
 		"openai-completion",
 		"Generate Initial Content",
 		map[string]any{
-			"model":       "gpt-4",
+			"model":       "gpt-4o",
 			"prompt":      "Write a comprehensive blog post about {{topic}}",
 			"max_tokens":  2000,
 			"temperature": 0.7,
@@ -62,13 +86,13 @@ func main() {
 
 	// Node 2: Analyze content quality using OpenAI
 	nodeAnalyzeQuality := mbflow.NewNode(
-		uuid.NewString(),
+		"analyze-quality",
 		workflowID,
 		"openai-completion",
 		"Analyze Content Quality",
 		map[string]any{
-			"model":       "gpt-4",
-			"prompt":      "Analyze the following content and rate its quality as 'high', 'medium', or 'low'. Consider clarity, engagement, accuracy, and structure.\n\nContent: {{generated_content}}\n\nRespond with ONLY one word: high, medium, or low.",
+			"model":       "gpt-4o",
+			"prompt":      "Analyze the following content and rate its quality as 'high', 'medium', or 'low'. Consider clarity, engagement, accuracy, and structure.\n\nContent: {{generated_content}}\n\nRespond with ONLY one word in lowercase: high, medium, or low.",
 			"max_tokens":  10,
 			"temperature": 0.1,
 			"output_key":  "quality_rating",
@@ -77,7 +101,7 @@ func main() {
 
 	// Node 3: Quality-based router (decision node)
 	nodeQualityRouter := mbflow.NewNode(
-		uuid.NewString(),
+		"quality-router",
 		workflowID,
 		"conditional-router",
 		"Route Based on Quality",
@@ -93,12 +117,12 @@ func main() {
 
 	// Node 4: Enhance content (for medium quality)
 	nodeEnhanceContent := mbflow.NewNode(
-		uuid.NewString(),
+		"enhance-content",
 		workflowID,
 		"openai-completion",
 		"Enhance Content",
 		map[string]any{
-			"model": "gpt-4",
+			"model": "gpt-4o",
 			"prompt": `Improve the following content by:
 1. Adding more specific examples
 2. Improving transitions between paragraphs
@@ -116,12 +140,12 @@ Provide the enhanced version:`,
 
 	// Node 5: Regenerate content (for low quality)
 	nodeRegenerateContent := mbflow.NewNode(
-		uuid.NewString(),
+		"regenerate-content",
 		workflowID,
 		"openai-completion",
 		"Regenerate Content",
 		map[string]any{
-			"model": "gpt-4",
+			"model": "gpt-4o",
 			"prompt": `Write a high-quality, engaging blog post about {{topic}}. 
 Requirements:
 - Clear structure with introduction, body, and conclusion
@@ -137,7 +161,7 @@ Requirements:
 
 	// Node 6: Merge content (combines different paths)
 	nodeMergeContent := mbflow.NewNode(
-		uuid.NewString(),
+		"merge-content",
 		workflowID,
 		"data-merger",
 		"Merge Content Versions",
@@ -150,12 +174,12 @@ Requirements:
 
 	// Node 7: Translate to Spanish (parallel branch 1)
 	nodeTranslateSpanish := mbflow.NewNode(
-		uuid.NewString(),
+		"translate-spanish",
 		workflowID,
 		"openai-completion",
 		"Translate to Spanish",
 		map[string]any{
-			"model":       "gpt-4",
+			"model":       "gpt-4o",
 			"prompt":      "Translate the following content to Spanish, maintaining the tone and style:\n\n{{final_content}}",
 			"max_tokens":  2500,
 			"temperature": 0.3,
@@ -163,29 +187,29 @@ Requirements:
 		},
 	)
 
-	// Node 8: Translate to French (parallel branch 2)
-	nodeTranslateFrench := mbflow.NewNode(
-		uuid.NewString(),
+	// Node 8: Translate to Russian (parallel branch 2)
+	nodeTranslateRussian := mbflow.NewNode(
+		"translate-russian",
 		workflowID,
 		"openai-completion",
-		"Translate to French",
+		"Translate to Russian",
 		map[string]any{
-			"model":       "gpt-4",
-			"prompt":      "Translate the following content to French, maintaining the tone and style:\n\n{{final_content}}",
+			"model":       "gpt-4o",
+			"prompt":      "Translate the following content to Russian, maintaining the tone and style:\n\n{{final_content}}",
 			"max_tokens":  2500,
 			"temperature": 0.3,
-			"output_key":  "content_fr",
+			"output_key":  "content_ru",
 		},
 	)
 
 	// Node 9: Translate to German (parallel branch 3)
 	nodeTranslateGerman := mbflow.NewNode(
-		uuid.NewString(),
+		"translate-german",
 		workflowID,
 		"openai-completion",
 		"Translate to German",
 		map[string]any{
-			"model":       "gpt-4",
+			"model":       "gpt-4o",
 			"prompt":      "Translate the following content to German, maintaining the tone and style:\n\n{{final_content}}",
 			"max_tokens":  2500,
 			"temperature": 0.3,
@@ -195,12 +219,12 @@ Requirements:
 
 	// Node 10: Generate SEO metadata for English
 	nodeGenerateSEOEnglish := mbflow.NewNode(
-		uuid.NewString(),
+		"generate-seo-en",
 		workflowID,
 		"openai-completion",
 		"Generate SEO Metadata (EN)",
 		map[string]any{
-			"model": "gpt-4",
+			"model": "gpt-4o",
 			"prompt": `Generate SEO metadata for the following content in JSON format:
 {
   "title": "SEO-optimized title (max 60 chars)",
@@ -218,12 +242,12 @@ Content: {{final_content}}`,
 
 	// Node 11: Generate SEO metadata for Spanish
 	nodeGenerateSEOSpanish := mbflow.NewNode(
-		uuid.NewString(),
+		"generate-seo-es",
 		workflowID,
 		"openai-completion",
 		"Generate SEO Metadata (ES)",
 		map[string]any{
-			"model": "gpt-4",
+			"model": "gpt-4o",
 			"prompt": `Generate SEO metadata for the following Spanish content in JSON format:
 {
   "title": "SEO-optimized title (max 60 chars)",
@@ -239,15 +263,15 @@ Content: {{content_es}}`,
 		},
 	)
 
-	// Node 12: Generate SEO metadata for French
-	nodeGenerateSEOFrench := mbflow.NewNode(
-		uuid.NewString(),
+	// Node 12: Generate SEO metadata for Russian
+	nodeGenerateSEORussian := mbflow.NewNode(
+		"generate-seo-ru",
 		workflowID,
 		"openai-completion",
-		"Generate SEO Metadata (FR)",
+		"Generate SEO Metadata (RU)",
 		map[string]any{
-			"model": "gpt-4",
-			"prompt": `Generate SEO metadata for the following French content in JSON format:
+			"model": "gpt-4o",
+			"prompt": `Generate SEO metadata for the following Russian content in JSON format:
 {
   "title": "SEO-optimized title (max 60 chars)",
   "description": "Meta description (max 160 chars)",
@@ -255,21 +279,21 @@ Content: {{content_es}}`,
   "slug": "url-friendly-slug"
 }
 
-Content: {{content_fr}}`,
+Content: {{content_ru}}`,
 			"max_tokens":  300,
 			"temperature": 0.4,
-			"output_key":  "seo_fr",
+			"output_key":  "seo_ru",
 		},
 	)
 
 	// Node 13: Generate SEO metadata for German
 	nodeGenerateSEOGerman := mbflow.NewNode(
-		uuid.NewString(),
+		"generate-seo-de",
 		workflowID,
 		"openai-completion",
 		"Generate SEO Metadata (DE)",
 		map[string]any{
-			"model": "gpt-4",
+			"model": "gpt-4o",
 			"prompt": `Generate SEO metadata for the following German content in JSON format:
 {
   "title": "SEO-optimized title (max 60 chars)",
@@ -287,7 +311,7 @@ Content: {{content_de}}`,
 
 	// Node 14: Aggregate all results
 	nodeAggregateResults := mbflow.NewNode(
-		uuid.NewString(),
+		"aggregate-results",
 		workflowID,
 		"data-aggregator",
 		"Aggregate All Results",
@@ -296,174 +320,412 @@ Content: {{content_de}}`,
 			"fields": map[string]string{
 				"content_en": "final_content",
 				"content_es": "content_es",
-				"content_fr": "content_fr",
+				"content_ru": "content_ru",
 				"content_de": "content_de",
 				"seo_en":     "seo_en",
 				"seo_es":     "seo_es",
-				"seo_fr":     "seo_fr",
+				"seo_ru":     "seo_ru",
 				"seo_de":     "seo_de",
 			},
 			"output_key": "final_output",
 		},
 	)
 
-	// Node 15: Publish to CMS
-	nodePublish := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Publish to CMS",
-		map[string]any{
-			"url":    "https://cms.example.com/api/publish",
-			"method": "POST",
-			"body":   "{{final_output}}",
-			"headers": map[string]string{
-				"Content-Type":  "application/json",
-				"Authorization": "Bearer {{api_token}}",
-			},
-		},
-	)
-
-	// Save all nodes
+	// Collect all nodes
 	nodes := []mbflow.Node{
 		nodeGenerateContent, nodeAnalyzeQuality, nodeQualityRouter,
 		nodeEnhanceContent, nodeRegenerateContent, nodeMergeContent,
-		nodeTranslateSpanish, nodeTranslateFrench, nodeTranslateGerman,
-		nodeGenerateSEOEnglish, nodeGenerateSEOSpanish, nodeGenerateSEOFrench, nodeGenerateSEOGerman,
-		nodeAggregateResults, nodePublish,
-	}
-
-	for _, node := range nodes {
-		if err := storage.SaveNode(ctx, node); err != nil {
-			log.Fatalf("Failed to save node %s: %v", node.Name(), err)
-		}
+		nodeTranslateSpanish, nodeTranslateRussian, nodeTranslateGerman,
+		nodeGenerateSEOEnglish, nodeGenerateSEOSpanish, nodeGenerateSEORussian, nodeGenerateSEOGerman,
+		nodeAggregateResults,
 	}
 
 	// Create edges (workflow connections)
-	edges := []struct {
-		from     mbflow.Node
-		to       mbflow.Node
-		edgeType string
-		config   map[string]any
-	}{
+	edges := []mbflow.Edge{
 		// Main flow
-		{nodeGenerateContent, nodeAnalyzeQuality, "direct", nil},
-		{nodeAnalyzeQuality, nodeQualityRouter, "direct", nil},
-
-		// Branching based on quality
-		{nodeQualityRouter, nodeMergeContent, "conditional", map[string]any{"condition": "quality_rating == 'high'"}},
-		{nodeQualityRouter, nodeEnhanceContent, "conditional", map[string]any{"condition": "quality_rating == 'medium'"}},
-		{nodeQualityRouter, nodeRegenerateContent, "conditional", map[string]any{"condition": "quality_rating == 'low'"}},
-
-		// Merge paths
-		{nodeEnhanceContent, nodeMergeContent, "direct", nil},
-		{nodeRegenerateContent, nodeAnalyzeQuality, "direct", map[string]any{"retry": true}}, // Loop back for re-analysis
-
-		// Parallel translation branches
-		{nodeMergeContent, nodeTranslateSpanish, "parallel", nil},
-		{nodeMergeContent, nodeTranslateFrench, "parallel", nil},
-		{nodeMergeContent, nodeTranslateGerman, "parallel", nil},
-		{nodeMergeContent, nodeGenerateSEOEnglish, "parallel", nil},
-
-		// SEO generation (depends on translations)
-		{nodeTranslateSpanish, nodeGenerateSEOSpanish, "direct", nil},
-		{nodeTranslateFrench, nodeGenerateSEOFrench, "direct", nil},
-		{nodeTranslateGerman, nodeGenerateSEOGerman, "direct", nil},
-
-		// Aggregate results (wait for all parallel branches)
-		{nodeGenerateSEOEnglish, nodeAggregateResults, "join", nil},
-		{nodeGenerateSEOSpanish, nodeAggregateResults, "join", nil},
-		{nodeGenerateSEOFrench, nodeAggregateResults, "join", nil},
-		{nodeGenerateSEOGerman, nodeAggregateResults, "join", nil},
-
-		// Final publish
-		{nodeAggregateResults, nodePublish, "direct", nil},
-	}
-
-	for i, e := range edges {
-		config := e.config
-		if config == nil {
-			config = map[string]any{}
-		}
-
-		edge := mbflow.NewEdge(
+		mbflow.NewEdge(
 			uuid.NewString(),
 			workflowID,
-			e.from.ID(),
-			e.to.ID(),
-			e.edgeType,
-			config,
-		)
+			nodeGenerateContent.ID(),
+			nodeAnalyzeQuality.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeAnalyzeQuality.ID(),
+			nodeQualityRouter.ID(),
+			"direct",
+			nil,
+		),
 
-		if err := storage.SaveEdge(ctx, edge); err != nil {
-			log.Fatalf("Failed to save edge %d: %v", i, err)
-		}
+		// Branching based on quality - conditional edges
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeQualityRouter.ID(),
+			nodeMergeContent.ID(),
+			"conditional",
+			map[string]any{"condition": "quality_rating == 'high'"},
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeQualityRouter.ID(),
+			nodeEnhanceContent.ID(),
+			"conditional",
+			map[string]any{"condition": "quality_rating == 'medium'"},
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeQualityRouter.ID(),
+			nodeRegenerateContent.ID(),
+			"conditional",
+			map[string]any{"condition": "quality_rating == 'low'"},
+		),
+
+		// Merge paths
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeEnhanceContent.ID(),
+			nodeMergeContent.ID(),
+			"direct",
+			nil,
+		),
+
+		// Parallel translation branches
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeMergeContent.ID(),
+			nodeTranslateSpanish.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeMergeContent.ID(),
+			nodeTranslateRussian.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeMergeContent.ID(),
+			nodeTranslateGerman.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeMergeContent.ID(),
+			nodeGenerateSEOEnglish.ID(),
+			"direct",
+			nil,
+		),
+
+		// SEO generation (depends on translations)
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeTranslateSpanish.ID(),
+			nodeGenerateSEOSpanish.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeTranslateRussian.ID(),
+			nodeGenerateSEORussian.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeTranslateGerman.ID(),
+			nodeGenerateSEOGerman.ID(),
+			"direct",
+			nil,
+		),
+
+		// Aggregate results (wait for all parallel branches)
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeGenerateSEOEnglish.ID(),
+			nodeAggregateResults.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeGenerateSEOSpanish.ID(),
+			nodeAggregateResults.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeGenerateSEORussian.ID(),
+			nodeAggregateResults.ID(),
+			"direct",
+			nil,
+		),
+		mbflow.NewEdge(
+			uuid.NewString(),
+			workflowID,
+			nodeGenerateSEOGerman.ID(),
+			nodeAggregateResults.ID(),
+			"direct",
+			nil,
+		),
 	}
 
-	// Create trigger
-	trigger := mbflow.NewTrigger(
-		uuid.NewString(),
-		workflowID,
-		"http",
-		map[string]any{
-			"path":   "/api/content/generate",
-			"method": "POST",
-			"schema": map[string]any{
-				"topic": "string",
-			},
-		},
-	)
+	// Convert domain nodes and edges to execution configs using helper functions
+	nodeConfigs := mbflow.NodesToConfigs(nodes)
+	edgeConfigs := mbflow.EdgesToConfigs(edges)
 
-	if err := storage.SaveTrigger(ctx, trigger); err != nil {
-		log.Fatalf("Failed to save trigger: %v", err)
+	// Set initial variables
+	initialVariables := map[string]interface{}{
+		"topic": topic,
 	}
 
-	// Print workflow summary
-	fmt.Println("=== Workflow Summary ===")
-	fmt.Printf("Workflow: %s\n", workflow.Name())
-	fmt.Printf("Nodes: %d\n", len(nodes))
-	fmt.Printf("Edges: %d\n\n", len(edges))
-
-	fmt.Println("=== Workflow Structure ===")
+	fmt.Println("=== Workflow Graph Structure ===")
 	fmt.Println("1. Generate Initial Content (OpenAI)")
 	fmt.Println("2. Analyze Content Quality (OpenAI)")
 	fmt.Println("3. Route Based on Quality:")
 	fmt.Println("   - High Quality → Merge → Continue")
 	fmt.Println("   - Medium Quality → Enhance Content → Merge → Continue")
-	fmt.Println("   - Low Quality → Regenerate → Re-analyze (loop)")
+	fmt.Println("   - Low Quality → Regenerate")
 	fmt.Println("4. Parallel Processing:")
-	fmt.Println("   - Translate to Spanish, French, German")
+	fmt.Println("   - Translate to Spanish, Russian, German")
 	fmt.Println("   - Generate SEO metadata for English")
 	fmt.Println("5. Generate SEO for each translation")
 	fmt.Println("6. Aggregate all results")
-	fmt.Println("7. Publish to CMS")
+	fmt.Println()
 
-	fmt.Println("\n=== Trigger Configuration ===")
-	fmt.Println("Type: HTTP POST")
-	fmt.Println("Path: /api/content/generate")
-	fmt.Println("Input: { \"topic\": \"your topic here\" }")
+	fmt.Printf("Nodes: %d\n", len(nodeConfigs))
+	fmt.Printf("Edges: %d\n\n", len(edgeConfigs))
 
-	// List all nodes
-	savedNodes, err := storage.ListNodes(ctx, workflowID)
+	fmt.Println("=== Executing Workflow ===\n")
+	startTime := time.Now()
+
+	// Execute workflow with edges for parallel execution
+	ctx := context.Background()
+	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodeConfigs, edgeConfigs, initialVariables)
+
 	if err != nil {
-		log.Fatalf("Failed to list nodes: %v", err)
+		log.Fatalf("Workflow execution failed: %v", err)
 	}
 
-	fmt.Printf("\n=== All Nodes (%d) ===\n", len(savedNodes))
-	for i, n := range savedNodes {
-		fmt.Printf("%d. %s (%s)\n", i+1, n.Name(), n.Type())
+	executionDuration := time.Since(startTime)
+
+	fmt.Println("\n=== Execution Results ===\n")
+	fmt.Printf("Status: %s\n", state.Status())
+	fmt.Printf("Execution Duration: %s\n", executionDuration)
+	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
+
+	// Get all variables
+	variables := state.GetAllVariables()
+
+	// Display detailed content and SEO results
+	fmt.Println("\n=== DETAILED CONTENT AND SEO RESULTS ===\n")
+
+	// Extract final output
+	var finalOutput map[string]interface{}
+	if fo, ok := variables["final_output"]; ok {
+		if resultMap, ok := fo.(map[string]interface{}); ok {
+			finalOutput = resultMap
+		}
 	}
 
-	// List all edges
-	savedEdges, err := storage.ListEdges(ctx, workflowID)
-	if err != nil {
-		log.Fatalf("Failed to list edges: %v", err)
+	// Helper function to safely get string value
+	getStringValue := func(key string) string {
+		if finalOutput != nil {
+			if val, ok := finalOutput[key]; ok {
+				return fmt.Sprintf("%v", val)
+			}
+		}
+		if val, ok := variables[key]; ok {
+			return fmt.Sprintf("%v", val)
+		}
+		return ""
 	}
 
-	fmt.Printf("\n=== All Edges (%d) ===\n", len(savedEdges))
-	for i, e := range savedEdges {
-		fromNode, _ := storage.GetNode(ctx, e.FromNodeID())
-		toNode, _ := storage.GetNode(ctx, e.ToNodeID())
-		fmt.Printf("%d. %s → %s (%s)\n", i+1, fromNode.Name(), toNode.Name(), e.Type())
+	// Display English Content
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📝 ENGLISH CONTENT")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	contentEn := getStringValue("content_en")
+	if contentEn == "" {
+		contentEn = getStringValue("final_content")
 	}
+	if contentEn != "" {
+		fmt.Printf("\n%s\n", contentEn)
+		fmt.Printf("\n[Length: %d characters]\n", len(contentEn))
+	} else {
+		fmt.Println("\n[Content not available]")
+	}
+	fmt.Println()
+
+	// Display English SEO
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("🔍 ENGLISH SEO METADATA")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	seoEn := getStringValue("seo_en")
+	if seoEn != "" {
+		fmt.Printf("\n%s\n", seoEn)
+	} else {
+		fmt.Println("\n[SEO metadata not available]")
+	}
+	fmt.Println()
+
+	// Display Spanish Content
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📝 SPANISH CONTENT (ESPAÑOL)")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	contentEs := getStringValue("content_es")
+	if contentEs != "" {
+		fmt.Printf("\n%s\n", contentEs)
+		fmt.Printf("\n[Length: %d characters]\n", len(contentEs))
+	} else {
+		fmt.Println("\n[Content not available]")
+	}
+	fmt.Println()
+
+	// Display Spanish SEO
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("🔍 SPANISH SEO METADATA (ESPAÑOL)")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	seoEs := getStringValue("seo_es")
+	if seoEs != "" {
+		fmt.Printf("\n%s\n", seoEs)
+	} else {
+		fmt.Println("\n[SEO metadata not available]")
+	}
+	fmt.Println()
+
+	// Display Russian Content
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📝 RUSSIAN CONTENT (РУССКИЙ)")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	contentRu := getStringValue("content_ru")
+	if contentRu != "" {
+		fmt.Printf("\n%s\n", contentRu)
+		fmt.Printf("\n[Length: %d characters]\n", len(contentRu))
+	} else {
+		fmt.Println("\n[Content not available]")
+	}
+	fmt.Println()
+
+	// Display Russian SEO
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("🔍 RUSSIAN SEO METADATA (РУССКИЙ)")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	seoRu := getStringValue("seo_ru")
+	if seoRu != "" {
+		fmt.Printf("\n%s\n", seoRu)
+	} else {
+		fmt.Println("\n[SEO metadata not available]")
+	}
+	fmt.Println()
+
+	// Display German Content
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📝 GERMAN CONTENT (DEUTSCH)")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	contentDe := getStringValue("content_de")
+	if contentDe != "" {
+		fmt.Printf("\n%s\n", contentDe)
+		fmt.Printf("\n[Length: %d characters]\n", len(contentDe))
+	} else {
+		fmt.Println("\n[Content not available]")
+	}
+	fmt.Println()
+
+	// Display German SEO
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("🔍 GERMAN SEO METADATA (DEUTSCH)")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	seoDe := getStringValue("seo_de")
+	if seoDe != "" {
+		fmt.Printf("\n%s\n", seoDe)
+	} else {
+		fmt.Println("\n[SEO metadata not available]")
+	}
+	fmt.Println()
+
+	// Display summary of all available variables
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📊 ALL EXECUTION VARIABLES SUMMARY")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	for key, value := range variables {
+		if key != "final_output" {
+			valueStr := fmt.Sprintf("%v", value)
+			if len(valueStr) > 200 {
+				fmt.Printf("  %s: [%d characters]\n", key, len(valueStr))
+			} else {
+				fmt.Printf("  %s: %s\n", key, valueStr)
+			}
+		}
+	}
+	fmt.Println()
+
+	// Display metrics
+	fmt.Println("\n=== Execution Metrics ===\n")
+	metrics := executor.GetMetrics()
+
+	summary := metrics.GetSummary()
+	fmt.Println("Summary:")
+	for key, value := range summary {
+		fmt.Printf("  %s: %v\n", key, value)
+	}
+
+	// Display workflow metrics
+	fmt.Println("\nWorkflow Metrics:")
+	workflowMetrics := metrics.GetWorkflowMetrics(workflowID)
+	if workflowMetrics != nil {
+		for key, value := range workflowMetrics {
+			fmt.Printf("  %s: %v\n", key, value)
+		}
+	}
+
+	// Display node metrics
+	fmt.Println("\nNode Type Metrics:")
+	nodeTypes := []string{"openai-completion", "data-merger", "data-aggregator", "conditional-router"}
+
+	for _, nodeType := range nodeTypes {
+		nodeMetrics := metrics.GetNodeMetrics(nodeType)
+		if nodeMetrics != nil {
+			fmt.Printf("\n  %s:\n", nodeType)
+			for key, value := range nodeMetrics {
+				fmt.Printf("    %s: %v\n", key, value)
+			}
+		}
+	}
+
+	// Display AI metrics
+	fmt.Println("\nAI API Metrics:")
+	aiMetrics := metrics.GetAIMetrics()
+	if aiMetrics != nil {
+		for key, value := range aiMetrics {
+			fmt.Printf("  %s: %v\n", key, value)
+		}
+	}
+
+	fmt.Println("\n=== Demo Complete ===")
+	fmt.Println("\nNote: This workflow demonstrates:")
+	fmt.Println("- Conditional branching based on content quality")
+	fmt.Println("- Parallel execution of translation tasks")
+	fmt.Println("- Join node aggregating results from parallel branches")
 }

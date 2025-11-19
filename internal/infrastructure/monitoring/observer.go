@@ -3,6 +3,8 @@ package monitoring
 import (
 	"sync"
 	"time"
+
+	"mbflow/internal/domain"
 )
 
 // ExecutionObserver defines the interface for observing workflow execution events.
@@ -18,16 +20,20 @@ type ExecutionObserver interface {
 	OnExecutionFailed(workflowID, executionID string, err error, duration time.Duration)
 
 	// OnNodeStarted is called when a node starts executing
-	OnNodeStarted(executionID, nodeID, nodeType string, attemptNumber int)
+	// node can be nil if only config is available
+	OnNodeStarted(executionID string, node *domain.Node, attemptNumber int)
 
 	// OnNodeCompleted is called when a node completes successfully
-	OnNodeCompleted(executionID, nodeID, nodeType string, output interface{}, duration time.Duration)
+	// node can be nil if only config is available
+	OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration)
 
 	// OnNodeFailed is called when a node fails
-	OnNodeFailed(executionID, nodeID, nodeType string, err error, duration time.Duration, willRetry bool)
+	// node can be nil if only config is available
+	OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool)
 
 	// OnNodeRetrying is called when a node is being retried
-	OnNodeRetrying(executionID, nodeID string, attemptNumber int, delay time.Duration)
+	// node can be nil if only config is available
+	OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration)
 
 	// OnVariableSet is called when a variable is set in the execution context
 	OnVariableSet(executionID, key string, value interface{})
@@ -98,42 +104,42 @@ func (om *ObserverManager) NotifyExecutionFailed(workflowID, executionID string,
 }
 
 // NotifyNodeStarted notifies all observers that a node has started.
-func (om *ObserverManager) NotifyNodeStarted(executionID, nodeID, nodeType string, attemptNumber int) {
+func (om *ObserverManager) NotifyNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
 	for _, observer := range om.observers {
-		observer.OnNodeStarted(executionID, nodeID, nodeType, attemptNumber)
+		observer.OnNodeStarted(executionID, node, attemptNumber)
 	}
 }
 
 // NotifyNodeCompleted notifies all observers that a node has completed.
-func (om *ObserverManager) NotifyNodeCompleted(executionID, nodeID, nodeType string, output interface{}, duration time.Duration) {
+func (om *ObserverManager) NotifyNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
 	for _, observer := range om.observers {
-		observer.OnNodeCompleted(executionID, nodeID, nodeType, output, duration)
+		observer.OnNodeCompleted(executionID, node, output, duration)
 	}
 }
 
 // NotifyNodeFailed notifies all observers that a node has failed.
-func (om *ObserverManager) NotifyNodeFailed(executionID, nodeID, nodeType string, err error, duration time.Duration, willRetry bool) {
+func (om *ObserverManager) NotifyNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
 	for _, observer := range om.observers {
-		observer.OnNodeFailed(executionID, nodeID, nodeType, err, duration, willRetry)
+		observer.OnNodeFailed(executionID, node, err, duration, willRetry)
 	}
 }
 
 // NotifyNodeRetrying notifies all observers that a node is being retried.
-func (om *ObserverManager) NotifyNodeRetrying(executionID, nodeID string, attemptNumber int, delay time.Duration) {
+func (om *ObserverManager) NotifyNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
 	for _, observer := range om.observers {
-		observer.OnNodeRetrying(executionID, nodeID, attemptNumber, delay)
+		observer.OnNodeRetrying(executionID, node, attemptNumber, delay)
 	}
 }
 
@@ -203,50 +209,80 @@ func (co *CompositeObserver) OnExecutionFailed(workflowID, executionID string, e
 }
 
 // OnNodeStarted implements ExecutionObserver.
-func (co *CompositeObserver) OnNodeStarted(executionID, nodeID, nodeType string, attemptNumber int) {
+func (co *CompositeObserver) OnNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
 	if co.logger != nil {
-		co.logger.LogNodeStarted(executionID, nodeID, nodeType, attemptNumber)
+		co.logger.LogNodeStarted(executionID, node, attemptNumber)
 	}
 	if co.trace != nil {
+		nodeID := ""
+		nodeType := ""
+		if node != nil {
+			nodeID = node.ID()
+			nodeType = node.Type()
+		}
 		co.trace.AddEvent("node_started", nodeID, nodeType, "Node execution started",
 			map[string]interface{}{"attempt": attemptNumber}, nil)
 	}
 }
 
 // OnNodeCompleted implements ExecutionObserver.
-func (co *CompositeObserver) OnNodeCompleted(executionID, nodeID, nodeType string, output interface{}, duration time.Duration) {
+func (co *CompositeObserver) OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
 	if co.logger != nil {
-		co.logger.LogNodeCompleted(executionID, nodeID, nodeType, duration)
+		co.logger.LogNodeCompleted(executionID, node, duration)
 	}
 	if co.metrics != nil {
+		nodeType := ""
+		if node != nil {
+			nodeType = node.Type()
+		}
 		co.metrics.RecordNodeExecution(nodeType, duration, true, false)
 	}
 	if co.trace != nil {
+		nodeID := ""
+		nodeType := ""
+		if node != nil {
+			nodeID = node.ID()
+			nodeType = node.Type()
+		}
 		co.trace.AddEvent("node_completed", nodeID, nodeType, "Node execution completed",
 			map[string]interface{}{"duration": duration}, nil)
 	}
 }
 
 // OnNodeFailed implements ExecutionObserver.
-func (co *CompositeObserver) OnNodeFailed(executionID, nodeID, nodeType string, err error, duration time.Duration, willRetry bool) {
+func (co *CompositeObserver) OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
 	if co.logger != nil {
-		co.logger.LogNodeFailed(executionID, nodeID, nodeType, err, duration, willRetry)
+		co.logger.LogNodeFailed(executionID, node, err, duration, willRetry)
 	}
 	if co.metrics != nil {
+		nodeType := ""
+		if node != nil {
+			nodeType = node.Type()
+		}
 		co.metrics.RecordNodeExecution(nodeType, duration, false, false)
 	}
 	if co.trace != nil {
+		nodeID := ""
+		nodeType := ""
+		if node != nil {
+			nodeID = node.ID()
+			nodeType = node.Type()
+		}
 		co.trace.AddEvent("node_failed", nodeID, nodeType, "Node execution failed",
 			map[string]interface{}{"duration": duration, "will_retry": willRetry}, err)
 	}
 }
 
 // OnNodeRetrying implements ExecutionObserver.
-func (co *CompositeObserver) OnNodeRetrying(executionID, nodeID string, attemptNumber int, delay time.Duration) {
+func (co *CompositeObserver) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
 	if co.logger != nil {
-		co.logger.LogNodeRetrying(executionID, nodeID, attemptNumber, delay)
+		co.logger.LogNodeRetrying(executionID, node, attemptNumber, delay)
 	}
 	if co.trace != nil {
+		nodeID := ""
+		if node != nil {
+			nodeID = node.ID()
+		}
 		co.trace.AddEvent("node_retrying", nodeID, "", "Node being retried",
 			map[string]interface{}{"attempt": attemptNumber, "delay": delay}, nil)
 	}

@@ -3,8 +3,11 @@ package executor
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
+
+	"mbflow/internal/domain"
 )
 
 // ExecutionState represents the state of a workflow execution.
@@ -26,6 +29,10 @@ type ExecutionState struct {
 	FinishedAt *time.Time
 	// Error stores any execution error
 	Error error
+	// repository is optional; when set, state will be persisted on every change
+	repository domain.ExecutionStateRepository
+	// ctx is the context for persistence operations
+	ctx context.Context
 	// mu protects concurrent access to the state
 	mu sync.RWMutex
 }
@@ -96,6 +103,20 @@ func NewExecutionState(executionID, workflowID string) *ExecutionState {
 	}
 }
 
+// NewExecutionStateWithRepository creates a new ExecutionState with persistence support.
+func NewExecutionStateWithRepository(ctx context.Context, executionID, workflowID string, repository domain.ExecutionStateRepository) *ExecutionState {
+	return &ExecutionState{
+		ExecutionID: executionID,
+		WorkflowID:  workflowID,
+		Status:      ExecutionStatusPending,
+		Variables:   make(map[string]interface{}),
+		NodeStates:  make(map[string]*NodeState),
+		StartedAt:   time.Now(),
+		repository:  repository,
+		ctx:         ctx,
+	}
+}
+
 // SetStatus sets the execution status.
 func (s *ExecutionState) SetStatus(status ExecutionStatus) {
 	s.mu.Lock()
@@ -105,6 +126,7 @@ func (s *ExecutionState) SetStatus(status ExecutionStatus) {
 		now := time.Now()
 		s.FinishedAt = &now
 	}
+	s.persist()
 }
 
 // GetStatus returns the current execution status.
@@ -119,6 +141,8 @@ func (s *ExecutionState) SetVariable(key string, value interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Variables[key] = value
+
+	s.persist()
 }
 
 // GetVariable retrieves a variable from the execution context.
@@ -146,6 +170,8 @@ func (s *ExecutionState) SetNodeState(nodeID string, state *NodeState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.NodeStates[nodeID] = state
+
+	s.persist()
 }
 
 // GetNodeState retrieves the state for a node.
@@ -160,7 +186,6 @@ func (s *ExecutionState) GetNodeState(nodeID string) (*NodeState, bool) {
 func (s *ExecutionState) InitializeNodeState(nodeID string, maxAttempts int) *NodeState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	if state, ok := s.NodeStates[nodeID]; ok {
 		return state
 	}
@@ -172,6 +197,8 @@ func (s *ExecutionState) InitializeNodeState(nodeID string, maxAttempts int) *No
 		MaxAttempts:   maxAttempts,
 	}
 	s.NodeStates[nodeID] = state
+
+	s.persist()
 	return state
 }
 
@@ -179,20 +206,20 @@ func (s *ExecutionState) InitializeNodeState(nodeID string, maxAttempts int) *No
 func (s *ExecutionState) MarkNodeStarted(nodeID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	if state, ok := s.NodeStates[nodeID]; ok {
 		now := time.Now()
 		state.StartedAt = &now
 		state.Status = NodeStatusRunning
 		state.AttemptNumber++
 	}
+
+	s.persist()
 }
 
 // MarkNodeCompleted marks a node as completed with output.
 func (s *ExecutionState) MarkNodeCompleted(nodeID string, output interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	if state, ok := s.NodeStates[nodeID]; ok {
 		now := time.Now()
 		state.FinishedAt = &now
@@ -200,30 +227,34 @@ func (s *ExecutionState) MarkNodeCompleted(nodeID string, output interface{}) {
 		state.Output = output
 		state.Error = nil
 	}
+
+	s.persist()
 }
 
 // MarkNodeFailed marks a node as failed with an error.
 func (s *ExecutionState) MarkNodeFailed(nodeID string, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	if state, ok := s.NodeStates[nodeID]; ok {
 		now := time.Now()
 		state.FinishedAt = &now
 		state.Status = NodeStatusFailed
 		state.Error = err
 	}
+
+	s.persist()
 }
 
 // MarkNodeRetrying marks a node as retrying.
 func (s *ExecutionState) MarkNodeRetrying(nodeID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	if state, ok := s.NodeStates[nodeID]; ok {
 		state.Status = NodeStatusRetrying
 		state.FinishedAt = nil
 	}
+
+	s.persist()
 }
 
 // CanRetryNode checks if a node can be retried.
@@ -361,4 +392,102 @@ func (ec *ExecutionContext) GetVariable(key string) (interface{}, bool) {
 // GetAllVariables returns all variables.
 func (ec *ExecutionContext) GetAllVariables() map[string]interface{} {
 	return ec.state.GetAllVariables()
+}
+
+// persist saves the execution state to storage if a repository is configured.
+// Errors are logged but do not affect execution.
+func (s *ExecutionState) persist() {
+	if s.repository == nil || s.ctx == nil {
+		return
+	}
+
+	// Convert to domain ExecutionState
+	domainState := s.toDomainExecutionState()
+
+	// Persist asynchronously to avoid blocking execution
+	go func() {
+		if err := s.repository.SaveExecutionState(s.ctx, domainState); err != nil {
+			slog.Warn("Failed to persist execution state",
+				"executionID", s.ExecutionID,
+				"error", err)
+		}
+	}()
+}
+
+// toDomainExecutionState converts the application ExecutionState to domain ExecutionState.
+func (s *ExecutionState) toDomainExecutionState() *domain.ExecutionState {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Convert status
+	var domainStatus domain.ExecutionStateStatus
+	switch s.Status {
+	case ExecutionStatusPending:
+		domainStatus = domain.ExecutionStateStatusPending
+	case ExecutionStatusRunning:
+		domainStatus = domain.ExecutionStateStatusRunning
+	case ExecutionStatusCompleted:
+		domainStatus = domain.ExecutionStateStatusCompleted
+	case ExecutionStatusFailed:
+		domainStatus = domain.ExecutionStateStatusFailed
+	case ExecutionStatusCancelled:
+		domainStatus = domain.ExecutionStateStatusCancelled
+	default:
+		domainStatus = domain.ExecutionStateStatusPending
+	}
+
+	// Convert error to string
+	errorMsg := ""
+	if s.Error != nil {
+		errorMsg = s.Error.Error()
+	}
+
+	// Convert NodeStates
+	nodeStates := make(map[string]*domain.NodeState)
+	for nodeID, ns := range s.NodeStates {
+		var domainNodeStatus domain.NodeStateStatus
+		switch ns.Status {
+		case NodeStatusPending:
+			domainNodeStatus = domain.NodeStateStatusPending
+		case NodeStatusRunning:
+			domainNodeStatus = domain.NodeStateStatusRunning
+		case NodeStatusCompleted:
+			domainNodeStatus = domain.NodeStateStatusCompleted
+		case NodeStatusFailed:
+			domainNodeStatus = domain.NodeStateStatusFailed
+		case NodeStatusSkipped:
+			domainNodeStatus = domain.NodeStateStatusSkipped
+		case NodeStatusRetrying:
+			domainNodeStatus = domain.NodeStateStatusRetrying
+		default:
+			domainNodeStatus = domain.NodeStateStatusPending
+		}
+
+		errorMsgNS := ""
+		if ns.Error != nil {
+			errorMsgNS = ns.Error.Error()
+		}
+
+		nodeStates[nodeID] = domain.ReconstructNodeState(
+			ns.NodeID,
+			domainNodeStatus,
+			ns.StartedAt,
+			ns.FinishedAt,
+			ns.Output,
+			errorMsgNS,
+			ns.AttemptNumber,
+			ns.MaxAttempts,
+		)
+	}
+
+	return domain.ReconstructExecutionState(
+		s.ExecutionID,
+		s.WorkflowID,
+		domainStatus,
+		s.Variables,
+		nodeStates,
+		s.StartedAt,
+		s.FinishedAt,
+		errorMsg,
+	)
 }
