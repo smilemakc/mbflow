@@ -177,6 +177,7 @@ func (e *OpenAICompletionExecutor) Execute(ctx context.Context, execCtx *Executi
 	return map[string]interface{}{
 		"content":           content,
 		"model":             resp.Model,
+		"response_id":       resp.ID,
 		"prompt_tokens":     resp.Usage.PromptTokens,
 		"completion_tokens": resp.Usage.CompletionTokens,
 		"total_tokens":      resp.Usage.TotalTokens,
@@ -376,6 +377,7 @@ func (e *OpenAIResponsesExecutor) Execute(ctx context.Context, execCtx *Executio
 		"content":           content,
 		"parsed_content":    outputValue,
 		"model":             resp.Model,
+		"response_id":       resp.ID,
 		"prompt_tokens":     resp.Usage.PromptTokens,
 		"completion_tokens": resp.Usage.CompletionTokens,
 		"total_tokens":      resp.Usage.TotalTokens,
