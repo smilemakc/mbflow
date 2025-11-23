@@ -104,6 +104,7 @@ func NewWorkflowEngine(config *EngineConfig) *WorkflowEngine {
 		engine.RegisterExecutor(NewOpenAIResponsesExecutor(config.OpenAIAPIKey))
 	}
 	engine.RegisterExecutor(NewHTTPRequestExecutor())
+	engine.RegisterExecutor(NewTelegramMessageExecutor())
 	engine.RegisterExecutor(NewConditionalRouterExecutor())
 	engine.RegisterExecutor(NewDataMergerExecutor())
 	engine.RegisterExecutor(NewDataAggregatorExecutor())
