@@ -567,6 +567,179 @@ func (e *HTTPRequestExecutor) Execute(ctx context.Context, execCtx *ExecutionCon
 	}, nil
 }
 
+// TelegramMessageExecutor executes Telegram message nodes using the Telegram Bot API.
+type TelegramMessageExecutor struct {
+	client *http.Client
+}
+
+// NewTelegramMessageExecutor creates a new TelegramMessageExecutor.
+func NewTelegramMessageExecutor() *TelegramMessageExecutor {
+	return &TelegramMessageExecutor{
+		client: &http.Client{Timeout: 15 * time.Second},
+	}
+}
+
+// Type returns the node type.
+func (e *TelegramMessageExecutor) Type() string {
+	return "telegram-message"
+}
+
+// Execute sends a message via the Telegram Bot API.
+func (e *TelegramMessageExecutor) Execute(ctx context.Context, execCtx *ExecutionContext, nodeID string, config map[string]any) (interface{}, error) {
+	// Parse configuration
+	cfg, err := parseConfig[TelegramMessageConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("telegram-message", fmt.Sprintf("failed to parse config: %v", err))
+	}
+
+	// Validate required fields
+	if cfg.ChatID == "" {
+		return nil, errors.NewConfigurationError("telegram-message", "missing 'chat_id' in config")
+	}
+	if cfg.Text == "" {
+		return nil, errors.NewConfigurationError("telegram-message", "missing 'text' in config")
+	}
+
+	if cfg.OutputKey == "" {
+		cfg.OutputKey = "telegram_response"
+	}
+
+	// Resolve bot token: config value takes priority, then execution context variables
+	botToken := strings.TrimSpace(cfg.BotToken)
+	if botToken == "" {
+		if token, ok := execCtx.GetVariable("telegram_bot_token"); ok {
+			if tokenStr, ok := token.(string); ok && strings.TrimSpace(tokenStr) != "" {
+				botToken = strings.TrimSpace(tokenStr)
+			}
+		}
+	}
+	if botToken == "" {
+		if token, ok := execCtx.GetVariable("TELEGRAM_BOT_TOKEN"); ok {
+			if tokenStr, ok := token.(string); ok && strings.TrimSpace(tokenStr) != "" {
+				botToken = strings.TrimSpace(tokenStr)
+			}
+		}
+	}
+	if botToken == "" {
+		return nil, errors.NewConfigurationError("telegram-message", "missing bot token in config or execution context")
+	}
+
+	variables := execCtx.GetAllVariables()
+	payload := map[string]interface{}{
+		"chat_id": substituteVariables(cfg.ChatID, variables),
+		"text":    substituteVariables(cfg.Text, variables),
+	}
+	if cfg.ParseMode != "" {
+		payload["parse_mode"] = cfg.ParseMode
+	}
+	if cfg.DisableNotification {
+		payload["disable_notification"] = true
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"telegram-message",
+			1,
+			fmt.Sprintf("failed to marshal Telegram payload: %v", err),
+			err,
+			false,
+		)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", botToken), bytes.NewReader(body))
+	if err != nil {
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"telegram-message",
+			1,
+			fmt.Sprintf("failed to create Telegram request: %v", err),
+			err,
+			false,
+		)
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	startTime := time.Now()
+	resp, err := e.client.Do(request)
+	latency := time.Since(startTime)
+	if err != nil {
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"telegram-message",
+			1,
+			fmt.Sprintf("failed to call Telegram API: %v", err),
+			err,
+			true,
+		)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"telegram-message",
+			1,
+			fmt.Sprintf("failed to read Telegram response: %v", err),
+			err,
+			false,
+		)
+	}
+
+	var apiResp struct {
+		OK          bool                   `json:"ok"`
+		Description string                 `json:"description,omitempty"`
+		Result      map[string]interface{} `json:"result,omitempty"`
+	}
+	if err := json.Unmarshal(respBytes, &apiResp); err != nil {
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"telegram-message",
+			1,
+			fmt.Sprintf("failed to parse Telegram response: %v", err),
+			err,
+			false,
+		)
+	}
+
+	if resp.StatusCode >= http.StatusMultipleChoices || !apiResp.OK {
+		description := apiResp.Description
+		if description == "" {
+			description = fmt.Sprintf("telegram API returned status %d", resp.StatusCode)
+		}
+
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"telegram-message",
+			1,
+			description,
+			nil,
+			resp.StatusCode >= http.StatusInternalServerError,
+		)
+	}
+
+	execCtx.SetVariable(cfg.OutputKey, apiResp.Result)
+
+	return map[string]interface{}{
+		"telegram_message": apiResp.Result,
+		"latency_ms":       latency.Milliseconds(),
+	}, nil
+}
+
 // ConditionalRouterExecutor executes conditional routing nodes.
 // It evaluates conditions and determines which path to take.
 type ConditionalRouterExecutor struct{}
