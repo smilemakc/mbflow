@@ -44,122 +44,89 @@ func main() {
 
 	// Define nodes for parallel execution
 	// Structure: Start -> [Task1, Task2, Task3] -> Join
+	startNode, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:   uuid.NewString(),
+		Name: "Start Node",
+		Type: "data-aggregator",
+		Config: map[string]any{
+			"fields": map[string]string{
+				"topic1": "topic1",
+				"topic2": "topic2",
+				"topic3": "topic3",
+			},
+			"output_key": "start_output",
+		},
+	})
+	// Task 1: OpenAI completion for first topic
+
+	task1, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:   uuid.NewString(),
+		Name: "Task 1: Summarize Topic 1",
+		Type: "openai-completion",
+		Config: map[string]any{
+			"model":      "gpt-4o",
+			"prompt":     "Write a brief summary (2-3 sentences) about {{topic1}}",
+			"max_tokens": 150,
+			"output_key": "result_1",
+		},
+	})
+	// Task 2: OpenAI completion for second topic
+	task2, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:   uuid.NewString(),
+		Name: "Task 2: Summarize Topic 2",
+		Type: "openai-completion",
+		Config: map[string]any{
+			"model":      "gpt-4o",
+			"prompt":     "Write a brief summary (2-3 sentences) about {{topic2}}",
+			"max_tokens": 150,
+			"output_key": "result_2",
+		},
+	})
+	// Task 3: OpenAI completion for third topic
+	task3, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:   uuid.NewString(),
+		Name: "Task 3: Summarize Topic 3",
+		Type: "openai-completion",
+		Config: map[string]any{
+			"model":      "gpt-4o",
+			"prompt":     "Write a brief summary (2-3 sentences) about {{topic3}}",
+			"max_tokens": 150,
+			"output_key": "result_3",
+		},
+	})
+	// Join node: Aggregate all results from parallel tasks
+	joinNode, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:   uuid.NewString(),
+		Name: "Join Node",
+		Type: "data-aggregator",
+		Config: map[string]any{
+			"fields": map[string]string{
+				"summary_1": "result_1",
+				"summary_2": "result_2",
+				"summary_3": "result_3",
+			},
+			"output_key": "final_result",
+		},
+	})
 	nodes := []mbflow.NodeConfig{
-		// Start node: Prepare initial data
-		{
-			ID:   "start",
-			Name: "Start Node",
-			Type: "data-aggregator",
-			Config: map[string]any{
-				"fields": map[string]string{
-					"topic1": "topic1",
-					"topic2": "topic2",
-					"topic3": "topic3",
-				},
-				"output_key": "start_output",
-			},
-		},
-
-		// Task 1: OpenAI completion for first topic
-		{
-			ID:   "task-1",
-			Name: "Task 1: Summarize Topic 1",
-			Type: "openai-completion",
-			Config: map[string]any{
-				"model":      "gpt-4o",
-				"prompt":     "Write a brief summary (2-3 sentences) about {{topic1}}",
-				"max_tokens": 150,
-				"output_key": "result_1",
-			},
-		},
-
-		// Task 2: OpenAI completion for second topic
-		{
-			ID:   "task-2",
-			Name: "Task 2: Summarize Topic 2",
-			Type: "openai-completion",
-			Config: map[string]any{
-				"model":      "gpt-4o",
-				"prompt":     "Write a brief summary (2-3 sentences) about {{topic2}}",
-				"max_tokens": 150,
-				"output_key": "result_2",
-			},
-		},
-
-		// Task 3: OpenAI completion for third topic
-		{
-			ID:   "task-3",
-			Name: "Task 3: Summarize Topic 3",
-			Type: "openai-completion",
-			Config: map[string]any{
-				"model":      "gpt-4o",
-				"prompt":     "Write a brief summary (2-3 sentences) about {{topic3}}",
-				"max_tokens": 150,
-				"output_key": "result_3",
-			},
-		},
-
-		// Join node: Aggregate all results from parallel tasks
-		{
-			ID:   "join",
-			Name: "Join Node",
-			Type: "data-aggregator",
-			Config: map[string]any{
-				"fields": map[string]string{
-					"summary_1": "result_1",
-					"summary_2": "result_2",
-					"summary_3": "result_3",
-				},
-				"output_key": "final_result",
-			},
-		},
+		mbflow.NodeToConfig(startNode),
+		mbflow.NodeToConfig(task1),
+		mbflow.NodeToConfig(task2),
+		mbflow.NodeToConfig(task3),
+		mbflow.NodeToConfig(joinNode),
 	}
 
 	// Define edges to create fork-join pattern:
 	// start -> task-1, task-2, task-3 (fork)
 	// task-1, task-2, task-3 -> join (join)
-	edges := []mbflow.ExecutorEdgeConfig{
-		// Fork: start node branches to three parallel tasks
-		{
-			FromNodeID: "start",
-			ToNodeID:   "task-1",
-			EdgeType:   "direct",
-			Config:     map[string]any{},
-		},
-		{
-			FromNodeID: "start",
-			ToNodeID:   "task-2",
-			EdgeType:   "direct",
-			Config:     map[string]any{},
-		},
-		{
-			FromNodeID: "start",
-			ToNodeID:   "task-3",
-			EdgeType:   "direct",
-			Config:     map[string]any{},
-		},
-
-		// Join: all three tasks converge to join node
-		{
-			FromNodeID: "task-1",
-			ToNodeID:   "join",
-			EdgeType:   "direct",
-			Config:     map[string]any{},
-		},
-		{
-			FromNodeID: "task-2",
-			ToNodeID:   "join",
-			EdgeType:   "direct",
-			Config:     map[string]any{},
-		},
-		{
-			FromNodeID: "task-3",
-			ToNodeID:   "join",
-			EdgeType:   "direct",
-			Config:     map[string]any{},
-		},
-	}
-
+	edges := mbflow.NewRelationshipBuilder(workflowID).
+		Direct(startNode, task1).
+		Direct(startNode, task2).
+		Direct(startNode, task3).
+		Join(task1, joinNode).
+		Join(task2, joinNode).
+		Join(task3, joinNode).
+		Build()
 	// Set initial variables with topics for parallel processing
 	initialVariables := map[string]interface{}{
 		"topic1": "microservices architecture and containerization",
@@ -182,7 +149,7 @@ func main() {
 
 	// Execute workflow with edges for parallel execution
 	ctx := context.Background()
-	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodes, edges, initialVariables)
+	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodes, mbflow.EdgesToConfigs(edges), initialVariables)
 
 	if err != nil {
 		log.Fatalf("Workflow execution failed: %v", err)

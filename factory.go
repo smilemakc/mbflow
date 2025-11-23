@@ -3,6 +3,7 @@ package mbflow
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
 
@@ -39,6 +40,9 @@ func NewExecution(id, workflowID string) Execution {
 // NewNodeFromConfig creates a new node with UUID validation.
 // Returns an error if ID or WorkflowID are not valid UUIDs.
 func NewNodeFromConfig(cfg NodeConfig) (Node, error) {
+	if cfg.ID == "" {
+		cfg.ID = uuid.NewString()
+	}
 	return domain.NewNode(domain.NodeConfig{
 		ID:         cfg.ID,
 		WorkflowID: cfg.WorkflowID,
