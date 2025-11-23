@@ -86,6 +86,45 @@ type ScriptExecutorConfig struct {
 	OutputKey string `json:"output_key,omitempty"`
 }
 
+// OpenAIResponsesConfig represents the configuration for an OpenAI Responses API node.
+// This executor supports structured JSON responses using the OpenAI Responses API.
+type OpenAIResponsesConfig struct {
+	// Model is the OpenAI model to use (default: "gpt-4o")
+	Model string `json:"model"`
+
+	// Prompt is the prompt template with optional variable substitution using {{variable}}
+	Prompt string `json:"prompt"`
+
+	// MaxTokens is the maximum number of tokens to generate (optional)
+	MaxTokens int `json:"max_tokens,omitempty"`
+
+	// Temperature controls randomness (0.0-2.0, optional)
+	Temperature float64 `json:"temperature,omitempty"`
+
+	// ResponseFormat defines the structure of the response (optional)
+	// Can be "text" for plain text or a JSON schema object for structured output
+	// Example: {"type": "json_schema", "json_schema": {...}}
+	ResponseFormat map[string]interface{} `json:"response_format,omitempty"`
+
+	// TopP controls nucleus sampling (0.0-1.0, optional)
+	TopP float64 `json:"top_p,omitempty"`
+
+	// FrequencyPenalty controls repetition penalty (-2.0 to 2.0, optional)
+	FrequencyPenalty float64 `json:"frequency_penalty,omitempty"`
+
+	// PresencePenalty controls topic diversity (-2.0 to 2.0, optional)
+	PresencePenalty float64 `json:"presence_penalty,omitempty"`
+
+	// Stop sequences where the API will stop generating further tokens (optional)
+	Stop []string `json:"stop,omitempty"`
+
+	// OutputKey is the key to store the output in execution context (default: "output")
+	OutputKey string `json:"output_key,omitempty"`
+
+	// APIKey is the OpenAI API key (optional, can come from context or default)
+	APIKey string `json:"api_key,omitempty"`
+}
+
 // ConditionalEdgeConfig represents the configuration for a conditional edge.
 type ConditionalEdgeConfig struct {
 	// Condition is the expression to evaluate (e.g., "quality_rating == 'high'")

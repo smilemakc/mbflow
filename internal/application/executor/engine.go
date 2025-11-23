@@ -92,11 +92,13 @@ func NewWorkflowEngine(config *EngineConfig) *WorkflowEngine {
 	}
 
 	// Register default executors
-	// OpenAI executor is always registered (API key can come from node config or context)
+	// OpenAI executors are always registered (API key can come from node config or context)
 	if metrics != nil {
 		engine.RegisterExecutor(NewOpenAICompletionExecutorWithMetrics(config.OpenAIAPIKey, metrics))
+		engine.RegisterExecutor(NewOpenAIResponsesExecutorWithMetrics(config.OpenAIAPIKey, metrics))
 	} else {
 		engine.RegisterExecutor(NewOpenAICompletionExecutor(config.OpenAIAPIKey))
+		engine.RegisterExecutor(NewOpenAIResponsesExecutor(config.OpenAIAPIKey))
 	}
 	engine.RegisterExecutor(NewHTTPRequestExecutor())
 	engine.RegisterExecutor(NewConditionalRouterExecutor())

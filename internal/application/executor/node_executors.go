@@ -185,6 +185,236 @@ func (e *OpenAICompletionExecutor) Execute(ctx context.Context, execCtx *Executi
 	}, nil
 }
 
+// OpenAIResponsesExecutor executes OpenAI Responses API nodes.
+// It sends requests to the OpenAI API with support for structured outputs.
+// API key can be provided in node config, execution context, or as default during construction.
+type OpenAIResponsesExecutor struct {
+	// defaultAPIKey is optional; used as fallback if not provided in config or context
+	defaultAPIKey string
+	// metrics is optional; when set, AI request usage will be recorded
+	metrics *monitoring.MetricsCollector
+}
+
+// NewOpenAIResponsesExecutor creates a new OpenAIResponsesExecutor.
+// apiKey is optional and used as fallback if not provided in node config or execution context.
+func NewOpenAIResponsesExecutor(apiKey string) *OpenAIResponsesExecutor {
+	return &OpenAIResponsesExecutor{
+		defaultAPIKey: apiKey,
+		metrics:       nil,
+	}
+}
+
+// NewOpenAIResponsesExecutorWithMetrics creates a new OpenAIResponsesExecutor with metrics collection enabled.
+// apiKey is optional and used as fallback if not provided in node config or execution context.
+func NewOpenAIResponsesExecutorWithMetrics(apiKey string, metrics *monitoring.MetricsCollector) *OpenAIResponsesExecutor {
+	return &OpenAIResponsesExecutor{
+		defaultAPIKey: apiKey,
+		metrics:       metrics,
+	}
+}
+
+// Type returns the node type.
+func (e *OpenAIResponsesExecutor) Type() string {
+	return "openai-responses"
+}
+
+// Execute executes an OpenAI Responses API node.
+// API key is resolved in the following order:
+// 1. From node config["api_key"]
+// 2. From execution context variable "openai_api_key" or "OPENAI_API_KEY"
+// 3. From default API key provided during construction
+func (e *OpenAIResponsesExecutor) Execute(ctx context.Context, execCtx *ExecutionContext, nodeID string, config map[string]any) (interface{}, error) {
+	// Parse configuration
+	cfg, err := parseConfig[OpenAIResponsesConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("openai-responses", fmt.Sprintf("failed to parse config: %v", err))
+	}
+
+	// Validate required fields
+	if cfg.Prompt == "" {
+		return nil, errors.NewConfigurationError("openai-responses", "missing 'prompt' in config")
+	}
+
+	// Set defaults
+	if cfg.Model == "" {
+		cfg.Model = "gpt-4o"
+	}
+	if cfg.OutputKey == "" {
+		cfg.OutputKey = "output"
+	}
+
+	// Resolve API key: priority: config > context variable > default
+	tempConfig := map[string]any{"api_key": cfg.APIKey}
+	apiKey, err := e.resolveAPIKey(tempConfig, execCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create OpenAI client with resolved API key
+	client := openai.NewClient(apiKey)
+
+	// Get all variables for substitution
+	allVars := execCtx.GetAllVariables()
+
+	// Log available variables for debugging
+	log.Debug().
+		Str("node_id", nodeID).
+		Interface("available_variables", allVars).
+		Msg("Substituting variables in prompt")
+
+	// Substitute variables in prompt
+	prompt := substituteVariables(cfg.Prompt, allVars)
+
+	// Log the final prompt
+	promptPreview := prompt
+	if len(promptPreview) > 500 {
+		promptPreview = promptPreview[:500] + "..."
+	}
+	log.Debug().
+		Str("node_id", nodeID).
+		Str("prompt_preview", promptPreview).
+		Msg("Final prompt after variable substitution")
+
+	// Create OpenAI request
+	req := openai.ChatCompletionRequest{
+		Model:               cfg.Model,
+		MaxCompletionTokens: cfg.MaxTokens,
+		Temperature:         float32(cfg.Temperature),
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: prompt,
+			},
+		},
+	}
+
+	// Set optional parameters
+	if cfg.TopP > 0 {
+		req.TopP = float32(cfg.TopP)
+	}
+	if cfg.FrequencyPenalty != 0 {
+		req.FrequencyPenalty = float32(cfg.FrequencyPenalty)
+	}
+	if cfg.PresencePenalty != 0 {
+		req.PresencePenalty = float32(cfg.PresencePenalty)
+	}
+	if len(cfg.Stop) > 0 {
+		req.Stop = cfg.Stop
+	}
+
+	// Set response format if configured
+	if cfg.ResponseFormat != nil {
+		// Convert response_format to the expected format
+		formatBytes, err := json.Marshal(cfg.ResponseFormat)
+		if err != nil {
+			return nil, errors.NewConfigurationError("openai-responses", fmt.Sprintf("failed to marshal response_format: %v", err))
+		}
+
+		var responseFormat openai.ChatCompletionResponseFormat
+		if err := json.Unmarshal(formatBytes, &responseFormat); err != nil {
+			return nil, errors.NewConfigurationError("openai-responses", fmt.Sprintf("failed to parse response_format: %v", err))
+		}
+
+		req.ResponseFormat = &responseFormat
+	}
+
+	// Call OpenAI API
+	startTime := time.Now()
+	resp, err := client.CreateChatCompletion(ctx, req)
+	latency := time.Since(startTime)
+
+	if err != nil {
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"openai-responses",
+			1,
+			fmt.Sprintf("OpenAI API error: %v", err),
+			err,
+			true, // Retryable
+		)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"openai-responses",
+			1,
+			"OpenAI returned no choices",
+			nil,
+			false,
+		)
+	}
+
+	// Extract response content
+	content := strings.TrimSpace(resp.Choices[0].Message.Content)
+
+	// Try to parse as JSON if response_format was set
+	var outputValue interface{} = content
+	if cfg.ResponseFormat != nil {
+		var jsonContent interface{}
+		if err := json.Unmarshal([]byte(content), &jsonContent); err == nil {
+			outputValue = jsonContent
+		}
+	}
+
+	// Store output in execution context
+	execCtx.SetVariable(cfg.OutputKey, outputValue)
+
+	// Record AI request metrics if enabled
+	if e.metrics != nil {
+		e.metrics.RecordAIRequest(resp.Usage.PromptTokens, resp.Usage.CompletionTokens, latency)
+	}
+
+	log.Debug().Str("node_id", nodeID).Msgf("OpenAI responses completion: %s", content)
+
+	// Return result with metadata
+	return map[string]interface{}{
+		"content":           content,
+		"parsed_content":    outputValue,
+		"model":             resp.Model,
+		"prompt_tokens":     resp.Usage.PromptTokens,
+		"completion_tokens": resp.Usage.CompletionTokens,
+		"total_tokens":      resp.Usage.TotalTokens,
+		"usage":             resp.Usage,
+		"latency_ms":        latency.Milliseconds(),
+	}, nil
+}
+
+// resolveAPIKey resolves the API key from config, context, or default.
+// Priority: 1) node config["api_key"], 2) context variable, 3) default API key.
+// Returns an error if the API key cannot be resolved from any source.
+func (e *OpenAIResponsesExecutor) resolveAPIKey(config map[string]any, execCtx *ExecutionContext) (string, error) {
+	// Priority 1: Check node config
+	if apiKey, ok := config["api_key"].(string); ok && apiKey != "" {
+		return apiKey, nil
+	}
+
+	// Priority 2: Check execution context variables
+	// Try common variable names
+	if apiKey, ok := execCtx.GetVariable("openai_api_key"); ok {
+		if keyStr, ok := apiKey.(string); ok && keyStr != "" {
+			return keyStr, nil
+		}
+	}
+	if apiKey, ok := execCtx.GetVariable("OPENAI_API_KEY"); ok {
+		if keyStr, ok := apiKey.(string); ok && keyStr != "" {
+			return keyStr, nil
+		}
+	}
+
+	// Priority 3: Use default API key from constructor
+	if e.defaultAPIKey != "" {
+		return e.defaultAPIKey, nil
+	}
+
+	// No API key found in any source
+	return "", errors.NewConfigurationError("openai-responses", "API key not found in node config, execution context, or default configuration")
+}
+
 // HTTPRequestExecutor executes HTTP request nodes.
 // It sends HTTP requests and returns the response.
 type HTTPRequestExecutor struct {
