@@ -189,7 +189,18 @@ func evaluateCondition(condition string, variables map[string]interface{}) (bool
 	// expr library will make map keys accessible as variables when passed to Run()
 	result, err := expr.Run(program, normalizedVars)
 	if err != nil {
-		// Provide more detailed error message with variable values
+		// Check if error is due to missing/nil variables (graceful handling)
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "cannot fetch") ||
+			strings.Contains(errMsg, "undefined") ||
+			strings.Contains(errMsg, "unknown name") ||
+			strings.Contains(errMsg, "nil pointer") {
+			// Variable doesn't exist yet or is nil - return false (condition not met)
+			// This allows conditional edges to "wait" for variables to be created
+			log.Printf("[WorkflowGraph] Condition '%s' evaluated to false: variable not yet available (%v)", condition, err)
+			return false, nil
+		}
+		// For other errors (syntax, type errors), return the error
 		var varInfo []string
 		for k, v := range normalizedVars {
 			if strVal, ok := v.(string); ok && len(strVal) < 100 {

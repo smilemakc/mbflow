@@ -770,16 +770,17 @@ func (e *ConditionalRouterExecutor) Execute(ctx context.Context, execCtx *Execut
 		return nil, errors.NewConfigurationError("conditional-router", "missing or invalid 'routes' in config")
 	}
 
-	// Get input value
-	inputValue, ok := execCtx.GetVariable(cfg.InputKey)
-	if !ok {
+	// Get input value with support for nested fields (e.g., "quality_score.pass")
+	allVariables := execCtx.GetAllVariables()
+	inputValue := getNestedValue(allVariables, cfg.InputKey)
+	if inputValue == nil {
 		return nil, errors.NewNodeExecutionError(
 			execCtx.State().WorkflowID,
 			execCtx.State().ExecutionID,
 			nodeID,
 			"conditional-router",
 			1,
-			fmt.Sprintf("input variable '%s' not found", cfg.InputKey),
+			fmt.Sprintf("input variable '%s' not found or is nil", cfg.InputKey),
 			nil,
 			false,
 		)
