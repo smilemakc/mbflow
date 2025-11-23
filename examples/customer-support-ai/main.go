@@ -348,26 +348,21 @@ Requirements:
 		Name:       "Quality Check Response",
 		Config: map[string]any{
 			"model": "gpt-4",
-			"prompt": `Evaluate this customer support response:
+			"prompt": `Evaluate this customer support response and determine if it passes quality check:
 
 Original Inquiry: {{customer_message}}
 Generated Response: {{generated_response}}
 
-Rate the response quality (1-10) based on:
+Rate the response quality based on:
 - Relevance to the inquiry
 - Clarity and helpfulness
 - Tone appropriateness
 - Completeness
 
-Respond with JSON:
-{
-  "score": <1-10>,
-  "issues": ["issue1", "issue2"] or [],
-  "pass": true/false (pass if score >= 7)
-}`,
-			"max_tokens":  200,
+Respond with ONLY one word: pass or fail (pass if quality is acceptable, score >= 7/10)`,
+			"max_tokens":  10,
 			"temperature": 0.1,
-			"output_key":  "quality_score",
+			"output_key":  "quality_result",
 		},
 	})
 	if err != nil {
@@ -381,10 +376,10 @@ Respond with JSON:
 		Type:       "conditional-router",
 		Name:       "Check Quality Score",
 		Config: map[string]any{
-			"input_key": "quality_score.pass",
+			"input_key": "quality_result",
 			"routes": map[string]string{
-				"true":  "personalize_response",
-				"false": "regenerate_response",
+				"pass": "personalize_response",
+				"fail": "regenerate_response",
 			},
 		},
 	})
@@ -400,14 +395,17 @@ Respond with JSON:
 		Name:       "Regenerate Response with Feedback",
 		Config: map[string]any{
 			"model": "gpt-4",
-			"prompt": `The previous response had quality issues. Generate an improved version:
+			"prompt": `The previous response did not pass quality check. Generate an improved version:
 
 Customer Message: {{customer_message}}
 Previous Response: {{generated_response}}
-Issues Found: {{quality_score.issues}}
 Context: {{response_context}}
 
-Generate a better response addressing the identified issues.`,
+Generate a better response with:
+- More relevant and specific information
+- Clearer and more helpful explanations
+- Appropriate tone for the situation
+- Complete answers to all customer concerns`,
 			"max_tokens":  800,
 			"temperature": 0.6,
 			"output_key":  "regenerated_response",
@@ -525,7 +523,7 @@ Generate JSON:
 				"inquiry_type":   "{{inquiry_type}}",
 				"sentiment":      "{{sentiment}}",
 				"escalated":      "{{escalation_decision}}",
-				"quality_score":  "{{quality_score.score}}",
+				"quality_result": "{{quality_result}}",
 				"response_time":  "{{execution_time}}",
 				"follow_up_plan": "{{follow_up_plan}}",
 			},
@@ -568,8 +566,8 @@ Generate JSON:
 		Direct(nodeGenerateResponse, nodeQualityCheck).
 		Direct(nodeQualityCheck, nodeCheckQuality).
 		// Quality branching
-		Conditional(nodeCheckQuality, nodeMergeResponses, "quality_score.pass == true").
-		Conditional(nodeCheckQuality, nodeRegenerateResponse, "quality_score.pass == false").
+		Conditional(nodeCheckQuality, nodeMergeResponses, "quality_result == 'pass'").
+		Conditional(nodeCheckQuality, nodeRegenerateResponse, "quality_result == 'fail'").
 		Direct(nodeRegenerateResponse, nodeMergeResponses).
 		// Finalization
 		Direct(nodeMergeResponses, nodePersonalizeResponse).
@@ -701,15 +699,18 @@ Generate JSON:
 	}
 	fmt.Println()
 
-	// Quality Score
+	// Quality Result
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("✅ QUALITY CHECK")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	qualityScore := getStringValue("quality_score")
-	if qualityScore != "" {
-		fmt.Printf("\n%s\n", qualityScore)
+	qualityResult := getStringValue("quality_result")
+	if qualityResult != "" {
+		fmt.Printf("\nResult: %s\n", qualityResult)
+		if qualityResult == "fail" {
+			fmt.Println("(Response was regenerated to improve quality)")
+		}
 	} else {
-		fmt.Println("\n[Quality score not available]")
+		fmt.Println("\n[Quality result not available]")
 	}
 	fmt.Println()
 
