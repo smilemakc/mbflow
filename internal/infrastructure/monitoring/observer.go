@@ -258,11 +258,15 @@ func (co *CompositeObserver) OnNodeCompleted(executionID string, node *domain.No
 		co.logger.Log(NewNodeCompletedEvent(executionID, node, output, duration))
 	}
 	if co.metrics != nil {
+		nodeID := ""
 		nodeType := ""
+		nodeName := ""
 		if node != nil {
+			nodeID = node.ID()
 			nodeType = node.Type()
+			nodeName = node.Name()
 		}
-		co.metrics.RecordNodeExecution(nodeType, duration, true, false)
+		co.metrics.RecordNodeExecution(nodeID, nodeType, nodeName, duration, true, false)
 	}
 	if co.trace != nil {
 		nodeID := ""
@@ -282,11 +286,15 @@ func (co *CompositeObserver) OnNodeFailed(executionID string, node *domain.Node,
 		co.logger.Log(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
 	}
 	if co.metrics != nil {
+		nodeID := ""
 		nodeType := ""
+		nodeName := ""
 		if node != nil {
+			nodeID = node.ID()
 			nodeType = node.Type()
+			nodeName = node.Name()
 		}
-		co.metrics.RecordNodeExecution(nodeType, duration, false, false)
+		co.metrics.RecordNodeExecution(nodeID, nodeType, nodeName, duration, false, false)
 	}
 	if co.trace != nil {
 		nodeID := ""

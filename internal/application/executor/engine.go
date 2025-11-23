@@ -110,8 +110,10 @@ func NewWorkflowEngine(config *EngineConfig) *WorkflowEngine {
 	engine.RegisterExecutor(NewDataMergerExecutor())
 	engine.RegisterExecutor(NewDataAggregatorExecutor())
 	engine.RegisterExecutor(NewScriptExecutorExecutor())
+	engine.RegisterExecutor(NewJSONParserExecutor())
 
 	return engine
+
 }
 
 // RegisterExecutor registers a node executor.

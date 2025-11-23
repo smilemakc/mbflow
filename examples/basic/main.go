@@ -38,7 +38,7 @@ func main() {
 	node1, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflow.ID(),
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Fetch Data",
 		Config:     map[string]any{"url": "https://api.example.com/data"},
 	})

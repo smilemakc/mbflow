@@ -10,7 +10,7 @@ import (
 type MetricsCollector struct {
 	// workflowMetrics stores metrics per workflow
 	workflowMetrics map[string]*WorkflowMetrics
-	// nodeMetrics stores metrics per node type
+	// nodeMetrics stores metrics per node ID
 	nodeMetrics map[string]*NodeMetrics
 	// aiMetrics stores AI API usage metrics
 	aiMetrics *AIMetrics
@@ -31,9 +31,11 @@ type WorkflowMetrics struct {
 	LastExecutionAt time.Time     `json:"last_execution_at"`
 }
 
-// NodeMetrics represents metrics for a node type.
+// NodeMetrics represents metrics for a specific node instance.
 type NodeMetrics struct {
+	NodeID          string        `json:"node_id"`
 	NodeType        string        `json:"node_type"`
+	NodeName        string        `json:"node_name"`
 	ExecutionCount  int           `json:"execution_count"`
 	SuccessCount    int           `json:"success_count"`
 	FailureCount    int           `json:"failure_count"`
@@ -99,18 +101,20 @@ func (mc *MetricsCollector) RecordWorkflowExecution(workflowID string, duration 
 }
 
 // RecordNodeExecution records metrics for a node execution.
-func (mc *MetricsCollector) RecordNodeExecution(nodeType string, duration time.Duration, success bool, isRetry bool) {
+func (mc *MetricsCollector) RecordNodeExecution(nodeID, nodeType, nodeName string, duration time.Duration, success bool, isRetry bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 
-	metrics, ok := mc.nodeMetrics[nodeType]
+	metrics, ok := mc.nodeMetrics[nodeID]
 	if !ok {
 		metrics = &NodeMetrics{
+			NodeID:      nodeID,
 			NodeType:    nodeType,
+			NodeName:    nodeName,
 			MinDuration: duration,
 			MaxDuration: duration,
 		}
-		mc.nodeMetrics[nodeType] = metrics
+		mc.nodeMetrics[nodeID] = metrics
 	}
 
 	metrics.ExecutionCount++
@@ -181,19 +185,63 @@ func (mc *MetricsCollector) GetAllWorkflowMetrics() map[string]*WorkflowMetrics 
 	return result
 }
 
-// GetNodeMetrics returns metrics for a specific node type.
-func (mc *MetricsCollector) GetNodeMetrics(nodeType string) *NodeMetrics {
+// GetNodeMetricsByID returns metrics for a specific node ID.
+func (mc *MetricsCollector) GetNodeMetricsByID(nodeID string) *NodeMetrics {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
-	if metrics, ok := mc.nodeMetrics[nodeType]; ok {
+	if metrics, ok := mc.nodeMetrics[nodeID]; ok {
 		c := *metrics
 		return &c
 	}
 	return nil
 }
 
-// GetAllNodeMetrics returns metrics for all node types.
+// GetNodeMetricsByType returns aggregated metrics for a specific node type.
+func (mc *MetricsCollector) GetNodeMetricsByType(nodeType string) *NodeMetrics {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
+	aggregated := &NodeMetrics{
+		NodeType: nodeType,
+	}
+
+	found := false
+	for _, m := range mc.nodeMetrics {
+		if m.NodeType == nodeType {
+			if !found {
+				aggregated.MinDuration = m.MinDuration
+				aggregated.MaxDuration = m.MaxDuration
+				found = true
+			}
+
+			aggregated.ExecutionCount += m.ExecutionCount
+			aggregated.SuccessCount += m.SuccessCount
+			aggregated.FailureCount += m.FailureCount
+			aggregated.RetryCount += m.RetryCount
+			aggregated.TotalDuration += m.TotalDuration
+
+			if m.MinDuration < aggregated.MinDuration {
+				aggregated.MinDuration = m.MinDuration
+			}
+			if m.MaxDuration > aggregated.MaxDuration {
+				aggregated.MaxDuration = m.MaxDuration
+			}
+		}
+	}
+
+	if !found {
+		return nil
+	}
+
+	if aggregated.ExecutionCount > 0 {
+		aggregated.AverageDuration = aggregated.TotalDuration / time.Duration(aggregated.ExecutionCount)
+	}
+
+	return aggregated
+}
+
+// GetAllNodeMetrics returns metrics for all nodes.
 func (mc *MetricsCollector) GetAllNodeMetrics() map[string]*NodeMetrics {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()

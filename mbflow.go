@@ -9,6 +9,42 @@ import (
 	"mbflow/internal/infrastructure/monitoring"
 )
 
+// NodeExecutorType represents the type of a node executor.
+// This is a type alias for string, allowing seamless use of string literals
+// while providing convenient predefined constants.
+type NodeExecutorType = executor.NodeExecutorType
+
+// Node executor type constants.
+// These define all available node types in the system.
+const (
+	// NodeTypeOpenAICompletion represents an OpenAI completion node.
+	NodeTypeOpenAICompletion = executor.NodeTypeOpenAICompletion
+
+	// NodeTypeOpenAIResponses represents an OpenAI Responses API node.
+	NodeTypeOpenAIResponses = executor.NodeTypeOpenAIResponses
+
+	// NodeTypeHTTPRequest represents an HTTP request node.
+	NodeTypeHTTPRequest = executor.NodeTypeHTTPRequest
+
+	// NodeTypeTelegramMessage represents a Telegram message node.
+	NodeTypeTelegramMessage = executor.NodeTypeTelegramMessage
+
+	// NodeTypeConditionalRouter represents a conditional routing node.
+	NodeTypeConditionalRouter = executor.NodeTypeConditionalRouter
+
+	// NodeTypeDataMerger represents a data merger node.
+	NodeTypeDataMerger = executor.NodeTypeDataMerger
+
+	// NodeTypeDataAggregator represents a data aggregator node.
+	NodeTypeDataAggregator = executor.NodeTypeDataAggregator
+
+	// NodeTypeScriptExecutor represents a script executor node.
+	NodeTypeScriptExecutor = executor.NodeTypeScriptExecutor
+
+	// NodeTypeJSONParser represents a JSON parser node.
+	NodeTypeJSONParser = executor.NodeTypeJSONParser
+)
+
 // Workflow represents a workflow process.
 type Workflow interface {
 	ID() string
@@ -249,17 +285,32 @@ type ExecutionObserver interface {
 // ExecutorMetrics provides execution metrics.
 type ExecutorMetrics interface {
 	// GetWorkflowMetrics returns metrics for a workflow
-	GetWorkflowMetrics(workflowID string) map[string]interface{}
+	GetWorkflowMetrics(workflowID string) *WorkflowMetrics
 
-	// GetNodeMetrics returns metrics for a node type
-	GetNodeMetrics(nodeType string) map[string]interface{}
+	// GetNodeMetrics returns aggregated metrics for a node type
+	GetNodeMetrics(nodeType string) *NodeMetrics
+
+	// GetNodeMetricsByID returns metrics for a specific node ID
+	GetNodeMetricsByID(nodeID string) *NodeMetrics
 
 	// GetAIMetrics returns AI API usage metrics
-	GetAIMetrics() map[string]interface{}
+	GetAIMetrics() *AIMetrics
 
 	// GetSummary returns a summary of all metrics
-	GetSummary() map[string]interface{}
+	GetSummary() *MetricsSummary
 }
+
+// WorkflowMetrics represents metrics for a workflow.
+type WorkflowMetrics = monitoring.WorkflowMetrics
+
+// NodeMetrics represents metrics for a node type.
+type NodeMetrics = monitoring.NodeMetrics
+
+// AIMetrics represents AI API usage metrics.
+type AIMetrics = monitoring.AIMetrics
+
+// MetricsSummary represents a summary of all collected metrics.
+type MetricsSummary = monitoring.MetricsSummary
 
 // ExecutorConfig configures the workflow executor.
 type ExecutorConfig struct {

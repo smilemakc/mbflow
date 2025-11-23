@@ -73,7 +73,7 @@ func main() {
 	nodeGenerateContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Initial Content",
 		Config: map[string]any{
 			"model":       "gpt-4o",
@@ -91,7 +91,7 @@ func main() {
 	nodeAnalyzeQuality, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Analyze Content Quality",
 		Config: map[string]any{
 			"model":       "gpt-4o",
@@ -109,7 +109,7 @@ func main() {
 	nodeQualityRouter, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "conditional-router",
+		Type:       mbflow.NodeTypeConditionalRouter,
 		Name:       "Route Based on Quality",
 		Config: map[string]any{
 			"input_key": "quality_rating",
@@ -128,7 +128,7 @@ func main() {
 	nodeEnhanceContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Enhance Content",
 		Config: map[string]any{
 			"model": "gpt-4o",
@@ -154,7 +154,7 @@ Provide the enhanced version:`,
 	nodeRegenerateContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Regenerate Content",
 		Config: map[string]any{
 			"model": "gpt-4o",
@@ -178,7 +178,7 @@ Requirements:
 	nodeMergeContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "data-merger",
+		Type:       mbflow.NodeTypeDataMerger,
 		Name:       "Merge Content Versions",
 		Config: map[string]any{
 			"strategy":   "select_first_available",
@@ -194,7 +194,7 @@ Requirements:
 	nodeTranslateSpanish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Translate to Spanish",
 		Config: map[string]any{
 			"model":       "gpt-4o",
@@ -212,7 +212,7 @@ Requirements:
 	nodeTranslateRussian, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Translate to Russian",
 		Config: map[string]any{
 			"model":       "gpt-4o",
@@ -230,7 +230,7 @@ Requirements:
 	nodeTranslateGerman, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Translate to German",
 		Config: map[string]any{
 			"model":       "gpt-4o",
@@ -248,7 +248,7 @@ Requirements:
 	nodeGenerateSEOEnglish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate SEO Metadata (EN)",
 		Config: map[string]any{
 			"model": "gpt-4o",
@@ -274,7 +274,7 @@ Content: {{final_content}}`,
 	nodeGenerateSEOSpanish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate SEO Metadata (ES)",
 		Config: map[string]any{
 			"model": "gpt-4o",
@@ -300,7 +300,7 @@ Content: {{content_es}}`,
 	nodeGenerateSEORussian, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate SEO Metadata (RU)",
 		Config: map[string]any{
 			"model": "gpt-4o",
@@ -326,7 +326,7 @@ Content: {{content_ru}}`,
 	nodeGenerateSEOGerman, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate SEO Metadata (DE)",
 		Config: map[string]any{
 			"model": "gpt-4o",
@@ -352,7 +352,7 @@ Content: {{content_de}}`,
 	nodeAggregateResults, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "data-aggregator",
+		Type:       mbflow.NodeTypeDataAggregator,
 		Name:       "Aggregate All Results",
 		Config: map[string]any{
 			"output_format": "json",
@@ -601,46 +601,24 @@ Content: {{content_de}}`,
 	fmt.Println()
 
 	// Display metrics
-	fmt.Println("\n=== Execution Metrics ===\n")
-	metrics := executor.GetMetrics()
-
-	summary := metrics.GetSummary()
-	fmt.Println("Summary:")
-	for key, value := range summary {
-		fmt.Printf("  %s: %v\n", key, value)
+	// Display metrics
+	nodeIDs := []string{
+		nodeGenerateContent.ID(),
+		nodeAnalyzeQuality.ID(),
+		nodeQualityRouter.ID(),
+		nodeEnhanceContent.ID(),
+		nodeRegenerateContent.ID(),
+		nodeMergeContent.ID(),
+		nodeTranslateSpanish.ID(),
+		nodeTranslateRussian.ID(),
+		nodeTranslateGerman.ID(),
+		nodeGenerateSEOEnglish.ID(),
+		nodeGenerateSEOSpanish.ID(),
+		nodeGenerateSEORussian.ID(),
+		nodeGenerateSEOGerman.ID(),
+		nodeAggregateResults.ID(),
 	}
-
-	// Display workflow metrics
-	fmt.Println("\nWorkflow Metrics:")
-	workflowMetrics := metrics.GetWorkflowMetrics(workflowID)
-	if workflowMetrics != nil {
-		for key, value := range workflowMetrics {
-			fmt.Printf("  %s: %v\n", key, value)
-		}
-	}
-
-	// Display node metrics
-	fmt.Println("\nNode Type Metrics:")
-	nodeTypes := []string{"openai-completion", "data-merger", "data-aggregator", "conditional-router"}
-
-	for _, nodeType := range nodeTypes {
-		nodeMetrics := metrics.GetNodeMetrics(nodeType)
-		if nodeMetrics != nil {
-			fmt.Printf("\n  %s:\n", nodeType)
-			for key, value := range nodeMetrics {
-				fmt.Printf("    %s: %v\n", key, value)
-			}
-		}
-	}
-
-	// Display AI metrics
-	fmt.Println("\nAI API Metrics:")
-	aiMetrics := metrics.GetAIMetrics()
-	if aiMetrics != nil {
-		for key, value := range aiMetrics {
-			fmt.Printf("  %s: %v\n", key, value)
-		}
-	}
+	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, true)
 
 	fmt.Println("\n=== Demo Complete ===")
 	fmt.Println("\nNote: This workflow demonstrates:")

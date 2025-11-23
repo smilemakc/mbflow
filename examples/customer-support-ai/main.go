@@ -81,7 +81,7 @@ func main() {
 	nodeExtractInfo, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Extract Customer Information",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -109,7 +109,7 @@ Return JSON with:
 	nodeClassifyInquiry, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Classify Inquiry Type",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -139,7 +139,7 @@ Respond with ONLY the category name.`,
 	nodeAnalyzeSentiment, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Analyze Customer Sentiment",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -161,7 +161,7 @@ Respond with ONLY one word: positive, neutral, or negative`,
 	nodeCheckBilling, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "conditional-router",
+		Type:       mbflow.NodeTypeConditionalRouter,
 		Name:       "Check if Billing Inquiry",
 		Config: map[string]any{
 			"input_key": "inquiry_type",
@@ -179,7 +179,7 @@ Respond with ONLY one word: positive, neutral, or negative`,
 	nodeFetchAccount, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Fetch Account Status",
 		Config: map[string]any{
 			"url":    "http://localhost:8081/accounts/{{customer_info.order_id}}",
@@ -198,7 +198,7 @@ Respond with ONLY one word: positive, neutral, or negative`,
 	nodeAnalyzeAccount, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Analyze Account Status",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -226,7 +226,7 @@ Respond with ONE of:
 	nodeCheckEscalation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Check Escalation Criteria",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -258,7 +258,7 @@ Respond with ONLY one word: escalate or generate_response`,
 	nodeEscalate, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Escalate to Human Agent",
 		Config: map[string]any{
 			"url":    "http://localhost:8081/support/escalate",
@@ -281,7 +281,7 @@ Respond with ONLY one word: escalate or generate_response`,
 	nodeGenerateContext, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Response Context",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -313,7 +313,7 @@ Generate a JSON with:
 	nodeGenerateResponse, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Customer Response",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -344,7 +344,7 @@ Requirements:
 	nodeQualityCheck, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Quality Check Response",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -374,11 +374,26 @@ Respond with JSON:
 		log.Fatalf("Failed to create nodeQualityCheck: %v", err)
 	}
 
+	// Node 11.5: Parse quality score JSON
+	nodeParseQuality, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       mbflow.NodeTypeJSONParser,
+		Name:       "Parse Quality Score JSON",
+		Config: map[string]any{
+			"input_key": "quality_score",
+			// output_key defaults to input_key, so quality_score will be overwritten with parsed object
+		},
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeParseQuality: %v", err)
+	}
+
 	// Node 12: Check quality score
 	nodeCheckQuality, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "conditional-router",
+		Type:       mbflow.NodeTypeConditionalRouter,
 		Name:       "Check Quality Score",
 		Config: map[string]any{
 			"input_key": "quality_score.pass",
@@ -396,7 +411,7 @@ Respond with JSON:
 	nodeRegenerateResponse, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Regenerate Response with Feedback",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -421,7 +436,7 @@ Generate a better response addressing the identified issues.`,
 	nodeMergeResponses, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "data-merger",
+		Type:       mbflow.NodeTypeDataMerger,
 		Name:       "Merge Responses",
 		Config: map[string]any{
 			"strategy":   "select_first_available",
@@ -437,7 +452,7 @@ Generate a better response addressing the identified issues.`,
 	nodePersonalizeResponse, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Personalize Response",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -465,7 +480,7 @@ Add:
 	nodeGenerateFollowUp, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Follow-up Suggestions",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -495,7 +510,7 @@ Generate JSON:
 	nodeSendResponse, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Send Response to Customer",
 		Config: map[string]any{
 			"url":    "http://localhost:8081/support/send",
@@ -516,7 +531,7 @@ Generate JSON:
 	nodeLogInteraction, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Log Interaction",
 		Config: map[string]any{
 			"url":    "http://localhost:8081/analytics/log",
@@ -540,7 +555,7 @@ Generate JSON:
 		nodeExtractInfo, nodeClassifyInquiry, nodeAnalyzeSentiment,
 		nodeCheckBilling, nodeFetchAccount, nodeAnalyzeAccount,
 		nodeCheckEscalation, nodeEscalate, nodeGenerateContext,
-		nodeGenerateResponse, nodeQualityCheck, nodeCheckQuality,
+		nodeGenerateResponse, nodeQualityCheck, nodeParseQuality, nodeCheckQuality,
 		nodeRegenerateResponse, nodeMergeResponses, nodePersonalizeResponse,
 		nodeGenerateFollowUp, nodeSendResponse, nodeLogInteraction,
 	}
@@ -566,7 +581,8 @@ Generate JSON:
 		// Response generation
 		Direct(nodeGenerateContext, nodeGenerateResponse).
 		Direct(nodeGenerateResponse, nodeQualityCheck).
-		Direct(nodeQualityCheck, nodeCheckQuality).
+		Direct(nodeQualityCheck, nodeParseQuality).
+		Direct(nodeParseQuality, nodeCheckQuality).
 		// Quality branching
 		Conditional(nodeCheckQuality, nodeMergeResponses, "quality_score.pass == true").
 		Conditional(nodeCheckQuality, nodeRegenerateResponse, "quality_score.pass == false").
@@ -740,46 +756,26 @@ Generate JSON:
 	fmt.Println()
 
 	// Display metrics
-	fmt.Println("\n=== Execution Metrics ===\n")
-	metrics := executor.GetMetrics()
-
-	summary := metrics.GetSummary()
-	fmt.Println("Summary:")
-	for key, value := range summary {
-		fmt.Printf("  %s: %v\n", key, value)
+	nodeIDs := []string{
+		nodeExtractInfo.ID(),
+		nodeClassifyInquiry.ID(),
+		nodeAnalyzeSentiment.ID(),
+		nodeCheckBilling.ID(),
+		nodeFetchAccount.ID(),
+		nodeAnalyzeAccount.ID(),
+		nodeCheckEscalation.ID(),
+		nodeEscalate.ID(),
+		nodeGenerateContext.ID(),
+		nodeGenerateResponse.ID(),
+		nodeQualityCheck.ID(),
+		nodeParseQuality.ID(),
+		nodeCheckQuality.ID(),
+		nodeRegenerateResponse.ID(),
+		nodeMergeResponses.ID(),
+		nodePersonalizeResponse.ID(),
+		nodeGenerateFollowUp.ID(),
 	}
-
-	// Display workflow metrics
-	fmt.Println("\nWorkflow Metrics:")
-	workflowMetrics := metrics.GetWorkflowMetrics(workflowID)
-	if workflowMetrics != nil {
-		for key, value := range workflowMetrics {
-			fmt.Printf("  %s: %v\n", key, value)
-		}
-	}
-
-	// Display node metrics
-	fmt.Println("\nNode Type Metrics:")
-	nodeTypes := []string{"openai-completion", "http-request", "conditional-router", "data-merger"}
-
-	for _, nodeType := range nodeTypes {
-		nodeMetrics := metrics.GetNodeMetrics(nodeType)
-		if nodeMetrics != nil {
-			fmt.Printf("\n  %s:\n", nodeType)
-			for key, value := range nodeMetrics {
-				fmt.Printf("    %s: %v\n", key, value)
-			}
-		}
-	}
-
-	// Display AI metrics
-	fmt.Println("\nAI API Metrics:")
-	aiMetrics := metrics.GetAIMetrics()
-	if aiMetrics != nil {
-		for key, value := range aiMetrics {
-			fmt.Printf("  %s: %v\n", key, value)
-		}
-	}
+	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, true)
 
 	fmt.Println("\n=== Demo Complete ===")
 	fmt.Println("\nNote: This workflow demonstrates:")

@@ -52,7 +52,7 @@ func main() {
 	nodeFetchSales, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Fetch Sales Data",
 		Config: map[string]any{
 			"url":    "https://api.example.com/data/sales?period={{period}}",
@@ -71,7 +71,7 @@ func main() {
 	nodeFetchCustomers, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Fetch Customer Data",
 		Config: map[string]any{
 			"url":    "https://api.example.com/data/customers?period={{period}}",
@@ -90,7 +90,7 @@ func main() {
 	nodeFetchMarketing, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Fetch Marketing Data",
 		Config: map[string]any{
 			"url":    "https://api.example.com/data/marketing?period={{period}}",
@@ -109,7 +109,7 @@ func main() {
 	nodeFetchOperations, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Fetch Operational Data",
 		Config: map[string]any{
 			"url":    "https://api.example.com/data/operations?period={{period}}",
@@ -128,7 +128,7 @@ func main() {
 	nodeValidateData, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Validate Data Quality",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -227,7 +227,7 @@ return metrics;
 	nodeDetectAnomalies, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Detect Anomalies",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -268,7 +268,7 @@ Return JSON:
 	nodeCheckDeepDive, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "conditional-router",
+		Type:       mbflow.NodeTypeConditionalRouter,
 		Name:       "Check Deep Dive Required",
 		Config: map[string]any{
 			"input_key": "anomaly_report.requires_deep_dive",
@@ -286,7 +286,7 @@ Return JSON:
 	nodeDeepDiveAnalysis, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Deep Dive Analysis",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -316,7 +316,7 @@ Provide detailed analysis in JSON format.`,
 	nodeGenerateAlerts, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Critical Alerts",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -346,7 +346,7 @@ Format as JSON array of alerts.`,
 	nodeSendAlerts, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Send Critical Alerts",
 		Config: map[string]any{
 			"url":    "https://api.example.com/alerts/send",
@@ -366,7 +366,7 @@ Format as JSON array of alerts.`,
 	nodeGenerateInsights, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Business Insights",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -398,7 +398,7 @@ Format as structured JSON.`,
 	nodeGenerateVizSpecs, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Visualization Specifications",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -428,7 +428,7 @@ Return JSON with chart configurations (type, data, options).`,
 	nodeCreateVisualizations, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Create Visualizations",
 		Config: map[string]any{
 			"url":    "https://api.example.com/charts/generate",
@@ -448,7 +448,7 @@ Return JSON with chart configurations (type, data, options).`,
 	nodeGenerateExecutiveSummary, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Executive Summary",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -479,7 +479,7 @@ Keep it under 300 words, focus on business impact.`,
 	nodeGenerateDetailedReport, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Detailed Report",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -516,7 +516,7 @@ Write in professional business language.`,
 	nodeDetermineDistribution, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Determine Distribution Strategy",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -548,7 +548,7 @@ Return JSON:
 	nodeDistributeExecutives, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Distribute to Executives",
 		Config: map[string]any{
 			"url":    "https://api.example.com/reports/distribute",
@@ -569,7 +569,7 @@ Return JSON:
 	nodeDistributeDetailed, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Distribute Detailed Report",
 		Config: map[string]any{
 			"url":    "https://api.example.com/reports/distribute",
@@ -590,7 +590,7 @@ Return JSON:
 	nodeUpdateDashboard, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Update Analytics Dashboard",
 		Config: map[string]any{
 			"url":    "https://api.example.com/dashboard/update",
@@ -611,7 +611,7 @@ Return JSON:
 	nodeArchiveReport, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Archive Report",
 		Config: map[string]any{
 			"url":    "https://api.example.com/reports/archive",

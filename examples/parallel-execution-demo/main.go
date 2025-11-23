@@ -231,46 +231,8 @@ func main() {
 	}
 
 	// Display metrics
-	fmt.Println("\n=== Execution Metrics ===\n")
-	metrics := executor.GetMetrics()
-
-	summary := metrics.GetSummary()
-	fmt.Println("Summary:")
-	for key, value := range summary {
-		fmt.Printf("  %s: %v\n", key, value)
-	}
-
-	// Display workflow metrics
-	fmt.Println("\nWorkflow Metrics:")
-	workflowMetrics := metrics.GetWorkflowMetrics(workflowID)
-	if workflowMetrics != nil {
-		for key, value := range workflowMetrics {
-			fmt.Printf("  %s: %v\n", key, value)
-		}
-	}
-
-	// Display node metrics
-	fmt.Println("\nNode Type Metrics:")
-	nodeTypes := []string{"openai-completion", "data-aggregator"}
-
-	for _, nodeType := range nodeTypes {
-		nodeMetrics := metrics.GetNodeMetrics(nodeType)
-		if nodeMetrics != nil {
-			fmt.Printf("\n  %s:\n", nodeType)
-			for key, value := range nodeMetrics {
-				fmt.Printf("    %s: %v\n", key, value)
-			}
-		}
-	}
-
-	// Display AI metrics
-	fmt.Println("\nAI API Metrics:")
-	aiMetrics := metrics.GetAIMetrics()
-	if aiMetrics != nil {
-		for key, value := range aiMetrics {
-			fmt.Printf("  %s: %v\n", key, value)
-		}
-	}
+	nodeIDs := []string{"start", "task-1", "task-2", "task-3", "join"}
+	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, true)
 
 	fmt.Println("\n=== Demo Complete ===")
 	fmt.Println("\nNote: The three OpenAI tasks executed in parallel,")

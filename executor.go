@@ -53,6 +53,7 @@ func NewExecutor(config *ExecutorConfig) Executor {
 	// Register OpenAI executor (API key can come from node config or context)
 	// Always register to allow API key from node config or execution context
 	engine.RegisterExecutor(executor.NewOpenAICompletionExecutorWithMetrics(config.OpenAIAPIKey, metrics))
+	engine.RegisterExecutor(executor.NewOpenAIResponsesExecutorWithMetrics(config.OpenAIAPIKey, metrics))
 
 	return &workflowExecutor{
 		engine:  engine,
@@ -128,70 +129,24 @@ type metricsAdapter struct {
 	metrics *monitoring.MetricsCollector
 }
 
-func (ma *metricsAdapter) GetWorkflowMetrics(workflowID string) map[string]interface{} {
-	metrics := ma.metrics.GetWorkflowMetrics(workflowID)
-	if metrics == nil {
-		return nil
-	}
-
-	return map[string]interface{}{
-		"workflow_id":      metrics.WorkflowID,
-		"execution_count":  metrics.ExecutionCount,
-		"success_count":    metrics.SuccessCount,
-		"failure_count":    metrics.FailureCount,
-		"average_duration": metrics.AverageDuration.String(),
-		"min_duration":     metrics.MinDuration.String(),
-		"max_duration":     metrics.MaxDuration.String(),
-	}
+func (ma *metricsAdapter) GetWorkflowMetrics(workflowID string) *WorkflowMetrics {
+	return ma.metrics.GetWorkflowMetrics(workflowID)
 }
 
-func (ma *metricsAdapter) GetNodeMetrics(nodeType string) map[string]interface{} {
-	metrics := ma.metrics.GetNodeMetrics(nodeType)
-	if metrics == nil {
-		return nil
-	}
-
-	return map[string]interface{}{
-		"node_type":        metrics.NodeType,
-		"execution_count":  metrics.ExecutionCount,
-		"success_count":    metrics.SuccessCount,
-		"failure_count":    metrics.FailureCount,
-		"retry_count":      metrics.RetryCount,
-		"average_duration": metrics.AverageDuration.String(),
-	}
+func (ma *metricsAdapter) GetNodeMetrics(nodeType string) *monitoring.NodeMetrics {
+	return ma.metrics.GetNodeMetricsByType(nodeType)
 }
 
-func (ma *metricsAdapter) GetAIMetrics() map[string]interface{} {
-	metrics := ma.metrics.GetAIMetrics()
-	if metrics == nil {
-		return nil
-	}
-
-	return map[string]interface{}{
-		"total_requests":     metrics.TotalRequests,
-		"total_tokens":       metrics.TotalTokens,
-		"prompt_tokens":      metrics.PromptTokens,
-		"completion_tokens":  metrics.CompletionTokens,
-		"estimated_cost_usd": metrics.EstimatedCostUSD,
-		"average_latency_ms": metrics.AverageLatency.Milliseconds(),
-	}
+func (ma *metricsAdapter) GetNodeMetricsByID(nodeID string) *monitoring.NodeMetrics {
+	return ma.metrics.GetNodeMetricsByID(nodeID)
 }
 
-func (ma *metricsAdapter) GetSummary() map[string]interface{} {
-	summary := ma.metrics.GetSummary()
+func (ma *metricsAdapter) GetAIMetrics() *AIMetrics {
+	return ma.metrics.GetAIMetrics()
+}
 
-	return map[string]interface{}{
-		"total_workflows":       summary.TotalWorkflows,
-		"total_executions":      summary.TotalExecutions,
-		"total_successes":       summary.TotalSuccesses,
-		"total_failures":        summary.TotalFailures,
-		"overall_success_rate":  summary.OverallSuccessRate,
-		"total_node_executions": summary.TotalNodeExecutions,
-		"total_node_retries":    summary.TotalNodeRetries,
-		"total_ai_requests":     summary.TotalAIRequests,
-		"total_ai_tokens":       summary.TotalAITokens,
-		"estimated_ai_cost_usd": summary.EstimatedAICostUSD,
-	}
+func (ma *metricsAdapter) GetSummary() *MetricsSummary {
+	return ma.metrics.GetSummary()
 }
 
 // observerAdapter adapts public ExecutionObserver to internal observer.
@@ -272,18 +227,26 @@ type metricsObserverAdapter struct {
 func (moa *metricsObserverAdapter) OnExecutionStarted(workflowID, executionID string) {}
 
 func (moa *metricsObserverAdapter) OnExecutionCompleted(workflowID, executionID string, duration time.Duration) {
+	moa.metrics.RecordWorkflowExecution(workflowID, duration, true)
 }
 
 func (moa *metricsObserverAdapter) OnExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
+	moa.metrics.RecordWorkflowExecution(workflowID, duration, false)
 }
 
 func (moa *metricsObserverAdapter) OnNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
 }
 
 func (moa *metricsObserverAdapter) OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
+	if node != nil {
+		moa.metrics.RecordNodeExecution(node.ID(), node.Type(), node.Name(), duration, true, false)
+	}
 }
 
 func (moa *metricsObserverAdapter) OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
+	if node != nil {
+		moa.metrics.RecordNodeExecution(node.ID(), node.Type(), node.Name(), duration, false, willRetry)
+	}
 }
 
 func (moa *metricsObserverAdapter) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {

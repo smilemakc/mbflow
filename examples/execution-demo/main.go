@@ -142,51 +142,9 @@ func main() {
 	}
 
 	// Display metrics
-	fmt.Println("\n=== Execution Metrics ===\n")
-	metrics := executor.GetMetrics()
-
-	summary := metrics.GetSummary()
-	fmt.Println("Summary:")
-	for key, value := range summary {
-		fmt.Printf("  %s: %v\n", key, value)
-	}
-
-	// Display workflow metrics
-	fmt.Println("\nWorkflow Metrics:")
-	workflowMetrics := metrics.GetWorkflowMetrics(workflowID)
-	if workflowMetrics != nil {
-		for key, value := range workflowMetrics {
-			fmt.Printf("  %s: %v\n", key, value)
-		}
-	}
-
-	// Display node metrics
-	fmt.Println("\nNode Type Metrics:")
-	nodeTypes := []string{"data-merger", "data-aggregator", "conditional-router"}
-	if apiKey != "" {
-		nodeTypes = append(nodeTypes, "openai-completion")
-	}
-
-	for _, nodeType := range nodeTypes {
-		nodeMetrics := metrics.GetNodeMetrics(nodeType)
-		if nodeMetrics != nil {
-			fmt.Printf("\n  %s:\n", nodeType)
-			for key, value := range nodeMetrics {
-				fmt.Printf("    %s: %v\n", key, value)
-			}
-		}
-	}
-
-	// Display AI metrics if available
-	if apiKey != "" {
-		fmt.Println("\nAI API Metrics:")
-		aiMetrics := metrics.GetAIMetrics()
-		if aiMetrics != nil {
-			for key, value := range aiMetrics {
-				fmt.Printf("  %s: %v\n", key, value)
-			}
-		}
-	}
+	// Display metrics
+	nodeIDs := []string{"merge-data", "aggregate-data", "check-condition", "process-ai"}
+	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, apiKey != "")
 
 	fmt.Println("\n=== Demo Complete ===")
 }

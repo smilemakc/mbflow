@@ -64,7 +64,7 @@ func main() {
 	nodeExtractProduct, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-responses",
+		Type:       mbflow.NodeTypeOpenAIResponses,
 		Name:       "Extract Product Information",
 		Config: map[string]any{
 			"model":  "gpt-4o",
@@ -130,7 +130,7 @@ func main() {
 	nodeGenerateRecommendation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-responses",
+		Type:       mbflow.NodeTypeOpenAIResponses,
 		Name:       "Generate Product Recommendation",
 		Config: map[string]any{
 			"model":  "gpt-4o",
@@ -251,6 +251,11 @@ func main() {
 		fmt.Println(string(prettyJSON))
 		fmt.Println()
 	}
+	var nodeIDs []string
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.NodeID)
+	}
+	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, true)
 
 	fmt.Println("\n=== Demo Completed Successfully ===")
 }

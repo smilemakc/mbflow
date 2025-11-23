@@ -52,7 +52,7 @@ func main() {
 	nodeFetchChanges, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Fetch Code Changes",
 		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/files",
@@ -72,7 +72,7 @@ func main() {
 	nodeFetchPRContext, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Fetch PR Context",
 		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}",
@@ -91,7 +91,7 @@ func main() {
 	nodeAnalyzeComplexity, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Analyze Code Complexity",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -138,7 +138,7 @@ Return JSON:
 	nodeSecurityScan, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Security Vulnerability Scan",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -185,7 +185,7 @@ Return JSON:
 	nodeCheckTestCoverage, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Analyze Test Coverage",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -221,7 +221,7 @@ Return JSON:
 	nodeGenerateReview, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Code Review",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -274,7 +274,7 @@ Return structured JSON with:
 	nodeCheckSeverity, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "conditional-router",
+		Type:       mbflow.NodeTypeConditionalRouter,
 		Name:       "Route Based on Severity",
 		Config: map[string]any{
 			"input_key": "code_review.severity",
@@ -294,7 +294,7 @@ Return structured JSON with:
 	nodeBlockMerge, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Blocking Issues Report",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -324,7 +324,7 @@ Format as a professional, constructive report.`,
 	nodePostBlockingComment, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Post Blocking Comment",
 		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews",
@@ -346,7 +346,7 @@ Format as a professional, constructive report.`,
 	nodeCheckRefactoring, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "conditional-router",
+		Type:       mbflow.NodeTypeConditionalRouter,
 		Name:       "Check Refactoring Needed",
 		Config: map[string]any{
 			"input_key": "code_review.refactoring_needed",
@@ -364,7 +364,7 @@ Format as a professional, constructive report.`,
 	nodeGenerateRefactoringPlan, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Refactoring Plan",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -395,7 +395,7 @@ Return JSON with detailed plan.`,
 	nodeGenerateRefactoredCode, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Refactored Code",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -425,7 +425,7 @@ Provide complete refactored files.`,
 	nodeValidateRefactoring, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Validate Refactored Code",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -461,7 +461,7 @@ Return JSON:
 	nodeCheckRefactoringValidation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "conditional-router",
+		Type:       mbflow.NodeTypeConditionalRouter,
 		Name:       "Check Refactoring Validation",
 		Config: map[string]any{
 			"input_key": "refactoring_validation.recommendation",
@@ -480,7 +480,7 @@ Return JSON:
 	nodeCreateRefactoringPR, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Create Refactoring PR",
 		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls",
@@ -513,7 +513,7 @@ Improvements:
 	nodePostRefactoringSuggestions, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Post Refactoring Suggestions",
 		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/comments",
@@ -542,7 +542,7 @@ Improvements:
 	nodePostReviewComments, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Post Review Comments",
 		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews",
@@ -565,7 +565,7 @@ Improvements:
 	nodeApproveWithSuggestions, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Approve with Suggestions",
 		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews",
@@ -592,7 +592,7 @@ Improvements:
 	nodeApproveDirect, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Approve Directly",
 		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews",
@@ -619,7 +619,7 @@ Improvements:
 	nodeGenerateDocumentation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "openai-completion",
+		Type:       mbflow.NodeTypeOpenAICompletion,
 		Name:       "Generate Documentation",
 		Config: map[string]any{
 			"model": "gpt-4",
@@ -648,7 +648,7 @@ Format as markdown.`,
 	nodeUpdateMetrics, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Update Code Quality Metrics",
 		Config: map[string]any{
 			"url":    "https://api.example.com/metrics/code-quality",
@@ -672,7 +672,7 @@ Format as markdown.`,
 	nodeSendSummary, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "http-request",
+		Type:       mbflow.NodeTypeHTTPRequest,
 		Name:       "Send Summary Notification",
 		Config: map[string]any{
 			"url":    "https://api.example.com/notifications/send",

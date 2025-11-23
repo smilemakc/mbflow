@@ -63,10 +63,11 @@ func demoBasicMetrics() {
 	metrics.RecordWorkflowExecution("workflow-1", 280*time.Millisecond, false)
 
 	// Simulate node executions
-	metrics.RecordNodeExecution("http", 100*time.Millisecond, true, false)
-	metrics.RecordNodeExecution("http", 120*time.Millisecond, false, false)
-	metrics.RecordNodeExecution("http", 110*time.Millisecond, true, true) // retry
-	metrics.RecordNodeExecution("transform", 50*time.Millisecond, true, false)
+	// Simulate node executions
+	metrics.RecordNodeExecution("node-1", "http", "HTTP Request", 100*time.Millisecond, true, false)
+	metrics.RecordNodeExecution("node-1", "http", "HTTP Request", 120*time.Millisecond, false, false)
+	metrics.RecordNodeExecution("node-1", "http", "HTTP Request", 110*time.Millisecond, true, true) // retry
+	metrics.RecordNodeExecution("node-2", "transform", "Data Transform", 50*time.Millisecond, true, false)
 
 	// Simulate AI requests
 	metrics.RecordAIRequest(500, 200, 2*time.Second)
@@ -253,7 +254,7 @@ func demoMetricsPersistence(metricsDir string) {
 	for i := 0; i < 3; i++ {
 		metrics.RecordWorkflowExecution("workflow-persistent",
 			time.Duration(200+i*50)*time.Millisecond, true)
-		metrics.RecordNodeExecution("http",
+		metrics.RecordNodeExecution("node-http", "http", "HTTP Request",
 			time.Duration(100+i*10)*time.Millisecond, true, false)
 
 		fmt.Printf("Recorded execution %d\n", i+1)

@@ -107,6 +107,20 @@ type ScriptExecutorConfig struct {
 	OutputKey string `json:"output_key,omitempty"`
 }
 
+// JSONParserConfig represents the configuration for a JSON parser node.
+// This executor parses JSON strings into structured objects for nested field access.
+type JSONParserConfig struct {
+	// InputKey is the variable key containing the JSON string to parse
+	InputKey string `json:"input_key"`
+
+	// OutputKey is the key to store the parsed object (default: same as InputKey)
+	OutputKey string `json:"output_key,omitempty"`
+
+	// FailOnError determines whether to fail the node on parse errors (default: true)
+	// If false, the original value will be passed through on parse errors
+	FailOnError bool `json:"fail_on_error,omitempty"`
+}
+
 // OpenAIResponsesConfig represents the configuration for an OpenAI Responses API node.
 // This executor supports structured JSON responses using the OpenAI Responses API.
 type OpenAIResponsesConfig struct {

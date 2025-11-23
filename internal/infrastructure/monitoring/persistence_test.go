@@ -16,7 +16,7 @@ func TestSaveAndLoadMetrics(t *testing.T) {
 	collector := NewMetricsCollector()
 	collector.RecordWorkflowExecution("workflow-1", 100*time.Millisecond, true)
 	collector.RecordWorkflowExecution("workflow-1", 150*time.Millisecond, true)
-	collector.RecordNodeExecution("http", 50*time.Millisecond, true, false)
+	collector.RecordNodeExecution("node-1", "http", "HTTP Request", 50*time.Millisecond, true, false)
 	collector.RecordAIRequest(500, 200, 2*time.Second)
 
 	// Create snapshot and save

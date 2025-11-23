@@ -58,7 +58,7 @@ func NewOpenAICompletionExecutorWithMetrics(apiKey string, metrics *monitoring.M
 
 // Type returns the node type.
 func (e *OpenAICompletionExecutor) Type() string {
-	return "openai-completion"
+	return NodeTypeOpenAICompletion
 }
 
 // Execute executes an OpenAI completion node.
@@ -216,7 +216,7 @@ func NewOpenAIResponsesExecutorWithMetrics(apiKey string, metrics *monitoring.Me
 
 // Type returns the node type.
 func (e *OpenAIResponsesExecutor) Type() string {
-	return "openai-responses"
+	return NodeTypeOpenAIResponses
 }
 
 // Execute executes an OpenAI Responses API node.
@@ -434,7 +434,7 @@ func NewHTTPRequestExecutor() *HTTPRequestExecutor {
 
 // Type returns the node type.
 func (e *HTTPRequestExecutor) Type() string {
-	return "http-request"
+	return NodeTypeHTTPRequest
 }
 
 // Execute executes an HTTP request node.
@@ -581,7 +581,7 @@ func NewTelegramMessageExecutor() *TelegramMessageExecutor {
 
 // Type returns the node type.
 func (e *TelegramMessageExecutor) Type() string {
-	return "telegram-message"
+	return NodeTypeTelegramMessage
 }
 
 // Execute sends a message via the Telegram Bot API.
@@ -751,7 +751,7 @@ func NewConditionalRouterExecutor() *ConditionalRouterExecutor {
 
 // Type returns the node type.
 func (e *ConditionalRouterExecutor) Type() string {
-	return "conditional-router"
+	return NodeTypeConditionalRouter
 }
 
 // Execute executes a conditional router node.
@@ -836,7 +836,7 @@ func NewDataMergerExecutor() *DataMergerExecutor {
 
 // Type returns the node type.
 func (e *DataMergerExecutor) Type() string {
-	return "data-merger"
+	return NodeTypeDataMerger
 }
 
 // Execute executes a data merger node.
@@ -907,7 +907,7 @@ func NewDataAggregatorExecutor() *DataAggregatorExecutor {
 
 // Type returns the node type.
 func (e *DataAggregatorExecutor) Type() string {
-	return "data-aggregator"
+	return NodeTypeDataAggregator
 }
 
 // Execute executes a data aggregator node.
@@ -953,7 +953,7 @@ func NewScriptExecutorExecutor() *ScriptExecutorExecutor {
 
 // Type returns the node type.
 func (e *ScriptExecutorExecutor) Type() string {
-	return "script-executor"
+	return NodeTypeScriptExecutor
 }
 
 // Execute executes a script executor node.
@@ -981,6 +981,130 @@ func (e *ScriptExecutorExecutor) Execute(ctx context.Context, execCtx *Execution
 	execCtx.SetVariable(cfg.OutputKey, result)
 
 	return result, nil
+}
+
+// JSONParserExecutor executes JSON parser nodes.
+// It parses JSON strings into structured objects for nested field access.
+type JSONParserExecutor struct{}
+
+// NewJSONParserExecutor creates a new JSONParserExecutor.
+func NewJSONParserExecutor() *JSONParserExecutor {
+	return &JSONParserExecutor{}
+}
+
+// Type returns the node type.
+func (e *JSONParserExecutor) Type() string {
+	return NodeTypeJSONParser
+}
+
+// Execute executes a JSON parser node.
+func (e *JSONParserExecutor) Execute(ctx context.Context, execCtx *ExecutionContext, nodeID string, config map[string]any) (interface{}, error) {
+	// Parse configuration
+	cfg, err := parseConfig[JSONParserConfig](config)
+	if err != nil {
+		return nil, errors.NewConfigurationError("json-parser", fmt.Sprintf("failed to parse config: %v", err))
+	}
+
+	// Validate required fields
+	if cfg.InputKey == "" {
+		return nil, errors.NewConfigurationError("json-parser", "missing 'input_key' in config")
+	}
+
+	// Set defaults
+	if cfg.OutputKey == "" {
+		cfg.OutputKey = cfg.InputKey // Default: overwrite the same variable
+	}
+	// Default to fail on error
+	failOnError := true
+	if config["fail_on_error"] != nil {
+		if val, ok := config["fail_on_error"].(bool); ok {
+			failOnError = val
+		}
+	}
+
+	// Get input value
+	inputValue, ok := execCtx.GetVariable(cfg.InputKey)
+	if !ok {
+		return nil, errors.NewNodeExecutionError(
+			execCtx.State().WorkflowID,
+			execCtx.State().ExecutionID,
+			nodeID,
+			"json-parser",
+			1,
+			fmt.Sprintf("input variable '%s' not found", cfg.InputKey),
+			nil,
+			false,
+		)
+	}
+
+	// Convert to string if needed
+	var jsonStr string
+	switch v := inputValue.(type) {
+	case string:
+		jsonStr = v
+	case []byte:
+		jsonStr = string(v)
+	default:
+		// If it's already a structured object, just pass it through
+		execCtx.SetVariable(cfg.OutputKey, inputValue)
+		return map[string]interface{}{
+			"status":         "passthrough",
+			"input_type":     fmt.Sprintf("%T", inputValue),
+			"already_parsed": true,
+		}, nil
+	}
+
+	// Trim whitespace
+	jsonStr = strings.TrimSpace(jsonStr)
+
+	// Parse JSON
+	var parsedValue interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &parsedValue); err != nil {
+		if failOnError {
+			return nil, errors.NewNodeExecutionError(
+				execCtx.State().WorkflowID,
+				execCtx.State().ExecutionID,
+				nodeID,
+				"json-parser",
+				1,
+				fmt.Sprintf("failed to parse JSON: %v", err),
+				err,
+				false,
+			)
+		}
+
+		// If fail_on_error is false, pass through the original value
+		log.Warn().
+			Str("node_id", nodeID).
+			Str("input_key", cfg.InputKey).
+			Err(err).
+			Msg("Failed to parse JSON, passing through original value")
+
+		execCtx.SetVariable(cfg.OutputKey, inputValue)
+		return map[string]interface{}{
+			"status":       "parse_error",
+			"error":        err.Error(),
+			"passthrough":  true,
+			"input_length": len(jsonStr),
+		}, nil
+	}
+
+	// Store parsed value
+	execCtx.SetVariable(cfg.OutputKey, parsedValue)
+
+	log.Debug().
+		Str("node_id", nodeID).
+		Str("input_key", cfg.InputKey).
+		Str("output_key", cfg.OutputKey).
+		Msgf("Successfully parsed JSON: %T", parsedValue)
+
+	return map[string]interface{}{
+		"status":       "success",
+		"input_key":    cfg.InputKey,
+		"output_key":   cfg.OutputKey,
+		"parsed_type":  fmt.Sprintf("%T", parsedValue),
+		"input_length": len(jsonStr),
+	}, nil
 }
 
 // substituteVariables replaces {{variable}} placeholders with actual values.
