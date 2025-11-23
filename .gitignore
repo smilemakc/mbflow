@@ -111,6 +111,7 @@ examples/logger-demo/logger-demo
 examples/ai-content-pipeline/ai-content-pipeline
 examples/code-review-refactoring/code-review-refactoring
 examples/customer-support-ai/customer-support-ai
+examples/customer-support-ai/customer-support-demo
 examples/data-analysis-reporting/data-analysis-reporting
 output/
 

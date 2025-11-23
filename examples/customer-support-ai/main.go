@@ -28,6 +28,19 @@ import (
 // 7. If quality is low, regenerate with more context
 // 8. Send response and log interaction
 func main() {
+	// Start mock server in background
+	mockServer := NewMockServer("8081")
+	go func() {
+		if err := mockServer.Start(); err != nil {
+			log.Printf("Mock server error: %v", err)
+		}
+	}()
+
+	// Give mock server time to start
+	fmt.Println("Starting mock server on port 8081...")
+	fmt.Println("Waiting for server to be ready...")
+	fmt.Println()
+
 	storage := mbflow.NewMemoryStorage()
 	ctx := context.Background()
 
@@ -154,7 +167,7 @@ Respond with ONLY one word: positive, neutral, or negative`,
 		Type:       "http-request",
 		Name:       "Fetch Account Status",
 		Config: map[string]any{
-			"url":    "https://api.example.com/accounts/{{customer_info.order_id}}",
+			"url":    "http://localhost:8081/accounts/{{customer_info.order_id}}",
 			"method": "GET",
 			"headers": map[string]string{
 				"Authorization": "Bearer {{api_token}}",
@@ -198,23 +211,28 @@ Respond with ONE of:
 	nodeCheckEscalation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
 		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
-		Type:       "script-executor",
+		Type:       "openai-completion",
 		Name:       "Check Escalation Criteria",
 		Config: map[string]any{
-			"script": `
-// Escalate if:
-// 1. Technical issue with negative sentiment
-// 2. High urgency
-// 3. Account needs manual review
-const shouldEscalate = (
-  (inquiry_type === 'technical' && sentiment === 'negative') ||
-  customer_info.urgency === 'high' ||
-  account_action === 'needs_manual_review'
-);
+			"model": "gpt-4",
+			"prompt": `Determine if this customer support case should be escalated to a human agent.
 
-return shouldEscalate ? 'escalate' : 'generate_response';
-`,
-			"output_key": "escalation_decision",
+Inquiry Type: {{inquiry_type}}
+Sentiment: {{sentiment}}
+Customer Urgency: {{customer_info.urgency}}
+Account Action: {{account_action}}
+
+Escalation criteria:
+1. Technical issue with negative sentiment
+2. High urgency customer
+3. Account needs manual review
+4. Complex billing disputes
+5. Sensitive or legal matters
+
+Respond with ONLY one word: escalate or generate_response`,
+			"max_tokens":  10,
+			"temperature": 0.1,
+			"output_key":  "escalation_decision",
 		},
 	})
 	if err != nil {
@@ -228,7 +246,7 @@ return shouldEscalate ? 'escalate' : 'generate_response';
 		Type:       "http-request",
 		Name:       "Escalate to Human Agent",
 		Config: map[string]any{
-			"url":    "https://api.example.com/support/escalate",
+			"url":    "http://localhost:8081/support/escalate",
 			"method": "POST",
 			"body": map[string]any{
 				"customer_message": "{{customer_message}}",
@@ -465,7 +483,7 @@ Generate JSON:
 		Type:       "http-request",
 		Name:       "Send Response to Customer",
 		Config: map[string]any{
-			"url":    "https://api.example.com/support/send",
+			"url":    "http://localhost:8081/support/send",
 			"method": "POST",
 			"body": map[string]any{
 				"customer_email": "{{customer_info.email}}",
@@ -486,7 +504,7 @@ Generate JSON:
 		Type:       "http-request",
 		Name:       "Log Interaction",
 		Config: map[string]any{
-			"url":    "https://api.example.com/analytics/log",
+			"url":    "http://localhost:8081/analytics/log",
 			"method": "POST",
 			"body": map[string]any{
 				"inquiry_type":   "{{inquiry_type}}",
