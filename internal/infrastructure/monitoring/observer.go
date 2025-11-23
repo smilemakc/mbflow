@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -37,6 +38,13 @@ type ExecutionObserver interface {
 
 	// OnVariableSet is called when a variable is set in the execution context
 	OnVariableSet(executionID, key string, value interface{})
+
+	// OnNodeCallbackStarted is called when a node callback starts processing
+	OnNodeCallbackStarted(executionID string, node *domain.Node)
+
+	// OnNodeCallbackCompleted is called when a node callback completes
+	// err is nil if the callback succeeded, non-nil if it failed
+	OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration)
 }
 
 // ObserverManager manages multiple observers and notifies them of events.
@@ -150,6 +158,26 @@ func (om *ObserverManager) NotifyVariableSet(executionID, key string, value inte
 
 	for _, observer := range om.observers {
 		observer.OnVariableSet(executionID, key, value)
+	}
+}
+
+// NotifyNodeCallbackStarted notifies all observers that a node callback has started.
+func (om *ObserverManager) NotifyNodeCallbackStarted(executionID string, node *domain.Node) {
+	om.mu.RLock()
+	defer om.mu.RUnlock()
+
+	for _, observer := range om.observers {
+		observer.OnNodeCallbackStarted(executionID, node)
+	}
+}
+
+// NotifyNodeCallbackCompleted notifies all observers that a node callback has completed.
+func (om *ObserverManager) NotifyNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
+	om.mu.RLock()
+	defer om.mu.RUnlock()
+
+	for _, observer := range om.observers {
+		observer.OnNodeCallbackCompleted(executionID, node, err, duration)
 	}
 }
 
@@ -296,5 +324,50 @@ func (co *CompositeObserver) OnVariableSet(executionID, key string, value interf
 	if co.trace != nil {
 		co.trace.AddEvent("variable_set", "", "", "Variable set",
 			map[string]interface{}{"key": key, "value": value}, nil)
+	}
+}
+
+// OnNodeCallbackStarted implements ExecutionObserver.
+func (co *CompositeObserver) OnNodeCallbackStarted(executionID string, node *domain.Node) {
+	if co.logger != nil {
+		nodeID := ""
+		if node != nil {
+			nodeID = node.ID()
+		}
+		co.logger.LogInfo(executionID, fmt.Sprintf("Callback started for node %s", nodeID))
+	}
+	if co.trace != nil {
+		nodeID := ""
+		nodeType := ""
+		if node != nil {
+			nodeID = node.ID()
+			nodeType = node.Type()
+		}
+		co.trace.AddEvent("node_callback_started", nodeID, nodeType, "Node callback started", nil, nil)
+	}
+}
+
+// OnNodeCallbackCompleted implements ExecutionObserver.
+func (co *CompositeObserver) OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
+	if co.logger != nil {
+		nodeID := ""
+		if node != nil {
+			nodeID = node.ID()
+		}
+		if err != nil {
+			co.logger.LogError(executionID, fmt.Sprintf("Callback failed for node %s (duration: %v)", nodeID, duration), err)
+		} else {
+			co.logger.LogInfo(executionID, fmt.Sprintf("Callback completed for node %s (duration: %v)", nodeID, duration))
+		}
+	}
+	if co.trace != nil {
+		nodeID := ""
+		nodeType := ""
+		if node != nil {
+			nodeID = node.ID()
+			nodeType = node.Type()
+		}
+		co.trace.AddEvent("node_callback_completed", nodeID, nodeType, "Node callback completed",
+			map[string]interface{}{"duration": duration}, err)
 	}
 }

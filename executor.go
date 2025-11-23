@@ -237,11 +237,31 @@ func (oa *observerAdapter) OnNodeFailed(executionID string, node *domain.Node, e
 }
 
 func (oa *observerAdapter) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
-	// Not exposed in public API
+	var publicNode Node
+	if node != nil {
+		publicNode = &nodeAdapter{node: node}
+	}
+	oa.observer.OnNodeRetrying(executionID, publicNode, attemptNumber, delay)
 }
 
 func (oa *observerAdapter) OnVariableSet(executionID, key string, value interface{}) {
-	// Not exposed in public API
+	oa.observer.OnVariableSet(executionID, key, value)
+}
+
+func (oa *observerAdapter) OnNodeCallbackStarted(executionID string, node *domain.Node) {
+	var publicNode Node
+	if node != nil {
+		publicNode = &nodeAdapter{node: node}
+	}
+	oa.observer.OnNodeCallbackStarted(executionID, publicNode)
+}
+
+func (oa *observerAdapter) OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
+	var publicNode Node
+	if node != nil {
+		publicNode = &nodeAdapter{node: node}
+	}
+	oa.observer.OnNodeCallbackCompleted(executionID, publicNode, err, duration)
 }
 
 // metricsObserverAdapter adapts monitoring observer to collect metrics.
@@ -270,6 +290,12 @@ func (moa *metricsObserverAdapter) OnNodeRetrying(executionID string, node *doma
 }
 
 func (moa *metricsObserverAdapter) OnVariableSet(executionID, key string, value interface{}) {}
+
+func (moa *metricsObserverAdapter) OnNodeCallbackStarted(executionID string, node *domain.Node) {
+}
+
+func (moa *metricsObserverAdapter) OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
+}
 
 // nodeAdapter adapts domain.Node to public Node interface.
 type nodeAdapter struct {
