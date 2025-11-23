@@ -143,12 +143,13 @@ type ExecutorNodeConfig = executor.NodeConfig
 type ExecutorEdgeConfig = executor.EdgeConfig
 
 // NodeToConfig converts a domain Node to ExecutorNodeConfig for execution.
-// This function extracts execution-relevant information (ID, Type, Config) from a domain Node entity.
-// The workflowID and name fields are omitted as they are not needed for execution.
+// This function extracts execution-relevant information (ID, Type, Name, Config) from a domain Node entity.
+// The workflowID field is omitted as it is not needed for execution.
 func NodeToConfig(node Node) ExecutorNodeConfig {
 	return ExecutorNodeConfig{
 		NodeID:   node.ID(),
 		NodeType: node.Type(),
+		Name:     node.Name(),
 		Config:   node.Config(),
 	}
 }

@@ -61,12 +61,12 @@ func main() {
 	fmt.Printf("Execution ID: %s\n\n", executionID)
 
 	// Node 1: Extract structured product information using OpenAI Responses API
-	nodeExtractProduct := mbflow.NewNode(
-		"extract-product-info",
-		workflowID,
-		"openai-responses",
-		"Extract Product Information",
-		map[string]any{
+	nodeExtractProduct, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "extract-product-info",
+		WorkflowID: workflowID,
+		Type:       "openai-responses",
+		Name:       "Extract Product Information",
+		Config: map[string]any{
 			"model":  "gpt-4o",
 			"prompt": "Extract structured product information from the following description: {{product_description}}",
 			"response_format": map[string]interface{}{
@@ -121,15 +121,18 @@ func main() {
 			"temperature": 0.3,
 			"output_key":  "product_info",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeExtractProduct: %v", err)
+	}
 
 	// Node 2: Generate recommendation using structured data
-	nodeGenerateRecommendation := mbflow.NewNode(
-		"generate-recommendation",
-		workflowID,
-		"openai-responses",
-		"Generate Product Recommendation",
-		map[string]any{
+	nodeGenerateRecommendation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "generate-recommendation",
+		WorkflowID: workflowID,
+		Type:       "openai-responses",
+		Name:       "Generate Product Recommendation",
+		Config: map[string]any{
 			"model":  "gpt-4o",
 			"prompt": "Based on the following product information, generate a personalized recommendation: {{product_info}}",
 			"response_format": map[string]interface{}{
@@ -180,7 +183,10 @@ func main() {
 			"presence_penalty":  0.2,
 			"output_key":        "recommendation",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateRecommendation: %v", err)
+	}
 
 	// Convert domain nodes to executor node configs using helper function
 	nodes := []mbflow.ExecutorNodeConfig{

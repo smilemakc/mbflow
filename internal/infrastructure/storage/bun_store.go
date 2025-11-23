@@ -236,14 +236,14 @@ type NodeModel struct {
 	Config     map[string]any `bun:"config,type:jsonb"`
 }
 
-func (m *NodeModel) ToDomain() *domain.Node {
-	return domain.NewNode(
-		m.ID,
-		m.WorkflowID,
-		m.Type,
-		m.Name,
-		m.Config,
-	)
+func (m *NodeModel) ToDomain() (*domain.Node, error) {
+	return domain.NewNodeFromConfig(domain.NodeConfig{
+		ID:         m.ID,
+		WorkflowID: m.WorkflowID,
+		Type:       m.Type,
+		Name:       m.Name,
+		Config:     m.Config,
+	})
 }
 
 func NewNodeModel(n *domain.Node) *NodeModel {
@@ -268,7 +268,7 @@ func (s *BunStore) GetNode(ctx context.Context, id string) (*domain.Node, error)
 	if err != nil {
 		return nil, err
 	}
-	return model.ToDomain(), nil
+	return model.ToDomain()
 }
 
 func (s *BunStore) ListNodes(ctx context.Context, workflowID string) ([]*domain.Node, error) {
@@ -277,9 +277,13 @@ func (s *BunStore) ListNodes(ctx context.Context, workflowID string) ([]*domain.
 	if err != nil {
 		return nil, err
 	}
-	out := make([]*domain.Node, len(models))
-	for i, m := range models {
-		out[i] = m.ToDomain()
+	out := make([]*domain.Node, 0, len(models))
+	for _, m := range models {
+		node, err := m.ToDomain()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, node)
 	}
 	return out, nil
 }

@@ -52,6 +52,7 @@ func main() {
 		// Node 1: Data merger (simulates selecting from multiple sources)
 		{
 			NodeID:   "node-1",
+			Name:     "Data Merger",
 			NodeType: "data-merger",
 			Config: map[string]any{
 				"strategy":   "select_first_available",
@@ -63,6 +64,7 @@ func main() {
 		// Node 2: Data aggregator (combines multiple fields)
 		{
 			NodeID:   "node-2",
+			Name:     "Data Aggregator",
 			NodeType: "data-aggregator",
 			Config: map[string]any{
 				"fields": map[string]string{
@@ -77,6 +79,7 @@ func main() {
 		// Node 3: Conditional router (routes based on status)
 		{
 			NodeID:   "node-3",
+			Name:     "Conditional Router",
 			NodeType: "conditional-router",
 			Config: map[string]any{
 				"input_key": "execution_status",
@@ -93,6 +96,7 @@ func main() {
 	if apiKey != "" {
 		openaiNode := mbflow.ExecutorNodeConfig{
 			NodeID:   "node-openai",
+			Name:     "OpenAI Summarizer",
 			NodeType: "openai-completion",
 			Config: map[string]any{
 				"model":      "gpt-4o",
