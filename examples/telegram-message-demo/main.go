@@ -18,7 +18,7 @@ import (
 //  2. Substitute execution variables inside the Telegram message
 //  3. Read the Telegram API response stored in the execution state
 func main() {
-	fmt.Println("=== Telegram Message Executor Demo ===\n")
+	fmt.Println("=== Telegram Message WorkflowEngine Demo ===\n")
 
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
 	chatID := os.Getenv("TELEGRAM_CHAT_ID")
@@ -28,19 +28,18 @@ func main() {
 		return
 	}
 
-	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
-		MaxRetryAttempts: 2,
-		VerboseLogging:   true,
+	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
+		VerboseLogging: true,
 	})
 
 	workflowID := uuid.NewString()
 	executionID := uuid.NewString()
 
-	nodes := []mbflow.ExecutorNodeConfig{
+	nodes := []mbflow.NodeConfig{
 		{
-			NodeID:   "telegram-message",
-			Name:     "Send Telegram Message",
-			NodeType: "telegram-message",
+			ID:   "telegram-message",
+			Name: "Send Telegram Message",
+			Type: "telegram-message",
 			Config: map[string]any{
 				"bot_token":  botToken,
 				"chat_id":    chatID,
@@ -64,7 +63,7 @@ func main() {
 	}
 
 	fmt.Println("\n=== Execution Results ===")
-	fmt.Printf("Status: %s\n", state.Status())
+	fmt.Printf("Status: %s\n", state.GetStatusString())
 	if msg, ok := state.GetVariable("telegram_message"); ok {
 		fmt.Printf("Telegram message response: %v\n", msg)
 	}

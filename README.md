@@ -20,7 +20,7 @@ import (
     "log"
     
     "github.com/google/uuid"
-    "mbflow"
+    "github.com/smilemakc/mbflow"
 )
 
 func main() {

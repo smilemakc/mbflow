@@ -30,8 +30,8 @@ type HTTPCallbackObserver struct {
 	enabled bool
 }
 
-// HTTPCallbackConfig holds configuration for HTTPCallbackObserver.
-type HTTPCallbackConfig struct {
+// HTTPCallbackObserverConfig holds configuration for HTTPCallbackObserver.
+type HTTPCallbackObserverConfig struct {
 	// CallbackURL is the HTTP endpoint to send events to (required)
 	CallbackURL string
 	// Timeout is the request timeout (default: 5 seconds)
@@ -43,7 +43,7 @@ type HTTPCallbackConfig struct {
 }
 
 // NewHTTPCallbackObserver creates a new HTTPCallbackObserver with the given configuration.
-func NewHTTPCallbackObserver(config HTTPCallbackConfig) (*HTTPCallbackObserver, error) {
+func NewHTTPCallbackObserver(config HTTPCallbackObserverConfig) (*HTTPCallbackObserver, error) {
 	if config.CallbackURL == "" {
 		return nil, fmt.Errorf("callback URL is required")
 	}

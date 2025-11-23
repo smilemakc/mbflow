@@ -154,46 +154,28 @@ type Storage interface {
 	TriggerRepository
 }
 
-// Executor represents a workflow executor.
-// It provides methods for executing workflows and nodes.
-type Executor interface {
-	// ExecuteWorkflow executes a complete workflow.
-	// If edges are provided, uses graph-based traversal with parallel execution support.
-	// If edges are empty, falls back to sequential execution for backward compatibility.
-	ExecuteWorkflow(ctx context.Context, workflowID, executionID string, nodes []ExecutorNodeConfig, edges []ExecutorEdgeConfig, initialVariables map[string]interface{}) (ExecutorState, error)
-
-	// ExecuteNode executes a single node
-	ExecuteNode(ctx context.Context, state ExecutorState, nodeConfig ExecutorNodeConfig) error
-
-	// AddObserver adds an execution observer
-	AddObserver(observer ExecutionObserver)
-
-	// GetMetrics returns execution metrics
-	GetMetrics() ExecutorMetrics
-}
-
-// ExecutorNodeConfig represents the configuration for executing a node.
-type ExecutorNodeConfig = executor.NodeConfig
+// NodeConfig represents the configuration for executing a node.
+type NodeConfig = domain.NodeConfig
 
 // ExecutorEdgeConfig represents the configuration for an edge in the workflow graph.
 type ExecutorEdgeConfig = executor.EdgeConfig
 
-// NodeToConfig converts a domain Node to ExecutorNodeConfig for execution.
+// NodeToConfig converts a domain Node to NodeConfig for execution.
 // This function extracts execution-relevant information (ID, Type, Name, Config) from a domain Node entity.
 // The workflowID field is omitted as it is not needed for execution.
-func NodeToConfig(node Node) ExecutorNodeConfig {
-	return ExecutorNodeConfig{
-		NodeID:   node.ID(),
-		NodeType: node.Type(),
-		Name:     node.Name(),
-		Config:   node.Config(),
+func NodeToConfig(node Node) NodeConfig {
+	return NodeConfig{
+		ID:     node.ID(),
+		Type:   node.Type(),
+		Name:   node.Name(),
+		Config: node.Config(),
 	}
 }
 
 // NodesToConfigs converts a slice of domain Nodes to ExecutorNodeConfigs for execution.
 // This is useful when loading nodes from storage and preparing them for workflow execution.
-func NodesToConfigs(nodes []Node) []ExecutorNodeConfig {
-	configs := make([]ExecutorNodeConfig, len(nodes))
+func NodesToConfigs(nodes []Node) []NodeConfig {
+	configs := make([]NodeConfig, len(nodes))
 	for i, node := range nodes {
 		configs[i] = NodeToConfig(node)
 	}
@@ -224,14 +206,14 @@ func EdgesToConfigs(edges []Edge) []ExecutorEdgeConfig {
 
 // ExecutorState represents the state of a workflow execution.
 type ExecutorState interface {
-	// ExecutionID returns the execution ID
-	ExecutionID() string
+	// GetExecutionID returns the execution ID
+	GetExecutionID() string
 
-	// WorkflowID returns the workflow ID
-	WorkflowID() string
+	// GetWorkflowID returns the workflow ID
+	GetWorkflowID() string
 
-	// Status returns the current status
-	Status() string
+	// GetStatus returns the current status as string
+	GetStatusString() string
 
 	// GetVariable retrieves a variable
 	GetVariable(key string) (interface{}, bool)
@@ -240,46 +222,7 @@ type ExecutorState interface {
 	GetAllVariables() map[string]interface{}
 
 	// GetExecutionDuration returns the execution duration
-	GetExecutionDuration() string
-}
-
-// ExecutionObserver defines the interface for observing workflow execution events.
-// This is the public interface that uses the Node interface.
-type ExecutionObserver interface {
-	// OnExecutionStarted is called when a workflow execution starts
-	OnExecutionStarted(workflowID, executionID string)
-
-	// OnExecutionCompleted is called when a workflow execution completes successfully
-	OnExecutionCompleted(workflowID, executionID string, duration time.Duration)
-
-	// OnExecutionFailed is called when a workflow execution fails
-	OnExecutionFailed(workflowID, executionID string, err error, duration time.Duration)
-
-	// OnNodeStarted is called when a node starts executing
-	// node can be nil if only config is available
-	OnNodeStarted(executionID string, node Node, attemptNumber int)
-
-	// OnNodeCompleted is called when a node completes successfully
-	// node can be nil if only config is available
-	OnNodeCompleted(executionID string, node Node, output interface{}, duration time.Duration)
-
-	// OnNodeFailed is called when a node fails
-	// node can be nil if only config is available
-	OnNodeFailed(executionID string, node Node, err error, duration time.Duration, willRetry bool)
-
-	// OnNodeRetrying is called when a node is being retried
-	// node can be nil if only config is available
-	OnNodeRetrying(executionID string, node Node, attemptNumber int, delay time.Duration)
-
-	// OnVariableSet is called when a variable is set in the execution context
-	OnVariableSet(executionID, key string, value interface{})
-
-	// OnNodeCallbackStarted is called when a node callback starts processing
-	OnNodeCallbackStarted(executionID string, node Node)
-
-	// OnNodeCallbackCompleted is called when a node callback completes
-	// err is nil if the callback succeeded, non-nil if it failed
-	OnNodeCallbackCompleted(executionID string, node Node, err error, duration time.Duration)
+	GetExecutionDuration() time.Duration
 }
 
 // ExecutorMetrics provides execution metrics.
@@ -311,158 +254,3 @@ type AIMetrics = monitoring.AIMetrics
 
 // MetricsSummary represents a summary of all collected metrics.
 type MetricsSummary = monitoring.MetricsSummary
-
-// ExecutorConfig configures the workflow executor.
-type ExecutorConfig struct {
-	// OpenAIAPIKey is the API key for OpenAI
-	OpenAIAPIKey string
-
-	// MaxRetryAttempts is the maximum number of retry attempts
-	MaxRetryAttempts int
-
-	// EnableMonitoring enables monitoring and logging
-	EnableMonitoring bool
-
-	// VerboseLogging enables verbose logging
-	VerboseLogging bool
-}
-
-// HTTPCallbackObserver sends execution events to an HTTP callback URL.
-// It implements the ExecutionObserver interface and sends POST requests
-// with JSON payloads for each execution event.
-type HTTPCallbackObserver struct {
-	internal *monitoring.HTTPCallbackObserver
-}
-
-// HTTPCallbackConfig holds configuration for HTTPCallbackObserver.
-type HTTPCallbackConfig = monitoring.HTTPCallbackConfig
-
-// NewHTTPCallbackObserver creates a new HTTPCallbackObserver with the given configuration.
-func NewHTTPCallbackObserver(config HTTPCallbackConfig) (*HTTPCallbackObserver, error) {
-	internal, err := monitoring.NewHTTPCallbackObserver(config)
-	if err != nil {
-		return nil, err
-	}
-	return &HTTPCallbackObserver{internal: internal}, nil
-}
-
-// OnExecutionStarted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnExecutionStarted(workflowID, executionID string) {
-	o.internal.OnExecutionStarted(workflowID, executionID)
-}
-
-// OnExecutionCompleted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnExecutionCompleted(workflowID, executionID string, duration time.Duration) {
-	o.internal.OnExecutionCompleted(workflowID, executionID, duration)
-}
-
-// OnExecutionFailed implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
-	o.internal.OnExecutionFailed(workflowID, executionID, err, duration)
-}
-
-// OnNodeStarted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeStarted(executionID string, node Node, attemptNumber int) {
-	var domainNode *domain.Node
-	if node != nil {
-		// Convert public Node interface to domain.Node
-		domainNode = domain.NewNode(
-			node.ID(),
-			node.WorkflowID(),
-			node.Type(),
-			node.Name(),
-			node.Config(),
-		)
-	}
-	o.internal.OnNodeStarted(executionID, domainNode, attemptNumber)
-}
-
-// OnNodeCompleted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeCompleted(executionID string, node Node, output interface{}, duration time.Duration) {
-	var domainNode *domain.Node
-	if node != nil {
-		domainNode = domain.NewNode(
-			node.ID(),
-			node.WorkflowID(),
-			node.Type(),
-			node.Name(),
-			node.Config(),
-		)
-	}
-	o.internal.OnNodeCompleted(executionID, domainNode, output, duration)
-}
-
-// OnNodeFailed implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeFailed(executionID string, node Node, err error, duration time.Duration, willRetry bool) {
-	var domainNode *domain.Node
-	if node != nil {
-		domainNode = domain.NewNode(
-			node.ID(),
-			node.WorkflowID(),
-			node.Type(),
-			node.Name(),
-			node.Config(),
-		)
-	}
-	o.internal.OnNodeFailed(executionID, domainNode, err, duration, willRetry)
-}
-
-// OnNodeRetrying implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeRetrying(executionID string, node Node, attemptNumber int, delay time.Duration) {
-	var domainNode *domain.Node
-	if node != nil {
-		domainNode = domain.NewNode(
-			node.ID(),
-			node.WorkflowID(),
-			node.Type(),
-			node.Name(),
-			node.Config(),
-		)
-	}
-	o.internal.OnNodeRetrying(executionID, domainNode, attemptNumber, delay)
-}
-
-// OnVariableSet implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnVariableSet(executionID, key string, value interface{}) {
-	o.internal.OnVariableSet(executionID, key, value)
-}
-
-// OnNodeCallbackStarted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeCallbackStarted(executionID string, node Node) {
-	var domainNode *domain.Node
-	if node != nil {
-		domainNode = domain.NewNode(
-			node.ID(),
-			node.WorkflowID(),
-			node.Type(),
-			node.Name(),
-			node.Config(),
-		)
-	}
-	o.internal.OnNodeCallbackStarted(executionID, domainNode)
-}
-
-// OnNodeCallbackCompleted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeCallbackCompleted(executionID string, node Node, err error, duration time.Duration) {
-	var domainNode *domain.Node
-	if node != nil {
-		domainNode = domain.NewNode(
-			node.ID(),
-			node.WorkflowID(),
-			node.Type(),
-			node.Name(),
-			node.Config(),
-		)
-	}
-	o.internal.OnNodeCallbackCompleted(executionID, domainNode, err, duration)
-}
-
-// SetEnabled enables or disables the observer.
-func (o *HTTPCallbackObserver) SetEnabled(enabled bool) {
-	o.internal.SetEnabled(enabled)
-}
-
-// IsEnabled returns whether the observer is enabled.
-func (o *HTTPCallbackObserver) IsEnabled() bool {
-	return o.internal.IsEnabled()
-}

@@ -42,11 +42,11 @@ type HTTPCallbackProcessor struct {
 
 // HTTPCallbackConfig configures the HTTP callback processor.
 type HTTPCallbackConfig struct {
-	URL             string            `json:"url"`
-	Method          string            `json:"method,omitempty"`          // Default: POST
-	Headers         map[string]string `json:"headers,omitempty"`
-	TimeoutSeconds  int               `json:"timeout_seconds,omitempty"` // Default: 30
-	IncludeVariables bool             `json:"include_variables,omitempty"` // Default: false
+	URL              string            `json:"url"`
+	Method           string            `json:"method,omitempty"` // Default: POST
+	Headers          map[string]string `json:"headers,omitempty"`
+	TimeoutSeconds   int               `json:"timeout_seconds,omitempty"`   // Default: 30
+	IncludeVariables bool              `json:"include_variables,omitempty"` // Default: false
 }
 
 // NewHTTPCallbackProcessor creates a new HTTP callback processor.
@@ -120,7 +120,11 @@ func parseCallbackConfig(config map[string]any) (*HTTPCallbackConfig, error) {
 	if !ok {
 		return nil, nil
 	}
-
+	// Shortcut for inline config
+	if cfg, ok := callbackConfigRaw.(HTTPCallbackConfig); ok {
+		return &cfg, nil
+	}
+	// Validate config format
 	callbackConfigMap, ok := callbackConfigRaw.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("on_success_callback must be an object")

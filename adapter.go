@@ -92,8 +92,14 @@ func (a *storageAdapter) ListEventsByExecution(ctx context.Context, executionID 
 
 func (a *storageAdapter) SaveNode(ctx context.Context, n Node) error {
 	domainNode, ok := n.(*domain.Node)
+	var err error
 	if !ok {
-		domainNode = domain.NewNode(n.ID(), n.WorkflowID(), n.Type(), n.Name(), n.Config())
+		domainNode, err = domain.NewNode(domain.NodeConfig{
+			ID: n.ID(), WorkflowID: n.WorkflowID(), Type: n.Type(), Name: n.Name(), Config: n.Config(),
+		})
+		if err != nil {
+			return err
+		}
 	}
 	return a.store.SaveNode(ctx, domainNode)
 }

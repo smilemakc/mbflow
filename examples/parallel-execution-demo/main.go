@@ -29,9 +29,8 @@ func main() {
 	}
 
 	// Create executor with monitoring enabled
-	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		OpenAIAPIKey:     apiKey,
-		MaxRetryAttempts: 3,
 		EnableMonitoring: true,
 		VerboseLogging:   true,
 	})
@@ -45,12 +44,12 @@ func main() {
 
 	// Define nodes for parallel execution
 	// Structure: Start -> [Task1, Task2, Task3] -> Join
-	nodes := []mbflow.ExecutorNodeConfig{
+	nodes := []mbflow.NodeConfig{
 		// Start node: Prepare initial data
 		{
-			NodeID:   "start",
-			Name:     "Start Node",
-			NodeType: "data-aggregator",
+			ID:   "start",
+			Name: "Start Node",
+			Type: "data-aggregator",
 			Config: map[string]any{
 				"fields": map[string]string{
 					"topic1": "topic1",
@@ -63,9 +62,9 @@ func main() {
 
 		// Task 1: OpenAI completion for first topic
 		{
-			NodeID:   "task-1",
-			Name:     "Task 1: Summarize Topic 1",
-			NodeType: "openai-completion",
+			ID:   "task-1",
+			Name: "Task 1: Summarize Topic 1",
+			Type: "openai-completion",
 			Config: map[string]any{
 				"model":      "gpt-4o",
 				"prompt":     "Write a brief summary (2-3 sentences) about {{topic1}}",
@@ -76,9 +75,9 @@ func main() {
 
 		// Task 2: OpenAI completion for second topic
 		{
-			NodeID:   "task-2",
-			Name:     "Task 2: Summarize Topic 2",
-			NodeType: "openai-completion",
+			ID:   "task-2",
+			Name: "Task 2: Summarize Topic 2",
+			Type: "openai-completion",
 			Config: map[string]any{
 				"model":      "gpt-4o",
 				"prompt":     "Write a brief summary (2-3 sentences) about {{topic2}}",
@@ -89,9 +88,9 @@ func main() {
 
 		// Task 3: OpenAI completion for third topic
 		{
-			NodeID:   "task-3",
-			Name:     "Task 3: Summarize Topic 3",
-			NodeType: "openai-completion",
+			ID:   "task-3",
+			Name: "Task 3: Summarize Topic 3",
+			Type: "openai-completion",
 			Config: map[string]any{
 				"model":      "gpt-4o",
 				"prompt":     "Write a brief summary (2-3 sentences) about {{topic3}}",
@@ -102,9 +101,9 @@ func main() {
 
 		// Join node: Aggregate all results from parallel tasks
 		{
-			NodeID:   "join",
-			Name:     "Join Node",
-			NodeType: "data-aggregator",
+			ID:   "join",
+			Name: "Join Node",
+			Type: "data-aggregator",
 			Config: map[string]any{
 				"fields": map[string]string{
 					"summary_1": "result_1",
@@ -192,7 +191,7 @@ func main() {
 	executionDuration := time.Since(startTime)
 
 	fmt.Println("\n=== Execution Results ===\n")
-	fmt.Printf("Status: %s\n", state.Status())
+	fmt.Printf("Status: %s\n", state.GetStatusString())
 	fmt.Printf("Execution Duration: %s\n", executionDuration)
 	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
 

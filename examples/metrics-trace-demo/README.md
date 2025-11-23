@@ -243,7 +243,7 @@ trace, _ := monitoring.LoadTraceFromFile("trace.json")
 errorEvents := trace.GetErrorEvents()
 for _, event := range errorEvents {
     fmt.Printf("Error at %s: %s - %v\n",
-        event.Timestamp, event.NodeID, event.Error)
+        event.Timestamp, event.ID, event.Error)
 }
 ```
 

@@ -38,8 +38,8 @@ The callback is configured in the node config using the `on_success_callback` ke
 
 ```go
 {
-    NodeID:   "my-node",
-    NodeType: "openai-completion",
+    ID:   "my-node",
+    Type: "openai-completion",
     Config: map[string]any{
         // ... other config ...
         "on_success_callback": map[string]any{

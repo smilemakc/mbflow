@@ -5,6 +5,8 @@ import (
 	"log"
 	"strings"
 
+	"mbflow/internal/domain"
+
 	"github.com/expr-lang/expr"
 )
 
@@ -12,7 +14,7 @@ import (
 // It provides methods for graph traversal and identifying parallel execution opportunities.
 type WorkflowGraph struct {
 	// nodes maps node ID to node configuration
-	nodes map[string]*NodeConfig
+	nodes map[string]*domain.NodeConfig
 
 	// edges maps from node ID to list of target node IDs
 	forwardEdges map[string][]string
@@ -21,7 +23,7 @@ type WorkflowGraph struct {
 	reverseEdges map[string][]string
 
 	// nodeConfigs is the original list of node configs
-	nodeConfigs []NodeConfig
+	nodeConfigs []domain.NodeConfig
 
 	// edgeConfigs maps edge key (fromNodeID:toNodeID) to edge configuration
 	edgeConfigs map[string]EdgeConfig
@@ -36,9 +38,9 @@ type EdgeConfig struct {
 }
 
 // NewWorkflowGraph creates a new WorkflowGraph from nodes and edges.
-func NewWorkflowGraph(nodes []NodeConfig, edges []EdgeConfig) *WorkflowGraph {
+func NewWorkflowGraph(nodes []domain.NodeConfig, edges []EdgeConfig) *WorkflowGraph {
 	graph := &WorkflowGraph{
-		nodes:        make(map[string]*NodeConfig),
+		nodes:        make(map[string]*domain.NodeConfig),
 		forwardEdges: make(map[string][]string),
 		reverseEdges: make(map[string][]string),
 		nodeConfigs:  nodes,
@@ -47,7 +49,7 @@ func NewWorkflowGraph(nodes []NodeConfig, edges []EdgeConfig) *WorkflowGraph {
 
 	// Build node map
 	for i := range nodes {
-		graph.nodes[nodes[i].NodeID] = &nodes[i]
+		graph.nodes[nodes[i].ID] = &nodes[i]
 	}
 
 	// Build edge maps and store edge configurations
@@ -67,13 +69,13 @@ func NewWorkflowGraph(nodes []NodeConfig, edges []EdgeConfig) *WorkflowGraph {
 }
 
 // GetNode returns the node configuration for a given node ID.
-func (g *WorkflowGraph) GetNode(nodeID string) (*NodeConfig, bool) {
+func (g *WorkflowGraph) GetNode(nodeID string) (*domain.NodeConfig, bool) {
 	node, ok := g.nodes[nodeID]
 	return node, ok
 }
 
 // GetAllNodes returns all node configurations.
-func (g *WorkflowGraph) GetAllNodes() []NodeConfig {
+func (g *WorkflowGraph) GetAllNodes() []domain.NodeConfig {
 	return g.nodeConfigs
 }
 

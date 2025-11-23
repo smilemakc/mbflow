@@ -50,13 +50,12 @@ func main() {
 		fmt.Println("Please set OPENAI_API_KEY to run this example.\n")
 		os.Exit(1)
 	}
-	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackConfig{
+	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackObserverConfig{
 		CallbackURL: "https://heabot.nl.tuna.am",
 	})
 	// Create executor with monitoring enabled
-	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		OpenAIAPIKey:     apiKey,
-		MaxRetryAttempts: 3,
 		EnableMonitoring: true,
 		VerboseLogging:   true,
 	})
@@ -450,7 +449,7 @@ Content: {{content_de}}`,
 	executionDuration := time.Since(startTime)
 
 	fmt.Println("\n=== Execution Results ===\n")
-	fmt.Printf("Status: %s\n", state.Status())
+	fmt.Printf("Status: %s\n", state.GetStatusString())
 	fmt.Printf("Execution Duration: %s\n", executionDuration)
 	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
 

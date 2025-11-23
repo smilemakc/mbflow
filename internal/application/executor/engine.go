@@ -10,8 +10,9 @@ import (
 	"mbflow/internal/domain"
 	"mbflow/internal/domain/errors"
 	"mbflow/internal/infrastructure/monitoring"
-	"mbflow/internal/utils"
 )
+
+type InitialVariables = map[string]any
 
 // WorkflowEngine is the main execution engine for workflows.
 // It orchestrates node execution, manages state, handles retries, and monitors execution.
@@ -30,6 +31,9 @@ type WorkflowEngine struct {
 
 	// parallelErrorHandling defines error handling behavior for parallel execution
 	parallelErrorHandling bool
+
+	// metrics collects execution metrics
+	metrics *monitoring.MetricsCollector
 
 	// mu protects concurrent access
 	mu sync.RWMutex
@@ -93,6 +97,7 @@ func NewWorkflowEngine(config *EngineConfig) *WorkflowEngine {
 		metrics = monitoring.NewMetricsCollector()
 		observer := monitoring.NewCompositeObserver(logger, metrics, nil)
 		engine.observerManager.AddObserver(observer)
+		engine.metrics = metrics
 	}
 
 	// Register default executors
@@ -128,10 +133,15 @@ func (e *WorkflowEngine) AddObserver(observer monitoring.ExecutionObserver) {
 	e.observerManager.AddObserver(observer)
 }
 
+// GetMetrics returns the metrics collector.
+func (e *WorkflowEngine) GetMetrics() *monitoring.MetricsCollector {
+	return e.metrics
+}
+
 // ExecuteWorkflow executes a complete workflow.
 // If edges are provided, it uses graph-based traversal with parallel execution support.
 // If edges are empty, it falls back to sequential execution for backward compatibility.
-func (e *WorkflowEngine) ExecuteWorkflow(ctx context.Context, workflowID, executionID string, nodes []NodeConfig, edges []EdgeConfig, initialVariables map[string]interface{}) (*ExecutionState, error) {
+func (e *WorkflowEngine) ExecuteWorkflow(ctx context.Context, workflowID, executionID string, nodes []domain.NodeConfig, edges []EdgeConfig, initialVariables InitialVariables) (*ExecutionState, error) {
 	// Try to load existing state if repository is available
 	var state *ExecutionState
 	if e.stateRepository != nil {
@@ -217,7 +227,7 @@ func (e *WorkflowEngine) ExecuteWorkflow(ctx context.Context, workflowID, execut
 }
 
 // executeWorkflowGraph executes a workflow using graph-based traversal with parallel execution support.
-func (e *WorkflowEngine) executeWorkflowGraph(ctx context.Context, execCtx *ExecutionContext, nodes []NodeConfig, edges []EdgeConfig) error {
+func (e *WorkflowEngine) executeWorkflowGraph(ctx context.Context, execCtx *ExecutionContext, nodes []domain.NodeConfig, edges []EdgeConfig) error {
 	// Build workflow graph
 	graph := NewWorkflowGraph(nodes, edges)
 
@@ -259,10 +269,10 @@ func (e *WorkflowEngine) executeWorkflowGraph(ctx context.Context, execCtx *Exec
 		}
 
 		currentReadyNodes := make([]string, 0)
-		for _, nodeID := range readyNodes {
-			if !executingNodes[nodeID] {
-				currentReadyNodes = append(currentReadyNodes, nodeID)
-				executingNodes[nodeID] = true
+		for _, ID := range readyNodes {
+			if !executingNodes[ID] {
+				currentReadyNodes = append(currentReadyNodes, ID)
+				executingNodes[ID] = true
 			}
 		}
 		mu.Unlock()
@@ -307,13 +317,13 @@ func (e *WorkflowEngine) analyzeStuckExecution(graph *WorkflowGraph, completedNo
 	variables := execCtx.GetAllVariables()
 
 	// Find all nodes that are not completed
-	for nodeID := range graph.nodes {
-		if completedNodes[nodeID] {
+	for ID := range graph.nodes {
+		if completedNodes[ID] {
 			continue
 		}
 
 		// Check dependencies
-		dependencies := graph.GetPreviousNodes(nodeID)
+		dependencies := graph.GetPreviousNodes(ID)
 		allDepsCompleted := true
 		var failedConditions []string
 
@@ -324,7 +334,7 @@ func (e *WorkflowEngine) analyzeStuckExecution(graph *WorkflowGraph, completedNo
 			}
 
 			// Check conditional edges
-			edgeConfig, ok := graph.GetEdgeConfig(depNodeID, nodeID)
+			edgeConfig, ok := graph.GetEdgeConfig(depNodeID, ID)
 			if ok && edgeConfig.EdgeType == "conditional" {
 				conditionalConfig, err := parseConfig[ConditionalEdgeConfig](edgeConfig.Config)
 				if err == nil && conditionalConfig.Condition != "" {
@@ -339,11 +349,11 @@ func (e *WorkflowEngine) analyzeStuckExecution(graph *WorkflowGraph, completedNo
 
 		// If all dependencies are completed but node is not ready, it's stuck
 		if allDepsCompleted {
-			stuckNodes = append(stuckNodes, nodeID)
+			stuckNodes = append(stuckNodes, ID)
 			if len(failedConditions) > 0 {
-				stuckReasons = append(stuckReasons, fmt.Sprintf("node '%s': %s", nodeID, strings.Join(failedConditions, "; ")))
+				stuckReasons = append(stuckReasons, fmt.Sprintf("node '%s': %s", ID, strings.Join(failedConditions, "; ")))
 			} else {
-				stuckReasons = append(stuckReasons, fmt.Sprintf("node '%s': all dependencies completed but node is not ready (possible missing edge or condition issue)", nodeID))
+				stuckReasons = append(stuckReasons, fmt.Sprintf("node '%s': all dependencies completed but node is not ready (possible missing edge or condition issue)", ID))
 			}
 		}
 	}
@@ -376,17 +386,17 @@ func (e *WorkflowEngine) executeNodesInParallel(ctx context.Context, execCtx *Ex
 	errChan := make(chan error, len(nodeIDs))
 
 	// Execute each node in a separate goroutine
-	for _, nodeID := range nodeIDs {
-		nodeConfig, ok := graph.GetNode(nodeID)
+	for _, ID := range nodeIDs {
+		nodeConfig, ok := graph.GetNode(ID)
 		if !ok {
 			mu.Lock()
-			delete(executingNodes, nodeID)
+			delete(executingNodes, ID)
 			mu.Unlock()
-			return fmt.Errorf("node %s not found in graph", nodeID)
+			return fmt.Errorf("node %s not found in graph", ID)
 		}
 
 		wg.Add(1)
-		go func(nID string, nConfig NodeConfig) {
+		go func(nID string, nConfig domain.NodeConfig) {
 			defer wg.Done()
 
 			// Execute the node
@@ -407,7 +417,7 @@ func (e *WorkflowEngine) executeNodesInParallel(ctx context.Context, execCtx *Ex
 				default:
 				}
 			}
-		}(nodeID, *nodeConfig)
+		}(ID, *nodeConfig)
 	}
 
 	// Wait for all nodes to complete
@@ -441,28 +451,28 @@ func (e *WorkflowEngine) executeNodesInParallel(ctx context.Context, execCtx *Ex
 }
 
 // NodeConfig represents the configuration for executing a node.
-type NodeConfig struct {
-	NodeID   string
-	Name     string
-	NodeType string
-	Config   map[string]any
-}
+// type NodeConfig struct {
+// 	ID   string
+// 	Name     string
+// 	Type string
+// 	Config   map[string]any
+// }
 
 // ExecuteNode executes a single node with retry logic.
-func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionContext, nodeConfig NodeConfig) error {
+func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionContext, nodeConfig domain.NodeConfig) error {
 	// Get executor for node type
 	e.mu.RLock()
-	executor, ok := e.executors[nodeConfig.NodeType]
+	executor, ok := e.executors[nodeConfig.Type]
 	e.mu.RUnlock()
 
 	if !ok {
 		return errors.NewNodeExecutionError(
 			execCtx.State().WorkflowID,
 			execCtx.State().ExecutionID,
-			nodeConfig.NodeID,
-			nodeConfig.NodeType,
+			nodeConfig.ID,
+			nodeConfig.Type,
 			1,
-			fmt.Sprintf("no executor registered for node type '%s'", nodeConfig.NodeType),
+			fmt.Sprintf("no executor registered for node type '%s'", nodeConfig.Type),
 			nil,
 			false,
 		)
@@ -472,33 +482,31 @@ func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionCont
 	retryExecutor := NewRetryExecutor(e.retryPolicy)
 
 	// Create a temporary node object from config for logging
-	// Use NodeID as name if name is not available
-	tempNode := domain.NewNode(
-		nodeConfig.NodeID,
-		execCtx.State().WorkflowID,
-		nodeConfig.NodeType,
-		utils.DefaultValue(nodeConfig.Name, nodeConfig.NodeID),
-		nodeConfig.Config,
-	)
+	// Use ID as name if name is not available
+	nodeConfig.WorkflowID = execCtx.State().WorkflowID
+	tempNode, err := domain.NewNode(nodeConfig)
 
+	if err != nil {
+		return err
+	}
 	// Execute with retry logic
-	err := retryExecutor.ExecuteWithCallback(
+	err = retryExecutor.ExecuteWithCallback(
 		ctx,
 		func(attemptNumber int) error {
 			// Mark node as started
-			execCtx.State().MarkNodeStarted(nodeConfig.NodeID)
+			execCtx.State().MarkNodeStarted(nodeConfig.ID)
 			e.observerManager.NotifyNodeStarted(execCtx.State().ExecutionID, tempNode, attemptNumber)
 
 			startTime := time.Now()
 
 			// Execute the node
-			output, execErr := executor.Execute(ctx, execCtx, nodeConfig.NodeID, nodeConfig.Config)
+			output, execErr := executor.Execute(ctx, execCtx, nodeConfig.ID, nodeConfig.Config)
 
 			duration := time.Since(startTime)
 
 			if execErr != nil {
 				// Mark node as failed
-				execCtx.State().MarkNodeFailed(nodeConfig.NodeID, execErr)
+				execCtx.State().MarkNodeFailed(nodeConfig.ID, execErr)
 
 				// Check if we should retry
 				willRetry := e.retryPolicy.ShouldRetry(execErr, attemptNumber)
@@ -515,7 +523,7 @@ func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionCont
 			}
 
 			// Mark node as completed
-			execCtx.State().MarkNodeCompleted(nodeConfig.NodeID, output)
+			execCtx.State().MarkNodeCompleted(nodeConfig.ID, output)
 			e.observerManager.NotifyNodeCompleted(
 				execCtx.State().ExecutionID,
 				tempNode,
@@ -530,7 +538,7 @@ func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionCont
 		},
 		func(attemptNumber int, err error, delay time.Duration) {
 			// Callback before retry
-			execCtx.State().MarkNodeRetrying(nodeConfig.NodeID)
+			execCtx.State().MarkNodeRetrying(nodeConfig.ID)
 			e.observerManager.NotifyNodeRetrying(
 				execCtx.State().ExecutionID,
 				tempNode,
@@ -543,54 +551,63 @@ func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionCont
 	return err
 }
 
+// ExecuteNodeWithState executes a single node using an abstract state.
+// This is a helper to bridge the public ExecutorState interface with the internal ExecutionState.
+func (e *WorkflowEngine) ExecuteNodeWithState(ctx context.Context, state interface{}, nodeConfig domain.NodeConfig) error {
+	execState, ok := state.(*ExecutionState)
+	if !ok {
+		return fmt.Errorf("invalid state type: expected *executor.ExecutionState, got %T", state)
+	}
+	execCtx := NewExecutionContext(ctx, execState)
+	return e.ExecuteNode(ctx, execCtx, nodeConfig)
+}
+
 // ExecuteNodeSimple executes a single node without retry logic.
 // This is useful for testing or when you want to handle retries externally.
-func (e *WorkflowEngine) ExecuteNodeSimple(ctx context.Context, execCtx *ExecutionContext, nodeConfig NodeConfig) (interface{}, error) {
+func (e *WorkflowEngine) ExecuteNodeSimple(ctx context.Context, execCtx *ExecutionContext, nodeConfig domain.NodeConfig) (interface{}, error) {
 	// Get executor for node type
 	e.mu.RLock()
-	executor, ok := e.executors[nodeConfig.NodeType]
+	executor, ok := e.executors[nodeConfig.Type]
 	e.mu.RUnlock()
 
 	if !ok {
 		return nil, errors.NewNodeExecutionError(
 			execCtx.State().WorkflowID,
 			execCtx.State().ExecutionID,
-			nodeConfig.NodeID,
-			nodeConfig.NodeType,
+			nodeConfig.ID,
+			nodeConfig.Type,
 			1,
-			fmt.Sprintf("no executor registered for node type '%s'", nodeConfig.NodeType),
+			fmt.Sprintf("no executor registered for node type '%s'", nodeConfig.Type),
 			nil,
 			false,
 		)
 	}
 
 	// Create a temporary node object from config for logging
-	// Use NodeID as name if name is not available
-	tempNode := domain.NewNode(
-		nodeConfig.NodeID,
-		execCtx.State().WorkflowID,
-		nodeConfig.NodeType,
-		nodeConfig.NodeID, // Use NodeID as name
-		nodeConfig.Config,
-	)
+	// Use ID as name if name is not available
+	nodeConfig.WorkflowID = execCtx.State().WorkflowID
+	tempNode, err := domain.NewNode(nodeConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	// Initialize node state
-	execCtx.State().InitializeNodeState(nodeConfig.NodeID, 1)
+	execCtx.State().InitializeNodeState(nodeConfig.ID, 1)
 
 	// Mark node as started
-	execCtx.State().MarkNodeStarted(nodeConfig.NodeID)
+	execCtx.State().MarkNodeStarted(nodeConfig.ID)
 	e.observerManager.NotifyNodeStarted(execCtx.State().ExecutionID, tempNode, 1)
 
 	startTime := time.Now()
 
 	// Execute the node
-	output, err := executor.Execute(ctx, execCtx, nodeConfig.NodeID, nodeConfig.Config)
+	output, err := executor.Execute(ctx, execCtx, nodeConfig.ID, nodeConfig.Config)
 
 	duration := time.Since(startTime)
 
 	if err != nil {
 		// Mark node as failed
-		execCtx.State().MarkNodeFailed(nodeConfig.NodeID, err)
+		execCtx.State().MarkNodeFailed(nodeConfig.ID, err)
 		e.observerManager.NotifyNodeFailed(
 			execCtx.State().ExecutionID,
 			tempNode,
@@ -602,7 +619,7 @@ func (e *WorkflowEngine) ExecuteNodeSimple(ctx context.Context, execCtx *Executi
 	}
 
 	// Mark node as completed
-	execCtx.State().MarkNodeCompleted(nodeConfig.NodeID, output)
+	execCtx.State().MarkNodeCompleted(nodeConfig.ID, output)
 	e.observerManager.NotifyNodeCompleted(
 		execCtx.State().ExecutionID,
 		tempNode,
@@ -618,7 +635,7 @@ func (e *WorkflowEngine) ExecuteNodeSimple(ctx context.Context, execCtx *Executi
 
 // executeNodeCallback executes a callback for a node if configured.
 // The callback is executed asynchronously and does not affect the workflow execution.
-func (e *WorkflowEngine) executeNodeCallback(ctx context.Context, execCtx *ExecutionContext, nodeConfig NodeConfig, node *domain.Node, output interface{}, duration time.Duration) {
+func (e *WorkflowEngine) executeNodeCallback(ctx context.Context, execCtx *ExecutionContext, nodeConfig domain.NodeConfig, node *domain.Node, output interface{}, duration time.Duration) {
 	// Check if callback is configured
 	callbackConfig, err := parseCallbackConfig(nodeConfig.Config)
 	if err != nil {
@@ -648,8 +665,8 @@ func (e *WorkflowEngine) executeNodeCallback(ctx context.Context, execCtx *Execu
 		callbackData := &NodeCallbackData{
 			ExecutionID: execCtx.State().ExecutionID,
 			WorkflowID:  execCtx.State().WorkflowID,
-			NodeID:      nodeConfig.NodeID,
-			NodeType:    nodeConfig.NodeType,
+			NodeID:      nodeConfig.ID,
+			NodeType:    nodeConfig.Type,
 			Output:      output,
 			Duration:    duration,
 			StartedAt:   time.Now().Add(-duration),
@@ -718,7 +735,7 @@ func (e *WorkflowEngine) fromDomainExecutionState(domainState *domain.ExecutionS
 
 	// Convert NodeStates
 	nodeStates := make(map[string]*NodeState)
-	for nodeID, ns := range domainState.NodeStates() {
+	for ID, ns := range domainState.NodeStates() {
 		var nodeStatus NodeStatus
 		switch ns.Status() {
 		case domain.NodeStateStatusPending:
@@ -742,7 +759,7 @@ func (e *WorkflowEngine) fromDomainExecutionState(domainState *domain.ExecutionS
 			nodeErr = fmt.Errorf(ns.ErrorMessage())
 		}
 
-		nodeStates[nodeID] = &NodeState{
+		nodeStates[ID] = &NodeState{
 			NodeID:        ns.NodeID(),
 			Status:        nodeStatus,
 			StartedAt:     ns.StartedAt(),

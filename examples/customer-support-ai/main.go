@@ -63,9 +63,8 @@ func main() {
 	fmt.Println()
 
 	// Create executor with monitoring enabled
-	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		OpenAIAPIKey:     apiKey,
-		MaxRetryAttempts: 3,
 		EnableMonitoring: true,
 		VerboseLogging:   true,
 	})
@@ -645,7 +644,7 @@ Generate JSON:
 	executionDuration := time.Since(startTime)
 
 	fmt.Println("\n=== Execution Results ===\n")
-	fmt.Printf("Status: %s\n", state.Status())
+	fmt.Printf("Status: %s\n", state.GetStatusString())
 	fmt.Printf("Execution Duration: %s\n", executionDuration)
 	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
 

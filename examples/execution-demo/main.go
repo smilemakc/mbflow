@@ -27,13 +27,12 @@ func main() {
 	}
 
 	// Create executor with monitoring enabled
-	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		OpenAIAPIKey:     apiKey,
-		MaxRetryAttempts: 3,
 		EnableMonitoring: true,
 		VerboseLogging:   true,
 	})
-	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackConfig{
+	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackObserverConfig{
 		CallbackURL: "https://heabot.nl.tuna.am",
 	})
 	if err != nil {
@@ -48,12 +47,12 @@ func main() {
 	fmt.Printf("Execution ID: %s\n\n", executionID)
 
 	// Define nodes to execute
-	nodes := []mbflow.ExecutorNodeConfig{
+	nodes := []mbflow.NodeConfig{
 		// Node 1: Data merger (simulates selecting from multiple sources)
 		{
-			NodeID:   uuid.NewString(),
-			Name:     "Data Merger",
-			NodeType: "data-merger",
+			ID:   uuid.NewString(),
+			Name: "Data Merger",
+			Type: "data-merger",
 			Config: map[string]any{
 				"strategy":   "select_first_available",
 				"sources":    []string{"input_data", "fallback_data"},
@@ -63,9 +62,9 @@ func main() {
 
 		// Node 2: Data aggregator (combines multiple fields)
 		{
-			NodeID:   uuid.NewString(),
-			Name:     "Data Aggregator",
-			NodeType: "data-aggregator",
+			ID:   uuid.NewString(),
+			Name: "Data Aggregator",
+			Type: "data-aggregator",
 			Config: map[string]any{
 				"fields": map[string]string{
 					"data":      "merged_data",
@@ -78,9 +77,9 @@ func main() {
 
 		// Node 3: Conditional router (routes based on status)
 		{
-			NodeID:   uuid.NewString(),
-			Name:     "Conditional Router",
-			NodeType: "conditional-router",
+			ID:   uuid.NewString(),
+			Name: "Conditional Router",
+			Type: "conditional-router",
 			Config: map[string]any{
 				"input_key": "execution_status",
 				"routes": map[string]string{
@@ -94,10 +93,10 @@ func main() {
 
 	// If OpenAI API key is available, add an OpenAI node
 	if apiKey != "" {
-		openaiNode := mbflow.ExecutorNodeConfig{
-			NodeID:   uuid.NewString(),
-			Name:     "OpenAI Summarizer",
-			NodeType: "openai-completion",
+		openaiNode := mbflow.NodeConfig{
+			ID:   uuid.NewString(),
+			Name: "OpenAI Summarizer",
+			Type: "openai-completion",
 			Config: map[string]any{
 				"model":      "gpt-4o",
 				"prompt":     "Summarize this data in one sentence: {{merged_data}}",
@@ -131,8 +130,9 @@ func main() {
 	}
 
 	fmt.Println("\n=== Execution Results ===\n")
-	fmt.Printf("Status: %s\n", state.Status())
-	fmt.Printf("Duration: %s\n\n", state.GetExecutionDuration())
+	fmt.Printf("Execution Status: %s\n", state.GetStatusString())
+	fmt.Printf("Execution Duration: %s\n", state.GetExecutionDuration())
+	fmt.Printf("Execution ID: %s\n\n", state.GetExecutionID())
 
 	// Display variables
 	fmt.Println("=== Execution Variables ===\n")
@@ -142,8 +142,10 @@ func main() {
 	}
 
 	// Display metrics
-	// Display metrics
-	nodeIDs := []string{"merge-data", "aggregate-data", "check-condition", "process-ai"}
+	var nodeIDs []string
+	for _, node := range nodes {
+		nodeIDs = append(nodeIDs, node.ID)
+	}
 	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, apiKey != "")
 
 	fmt.Println("\n=== Demo Complete ===")

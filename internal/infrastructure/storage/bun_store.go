@@ -237,7 +237,7 @@ type NodeModel struct {
 }
 
 func (m *NodeModel) ToDomain() (*domain.Node, error) {
-	return domain.NewNodeFromConfig(domain.NodeConfig{
+	return domain.NewNode(domain.NodeConfig{
 		ID:         m.ID,
 		WorkflowID: m.WorkflowID,
 		Type:       m.Type,

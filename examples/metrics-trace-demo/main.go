@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"mbflow"
 	"mbflow/internal/application/executor"
 	"mbflow/internal/infrastructure/monitoring"
 )
@@ -156,7 +157,7 @@ func demoWorkflowWithMetricsAndTraces(metricsDir, tracesDir string) {
 	observer := monitoring.NewCompositeObserver(logger, metrics, trace)
 
 	// Create workflow engine
-	engine := executor.NewWorkflowEngine(&executor.EngineConfig{
+	engine := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		EnableMonitoring: false,
 		VerboseLogging:   false,
 	})
@@ -165,23 +166,23 @@ func demoWorkflowWithMetricsAndTraces(metricsDir, tracesDir string) {
 	engine.AddObserver(observer)
 
 	// Define a simple workflow
-	nodes := []executor.NodeConfig{
+	nodes := []mbflow.NodeConfig{
 		{
-			NodeID:   "start",
-			NodeType: "start",
-			Config:   map[string]interface{}{},
+			ID:     "start",
+			Type:   "start",
+			Config: map[string]interface{}{},
 		},
 		{
-			NodeID:   "transform-1",
-			NodeType: "transform",
+			ID:   "transform-1",
+			Type: "transform",
 			Config: map[string]interface{}{
 				"expression": "user_count * 2",
 			},
 		},
 		{
-			NodeID:   "end",
-			NodeType: "end",
-			Config:   map[string]interface{}{},
+			ID:     "end",
+			Type:   "end",
+			Config: map[string]interface{}{},
 		},
 	}
 

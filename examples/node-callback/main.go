@@ -26,54 +26,54 @@ func main() {
 	}
 
 	// Create executor with monitoring enabled
-	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		OpenAIAPIKey:     apiKey,
-		MaxRetryAttempts: 3,
 		EnableMonitoring: true,
 		VerboseLogging:   true,
 	})
 
 	ctx := context.Background()
-	workflowID := "callback-demo-workflow"
+	workflowID := uuid.NewString()
 	executionID := fmt.Sprintf("exec-%d", time.Now().Unix())
 
+	httpConfig := mbflow.HTTPCallbackConfig{
+		URL:    "http://localhost:8087/callback",
+		Method: "POST",
+		Headers: map[string]string{
+			"X-Custom-Header": "callback-demo",
+		},
+		TimeoutSeconds:   10,
+		IncludeVariables: true,
+	}
 	// Define nodes with callback configuration
-	nodes := []mbflow.ExecutorNodeConfig{
+	nodes := []mbflow.NodeConfig{
 		{
-			NodeID:   uuid.NewString(),
-			Name:     "Generate Text",
-			NodeType: "openai-completion",
+			ID:   uuid.NewString(),
+			Name: "Generate Text",
+			Type: "openai-completion",
 			Config: map[string]any{
 				"model":       "gpt-4o-mini",
 				"prompt":      "Write a short poem about {{topic}}",
 				"max_tokens":  100,
 				"temperature": 0.7,
 				"output_key":  "poem",
-				// Configure callback to be called after successful execution
-				"on_success_callback": map[string]any{
-					"url":               "http://localhost:8080/callback",
-					"method":            "POST",
-					"timeout_seconds":   10,
-					"include_variables": true, // Include all execution variables in callback
-					"headers": map[string]string{
-						"X-Custom-Header": "callback-demo",
-					},
-				},
+				// Configure callback as a certain type of HTTPCallbackConfig to be called after successful execution
+				"on_success_callback": httpConfig,
 			},
 		},
 		{
-			NodeID:   uuid.NewString(),
-			Name:     "Analyze Poem",
-			NodeType: "openai-completion",
+			ID:   uuid.NewString(),
+			Name: "Analyze Poem",
+			Type: "openai-completion",
 			Config: map[string]any{
 				"model":       "gpt-4o-mini",
 				"prompt":      "Analyze this poem and provide a brief critique:\n\n{{poem}}",
 				"max_tokens":  150,
 				"temperature": 0.3,
 				"output_key":  "critique",
-				// This node also has a callback
+				// Configure callback as a map of callback configuration parameters
 				"on_success_callback": map[string]any{
-					"url":               "http://localhost:8080/callback",
+					"url":               "http://localhost:8087/callback",
 					"method":            "POST",
 					"timeout_seconds":   10,
 					"include_variables": false, // Don't include variables in this callback
@@ -85,8 +85,8 @@ func main() {
 	// Define workflow edges
 	edges := []mbflow.ExecutorEdgeConfig{
 		{
-			FromNodeID: nodes[0].NodeID,
-			ToNodeID:   nodes[1].NodeID,
+			FromNodeID: nodes[0].ID,
+			ToNodeID:   nodes[1].ID,
 			EdgeType:   "sequence",
 		},
 	}
@@ -99,7 +99,7 @@ func main() {
 		executionID,
 		nodes,
 		edges,
-		map[string]interface{}{
+		map[string]any{
 			"topic": "artificial intelligence",
 		},
 	)
@@ -108,7 +108,7 @@ func main() {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
 
-	fmt.Printf("\nWorkflow completed with status: %s\n", state.Status())
+	fmt.Printf("\nWorkflow completed with status: %s\n", state.GetStatusString())
 	fmt.Printf("Execution duration: %s\n", state.GetExecutionDuration())
 
 	// Display results
@@ -169,8 +169,8 @@ func startCallbackServer() {
 		w.Write([]byte(`{"status":"success"}`))
 	})
 
-	fmt.Println("Callback server listening on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	fmt.Println("Callback server listening on :8087")
+	if err := http.ListenAndServe(":8087", nil); err != nil {
 		log.Printf("Callback server error: %v", err)
 	}
 }

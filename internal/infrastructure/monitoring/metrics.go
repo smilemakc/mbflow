@@ -197,6 +197,12 @@ func (mc *MetricsCollector) GetNodeMetricsByID(nodeID string) *NodeMetrics {
 	return nil
 }
 
+// GetNodeMetrics returns aggregated metrics for a specific node type.
+// This method satisfies the ExecutorMetrics interface.
+func (mc *MetricsCollector) GetNodeMetrics(nodeType string) *NodeMetrics {
+	return mc.GetNodeMetricsByType(nodeType)
+}
+
 // GetNodeMetricsByType returns aggregated metrics for a specific node type.
 func (mc *MetricsCollector) GetNodeMetricsByType(nodeType string) *NodeMetrics {
 	mc.mu.RLock()

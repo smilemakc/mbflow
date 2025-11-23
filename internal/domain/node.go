@@ -20,40 +20,29 @@ type Node struct {
 // NodeConfig holds the configuration for creating a new Node with UUID validation.
 type NodeConfig struct {
 	// ID is the node ID (will be validated as UUID)
-	ID string
+	ID string `json:"id"`
 	// WorkflowID is the workflow ID this node belongs to (will be validated as UUID)
-	WorkflowID string
-	// Type is the node type (e.g., "http-request", "transform", "llm")
-	Type string
+	WorkflowID string `json:"workflow_id,omitempty"`
+	// Type is the node type (e.g., "http-request", "openai-completion")
+	Type string `json:"type"`
 	// Name is the display name for the node
-	Name string
+	Name string `json:"name"`
 	// Config holds the node-specific configuration
-	Config map[string]any
+	Config map[string]any `json:"config,omitempty"`
 }
 
-// NewNode creates a new Node instance.
-// Deprecated: Use NewNodeFromConfig for UUID validation.
-func NewNode(id, workflowID, nodeType, name string, config map[string]any) *Node {
-	return &Node{
-		id:         id,
-		workflowID: workflowID,
-		nodeType:   nodeType,
-		name:       name,
-		config:     config,
-	}
-}
-
-// NewNodeFromConfig creates a new Node instance from NodeConfig with UUID validation.
+// NewNode creates a new Node instance from NodeConfig with UUID validation.
 // Returns an error if ID or WorkflowID are not valid UUIDs.
-func NewNodeFromConfig(cfg NodeConfig) (*Node, error) {
+func NewNode(cfg NodeConfig) (*Node, error) {
 	// Validate ID is a valid UUID
 	if _, err := uuid.Parse(cfg.ID); err != nil {
 		return nil, fmt.Errorf("invalid node ID '%s': must be a valid UUID: %w", cfg.ID, err)
 	}
-
-	// Validate WorkflowID is a valid UUID
-	if _, err := uuid.Parse(cfg.WorkflowID); err != nil {
-		return nil, fmt.Errorf("invalid workflow ID '%s': must be a valid UUID: %w", cfg.WorkflowID, err)
+	if cfg.WorkflowID != "" {
+		// Validate WorkflowID is a valid UUID
+		if _, err := uuid.Parse(cfg.WorkflowID); err != nil {
+			return nil, fmt.Errorf("invalid workflow ID '%s': must be a valid UUID: %w", cfg.WorkflowID, err)
+		}
 	}
 
 	// Validate required fields

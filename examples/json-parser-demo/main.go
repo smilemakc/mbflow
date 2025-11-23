@@ -16,7 +16,7 @@ func main() {
 	fmt.Println("=== JSON Parser Node Demo ===\n")
 
 	// Create executor
-	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		VerboseLogging: true,
 	})
 
@@ -133,7 +133,7 @@ func main() {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
 
-	fmt.Printf("\nStatus: %s\n", state.Status())
+	fmt.Printf("\nStatus: %s\n", state.GetStatusString())
 	variables := state.GetAllVariables()
 
 	// Display parsed response
@@ -171,7 +171,7 @@ func main() {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
 
-	fmt.Printf("\nStatus: %s\n", state2.Status())
+	fmt.Printf("\nStatus: %s\n", state2.GetStatusString())
 	variables2 := state2.GetAllVariables()
 
 	if parsedResponse, ok := variables2["parsed_response"]; ok {
@@ -217,7 +217,7 @@ func main() {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
 
-	fmt.Printf("\nStatus: %s\n", state3.Status())
+	fmt.Printf("\nStatus: %s\n", state3.GetStatusString())
 	fmt.Printf("Original value preserved: %v\n", state3.GetAllVariables()["invalid_json"])
 
 	fmt.Println("\n=== Demo Complete ===")

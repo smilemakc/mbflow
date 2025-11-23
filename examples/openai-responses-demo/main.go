@@ -46,9 +46,8 @@ func main() {
 	}
 
 	// Create executor with monitoring enabled
-	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		OpenAIAPIKey:     apiKey,
-		MaxRetryAttempts: 3,
 		EnableMonitoring: true,
 		VerboseLogging:   true,
 	})
@@ -189,7 +188,7 @@ func main() {
 	}
 
 	// Convert domain nodes to executor node configs using helper function
-	nodes := []mbflow.ExecutorNodeConfig{
+	nodes := []mbflow.NodeConfig{
 		mbflow.NodeToConfig(nodeExtractProduct),
 		mbflow.NodeToConfig(nodeGenerateRecommendation),
 	}
@@ -229,7 +228,7 @@ func main() {
 
 	// Print results
 	fmt.Println("\n=== Execution Results ===\n")
-	fmt.Printf("Status: %s\n", state.Status())
+	fmt.Printf("Status: %s\n", state.GetStatusString())
 	fmt.Printf("Duration: %v\n", duration)
 	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
 
@@ -253,7 +252,7 @@ func main() {
 	}
 	var nodeIDs []string
 	for _, node := range nodes {
-		nodeIDs = append(nodeIDs, node.NodeID)
+		nodeIDs = append(nodeIDs, node.ID)
 	}
 	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, true)
 

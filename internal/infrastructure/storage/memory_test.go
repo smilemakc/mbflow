@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 
 	"github.com/stretchr/testify/assert"
 )

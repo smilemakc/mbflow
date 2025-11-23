@@ -136,6 +136,23 @@ func (s *ExecutionState) GetStatus() ExecutionStatus {
 	return s.Status
 }
 
+// GetStatusString returns the current execution status as string.
+func (s *ExecutionState) GetStatusString() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return string(s.Status)
+}
+
+// GetExecutionID returns the execution ID.
+func (s *ExecutionState) GetExecutionID() string {
+	return s.ExecutionID
+}
+
+// GetWorkflowID returns the workflow ID.
+func (s *ExecutionState) GetWorkflowID() string {
+	return s.WorkflowID
+}
+
 // SetVariable sets a variable in the execution context.
 func (s *ExecutionState) SetVariable(key string, value interface{}) {
 	s.mu.Lock()
