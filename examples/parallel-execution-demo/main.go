@@ -49,6 +49,7 @@ func main() {
 		// Start node: Prepare initial data
 		{
 			NodeID:   "start",
+			Name:     "Start Node",
 			NodeType: "data-aggregator",
 			Config: map[string]any{
 				"fields": map[string]string{
@@ -63,6 +64,7 @@ func main() {
 		// Task 1: OpenAI completion for first topic
 		{
 			NodeID:   "task-1",
+			Name:     "Task 1: Summarize Topic 1",
 			NodeType: "openai-completion",
 			Config: map[string]any{
 				"model":      "gpt-4o",
@@ -75,6 +77,7 @@ func main() {
 		// Task 2: OpenAI completion for second topic
 		{
 			NodeID:   "task-2",
+			Name:     "Task 2: Summarize Topic 2",
 			NodeType: "openai-completion",
 			Config: map[string]any{
 				"model":      "gpt-4o",
@@ -87,6 +90,7 @@ func main() {
 		// Task 3: OpenAI completion for third topic
 		{
 			NodeID:   "task-3",
+			Name:     "Task 3: Summarize Topic 3",
 			NodeType: "openai-completion",
 			Config: map[string]any{
 				"model":      "gpt-4o",
@@ -99,6 +103,7 @@ func main() {
 		// Join node: Aggregate all results from parallel tasks
 		{
 			NodeID:   "join",
+			Name:     "Join Node",
 			NodeType: "data-aggregator",
 			Config: map[string]any{
 				"fields": map[string]string{

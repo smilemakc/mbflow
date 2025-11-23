@@ -49,12 +49,12 @@ func main() {
 	fmt.Printf("Created workflow: %s (ID: %s)\n\n", workflow.Name(), workflow.ID())
 
 	// Node 1: Fetch code changes
-	nodeFetchChanges := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Fetch Code Changes",
-		map[string]any{
+	nodeFetchChanges, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Fetch Code Changes",
+		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/files",
 			"method": "GET",
 			"headers": map[string]string{
@@ -63,15 +63,18 @@ func main() {
 			},
 			"output_key": "code_changes",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeFetchChanges: %v", err)
+	}
 
 	// Node 2: Fetch PR context
-	nodeFetchPRContext := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Fetch PR Context",
-		map[string]any{
+	nodeFetchPRContext, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Fetch PR Context",
+		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}",
 			"method": "GET",
 			"headers": map[string]string{
@@ -79,15 +82,18 @@ func main() {
 			},
 			"output_key": "pr_context",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeFetchPRContext: %v", err)
+	}
 
 	// Node 3: Analyze code complexity
-	nodeAnalyzeComplexity := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Analyze Code Complexity",
-		map[string]any{
+	nodeAnalyzeComplexity, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Analyze Code Complexity",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Analyze the complexity of these code changes:
 
@@ -123,15 +129,18 @@ Return JSON:
 			"temperature": 0.2,
 			"output_key":  "complexity_analysis",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeAnalyzeComplexity: %v", err)
+	}
 
 	// Node 4: Security scan
-	nodeSecurityScan := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Security Vulnerability Scan",
-		map[string]any{
+	nodeSecurityScan, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Security Vulnerability Scan",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Perform a security analysis on these code changes:
 
@@ -167,15 +176,18 @@ Return JSON:
 			"temperature": 0.1,
 			"output_key":  "security_scan",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeSecurityScan: %v", err)
+	}
 
 	// Node 5: Check test coverage
-	nodeCheckTestCoverage := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Analyze Test Coverage",
-		map[string]any{
+	nodeCheckTestCoverage, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Analyze Test Coverage",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Analyze test coverage for these code changes:
 
@@ -200,15 +212,18 @@ Return JSON:
 			"temperature": 0.2,
 			"output_key":  "test_coverage",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCheckTestCoverage: %v", err)
+	}
 
 	// Node 6: Generate comprehensive code review
-	nodeGenerateReview := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Code Review",
-		map[string]any{
+	nodeGenerateReview, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Code Review",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Generate a comprehensive code review:
 
@@ -250,15 +265,18 @@ Return structured JSON with:
 			"temperature": 0.4,
 			"output_key":  "code_review",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateReview: %v", err)
+	}
 
 	// Node 7: Check review severity
-	nodeCheckSeverity := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"conditional-router",
-		"Route Based on Severity",
-		map[string]any{
+	nodeCheckSeverity, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "conditional-router",
+		Name:       "Route Based on Severity",
+		Config: map[string]any{
 			"input_key": "code_review.severity",
 			"routes": map[string]string{
 				"critical": "block_merge",
@@ -267,15 +285,18 @@ Return structured JSON with:
 				"none":     "approve_directly",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCheckSeverity: %v", err)
+	}
 
 	// Node 8: Block merge and generate detailed report
-	nodeBlockMerge := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Blocking Issues Report",
-		map[string]any{
+	nodeBlockMerge, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Blocking Issues Report",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Generate a detailed report for critical issues that block this PR:
 
@@ -294,15 +315,18 @@ Format as a professional, constructive report.`,
 			"temperature": 0.5,
 			"output_key":  "blocking_report",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeBlockMerge: %v", err)
+	}
 
 	// Node 9: Post blocking comment
-	nodePostBlockingComment := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Post Blocking Comment",
-		map[string]any{
+	nodePostBlockingComment, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Post Blocking Comment",
+		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews",
 			"method": "POST",
 			"headers": map[string]string{
@@ -313,30 +337,36 @@ Format as a professional, constructive report.`,
 				"body":  "{{blocking_report}}",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodePostBlockingComment: %v", err)
+	}
 
 	// Node 10: Check if refactoring needed
-	nodeCheckRefactoring := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"conditional-router",
-		"Check Refactoring Needed",
-		map[string]any{
+	nodeCheckRefactoring, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "conditional-router",
+		Name:       "Check Refactoring Needed",
+		Config: map[string]any{
 			"input_key": "code_review.refactoring_needed",
 			"routes": map[string]string{
 				"true":  "generate_refactoring_plan",
 				"false": "post_review_comments",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCheckRefactoring: %v", err)
+	}
 
 	// Node 11: Generate refactoring plan
-	nodeGenerateRefactoringPlan := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Refactoring Plan",
-		map[string]any{
+	nodeGenerateRefactoringPlan, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Refactoring Plan",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Create a detailed refactoring plan:
 
@@ -356,15 +386,18 @@ Return JSON with detailed plan.`,
 			"temperature": 0.4,
 			"output_key":  "refactoring_plan",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateRefactoringPlan: %v", err)
+	}
 
 	// Node 12: Generate refactored code
-	nodeGenerateRefactoredCode := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Refactored Code",
-		map[string]any{
+	nodeGenerateRefactoredCode, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Refactored Code",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Apply the refactoring plan to generate improved code:
 
@@ -383,15 +416,18 @@ Provide complete refactored files.`,
 			"temperature": 0.3,
 			"output_key":  "refactored_code",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateRefactoredCode: %v", err)
+	}
 
 	// Node 13: Validate refactored code
-	nodeValidateRefactoring := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Validate Refactored Code",
-		map[string]any{
+	nodeValidateRefactoring, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Validate Refactored Code",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Validate the refactored code:
 
@@ -416,15 +452,18 @@ Return JSON:
 			"temperature": 0.2,
 			"output_key":  "refactoring_validation",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeValidateRefactoring: %v", err)
+	}
 
 	// Node 14: Check refactoring validation
-	nodeCheckRefactoringValidation := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"conditional-router",
-		"Check Refactoring Validation",
-		map[string]any{
+	nodeCheckRefactoringValidation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "conditional-router",
+		Name:       "Check Refactoring Validation",
+		Config: map[string]any{
 			"input_key": "refactoring_validation.recommendation",
 			"routes": map[string]string{
 				"apply":         "create_refactoring_pr",
@@ -432,15 +471,18 @@ Return JSON:
 				"manual_review": "post_refactoring_suggestions",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCheckRefactoringValidation: %v", err)
+	}
 
 	// Node 15: Create refactoring PR
-	nodeCreateRefactoringPR := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Create Refactoring PR",
-		map[string]any{
+	nodeCreateRefactoringPR, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Create Refactoring PR",
+		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls",
 			"method": "POST",
 			"headers": map[string]string{
@@ -462,15 +504,18 @@ Improvements:
 			},
 			"output_key": "refactoring_pr",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCreateRefactoringPR: %v", err)
+	}
 
 	// Node 16: Post refactoring suggestions
-	nodePostRefactoringSuggestions := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Post Refactoring Suggestions",
-		map[string]any{
+	nodePostRefactoringSuggestions, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Post Refactoring Suggestions",
+		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/comments",
 			"method": "POST",
 			"headers": map[string]string{
@@ -488,15 +533,18 @@ Improvements:
 {{refactoring_validation}}`,
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodePostRefactoringSuggestions: %v", err)
+	}
 
 	// Node 17: Post review comments
-	nodePostReviewComments := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Post Review Comments",
-		map[string]any{
+	nodePostReviewComments, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Post Review Comments",
+		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews",
 			"method": "POST",
 			"headers": map[string]string{
@@ -508,15 +556,18 @@ Improvements:
 				"comments": "{{code_review.issues}}", // Line-by-line comments
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodePostReviewComments: %v", err)
+	}
 
 	// Node 18: Approve with suggestions
-	nodeApproveWithSuggestions := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Approve with Suggestions",
-		map[string]any{
+	nodeApproveWithSuggestions, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Approve with Suggestions",
+		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews",
 			"method": "POST",
 			"headers": map[string]string{
@@ -532,15 +583,18 @@ Improvements:
 {{code_review.issues}}`,
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeApproveWithSuggestions: %v", err)
+	}
 
 	// Node 19: Approve directly
-	nodeApproveDirect := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Approve Directly",
-		map[string]any{
+	nodeApproveDirect, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Approve Directly",
+		Config: map[string]any{
 			"url":    "https://api.github.com/repos/{{repo}}/pulls/{{pr_number}}/reviews",
 			"method": "POST",
 			"headers": map[string]string{
@@ -556,15 +610,18 @@ Improvements:
 {{code_review.strengths}}`,
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeApproveDirect: %v", err)
+	}
 
 	// Node 20: Generate documentation
-	nodeGenerateDocumentation := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Documentation",
-		map[string]any{
+	nodeGenerateDocumentation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Documentation",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Generate documentation for these code changes:
 
@@ -582,15 +639,18 @@ Format as markdown.`,
 			"temperature": 0.5,
 			"output_key":  "documentation",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateDocumentation: %v", err)
+	}
 
 	// Node 21: Update code quality metrics
-	nodeUpdateMetrics := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Update Code Quality Metrics",
-		map[string]any{
+	nodeUpdateMetrics, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Update Code Quality Metrics",
+		Config: map[string]any{
 			"url":    "https://api.example.com/metrics/code-quality",
 			"method": "POST",
 			"body": map[string]any{
@@ -603,15 +663,18 @@ Format as markdown.`,
 				"refactoring_applied": "{{refactoring_validation.validation_passed}}",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeUpdateMetrics: %v", err)
+	}
 
 	// Node 22: Send summary notification
-	nodeSendSummary := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Send Summary Notification",
-		map[string]any{
+	nodeSendSummary, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Send Summary Notification",
+		Config: map[string]any{
 			"url":    "https://api.example.com/notifications/send",
 			"method": "POST",
 			"body": map[string]any{
@@ -626,7 +689,10 @@ Test Coverage: {{test_coverage.coverage_adequate}}
 {{code_review.summary}}`,
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeSendSummary: %v", err)
+	}
 
 	// Save all nodes
 	nodes := []mbflow.Node{

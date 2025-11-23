@@ -34,22 +34,28 @@ func main() {
 
 	fmt.Printf("Created workflow: %s (ID: %s)\n", workflow.Name(), workflow.ID())
 
-	// Создаем узлы
-	node1 := mbflow.NewNode(
-		uuid.NewString(),
-		workflow.ID(),
-		"http-request",
-		"Fetch Data",
-		map[string]any{"url": "https://api.example.com/data"},
-	)
+	// Создаем узлы с использованием NodeConfig для валидации UUID
+	node1, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflow.ID(),
+		Type:       "http-request",
+		Name:       "Fetch Data",
+		Config:     map[string]any{"url": "https://api.example.com/data"},
+	})
+	if err != nil {
+		log.Fatalf("Failed to create node1: %v", err)
+	}
 
-	node2 := mbflow.NewNode(
-		uuid.NewString(),
-		workflow.ID(),
-		"transform",
-		"Process Data",
-		map[string]any{"script": "data.map(x => x * 2)"},
-	)
+	node2, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflow.ID(),
+		Type:       "transform",
+		Name:       "Process Data",
+		Config:     map[string]any{"script": "data.map(x => x * 2)"},
+	})
+	if err != nil {
+		log.Fatalf("Failed to create node2: %v", err)
+	}
 
 	// Сохраняем узлы
 	if err := storage.SaveNode(ctx, node1); err != nil {

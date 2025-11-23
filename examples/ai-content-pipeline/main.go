@@ -70,42 +70,48 @@ func main() {
 
 	// Create domain nodes (for demonstration of workflow structure)
 	// Node 1: Generate initial content using OpenAI
-	nodeGenerateContent := mbflow.NewNode(
-		"generate-content",
-		workflowID,
-		"openai-completion",
-		"Generate Initial Content",
-		map[string]any{
+	nodeGenerateContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "generate-content",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Initial Content",
+		Config: map[string]any{
 			"model":       "gpt-4o",
 			"prompt":      "Write a comprehensive blog post about {{topic}}",
 			"max_tokens":  2000,
 			"temperature": 0.7,
 			"output_key":  "generated_content",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateContent: %v", err)
+	}
 
 	// Node 2: Analyze content quality using OpenAI
-	nodeAnalyzeQuality := mbflow.NewNode(
-		"analyze-quality",
-		workflowID,
-		"openai-completion",
-		"Analyze Content Quality",
-		map[string]any{
+	nodeAnalyzeQuality, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "analyze-quality",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Analyze Content Quality",
+		Config: map[string]any{
 			"model":       "gpt-4o",
 			"prompt":      "Analyze the following content and rate its quality as 'high', 'medium', or 'low'. Consider clarity, engagement, accuracy, and structure.\n\nContent: {{generated_content}}\n\nRespond with ONLY one word in lowercase: high, medium, or low.",
 			"max_tokens":  10,
 			"temperature": 0.1,
 			"output_key":  "quality_rating",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeAnalyzeQuality: %v", err)
+	}
 
 	// Node 3: Quality-based router (decision node)
-	nodeQualityRouter := mbflow.NewNode(
-		"quality-router",
-		workflowID,
-		"conditional-router",
-		"Route Based on Quality",
-		map[string]any{
+	nodeQualityRouter, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "quality-router",
+		WorkflowID: workflowID,
+		Type:       "conditional-router",
+		Name:       "Route Based on Quality",
+		Config: map[string]any{
 			"input_key": "quality_rating",
 			"routes": map[string]string{
 				"high":   "publish",
@@ -113,15 +119,18 @@ func main() {
 				"low":    "regenerate",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeQualityRouter: %v", err)
+	}
 
 	// Node 4: Enhance content (for medium quality)
-	nodeEnhanceContent := mbflow.NewNode(
-		"enhance-content",
-		workflowID,
-		"openai-completion",
-		"Enhance Content",
-		map[string]any{
+	nodeEnhanceContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "enhance-content",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Enhance Content",
+		Config: map[string]any{
 			"model": "gpt-4o",
 			"prompt": `Improve the following content by:
 1. Adding more specific examples
@@ -136,17 +145,20 @@ Provide the enhanced version:`,
 			"temperature": 0.6,
 			"output_key":  "enhanced_content",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeEnhanceContent: %v", err)
+	}
 
 	// Node 5: Regenerate content (for low quality)
-	nodeRegenerateContent := mbflow.NewNode(
-		"regenerate-content",
-		workflowID,
-		"openai-completion",
-		"Regenerate Content",
-		map[string]any{
+	nodeRegenerateContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "regenerate-content",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Regenerate Content",
+		Config: map[string]any{
 			"model": "gpt-4o",
-			"prompt": `Write a high-quality, engaging blog post about {{topic}}. 
+			"prompt": `Write a high-quality, engaging blog post about {{topic}}.
 Requirements:
 - Clear structure with introduction, body, and conclusion
 - Use specific examples and data
@@ -157,73 +169,88 @@ Requirements:
 			"temperature": 0.8,
 			"output_key":  "regenerated_content",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeRegenerateContent: %v", err)
+	}
 
 	// Node 6: Merge content (combines different paths)
-	nodeMergeContent := mbflow.NewNode(
-		"merge-content",
-		workflowID,
-		"data-merger",
-		"Merge Content Versions",
-		map[string]any{
+	nodeMergeContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "merge-content",
+		WorkflowID: workflowID,
+		Type:       "data-merger",
+		Name:       "Merge Content Versions",
+		Config: map[string]any{
 			"strategy":   "select_first_available",
 			"sources":    []string{"generated_content", "enhanced_content", "regenerated_content"},
 			"output_key": "final_content",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeMergeContent: %v", err)
+	}
 
 	// Node 7: Translate to Spanish (parallel branch 1)
-	nodeTranslateSpanish := mbflow.NewNode(
-		"translate-spanish",
-		workflowID,
-		"openai-completion",
-		"Translate to Spanish",
-		map[string]any{
+	nodeTranslateSpanish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "translate-spanish",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Translate to Spanish",
+		Config: map[string]any{
 			"model":       "gpt-4o",
 			"prompt":      "Translate the following content to Spanish, maintaining the tone and style:\n\n{{final_content}}",
 			"max_tokens":  2500,
 			"temperature": 0.3,
 			"output_key":  "content_es",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeTranslateSpanish: %v", err)
+	}
 
 	// Node 8: Translate to Russian (parallel branch 2)
-	nodeTranslateRussian := mbflow.NewNode(
-		"translate-russian",
-		workflowID,
-		"openai-completion",
-		"Translate to Russian",
-		map[string]any{
+	nodeTranslateRussian, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "translate-russian",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Translate to Russian",
+		Config: map[string]any{
 			"model":       "gpt-4o",
 			"prompt":      "Translate the following content to Russian, maintaining the tone and style:\n\n{{final_content}}",
 			"max_tokens":  2500,
 			"temperature": 0.3,
 			"output_key":  "content_ru",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeTranslateRussian: %v", err)
+	}
 
 	// Node 9: Translate to German (parallel branch 3)
-	nodeTranslateGerman := mbflow.NewNode(
-		"translate-german",
-		workflowID,
-		"openai-completion",
-		"Translate to German",
-		map[string]any{
+	nodeTranslateGerman, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "translate-german",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Translate to German",
+		Config: map[string]any{
 			"model":       "gpt-4o",
 			"prompt":      "Translate the following content to German, maintaining the tone and style:\n\n{{final_content}}",
 			"max_tokens":  2500,
 			"temperature": 0.3,
 			"output_key":  "content_de",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeTranslateGerman: %v", err)
+	}
 
 	// Node 10: Generate SEO metadata for English
-	nodeGenerateSEOEnglish := mbflow.NewNode(
-		"generate-seo-en",
-		workflowID,
-		"openai-completion",
-		"Generate SEO Metadata (EN)",
-		map[string]any{
+	nodeGenerateSEOEnglish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "generate-seo-en",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate SEO Metadata (EN)",
+		Config: map[string]any{
 			"model": "gpt-4o",
 			"prompt": `Generate SEO metadata for the following content in JSON format:
 {
@@ -238,15 +265,18 @@ Content: {{final_content}}`,
 			"temperature": 0.4,
 			"output_key":  "seo_en",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateSEOEnglish: %v", err)
+	}
 
 	// Node 11: Generate SEO metadata for Spanish
-	nodeGenerateSEOSpanish := mbflow.NewNode(
-		"generate-seo-es",
-		workflowID,
-		"openai-completion",
-		"Generate SEO Metadata (ES)",
-		map[string]any{
+	nodeGenerateSEOSpanish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "generate-seo-es",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate SEO Metadata (ES)",
+		Config: map[string]any{
 			"model": "gpt-4o",
 			"prompt": `Generate SEO metadata for the following Spanish content in JSON format:
 {
@@ -261,15 +291,18 @@ Content: {{content_es}}`,
 			"temperature": 0.4,
 			"output_key":  "seo_es",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateSEOSpanish: %v", err)
+	}
 
 	// Node 12: Generate SEO metadata for Russian
-	nodeGenerateSEORussian := mbflow.NewNode(
-		"generate-seo-ru",
-		workflowID,
-		"openai-completion",
-		"Generate SEO Metadata (RU)",
-		map[string]any{
+	nodeGenerateSEORussian, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "generate-seo-ru",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate SEO Metadata (RU)",
+		Config: map[string]any{
 			"model": "gpt-4o",
 			"prompt": `Generate SEO metadata for the following Russian content in JSON format:
 {
@@ -284,15 +317,18 @@ Content: {{content_ru}}`,
 			"temperature": 0.4,
 			"output_key":  "seo_ru",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateSEORussian: %v", err)
+	}
 
 	// Node 13: Generate SEO metadata for German
-	nodeGenerateSEOGerman := mbflow.NewNode(
-		"generate-seo-de",
-		workflowID,
-		"openai-completion",
-		"Generate SEO Metadata (DE)",
-		map[string]any{
+	nodeGenerateSEOGerman, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "generate-seo-de",
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate SEO Metadata (DE)",
+		Config: map[string]any{
 			"model": "gpt-4o",
 			"prompt": `Generate SEO metadata for the following German content in JSON format:
 {
@@ -307,15 +343,18 @@ Content: {{content_de}}`,
 			"temperature": 0.4,
 			"output_key":  "seo_de",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateSEOGerman: %v", err)
+	}
 
 	// Node 14: Aggregate all results
-	nodeAggregateResults := mbflow.NewNode(
-		"aggregate-results",
-		workflowID,
-		"data-aggregator",
-		"Aggregate All Results",
-		map[string]any{
+	nodeAggregateResults, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         "aggregate-results",
+		WorkflowID: workflowID,
+		Type:       "data-aggregator",
+		Name:       "Aggregate All Results",
+		Config: map[string]any{
 			"output_format": "json",
 			"fields": map[string]string{
 				"content_en": "final_content",
@@ -329,7 +368,10 @@ Content: {{content_de}}`,
 			},
 			"output_key": "final_output",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeAggregateResults: %v", err)
+	}
 
 	// Collect all nodes
 	nodes := []mbflow.Node{

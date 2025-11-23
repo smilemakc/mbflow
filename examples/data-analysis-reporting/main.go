@@ -49,12 +49,12 @@ func main() {
 	fmt.Printf("Created workflow: %s (ID: %s)\n\n", workflow.Name(), workflow.ID())
 
 	// Node 1: Fetch sales data
-	nodeFetchSales := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Fetch Sales Data",
-		map[string]any{
+	nodeFetchSales, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Fetch Sales Data",
+		Config: map[string]any{
 			"url":    "https://api.example.com/data/sales?period={{period}}",
 			"method": "GET",
 			"headers": map[string]string{
@@ -62,15 +62,18 @@ func main() {
 			},
 			"output_key": "sales_data",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeFetchSales: %v", err)
+	}
 
 	// Node 2: Fetch customer data
-	nodeFetchCustomers := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Fetch Customer Data",
-		map[string]any{
+	nodeFetchCustomers, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Fetch Customer Data",
+		Config: map[string]any{
 			"url":    "https://api.example.com/data/customers?period={{period}}",
 			"method": "GET",
 			"headers": map[string]string{
@@ -78,15 +81,18 @@ func main() {
 			},
 			"output_key": "customer_data",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeFetchCustomers: %v", err)
+	}
 
 	// Node 3: Fetch marketing data
-	nodeFetchMarketing := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Fetch Marketing Data",
-		map[string]any{
+	nodeFetchMarketing, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Fetch Marketing Data",
+		Config: map[string]any{
 			"url":    "https://api.example.com/data/marketing?period={{period}}",
 			"method": "GET",
 			"headers": map[string]string{
@@ -94,15 +100,18 @@ func main() {
 			},
 			"output_key": "marketing_data",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeFetchMarketing: %v", err)
+	}
 
 	// Node 4: Fetch operational data
-	nodeFetchOperations := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Fetch Operational Data",
-		map[string]any{
+	nodeFetchOperations, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Fetch Operational Data",
+		Config: map[string]any{
 			"url":    "https://api.example.com/data/operations?period={{period}}",
 			"method": "GET",
 			"headers": map[string]string{
@@ -110,15 +119,18 @@ func main() {
 			},
 			"output_key": "operations_data",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeFetchOperations: %v", err)
+	}
 
 	// Node 5: Validate data quality
-	nodeValidateData := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Validate Data Quality",
-		map[string]any{
+	nodeValidateData, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Validate Data Quality",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Analyze the following datasets for quality issues:
 
@@ -144,15 +156,18 @@ Return JSON:
 			"temperature": 0.2,
 			"output_key":  "data_quality",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeValidateData: %v", err)
+	}
 
 	// Node 6: Clean and normalize data
-	nodeCleanData := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"script-executor",
-		"Clean and Normalize Data",
-		map[string]any{
+	nodeCleanData, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "script-executor",
+		Name:       "Clean and Normalize Data",
+		Config: map[string]any{
 			"script": `
 // Clean and normalize data based on quality report
 const cleanedData = {
@@ -166,15 +181,18 @@ return cleanedData;
 `,
 			"output_key": "cleaned_data",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCleanData: %v", err)
+	}
 
 	// Node 7: Calculate statistical metrics
-	nodeCalculateMetrics := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"script-executor",
-		"Calculate Statistical Metrics",
-		map[string]any{
+	nodeCalculateMetrics, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "script-executor",
+		Name:       "Calculate Statistical Metrics",
+		Config: map[string]any{
 			"script": `
 const metrics = {
   sales: {
@@ -200,15 +218,18 @@ return metrics;
 `,
 			"output_key": "metrics",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCalculateMetrics: %v", err)
+	}
 
 	// Node 8: Detect anomalies
-	nodeDetectAnomalies := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Detect Anomalies",
-		map[string]any{
+	nodeDetectAnomalies, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Detect Anomalies",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Analyze these metrics for anomalies and unusual patterns:
 
@@ -238,30 +259,36 @@ Return JSON:
 			"temperature": 0.3,
 			"output_key":  "anomaly_report",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeDetectAnomalies: %v", err)
+	}
 
 	// Node 9: Check if deep dive needed
-	nodeCheckDeepDive := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"conditional-router",
-		"Check Deep Dive Required",
-		map[string]any{
+	nodeCheckDeepDive, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "conditional-router",
+		Name:       "Check Deep Dive Required",
+		Config: map[string]any{
 			"input_key": "anomaly_report.requires_deep_dive",
 			"routes": map[string]string{
 				"true":  "deep_dive_analysis",
 				"false": "generate_insights",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCheckDeepDive: %v", err)
+	}
 
 	// Node 10: Deep dive analysis
-	nodeDeepDiveAnalysis := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Deep Dive Analysis",
-		map[string]any{
+	nodeDeepDiveAnalysis, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Deep Dive Analysis",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Perform a deep dive analysis on the detected anomalies:
 
@@ -280,15 +307,18 @@ Provide detailed analysis in JSON format.`,
 			"temperature": 0.4,
 			"output_key":  "deep_dive_results",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeDeepDiveAnalysis: %v", err)
+	}
 
 	// Node 11: Generate alerts
-	nodeGenerateAlerts := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Critical Alerts",
-		map[string]any{
+	nodeGenerateAlerts, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Critical Alerts",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Create urgent alerts for stakeholders based on the deep dive analysis:
 
@@ -307,15 +337,18 @@ Format as JSON array of alerts.`,
 			"temperature": 0.3,
 			"output_key":  "alerts",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateAlerts: %v", err)
+	}
 
 	// Node 12: Send critical alerts
-	nodeSendAlerts := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Send Critical Alerts",
-		map[string]any{
+	nodeSendAlerts, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Send Critical Alerts",
+		Config: map[string]any{
 			"url":    "https://api.example.com/alerts/send",
 			"method": "POST",
 			"body": map[string]any{
@@ -324,15 +357,18 @@ Format as JSON array of alerts.`,
 				"channel":  "email,slack",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeSendAlerts: %v", err)
+	}
 
 	// Node 13: Generate business insights
-	nodeGenerateInsights := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Business Insights",
-		map[string]any{
+	nodeGenerateInsights, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Business Insights",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Generate actionable business insights from this data:
 
@@ -353,15 +389,18 @@ Format as structured JSON.`,
 			"temperature": 0.5,
 			"output_key":  "insights",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateInsights: %v", err)
+	}
 
 	// Node 14: Generate visualization specs
-	nodeGenerateVizSpecs := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Visualization Specifications",
-		map[string]any{
+	nodeGenerateVizSpecs, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Visualization Specifications",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Create visualization specifications for the data:
 
@@ -380,15 +419,18 @@ Return JSON with chart configurations (type, data, options).`,
 			"temperature": 0.3,
 			"output_key":  "viz_specs",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateVizSpecs: %v", err)
+	}
 
 	// Node 15: Create visualizations
-	nodeCreateVisualizations := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Create Visualizations",
-		map[string]any{
+	nodeCreateVisualizations, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Create Visualizations",
+		Config: map[string]any{
 			"url":    "https://api.example.com/charts/generate",
 			"method": "POST",
 			"body": map[string]any{
@@ -397,15 +439,18 @@ Return JSON with chart configurations (type, data, options).`,
 			},
 			"output_key": "visualizations",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCreateVisualizations: %v", err)
+	}
 
 	// Node 16: Generate executive summary
-	nodeGenerateExecutiveSummary := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Executive Summary",
-		map[string]any{
+	nodeGenerateExecutiveSummary, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Executive Summary",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Create a concise executive summary for C-level stakeholders:
 
@@ -425,15 +470,18 @@ Keep it under 300 words, focus on business impact.`,
 			"temperature": 0.6,
 			"output_key":  "executive_summary",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateExecutiveSummary: %v", err)
+	}
 
 	// Node 17: Generate detailed report
-	nodeGenerateDetailedReport := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Detailed Report",
-		map[string]any{
+	nodeGenerateDetailedReport, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Detailed Report",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Create a comprehensive analytical report:
 
@@ -459,15 +507,18 @@ Write in professional business language.`,
 			"temperature": 0.5,
 			"output_key":  "detailed_report",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateDetailedReport: %v", err)
+	}
 
 	// Node 18: Determine distribution strategy
-	nodeDetermineDistribution := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Determine Distribution Strategy",
-		map[string]any{
+	nodeDetermineDistribution, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Determine Distribution Strategy",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Determine who should receive this report and how:
 
@@ -488,15 +539,18 @@ Return JSON:
 			"temperature": 0.2,
 			"output_key":  "distribution_plan",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeDetermineDistribution: %v", err)
+	}
 
 	// Node 19: Distribute to executives
-	nodeDistributeExecutives := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Distribute to Executives",
-		map[string]any{
+	nodeDistributeExecutives, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Distribute to Executives",
+		Config: map[string]any{
 			"url":    "https://api.example.com/reports/distribute",
 			"method": "POST",
 			"body": map[string]any{
@@ -506,15 +560,18 @@ Return JSON:
 				"format":      "pdf",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeDistributeExecutives: %v", err)
+	}
 
 	// Node 20: Distribute detailed report
-	nodeDistributeDetailed := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Distribute Detailed Report",
-		map[string]any{
+	nodeDistributeDetailed, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Distribute Detailed Report",
+		Config: map[string]any{
 			"url":    "https://api.example.com/reports/distribute",
 			"method": "POST",
 			"body": map[string]any{
@@ -524,15 +581,18 @@ Return JSON:
 				"format":      "pdf",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeDistributeDetailed: %v", err)
+	}
 
 	// Node 21: Update dashboard
-	nodeUpdateDashboard := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Update Analytics Dashboard",
-		map[string]any{
+	nodeUpdateDashboard, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Update Analytics Dashboard",
+		Config: map[string]any{
 			"url":    "https://api.example.com/dashboard/update",
 			"method": "POST",
 			"body": map[string]any{
@@ -542,15 +602,18 @@ Return JSON:
 				"timestamp":      "{{execution_timestamp}}",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeUpdateDashboard: %v", err)
+	}
 
 	// Node 22: Archive report
-	nodeArchiveReport := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Archive Report",
-		map[string]any{
+	nodeArchiveReport, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Archive Report",
+		Config: map[string]any{
 			"url":    "https://api.example.com/reports/archive",
 			"method": "POST",
 			"body": map[string]any{
@@ -561,7 +624,10 @@ Return JSON:
 				"insights":          "{{insights}}",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeArchiveReport: %v", err)
+	}
 
 	// Save all nodes
 	nodes := []mbflow.Node{

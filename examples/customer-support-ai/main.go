@@ -50,12 +50,12 @@ func main() {
 	fmt.Printf("Created workflow: %s (ID: %s)\n\n", workflow.Name(), workflow.ID())
 
 	// Node 1: Extract customer information
-	nodeExtractInfo := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Extract Customer Information",
-		map[string]any{
+	nodeExtractInfo, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Extract Customer Information",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Extract structured information from this customer inquiry:
 
@@ -72,15 +72,18 @@ Return JSON with:
 			"temperature": 0.1,
 			"output_key":  "customer_info",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeExtractInfo: %v", err)
+	}
 
 	// Node 2: Classify inquiry type
-	nodeClassifyInquiry := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Classify Inquiry Type",
-		map[string]any{
+	nodeClassifyInquiry, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Classify Inquiry Type",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Classify this customer inquiry into ONE category:
 
@@ -99,15 +102,18 @@ Respond with ONLY the category name.`,
 			"temperature": 0.1,
 			"output_key":  "inquiry_type",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeClassifyInquiry: %v", err)
+	}
 
 	// Node 3: Analyze sentiment
-	nodeAnalyzeSentiment := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Analyze Customer Sentiment",
-		map[string]any{
+	nodeAnalyzeSentiment, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Analyze Customer Sentiment",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Analyze the sentiment of this customer message:
 
@@ -118,30 +124,36 @@ Respond with ONLY one word: positive, neutral, or negative`,
 			"temperature": 0.1,
 			"output_key":  "sentiment",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeAnalyzeSentiment: %v", err)
+	}
 
 	// Node 4: Check if billing inquiry
-	nodeCheckBilling := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"conditional-router",
-		"Check if Billing Inquiry",
-		map[string]any{
+	nodeCheckBilling, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "conditional-router",
+		Name:       "Check if Billing Inquiry",
+		Config: map[string]any{
 			"input_key": "inquiry_type",
 			"routes": map[string]string{
 				"billing": "fetch_account",
 				"default": "check_escalation",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCheckBilling: %v", err)
+	}
 
 	// Node 5: Fetch account status (for billing inquiries)
-	nodeFetchAccount := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Fetch Account Status",
-		map[string]any{
+	nodeFetchAccount, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Fetch Account Status",
+		Config: map[string]any{
 			"url":    "https://api.example.com/accounts/{{customer_info.order_id}}",
 			"method": "GET",
 			"headers": map[string]string{
@@ -149,15 +161,18 @@ Respond with ONLY one word: positive, neutral, or negative`,
 			},
 			"output_key": "account_status",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeFetchAccount: %v", err)
+	}
 
 	// Node 6: Analyze account status
-	nodeAnalyzeAccount := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Analyze Account Status",
-		map[string]any{
+	nodeAnalyzeAccount, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Analyze Account Status",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Based on this account information, determine the appropriate action:
 
@@ -174,15 +189,18 @@ Respond with ONE of:
 			"temperature": 0.1,
 			"output_key":  "account_action",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeAnalyzeAccount: %v", err)
+	}
 
 	// Node 7: Check escalation criteria
-	nodeCheckEscalation := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"script-executor",
-		"Check Escalation Criteria",
-		map[string]any{
+	nodeCheckEscalation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "script-executor",
+		Name:       "Check Escalation Criteria",
+		Config: map[string]any{
 			"script": `
 // Escalate if:
 // 1. Technical issue with negative sentiment
@@ -198,15 +216,18 @@ return shouldEscalate ? 'escalate' : 'generate_response';
 `,
 			"output_key": "escalation_decision",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCheckEscalation: %v", err)
+	}
 
 	// Node 8: Escalate to human agent
-	nodeEscalate := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Escalate to Human Agent",
-		map[string]any{
+	nodeEscalate, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Escalate to Human Agent",
+		Config: map[string]any{
 			"url":    "https://api.example.com/support/escalate",
 			"method": "POST",
 			"body": map[string]any{
@@ -218,15 +239,18 @@ return shouldEscalate ? 'escalate' : 'generate_response';
 			},
 			"output_key": "escalation_ticket",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeEscalate: %v", err)
+	}
 
 	// Node 9: Generate context for response
-	nodeGenerateContext := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Response Context",
-		map[string]any{
+	nodeGenerateContext, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Response Context",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Based on the customer inquiry and available information, create a structured context for generating a response:
 
@@ -247,15 +271,18 @@ Generate a JSON with:
 			"temperature": 0.3,
 			"output_key":  "response_context",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateContext: %v", err)
+	}
 
 	// Node 10: Generate initial response
-	nodeGenerateResponse := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Customer Response",
-		map[string]any{
+	nodeGenerateResponse, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Customer Response",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Generate a helpful, empathetic customer support response:
 
@@ -275,15 +302,18 @@ Requirements:
 			"temperature": 0.7,
 			"output_key":  "generated_response",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateResponse: %v", err)
+	}
 
 	// Node 11: Quality check response
-	nodeQualityCheck := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Quality Check Response",
-		map[string]any{
+	nodeQualityCheck, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Quality Check Response",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Evaluate this customer support response:
 
@@ -306,30 +336,36 @@ Respond with JSON:
 			"temperature": 0.1,
 			"output_key":  "quality_score",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeQualityCheck: %v", err)
+	}
 
 	// Node 12: Check quality score
-	nodeCheckQuality := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"conditional-router",
-		"Check Quality Score",
-		map[string]any{
+	nodeCheckQuality, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "conditional-router",
+		Name:       "Check Quality Score",
+		Config: map[string]any{
 			"input_key": "quality_score.pass",
 			"routes": map[string]string{
 				"true":  "personalize_response",
 				"false": "regenerate_response",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeCheckQuality: %v", err)
+	}
 
 	// Node 13: Regenerate response with feedback
-	nodeRegenerateResponse := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Regenerate Response with Feedback",
-		map[string]any{
+	nodeRegenerateResponse, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Regenerate Response with Feedback",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `The previous response had quality issues. Generate an improved version:
 
@@ -343,28 +379,34 @@ Generate a better response addressing the identified issues.`,
 			"temperature": 0.6,
 			"output_key":  "regenerated_response",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeRegenerateResponse: %v", err)
+	}
 
 	// Node 14: Merge responses
-	nodeMergeResponses := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"data-merger",
-		"Merge Responses",
-		map[string]any{
+	nodeMergeResponses, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "data-merger",
+		Name:       "Merge Responses",
+		Config: map[string]any{
 			"strategy":   "select_first_available",
 			"sources":    []string{"regenerated_response", "generated_response"},
 			"output_key": "final_response_draft",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeMergeResponses: %v", err)
+	}
 
 	// Node 15: Personalize response
-	nodePersonalizeResponse := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Personalize Response",
-		map[string]any{
+	nodePersonalizeResponse, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Personalize Response",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Add personalization to this response:
 
@@ -381,15 +423,18 @@ Add:
 			"temperature": 0.5,
 			"output_key":  "final_response",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodePersonalizeResponse: %v", err)
+	}
 
 	// Node 16: Generate follow-up suggestions
-	nodeGenerateFollowUp := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"openai-completion",
-		"Generate Follow-up Suggestions",
-		map[string]any{
+	nodeGenerateFollowUp, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "openai-completion",
+		Name:       "Generate Follow-up Suggestions",
+		Config: map[string]any{
 			"model": "gpt-4",
 			"prompt": `Based on this customer interaction, suggest follow-up actions:
 
@@ -408,15 +453,18 @@ Generate JSON:
 			"temperature": 0.3,
 			"output_key":  "follow_up_plan",
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateFollowUp: %v", err)
+	}
 
 	// Node 17: Send response
-	nodeSendResponse := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Send Response to Customer",
-		map[string]any{
+	nodeSendResponse, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Send Response to Customer",
+		Config: map[string]any{
 			"url":    "https://api.example.com/support/send",
 			"method": "POST",
 			"body": map[string]any{
@@ -426,15 +474,18 @@ Generate JSON:
 				"ticket_id":      "{{ticket_id}}",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeSendResponse: %v", err)
+	}
 
 	// Node 18: Log interaction
-	nodeLogInteraction := mbflow.NewNode(
-		uuid.NewString(),
-		workflowID,
-		"http-request",
-		"Log Interaction",
-		map[string]any{
+	nodeLogInteraction, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
+		ID:         uuid.NewString(),
+		WorkflowID: workflowID,
+		Type:       "http-request",
+		Name:       "Log Interaction",
+		Config: map[string]any{
 			"url":    "https://api.example.com/analytics/log",
 			"method": "POST",
 			"body": map[string]any{
@@ -446,7 +497,10 @@ Generate JSON:
 				"follow_up_plan": "{{follow_up_plan}}",
 			},
 		},
-	)
+	})
+	if err != nil {
+		log.Fatalf("Failed to create nodeLogInteraction: %v", err)
+	}
 
 	// Save all nodes
 	nodes := []mbflow.Node{

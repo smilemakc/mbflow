@@ -39,6 +39,7 @@ func main() {
 	nodes := []mbflow.ExecutorNodeConfig{
 		{
 			NodeID:   "telegram-message",
+			Name:     "Send Telegram Message",
 			NodeType: "telegram-message",
 			Config: map[string]any{
 				"bot_token":  botToken,

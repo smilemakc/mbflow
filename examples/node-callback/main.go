@@ -39,6 +39,7 @@ func main() {
 	nodes := []mbflow.ExecutorNodeConfig{
 		{
 			NodeID:   "generate-text",
+			Name:     "Generate Text",
 			NodeType: "openai-completion",
 			Config: map[string]any{
 				"model":       "gpt-4o-mini",
@@ -60,6 +61,7 @@ func main() {
 		},
 		{
 			NodeID:   "analyze-poem",
+			Name:     "Analyze Poem",
 			NodeType: "openai-completion",
 			Config: map[string]any{
 				"model":       "gpt-4o-mini",
