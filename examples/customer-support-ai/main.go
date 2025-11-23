@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"mbflow"
 
@@ -28,6 +31,23 @@ import (
 // 7. If quality is low, regenerate with more context
 // 8. Send response and log interaction
 func main() {
+	// Parse command line arguments
+	customerMessageFlag := flag.String("message", "I've been charged twice for my order #12345. This is unacceptable! I want a refund immediately.", "Customer message")
+	flag.Parse()
+
+	customerMessage := *customerMessageFlag
+
+	fmt.Println("=== AI-Powered Customer Support Workflow Demo ===\n")
+	fmt.Printf("Customer Message: %s\n\n", customerMessage)
+
+	// Get OpenAI API key from environment
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		fmt.Println("ERROR: OPENAI_API_KEY environment variable is required for this demo.")
+		fmt.Println("Please set OPENAI_API_KEY to run this example.\n")
+		os.Exit(1)
+	}
+
 	// Start mock server in background
 	mockServer := NewMockServer("8081")
 	go func() {
@@ -38,29 +58,24 @@ func main() {
 
 	// Give mock server time to start
 	fmt.Println("Starting mock server on port 8081...")
-	fmt.Println("Waiting for server to be ready...")
+	time.Sleep(500 * time.Millisecond)
+	fmt.Println("Mock server ready!")
 	fmt.Println()
 
-	storage := mbflow.NewMemoryStorage()
+	// Create executor with monitoring enabled
+	executor := mbflow.NewExecutor(&mbflow.ExecutorConfig{
+		OpenAIAPIKey:     apiKey,
+		MaxRetryAttempts: 3,
+		EnableMonitoring: true,
+		VerboseLogging:   true,
+	})
+
 	ctx := context.Background()
-
 	workflowID := uuid.NewString()
-	spec := map[string]any{
-		"description": "Intelligent customer support automation with classification, sentiment analysis, and smart routing",
-		"features":    []string{"classification", "sentiment_analysis", "conditional_routing", "quality_control", "escalation"},
-	}
-	workflow := mbflow.NewWorkflow(
-		workflowID,
-		"AI-Powered Customer Support Workflow",
-		"1.0.0",
-		spec,
-	)
+	executionID := uuid.NewString()
 
-	if err := storage.SaveWorkflow(ctx, workflow); err != nil {
-		log.Fatalf("Failed to save workflow: %v", err)
-	}
-
-	fmt.Printf("Created workflow: %s (ID: %s)\n\n", workflow.Name(), workflow.ID())
+	fmt.Printf("Workflow ID: %s\n", workflowID)
+	fmt.Printf("Execution ID: %s\n\n", executionID)
 
 	// Node 1: Extract customer information
 	nodeExtractInfo, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
@@ -520,7 +535,7 @@ Generate JSON:
 		log.Fatalf("Failed to create nodeLogInteraction: %v", err)
 	}
 
-	// Save all nodes
+	// Collect all nodes
 	nodes := []mbflow.Node{
 		nodeExtractInfo, nodeClassifyInquiry, nodeAnalyzeSentiment,
 		nodeCheckBilling, nodeFetchAccount, nodeAnalyzeAccount,
@@ -528,12 +543,6 @@ Generate JSON:
 		nodeGenerateResponse, nodeQualityCheck, nodeCheckQuality,
 		nodeRegenerateResponse, nodeMergeResponses, nodePersonalizeResponse,
 		nodeGenerateFollowUp, nodeSendResponse, nodeLogInteraction,
-	}
-
-	for _, node := range nodes {
-		if err := storage.SaveNode(ctx, node); err != nil {
-			log.Fatalf("Failed to save node %s: %v", node.Name(), err)
-		}
 	}
 
 	// Create edges
@@ -571,37 +580,17 @@ Generate JSON:
 		Join(nodeSendResponse, nodeLogInteraction).
 		Build()
 
-	for i, edge := range edges {
-		if err := storage.SaveEdge(ctx, edge); err != nil {
-			log.Fatalf("Failed to save edge %d: %v", i, err)
-		}
+	// Convert domain nodes and edges to execution configs
+	nodeConfigs := mbflow.NodesToConfigs(nodes)
+	edgeConfigs := mbflow.EdgesToConfigs(edges)
+
+	// Set initial variables
+	initialVariables := map[string]interface{}{
+		"customer_message": customerMessage,
+		"customer_email":   "customer@example.com",
+		"ticket_id":        "TICKET-" + uuid.NewString()[:8],
+		"api_token":        "mock-api-token-12345",
 	}
-
-	// Create trigger
-	trigger := mbflow.NewTrigger(
-		uuid.NewString(),
-		workflowID,
-		"webhook",
-		map[string]any{
-			"path":   "/api/support/incoming",
-			"method": "POST",
-			"schema": map[string]any{
-				"customer_message": "string",
-				"customer_email":   "string",
-				"ticket_id":        "string",
-			},
-		},
-	)
-
-	if err := storage.SaveTrigger(ctx, trigger); err != nil {
-		log.Fatalf("Failed to save trigger: %v", err)
-	}
-
-	// Print workflow summary
-	fmt.Println("=== Workflow Summary ===")
-	fmt.Printf("Workflow: %s\n", workflow.Name())
-	fmt.Printf("Nodes: %d\n", len(nodes))
-	fmt.Printf("Edges: %d\n\n", len(edges))
 
 	fmt.Println("=== Workflow Structure ===")
 	fmt.Println("1. Extract customer information (parallel)")
@@ -610,7 +599,7 @@ Generate JSON:
 	fmt.Println("4. Routing logic:")
 	fmt.Println("   - Billing inquiry → Fetch account → Analyze")
 	fmt.Println("   - Other inquiries → Check escalation")
-	fmt.Println("5. Escalation check:")
+	fmt.Println("5. Escalation check (AI-powered):")
 	fmt.Println("   - Technical + Negative → Escalate to human")
 	fmt.Println("   - High urgency → Escalate to human")
 	fmt.Println("   - Otherwise → Generate AI response")
@@ -622,28 +611,182 @@ Generate JSON:
 	fmt.Println("7. Personalize response")
 	fmt.Println("8. Send response and generate follow-up plan (parallel)")
 	fmt.Println("9. Log interaction")
+	fmt.Println()
 
-	// List all nodes
-	savedNodes, err := storage.ListNodes(ctx, workflowID)
+	fmt.Printf("Nodes: %d\n", len(nodeConfigs))
+	fmt.Printf("Edges: %d\n\n", len(edgeConfigs))
+
+	fmt.Println("=== Executing Workflow ===\n")
+	startTime := time.Now()
+
+	// Execute workflow
+	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodeConfigs, edgeConfigs, initialVariables)
+
 	if err != nil {
-		log.Fatalf("Failed to list nodes: %v", err)
+		log.Fatalf("Workflow execution failed: %v", err)
 	}
 
-	fmt.Printf("\n=== All Nodes (%d) ===\n", len(savedNodes))
-	for i, n := range savedNodes {
-		fmt.Printf("%d. %s (%s)\n", i+1, n.Name(), n.Type())
+	executionDuration := time.Since(startTime)
+
+	fmt.Println("\n=== Execution Results ===\n")
+	fmt.Printf("Status: %s\n", state.Status())
+	fmt.Printf("Execution Duration: %s\n", executionDuration)
+	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
+
+	// Get all variables
+	variables := state.GetAllVariables()
+
+	// Display detailed results
+	fmt.Println("\n=== CUSTOMER SUPPORT WORKFLOW RESULTS ===\n")
+
+	// Helper function to safely get string value
+	getStringValue := func(key string) string {
+		if val, ok := variables[key]; ok {
+			return fmt.Sprintf("%v", val)
+		}
+		return ""
 	}
 
-	// List all edges
-	savedEdges, err := storage.ListEdges(ctx, workflowID)
-	if err != nil {
-		log.Fatalf("Failed to list edges: %v", err)
+	// Customer Information
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("👤 CUSTOMER INFORMATION")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	customerInfo := getStringValue("customer_info")
+	if customerInfo != "" {
+		fmt.Printf("\n%s\n", customerInfo)
+	} else {
+		fmt.Println("\n[Customer information not available]")
+	}
+	fmt.Println()
+
+	// Classification & Analysis
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📊 CLASSIFICATION & ANALYSIS")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("Inquiry Type: %s\n", getStringValue("inquiry_type"))
+	fmt.Printf("Sentiment: %s\n", getStringValue("sentiment"))
+	fmt.Printf("Escalation Decision: %s\n", getStringValue("escalation_decision"))
+	fmt.Println()
+
+	// Account Status (if billing inquiry)
+	accountStatus := getStringValue("account_status")
+	if accountStatus != "" {
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("💳 ACCOUNT STATUS")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Printf("\n%s\n", accountStatus)
+		fmt.Println()
 	}
 
-	fmt.Printf("\n=== All Edges (%d) ===\n", len(savedEdges))
-	for i, e := range savedEdges {
-		fromNode, _ := storage.GetNode(ctx, e.FromNodeID())
-		toNode, _ := storage.GetNode(ctx, e.ToNodeID())
-		fmt.Printf("%d. %s → %s (%s)\n", i+1, fromNode.Name(), toNode.Name(), e.Type())
+	// Escalation (if escalated)
+	escalationTicket := getStringValue("escalation_ticket")
+	if escalationTicket != "" {
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("🚨 ESCALATION TICKET")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Printf("\n%s\n", escalationTicket)
+		fmt.Println()
 	}
+
+	// Final Response
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("💬 FINAL CUSTOMER RESPONSE")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	finalResponse := getStringValue("final_response")
+	if finalResponse != "" {
+		fmt.Printf("\n%s\n", finalResponse)
+		fmt.Printf("\n[Length: %d characters]\n", len(finalResponse))
+	} else {
+		fmt.Println("\n[Final response not available]")
+	}
+	fmt.Println()
+
+	// Quality Score
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("✅ QUALITY CHECK")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	qualityScore := getStringValue("quality_score")
+	if qualityScore != "" {
+		fmt.Printf("\n%s\n", qualityScore)
+	} else {
+		fmt.Println("\n[Quality score not available]")
+	}
+	fmt.Println()
+
+	// Follow-up Plan
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📅 FOLLOW-UP PLAN")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	followUpPlan := getStringValue("follow_up_plan")
+	if followUpPlan != "" {
+		fmt.Printf("\n%s\n", followUpPlan)
+	} else {
+		fmt.Println("\n[Follow-up plan not available]")
+	}
+	fmt.Println()
+
+	// Display summary of all available variables
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("📊 ALL EXECUTION VARIABLES SUMMARY")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	for key, value := range variables {
+		valueStr := fmt.Sprintf("%v", value)
+		if len(valueStr) > 200 {
+			fmt.Printf("  %s: [%d characters]\n", key, len(valueStr))
+		} else {
+			fmt.Printf("  %s: %s\n", key, valueStr)
+		}
+	}
+	fmt.Println()
+
+	// Display metrics
+	fmt.Println("\n=== Execution Metrics ===\n")
+	metrics := executor.GetMetrics()
+
+	summary := metrics.GetSummary()
+	fmt.Println("Summary:")
+	for key, value := range summary {
+		fmt.Printf("  %s: %v\n", key, value)
+	}
+
+	// Display workflow metrics
+	fmt.Println("\nWorkflow Metrics:")
+	workflowMetrics := metrics.GetWorkflowMetrics(workflowID)
+	if workflowMetrics != nil {
+		for key, value := range workflowMetrics {
+			fmt.Printf("  %s: %v\n", key, value)
+		}
+	}
+
+	// Display node metrics
+	fmt.Println("\nNode Type Metrics:")
+	nodeTypes := []string{"openai-completion", "http-request", "conditional-router", "data-merger"}
+
+	for _, nodeType := range nodeTypes {
+		nodeMetrics := metrics.GetNodeMetrics(nodeType)
+		if nodeMetrics != nil {
+			fmt.Printf("\n  %s:\n", nodeType)
+			for key, value := range nodeMetrics {
+				fmt.Printf("    %s: %v\n", key, value)
+			}
+		}
+	}
+
+	// Display AI metrics
+	fmt.Println("\nAI API Metrics:")
+	aiMetrics := metrics.GetAIMetrics()
+	if aiMetrics != nil {
+		for key, value := range aiMetrics {
+			fmt.Printf("  %s: %v\n", key, value)
+		}
+	}
+
+	fmt.Println("\n=== Demo Complete ===")
+	fmt.Println("\nNote: This workflow demonstrates:")
+	fmt.Println("- AI-powered escalation decision making (OpenAI)")
+	fmt.Println("- Mock server for API endpoints (localhost:8081)")
+	fmt.Println("- Parallel processing (classification, sentiment, extraction)")
+	fmt.Println("- Conditional routing based on inquiry type")
+	fmt.Println("- Quality control with automatic regeneration")
+	fmt.Println("- Complete customer support automation pipeline")
 }
