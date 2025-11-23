@@ -105,3 +105,6 @@ go.work.sum
 
 # env file
 .env
+
+# Binary files in examples directories (executable files without extensions)
+examples/logger-demo/logger-demo
