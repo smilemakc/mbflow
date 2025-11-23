@@ -72,6 +72,21 @@ node := mbflow.NewNode(
 )
 ```
 
+Для отправки уведомлений доступен тип узла `telegram-message`, использующий Telegram Bot API:
+
+```go
+node := mbflow.NewNode(
+    id,
+    workflowID,
+    "telegram-message",
+    "Send update",
+    map[string]any{
+        "chat_id": "@my_channel",
+        "text":    "Build finished with status {{status}}",
+    },
+)
+```
+
 ### Edge (Связь)
 
 Edge определяет переход между узлами.

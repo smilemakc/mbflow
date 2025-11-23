@@ -39,6 +39,27 @@ type HTTPRequestConfig struct {
 	OutputKey string `json:"output_key,omitempty"`
 }
 
+// TelegramMessageConfig represents the configuration for sending messages via Telegram Bot API.
+type TelegramMessageConfig struct {
+	// BotToken is the Telegram bot token (can also be provided via execution context)
+	BotToken string `json:"bot_token,omitempty"`
+
+	// ChatID is the target chat ID or username (e.g., "@channelname")
+	ChatID string `json:"chat_id"`
+
+	// Text is the message text with optional variable substitution
+	Text string `json:"text"`
+
+	// ParseMode is the text parse mode (e.g., "Markdown", "HTML")
+	ParseMode string `json:"parse_mode,omitempty"`
+
+	// DisableNotification sends the message silently when true
+	DisableNotification bool `json:"disable_notification,omitempty"`
+
+	// OutputKey is the key to store the Telegram API response (default: "telegram_response")
+	OutputKey string `json:"output_key,omitempty"`
+}
+
 // ConditionalRouterConfig represents the configuration for a conditional router node.
 type ConditionalRouterConfig struct {
 	// InputKey is the variable key to read from execution context
