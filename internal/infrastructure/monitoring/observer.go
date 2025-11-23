@@ -184,13 +184,16 @@ func (om *ObserverManager) NotifyNodeCallbackCompleted(executionID string, node 
 // CompositeObserver combines logging, metrics, and tracing into a single observer.
 // This is a convenience implementation that integrates all monitoring components.
 type CompositeObserver struct {
-	logger  *ExecutionLogger
+	logger  LegacyExecutionLogger
 	metrics *MetricsCollector
 	trace   *ExecutionTrace
 }
 
 // NewCompositeObserver creates a new CompositeObserver.
-func NewCompositeObserver(logger *ExecutionLogger, metrics *MetricsCollector, trace *ExecutionTrace) *CompositeObserver {
+// The logger parameter should implement LegacyExecutionLogger for full compatibility.
+// If the logger only implements ExecutionLogger (the minimal interface),
+// you can wrap it with a legacy adapter or use the Log method directly.
+func NewCompositeObserver(logger LegacyExecutionLogger, metrics *MetricsCollector, trace *ExecutionTrace) *CompositeObserver {
 	return &CompositeObserver{
 		logger:  logger,
 		metrics: metrics,
