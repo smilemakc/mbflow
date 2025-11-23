@@ -60,262 +60,214 @@ func NewDefaultConsoleLogger(prefix string) *ConsoleLogger {
 	})
 }
 
-// LogExecutionStarted logs when a workflow execution starts.
-func (l *ConsoleLogger) LogExecutionStarted(workflowID, executionID string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf("[%s] Execution started: workflow=%s execution=%s", l.prefix, workflowID, executionID)
-}
-
-// LogExecutionCompleted logs when a workflow execution completes successfully.
-func (l *ConsoleLogger) LogExecutionCompleted(workflowID, executionID string, duration time.Duration) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf("[%s] Execution completed: workflow=%s execution=%s duration=%s",
-		l.prefix, workflowID, executionID, duration)
-}
-
-// LogExecutionFailed logs when a workflow execution fails.
-func (l *ConsoleLogger) LogExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf("[%s] Execution failed: workflow=%s execution=%s duration=%s error=%v",
-		l.prefix, workflowID, executionID, duration, err)
-}
-
-// LogNodeStarted logs when a node starts executing.
-// It accepts either a domain.Node or its configuration.
-// If node is nil, LogNodeStartedFromConfig should be used instead.
-func (l *ConsoleLogger) LogNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if node == nil {
-		l.logger.Printf("[%s] Node started: execution=%s node=<nil> attempt=%d",
-			l.prefix, executionID, attemptNumber)
+// Log logs a single event. This is the main logging method.
+func (l *ConsoleLogger) Log(event *LogEvent) {
+	if event == nil {
 		return
 	}
 
-	if attemptNumber > 1 {
-		l.logger.Printf("[%s] Node started (retry %d): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
-			l.prefix, attemptNumber, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config())
-	} else {
-		l.logger.Printf("[%s] Node started: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
-			l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config())
-	}
-}
-
-// LogNodeStartedFromConfig logs when a node starts executing from its configuration.
-// This method is used when you have the node configuration but not the full domain.Node object.
-func (l *ConsoleLogger) LogNodeStartedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if attemptNumber > 1 {
-		l.logger.Printf("[%s] Node started (retry %d): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
-			l.prefix, attemptNumber, executionID, nodeID, workflowID, nodeType, name, config)
-	} else {
-		l.logger.Printf("[%s] Node started: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
-			l.prefix, executionID, nodeID, workflowID, nodeType, name, config)
-	}
-}
-
-// LogNodeCompleted logs when a node completes successfully.
-// It accepts either a domain.Node or its configuration.
-// If node is nil, LogNodeCompletedFromConfig should be used instead.
-func (l *ConsoleLogger) LogNodeCompleted(executionID string, node *domain.Node, duration time.Duration) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if node == nil {
-		l.logger.Printf("[%s] Node completed: execution=%s node=<nil> duration=%s",
-			l.prefix, executionID, duration)
+	// Skip debug events if not in verbose mode
+	if event.Level == LevelDebug && !l.verbose {
 		return
 	}
 
-	l.logger.Printf("[%s] Node completed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s",
-		l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), duration)
-}
-
-// LogNodeCompletedFromConfig logs when a node completes successfully from its configuration.
-// This method is used when you have the node configuration but not the full domain.Node object.
-func (l *ConsoleLogger) LogNodeCompletedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, duration time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.logger.Printf("[%s] Node completed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s",
-		l.prefix, executionID, nodeID, workflowID, nodeType, name, config, duration)
+	// Format message based on event type
+	message := l.formatEvent(event)
+	l.logger.Print(message)
 }
 
-// LogNodeFailed logs when a node fails.
-// It accepts either a domain.Node or its configuration.
-// If node is nil, LogNodeFailedFromConfig should be used instead.
-func (l *ConsoleLogger) LogNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+// formatEvent formats a log event into a human-readable string.
+func (l *ConsoleLogger) formatEvent(event *LogEvent) string {
+	// Build message based on event type
+	switch event.Type {
+	case EventExecutionStarted:
+		return fmt.Sprintf("[%s] Execution started: workflow=%s execution=%s",
+			l.prefix, event.WorkflowID, event.ExecutionID)
 
-	if node == nil {
-		if willRetry {
-			l.logger.Printf("[%s] Node failed (will retry): execution=%s node=<nil> duration=%s error=%v",
-				l.prefix, executionID, duration, err)
-		} else {
-			l.logger.Printf("[%s] Node failed: execution=%s node=<nil> duration=%s error=%v",
-				l.prefix, executionID, duration, err)
+	case EventExecutionCompleted:
+		return fmt.Sprintf("[%s] Execution completed: workflow=%s execution=%s duration=%s",
+			l.prefix, event.WorkflowID, event.ExecutionID, event.Duration)
+
+	case EventExecutionFailed:
+		return fmt.Sprintf("[%s] Execution failed: workflow=%s execution=%s duration=%s error=%v",
+			l.prefix, event.WorkflowID, event.ExecutionID, event.Duration, event.ErrorMessage)
+
+	case EventNodeStarted:
+		if event.AttemptNumber > 1 {
+			return fmt.Sprintf("[%s] Node started (retry %d): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
+				l.prefix, event.AttemptNumber, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config)
 		}
-		return
-	}
+		return fmt.Sprintf("[%s] Node started: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
+			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config)
 
-	if willRetry {
-		l.logger.Printf("[%s] Node failed (will retry): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
-			l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), duration, err)
-	} else {
-		l.logger.Printf("[%s] Node failed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
-			l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), duration, err)
+	case EventNodeCompleted:
+		return fmt.Sprintf("[%s] Node completed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s",
+			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.Duration)
+
+	case EventNodeFailed:
+		if event.WillRetry {
+			return fmt.Sprintf("[%s] Node failed (will retry): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
+				l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.Duration, event.ErrorMessage)
+		}
+		return fmt.Sprintf("[%s] Node failed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
+			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.Duration, event.ErrorMessage)
+
+	case EventNodeRetrying:
+		return fmt.Sprintf("[%s] Node retrying: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v attempt=%d delay=%s",
+			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.AttemptNumber, event.RetryDelay)
+
+	case EventNodeSkipped:
+		return fmt.Sprintf("[%s] Node skipped: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v reason=%s",
+			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.Reason)
+
+	case EventVariableSet:
+		return fmt.Sprintf("[%s] Variable set: execution=%s key=%s value=%v",
+			l.prefix, event.ExecutionID, event.VariableKey, event.VariableValue)
+
+	case EventStateTransition:
+		return fmt.Sprintf("[%s] State transition: execution=%s node=%s from=%s to=%s",
+			l.prefix, event.ExecutionID, event.NodeID, event.FromState, event.ToState)
+
+	case EventInfo:
+		return fmt.Sprintf("[%s] Info: execution=%s message=%s", l.prefix, event.ExecutionID, event.Message)
+
+	case EventDebug:
+		return fmt.Sprintf("[%s] Debug: execution=%s message=%s", l.prefix, event.ExecutionID, event.Message)
+
+	case EventError:
+		return fmt.Sprintf("[%s] Error: execution=%s message=%s error=%v",
+			l.prefix, event.ExecutionID, event.Message, event.ErrorMessage)
+
+	default:
+		// Generic formatting for unknown event types
+		return fmt.Sprintf("[%s] %s: execution=%s message=%s",
+			l.prefix, event.Type, event.ExecutionID, event.Message)
 	}
 }
 
-// LogNodeFailedFromConfig logs when a node fails from its configuration.
-// This method is used when you have the node configuration but not the full domain.Node object.
+// Legacy methods for backward compatibility - these delegate to Log()
+
+func (l *ConsoleLogger) LogExecutionStarted(workflowID, executionID string) {
+	l.Log(NewExecutionStartedEvent(workflowID, executionID))
+}
+
+func (l *ConsoleLogger) LogExecutionCompleted(workflowID, executionID string, duration time.Duration) {
+	l.Log(NewExecutionCompletedEvent(workflowID, executionID, duration))
+}
+
+func (l *ConsoleLogger) LogExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
+	l.Log(NewExecutionFailedEvent(workflowID, executionID, err, duration))
+}
+
+func (l *ConsoleLogger) LogNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
+	l.Log(NewNodeStartedEvent(executionID, node, attemptNumber))
+}
+
+func (l *ConsoleLogger) LogNodeStartedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int) {
+	l.Log(NewNodeStartedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, attemptNumber))
+}
+
+func (l *ConsoleLogger) LogNodeCompleted(executionID string, node *domain.Node, duration time.Duration) {
+	l.Log(NewNodeCompletedEvent(executionID, node, duration))
+}
+
+func (l *ConsoleLogger) LogNodeCompletedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, duration time.Duration) {
+	l.Log(NewNodeCompletedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, duration))
+}
+
+func (l *ConsoleLogger) LogNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
+	l.Log(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
+}
+
 func (l *ConsoleLogger) LogNodeFailedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, err error, duration time.Duration, willRetry bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if willRetry {
-		l.logger.Printf("[%s] Node failed (will retry): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
-			l.prefix, executionID, nodeID, workflowID, nodeType, name, config, duration, err)
-	} else {
-		l.logger.Printf("[%s] Node failed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
-			l.prefix, executionID, nodeID, workflowID, nodeType, name, config, duration, err)
-	}
+	l.Log(NewNodeFailedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, err, duration, willRetry))
 }
 
-// LogNodeRetrying logs when a node is being retried.
-// It accepts either a domain.Node or its configuration.
-// If node is nil, LogNodeRetryingFromConfig should be used instead.
 func (l *ConsoleLogger) LogNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if node == nil {
-		l.logger.Printf("[%s] Node retrying: execution=%s node=<nil> attempt=%d delay=%s",
-			l.prefix, executionID, attemptNumber, delay)
-		return
-	}
-
-	l.logger.Printf("[%s] Node retrying: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v attempt=%d delay=%s",
-		l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), attemptNumber, delay)
+	l.Log(NewNodeRetryingEvent(executionID, node, attemptNumber, delay))
 }
 
-// LogNodeRetryingFromConfig logs when a node is being retried from its configuration.
-// This method is used when you have the node configuration but not the full domain.Node object.
 func (l *ConsoleLogger) LogNodeRetryingFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int, delay time.Duration) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	l.logger.Printf("[%s] Node retrying: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v attempt=%d delay=%s",
-		l.prefix, executionID, nodeID, workflowID, nodeType, name, config, attemptNumber, delay)
+	l.Log(NewNodeRetryingEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, attemptNumber, delay))
 }
 
-// LogNodeSkipped logs when a node is skipped.
-// It accepts either a domain.Node or its configuration.
-// If node is nil, LogNodeSkippedFromConfig should be used instead.
 func (l *ConsoleLogger) LogNodeSkipped(executionID string, node *domain.Node, reason string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if node == nil {
-		l.logger.Printf("[%s] Node skipped: execution=%s node=<nil> reason=%s",
-			l.prefix, executionID, reason)
-		return
-	}
-
-	l.logger.Printf("[%s] Node skipped: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v reason=%s",
-		l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config(), reason)
+	l.Log(NewNodeSkippedEvent(executionID, node, reason))
 }
 
-// LogNodeSkippedFromConfig logs when a node is skipped from its configuration.
-// This method is used when you have the node configuration but not the full domain.Node object.
 func (l *ConsoleLogger) LogNodeSkippedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, reason string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	l.logger.Printf("[%s] Node skipped: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v reason=%s",
-		l.prefix, executionID, nodeID, workflowID, nodeType, name, config, reason)
+	l.Log(NewNodeSkippedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, reason))
 }
 
-// LogNode logs all fields of a node.
-// It accepts either a domain.Node or its configuration.
-// If node is provided, all fields are extracted from it.
-// If node is nil, LogNodeFromConfig should be used instead.
 func (l *ConsoleLogger) LogNode(executionID string, node *domain.Node) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
+	// Convert to info event
 	if node == nil {
-		l.logger.Printf("[%s] Node info: execution=%s node=<nil>", l.prefix, executionID)
+		l.Log(NewInfoEvent(executionID, "Node info: node=<nil>"))
 		return
 	}
 
-	l.logger.Printf("[%s] Node info: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
-		l.prefix, executionID, node.ID(), node.WorkflowID(), node.Type(), node.Name(), node.Config())
+	l.Log(&LogEvent{
+		Timestamp:   time.Now(),
+		Type:        EventInfo,
+		Level:       LevelInfo,
+		Message:     "Node info",
+		ExecutionID: executionID,
+		WorkflowID:  node.WorkflowID(),
+		NodeID:      node.ID(),
+		NodeType:    node.Type(),
+		NodeName:    node.Name(),
+		Config:      node.Config(),
+	})
 }
 
-// LogNodeFromConfig logs all fields of a node from its configuration and metadata.
-// This method is used when you have the node configuration but not the full domain.Node object.
 func (l *ConsoleLogger) LogNodeFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	l.logger.Printf("[%s] Node info: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
-		l.prefix, executionID, nodeID, workflowID, nodeType, name, config)
+	l.Log(&LogEvent{
+		Timestamp:   time.Now(),
+		Type:        EventInfo,
+		Level:       LevelInfo,
+		Message:     "Node info",
+		ExecutionID: executionID,
+		WorkflowID:  workflowID,
+		NodeID:      nodeID,
+		NodeType:    nodeType,
+		NodeName:    name,
+		Config:      config,
+	})
 }
 
-// LogVariableSet logs when a variable is set (verbose mode only).
 func (l *ConsoleLogger) LogVariableSet(executionID, key string, value interface{}) {
 	if !l.verbose {
 		return
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf("[%s] Variable set: execution=%s key=%s value=%v",
-		l.prefix, executionID, key, value)
+	l.Log(NewVariableSetEvent(executionID, key, value))
 }
 
-// LogError logs a general error.
 func (l *ConsoleLogger) LogError(executionID string, message string, err error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf("[%s] Error: execution=%s message=%s error=%v",
-		l.prefix, executionID, message, err)
+	l.Log(NewErrorEvent(executionID, message, err))
 }
 
-// LogInfo logs an informational message.
 func (l *ConsoleLogger) LogInfo(executionID string, message string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf("[%s] Info: execution=%s message=%s", l.prefix, executionID, message)
+	l.Log(NewInfoEvent(executionID, message))
 }
 
-// LogDebug logs a debug message (verbose mode only).
 func (l *ConsoleLogger) LogDebug(executionID string, message string) {
 	if !l.verbose {
 		return
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf("[%s] Debug: execution=%s message=%s", l.prefix, executionID, message)
+	l.Log(NewDebugEvent(executionID, message))
 }
 
-// LogTransition logs a state transition.
 func (l *ConsoleLogger) LogTransition(executionID, nodeID, fromState, toState string) {
 	if !l.verbose {
 		return
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf("[%s] State transition: execution=%s node=%s from=%s to=%s",
-		l.prefix, executionID, nodeID, fromState, toState)
+	l.Log(NewStateTransitionEvent(executionID, nodeID, fromState, toState))
 }
+
+// Additional utility methods
 
 // SetWriter changes the output writer for the logger.
 // This is useful for redirecting logs to a file or other destination.
@@ -347,13 +299,6 @@ func (l *ConsoleLogger) IsVerbose() bool {
 	return l.verbose
 }
 
-// logf is a helper method for formatted logging (internal use).
-func (l *ConsoleLogger) logf(format string, args ...interface{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Printf(format, args...)
-}
-
 // Flush ensures all buffered logs are written (if the writer supports flushing).
 func (l *ConsoleLogger) Flush() error {
 	l.mu.Lock()
@@ -379,12 +324,4 @@ func NewExecutionLogger(prefix string, verbose bool) ExecutionLogger {
 		Verbose: verbose,
 		Writer:  os.Stdout,
 	})
-}
-
-// Helper function to format config for logging
-func formatConfig(config map[string]any) string {
-	if config == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("%v", config)
 }

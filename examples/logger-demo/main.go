@@ -32,6 +32,9 @@ func main() {
 
 	// Пример 5: Использование в WorkflowEngine
 	demoWorkflowEngineWithLogger()
+
+	// Пример 6: Использование нового метода Log() с LogEvent
+	demoNewLogMethod()
 }
 
 // demoConsoleLoggerStdout демонстрирует использование ConsoleLogger с stdout
@@ -177,5 +180,104 @@ func demoWorkflowEngineWithLogger() {
 	logger.LogExecutionCompleted("workflow-5", "exec-5", 200*time.Millisecond)
 
 	fmt.Println("Simulated workflow execution logged:")
+	fmt.Println(buffer.String())
+}
+
+// demoNewLogMethod демонстрирует использование нового метода Log() с LogEvent
+func demoNewLogMethod() {
+	fmt.Println("--- 6. Using new Log() method with LogEvent ---")
+
+	// Создаем logger с буфером
+	var buffer bytes.Buffer
+	logger := monitoring.NewConsoleLogger(monitoring.ConsoleLoggerConfig{
+		Prefix:  "NEW-API",
+		Verbose: true,
+		Writer:  &buffer,
+	})
+
+	// Используем новый API - метод Log() с helper функциями
+	logger.Log(monitoring.NewExecutionStartedEvent("workflow-6", "exec-6"))
+
+	logger.Log(monitoring.NewNodeStartedEventFromConfig(
+		"exec-6",
+		"node-1",
+		"workflow-6",
+		"http",
+		"API Request",
+		map[string]any{"url": "https://api.example.com/users"},
+		1,
+	))
+
+	logger.Log(monitoring.NewNodeCompletedEventFromConfig(
+		"exec-6",
+		"node-1",
+		"workflow-6",
+		"http",
+		"API Request",
+		map[string]any{"url": "https://api.example.com/users"},
+		120*time.Millisecond,
+	))
+
+	// Пример с ошибкой и retry
+	logger.Log(monitoring.NewNodeFailedEventFromConfig(
+		"exec-6",
+		"node-2",
+		"workflow-6",
+		"transform",
+		"Data Transform",
+		map[string]any{"expression": "invalid"},
+		fmt.Errorf("syntax error in expression"),
+		50*time.Millisecond,
+		true, // will retry
+	))
+
+	logger.Log(monitoring.NewNodeRetryingEventFromConfig(
+		"exec-6",
+		"node-2",
+		"workflow-6",
+		"transform",
+		"Data Transform",
+		map[string]any{"expression": "fixed"},
+		2, // attempt number
+		time.Second,
+	))
+
+	// Переменные и state transitions (verbose mode)
+	logger.Log(monitoring.NewVariableSetEvent("exec-6", "user_count", 42))
+	logger.Log(monitoring.NewStateTransitionEvent("exec-6", "node-2", "running", "completed"))
+
+	// Общие события
+	logger.Log(monitoring.NewInfoEvent("exec-6", "All nodes processed successfully"))
+	logger.Log(monitoring.NewDebugEvent("exec-6", "Cache hit for user data"))
+
+	logger.Log(monitoring.NewExecutionCompletedEvent("workflow-6", "exec-6", 300*time.Millisecond))
+
+	fmt.Println("Events logged using new Log() API:")
+	fmt.Println(buffer.String())
+	fmt.Println()
+
+	// Демонстрация создания custom LogEvent
+	fmt.Println("--- Custom LogEvent ---")
+
+	buffer.Reset()
+
+	customEvent := &monitoring.LogEvent{
+		Timestamp:   time.Now(),
+		Type:        monitoring.EventInfo,
+		Level:       monitoring.LevelInfo,
+		Message:     "Custom event with metadata",
+		ExecutionID: "exec-custom",
+		WorkflowID:  "workflow-custom",
+		NodeID:      "custom-node",
+		Metadata: map[string]interface{}{
+			"custom_field_1": "value1",
+			"custom_field_2": 123,
+			"tags":           []string{"important", "custom"},
+		},
+	}
+
+	logger.Log(customEvent)
+
+	fmt.Println("Custom event logged:")
 	fmt.Println(buffer.String())
 }

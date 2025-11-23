@@ -38,24 +38,6 @@ type ClickHouseLogger struct {
 	closed bool
 }
 
-// LogEvent represents a single log event to be written to ClickHouse.
-type LogEvent struct {
-	Timestamp     time.Time              `json:"timestamp"`
-	ExecutionID   string                 `json:"execution_id"`
-	WorkflowID    string                 `json:"workflow_id"`
-	NodeID        string                 `json:"node_id,omitempty"`
-	NodeType      string                 `json:"node_type,omitempty"`
-	NodeName      string                 `json:"node_name,omitempty"`
-	EventType     string                 `json:"event_type"`
-	Level         string                 `json:"level"`
-	Message       string                 `json:"message"`
-	Duration      int64                  `json:"duration_ms,omitempty"` // Duration in milliseconds
-	AttemptNumber int                    `json:"attempt_number,omitempty"`
-	WillRetry     bool                   `json:"will_retry,omitempty"`
-	ErrorMessage  string                 `json:"error_message,omitempty"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
-}
-
 // ClickHouseLoggerConfig configures the ClickHouse logger.
 type ClickHouseLoggerConfig struct {
 	// DB is the ClickHouse database connection
@@ -168,8 +150,17 @@ func (l *ClickHouseLogger) backgroundFlusher() {
 	}
 }
 
-// addEvent adds an event to the buffer and flushes if batch size is reached.
-func (l *ClickHouseLogger) addEvent(event *LogEvent) {
+// Log logs a single event. This is the main logging method.
+func (l *ClickHouseLogger) Log(event *LogEvent) {
+	if event == nil {
+		return
+	}
+
+	// Skip debug events if not in verbose mode
+	if event.Level == LevelDebug && !l.verbose {
+		return
+	}
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -177,7 +168,11 @@ func (l *ClickHouseLogger) addEvent(event *LogEvent) {
 		return
 	}
 
-	event.Timestamp = time.Now()
+	// Ensure timestamp is set
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now()
+	}
+
 	l.buffer = append(l.buffer, event)
 
 	// Flush if batch size is reached
@@ -233,16 +228,34 @@ func (l *ClickHouseLogger) writeEvents(events []*LogEvent) error {
 
 	for _, event := range events {
 		// Serialize metadata to JSON
-		var metadataJSON string
-		if event.Metadata != nil {
-			metadataBytes, err := json.Marshal(event.Metadata)
-			if err != nil {
-				metadataJSON = "{}"
-			} else {
+		metadataJSON := "{}"
+		if event.Config != nil || event.Metadata != nil || event.VariableValue != nil {
+			metadata := make(map[string]interface{})
+
+			if event.Config != nil {
+				metadata["config"] = event.Config
+			}
+			if event.Metadata != nil {
+				for k, v := range event.Metadata {
+					metadata[k] = v
+				}
+			}
+			if event.VariableKey != "" {
+				metadata["variable_key"] = event.VariableKey
+				metadata["variable_value"] = event.VariableValue
+			}
+			if event.FromState != "" {
+				metadata["from_state"] = event.FromState
+				metadata["to_state"] = event.ToState
+			}
+			if event.Reason != "" {
+				metadata["reason"] = event.Reason
+			}
+
+			metadataBytes, err := json.Marshal(metadata)
+			if err == nil {
 				metadataJSON = string(metadataBytes)
 			}
-		} else {
-			metadataJSON = "{}"
 		}
 
 		willRetryInt := 0
@@ -257,10 +270,10 @@ func (l *ClickHouseLogger) writeEvents(events []*LogEvent) error {
 			event.NodeID,
 			event.NodeType,
 			event.NodeName,
-			event.EventType,
-			event.Level,
+			string(event.Type),
+			string(event.Level),
 			event.Message,
-			event.Duration,
+			event.Duration.Milliseconds(),
 			event.AttemptNumber,
 			willRetryInt,
 			event.ErrorMessage,
@@ -297,246 +310,92 @@ func (l *ClickHouseLogger) Close() error {
 	return nil
 }
 
-// Implementation of ExecutionLogger interface
+// Legacy methods for backward compatibility - these delegate to Log()
 
 func (l *ClickHouseLogger) LogExecutionStarted(workflowID, executionID string) {
-	l.addEvent(&LogEvent{
-		ExecutionID: executionID,
-		WorkflowID:  workflowID,
-		EventType:   "execution_started",
-		Level:       "info",
-		Message:     "Workflow execution started",
-	})
+	l.Log(NewExecutionStartedEvent(workflowID, executionID))
 }
 
 func (l *ClickHouseLogger) LogExecutionCompleted(workflowID, executionID string, duration time.Duration) {
-	l.addEvent(&LogEvent{
-		ExecutionID: executionID,
-		WorkflowID:  workflowID,
-		EventType:   "execution_completed",
-		Level:       "info",
-		Message:     "Workflow execution completed",
-		Duration:    duration.Milliseconds(),
-	})
+	l.Log(NewExecutionCompletedEvent(workflowID, executionID, duration))
 }
 
 func (l *ClickHouseLogger) LogExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
-	errorMsg := ""
-	if err != nil {
-		errorMsg = err.Error()
-	}
-
-	l.addEvent(&LogEvent{
-		ExecutionID:  executionID,
-		WorkflowID:   workflowID,
-		EventType:    "execution_failed",
-		Level:        "error",
-		Message:      "Workflow execution failed",
-		Duration:     duration.Milliseconds(),
-		ErrorMessage: errorMsg,
-	})
+	l.Log(NewExecutionFailedEvent(workflowID, executionID, err, duration))
 }
 
 func (l *ClickHouseLogger) LogNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
-	if node == nil {
-		l.LogNodeStartedFromConfig(executionID, "", "", "", "", nil, attemptNumber)
-		return
-	}
-
-	l.LogNodeStartedFromConfig(
-		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
-		node.Name(),
-		node.Config(),
-		attemptNumber,
-	)
+	l.Log(NewNodeStartedEvent(executionID, node, attemptNumber))
 }
 
 func (l *ClickHouseLogger) LogNodeStartedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int) {
-	l.addEvent(&LogEvent{
-		ExecutionID:   executionID,
-		WorkflowID:    workflowID,
-		NodeID:        nodeID,
-		NodeType:      nodeType,
-		NodeName:      name,
-		EventType:     "node_started",
-		Level:         "info",
-		Message:       fmt.Sprintf("Node started: %s", name),
-		AttemptNumber: attemptNumber,
-		Metadata:      config,
-	})
+	l.Log(NewNodeStartedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, attemptNumber))
 }
 
 func (l *ClickHouseLogger) LogNodeCompleted(executionID string, node *domain.Node, duration time.Duration) {
-	if node == nil {
-		l.LogNodeCompletedFromConfig(executionID, "", "", "", "", nil, duration)
-		return
-	}
-
-	l.LogNodeCompletedFromConfig(
-		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
-		node.Name(),
-		node.Config(),
-		duration,
-	)
+	l.Log(NewNodeCompletedEvent(executionID, node, duration))
 }
 
 func (l *ClickHouseLogger) LogNodeCompletedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, duration time.Duration) {
-	l.addEvent(&LogEvent{
-		ExecutionID: executionID,
-		WorkflowID:  workflowID,
-		NodeID:      nodeID,
-		NodeType:    nodeType,
-		NodeName:    name,
-		EventType:   "node_completed",
-		Level:       "info",
-		Message:     fmt.Sprintf("Node completed: %s", name),
-		Duration:    duration.Milliseconds(),
-		Metadata:    config,
-	})
+	l.Log(NewNodeCompletedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, duration))
 }
 
 func (l *ClickHouseLogger) LogNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
-	if node == nil {
-		l.LogNodeFailedFromConfig(executionID, "", "", "", "", nil, err, duration, willRetry)
-		return
-	}
-
-	l.LogNodeFailedFromConfig(
-		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
-		node.Name(),
-		node.Config(),
-		err,
-		duration,
-		willRetry,
-	)
+	l.Log(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
 }
 
 func (l *ClickHouseLogger) LogNodeFailedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, err error, duration time.Duration, willRetry bool) {
-	errorMsg := ""
-	if err != nil {
-		errorMsg = err.Error()
-	}
-
-	l.addEvent(&LogEvent{
-		ExecutionID:  executionID,
-		WorkflowID:   workflowID,
-		NodeID:       nodeID,
-		NodeType:     nodeType,
-		NodeName:     name,
-		EventType:    "node_failed",
-		Level:        "error",
-		Message:      fmt.Sprintf("Node failed: %s", name),
-		Duration:     duration.Milliseconds(),
-		ErrorMessage: errorMsg,
-		WillRetry:    willRetry,
-		Metadata:     config,
-	})
+	l.Log(NewNodeFailedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, err, duration, willRetry))
 }
 
 func (l *ClickHouseLogger) LogNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
-	if node == nil {
-		l.LogNodeRetryingFromConfig(executionID, "", "", "", "", nil, attemptNumber, delay)
-		return
-	}
-
-	l.LogNodeRetryingFromConfig(
-		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
-		node.Name(),
-		node.Config(),
-		attemptNumber,
-		delay,
-	)
+	l.Log(NewNodeRetryingEvent(executionID, node, attemptNumber, delay))
 }
 
 func (l *ClickHouseLogger) LogNodeRetryingFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int, delay time.Duration) {
-	l.addEvent(&LogEvent{
-		ExecutionID:   executionID,
-		WorkflowID:    workflowID,
-		NodeID:        nodeID,
-		NodeType:      nodeType,
-		NodeName:      name,
-		EventType:     "node_retrying",
-		Level:         "warning",
-		Message:       fmt.Sprintf("Node retrying: %s", name),
-		AttemptNumber: attemptNumber,
-		Duration:      delay.Milliseconds(),
-		Metadata:      config,
-	})
+	l.Log(NewNodeRetryingEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, attemptNumber, delay))
 }
 
 func (l *ClickHouseLogger) LogNodeSkipped(executionID string, node *domain.Node, reason string) {
-	if node == nil {
-		l.LogNodeSkippedFromConfig(executionID, "", "", "", "", nil, reason)
-		return
-	}
-
-	l.LogNodeSkippedFromConfig(
-		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
-		node.Name(),
-		node.Config(),
-		reason,
-	)
+	l.Log(NewNodeSkippedEvent(executionID, node, reason))
 }
 
 func (l *ClickHouseLogger) LogNodeSkippedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, reason string) {
-	l.addEvent(&LogEvent{
-		ExecutionID: executionID,
-		WorkflowID:  workflowID,
-		NodeID:      nodeID,
-		NodeType:    nodeType,
-		NodeName:    name,
-		EventType:   "node_skipped",
-		Level:       "info",
-		Message:     fmt.Sprintf("Node skipped: %s (reason: %s)", name, reason),
-		Metadata: map[string]interface{}{
-			"reason": reason,
-			"config": config,
-		},
-	})
+	l.Log(NewNodeSkippedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, reason))
 }
 
 func (l *ClickHouseLogger) LogNode(executionID string, node *domain.Node) {
 	if node == nil {
-		l.LogNodeFromConfig(executionID, "", "", "", "", nil)
+		l.Log(NewInfoEvent(executionID, "Node info: node=<nil>"))
 		return
 	}
 
-	l.LogNodeFromConfig(
-		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
-		node.Name(),
-		node.Config(),
-	)
+	l.Log(&LogEvent{
+		Timestamp:   time.Now(),
+		Type:        EventInfo,
+		Level:       LevelDebug,
+		Message:     "Node info",
+		ExecutionID: executionID,
+		WorkflowID:  node.WorkflowID(),
+		NodeID:      node.ID(),
+		NodeType:    node.Type(),
+		NodeName:    node.Name(),
+		Config:      node.Config(),
+	})
 }
 
 func (l *ClickHouseLogger) LogNodeFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any) {
-	l.addEvent(&LogEvent{
+	l.Log(&LogEvent{
+		Timestamp:   time.Now(),
+		Type:        EventInfo,
+		Level:       LevelDebug,
+		Message:     "Node info",
 		ExecutionID: executionID,
 		WorkflowID:  workflowID,
 		NodeID:      nodeID,
 		NodeType:    nodeType,
 		NodeName:    name,
-		EventType:   "node_info",
-		Level:       "debug",
-		Message:     fmt.Sprintf("Node info: %s", name),
-		Metadata:    config,
+		Config:      config,
 	})
 }
 
@@ -544,70 +403,27 @@ func (l *ClickHouseLogger) LogVariableSet(executionID, key string, value interfa
 	if !l.verbose {
 		return
 	}
-
-	l.addEvent(&LogEvent{
-		ExecutionID: executionID,
-		EventType:   "variable_set",
-		Level:       "debug",
-		Message:     fmt.Sprintf("Variable set: %s", key),
-		Metadata: map[string]interface{}{
-			"key":   key,
-			"value": value,
-		},
-	})
+	l.Log(NewVariableSetEvent(executionID, key, value))
 }
 
 func (l *ClickHouseLogger) LogError(executionID string, message string, err error) {
-	errorMsg := ""
-	if err != nil {
-		errorMsg = err.Error()
-	}
-
-	l.addEvent(&LogEvent{
-		ExecutionID:  executionID,
-		EventType:    "error",
-		Level:        "error",
-		Message:      message,
-		ErrorMessage: errorMsg,
-	})
+	l.Log(NewErrorEvent(executionID, message, err))
 }
 
 func (l *ClickHouseLogger) LogInfo(executionID string, message string) {
-	l.addEvent(&LogEvent{
-		ExecutionID: executionID,
-		EventType:   "info",
-		Level:       "info",
-		Message:     message,
-	})
+	l.Log(NewInfoEvent(executionID, message))
 }
 
 func (l *ClickHouseLogger) LogDebug(executionID string, message string) {
 	if !l.verbose {
 		return
 	}
-
-	l.addEvent(&LogEvent{
-		ExecutionID: executionID,
-		EventType:   "debug",
-		Level:       "debug",
-		Message:     message,
-	})
+	l.Log(NewDebugEvent(executionID, message))
 }
 
 func (l *ClickHouseLogger) LogTransition(executionID, nodeID, fromState, toState string) {
 	if !l.verbose {
 		return
 	}
-
-	l.addEvent(&LogEvent{
-		ExecutionID: executionID,
-		NodeID:      nodeID,
-		EventType:   "state_transition",
-		Level:       "debug",
-		Message:     fmt.Sprintf("State transition: %s -> %s", fromState, toState),
-		Metadata: map[string]interface{}{
-			"from_state": fromState,
-			"to_state":   toState,
-		},
-	})
+	l.Log(NewStateTransitionEvent(executionID, nodeID, fromState, toState))
 }

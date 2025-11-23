@@ -11,6 +11,110 @@
 - Базы данных (ClickHouse)
 - Пользовательские реализации
 
+## Новый упрощенный API
+
+Интерфейс `ExecutionLogger` теперь имеет единственный метод `Log(event *LogEvent)`, что делает его чище и проще в использовании:
+
+```go
+type ExecutionLogger interface {
+    Log(event *LogEvent)
+}
+```
+
+### Преимущества нового API:
+
+1. **Единая точка входа** - один метод вместо 15+
+2. **Типизированные события** - все события имеют тип `EventType`
+3. **Расширяемость** - легко добавлять новые типы событий
+4. **Структурированные данные** - `LogEvent` содержит все необходимые поля
+5. **Helper функции** - удобные функции для создания событий
+
+### Пример использования нового API:
+
+```go
+import "mbflow/internal/infrastructure/monitoring"
+
+logger := monitoring.NewConsoleLogger(monitoring.ConsoleLoggerConfig{
+    Prefix: "MyApp",
+    Verbose: true,
+})
+
+// Используем helper функции для создания событий
+logger.Log(monitoring.NewExecutionStartedEvent("workflow-1", "exec-1"))
+
+logger.Log(monitoring.NewNodeStartedEventFromConfig(
+    "exec-1",
+    "node-1",
+    "workflow-1",
+    "http",
+    "API Request",
+    map[string]any{"url": "https://api.example.com"},
+    1, // attempt number
+))
+
+logger.Log(monitoring.NewNodeCompletedEventFromConfig(
+    "exec-1",
+    "node-1",
+    "workflow-1",
+    "http",
+    "API Request",
+    map[string]any{"url": "https://api.example.com"},
+    150*time.Millisecond,
+))
+
+logger.Log(monitoring.NewExecutionCompletedEvent("workflow-1", "exec-1", 200*time.Millisecond))
+```
+
+### Создание кастомных событий:
+
+```go
+customEvent := &monitoring.LogEvent{
+    Timestamp:   time.Now(),
+    Type:        monitoring.EventInfo,
+    Level:       monitoring.LevelInfo,
+    Message:     "Custom event",
+    ExecutionID: "exec-1",
+    WorkflowID:  "workflow-1",
+    Metadata: map[string]interface{}{
+        "custom_field": "value",
+        "tags":         []string{"important"},
+    },
+}
+
+logger.Log(customEvent)
+```
+
+### Типы событий:
+
+```go
+const (
+    // Execution level
+    EventExecutionStarted   EventType = "execution_started"
+    EventExecutionCompleted EventType = "execution_completed"
+    EventExecutionFailed    EventType = "execution_failed"
+
+    // Node level
+    EventNodeStarted   EventType = "node_started"
+    EventNodeCompleted EventType = "node_completed"
+    EventNodeFailed    EventType = "node_failed"
+    EventNodeRetrying  EventType = "node_retrying"
+    EventNodeSkipped   EventType = "node_skipped"
+
+    // Variables and transitions
+    EventVariableSet     EventType = "variable_set"
+    EventStateTransition EventType = "state_transition"
+
+    // General
+    EventInfo  EventType = "info"
+    EventDebug EventType = "debug"
+    EventError EventType = "error"
+)
+```
+
+### Обратная совместимость:
+
+Старые методы (например, `LogExecutionStarted`, `LogNodeCompleted`) по-прежнему работают благодаря интерфейсу `LegacyExecutionLogger`, который наследует `ExecutionLogger` и добавляет legacy методы. Все реализации (ConsoleLogger, ClickHouseLogger) поддерживают оба API.
+
 ## Доступные реализации
 
 ### 1. ConsoleLogger
