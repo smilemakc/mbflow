@@ -69,12 +69,12 @@ type LogEvent struct {
 	Duration time.Duration `json:"duration,omitempty"`
 
 	// Retry fields (optional)
-	AttemptNumber int  `json:"attempt_number,omitempty"`
-	WillRetry     bool `json:"will_retry,omitempty"`
+	AttemptNumber int           `json:"attempt_number,omitempty"`
+	WillRetry     bool          `json:"will_retry,omitempty"`
 	RetryDelay    time.Duration `json:"retry_delay,omitempty"`
 
 	// Error fields (optional)
-	Error        error  `json:"-"`                      // Original error
+	Error        error  `json:"-"`                       // Original error
 	ErrorMessage string `json:"error_message,omitempty"` // Error as string
 
 	// Variable fields (optional)
@@ -189,7 +189,7 @@ func NewNodeStartedEventFromConfig(executionID, nodeID, workflowID, nodeType, na
 }
 
 // NewNodeCompletedEvent creates a node completed event from a domain.Node.
-func NewNodeCompletedEvent(executionID string, node *domain.Node, duration time.Duration) *LogEvent {
+func NewNodeCompletedEvent(executionID string, node *domain.Node, output any, duration time.Duration) *LogEvent {
 	if node == nil {
 		return &LogEvent{
 			Timestamp:   time.Now(),
@@ -198,6 +198,7 @@ func NewNodeCompletedEvent(executionID string, node *domain.Node, duration time.
 			Message:     "Node completed",
 			ExecutionID: executionID,
 			Duration:    duration,
+			Output:      output,
 		}
 	}
 
@@ -447,5 +448,55 @@ func NewErrorEvent(executionID, message string, err error) *LogEvent {
 		ExecutionID:  executionID,
 		Error:        err,
 		ErrorMessage: errorMsg,
+	}
+}
+
+func NewNodeCallbackStartedEvent(executionID string, node *domain.Node) *LogEvent {
+	if node == nil {
+		return &LogEvent{
+			Timestamp:   time.Now(),
+			Type:        EventCallbackStarted,
+			Level:       LevelInfo,
+			Message:     "Node callback started. Node is nil",
+			ExecutionID: executionID,
+		}
+	}
+	return &LogEvent{
+		Timestamp:   time.Now(),
+		Type:        EventCallbackStarted,
+		Level:       LevelInfo,
+		Message:     "Node callback started",
+		ExecutionID: executionID,
+		WorkflowID:  node.WorkflowID(),
+		NodeID:      node.ID(),
+		NodeType:    node.Type(),
+		NodeName:    node.Name(),
+		Config:      node.Config(),
+	}
+}
+
+func NewNodeCallbackCompletedEvent(executionID string, node *domain.Node, output any, duration time.Duration) *LogEvent {
+	if node == nil {
+		return &LogEvent{
+			Timestamp:   time.Now(),
+			Type:        EventCallbackCompleted,
+			Level:       LevelInfo,
+			Message:     "Node callback completed",
+			ExecutionID: executionID,
+			Duration:    duration,
+			Output:      output,
+		}
+	}
+	return &LogEvent{
+		Timestamp:   time.Now(),
+		Type:        EventCallbackCompleted,
+		Level:       LevelInfo,
+		Message:     "Node callback completed",
+		ExecutionID: executionID,
+		WorkflowID:  node.WorkflowID(),
+		NodeID:      node.ID(),
+		NodeType:    node.Type(),
+		NodeName:    node.Name(),
+		Config:      node.Config(),
 	}
 }

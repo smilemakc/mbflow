@@ -310,60 +310,6 @@ func (l *ClickHouseLogger) Close() error {
 	return nil
 }
 
-// Legacy methods for backward compatibility - these delegate to Log()
-
-func (l *ClickHouseLogger) LogExecutionStarted(workflowID, executionID string) {
-	l.Log(NewExecutionStartedEvent(workflowID, executionID))
-}
-
-func (l *ClickHouseLogger) LogExecutionCompleted(workflowID, executionID string, duration time.Duration) {
-	l.Log(NewExecutionCompletedEvent(workflowID, executionID, duration))
-}
-
-func (l *ClickHouseLogger) LogExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
-	l.Log(NewExecutionFailedEvent(workflowID, executionID, err, duration))
-}
-
-func (l *ClickHouseLogger) LogNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
-	l.Log(NewNodeStartedEvent(executionID, node, attemptNumber))
-}
-
-func (l *ClickHouseLogger) LogNodeStartedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int) {
-	l.Log(NewNodeStartedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, attemptNumber))
-}
-
-func (l *ClickHouseLogger) LogNodeCompleted(executionID string, node *domain.Node, duration time.Duration) {
-	l.Log(NewNodeCompletedEvent(executionID, node, duration))
-}
-
-func (l *ClickHouseLogger) LogNodeCompletedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, duration time.Duration) {
-	l.Log(NewNodeCompletedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, duration))
-}
-
-func (l *ClickHouseLogger) LogNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
-	l.Log(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
-}
-
-func (l *ClickHouseLogger) LogNodeFailedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, err error, duration time.Duration, willRetry bool) {
-	l.Log(NewNodeFailedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, err, duration, willRetry))
-}
-
-func (l *ClickHouseLogger) LogNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
-	l.Log(NewNodeRetryingEvent(executionID, node, attemptNumber, delay))
-}
-
-func (l *ClickHouseLogger) LogNodeRetryingFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int, delay time.Duration) {
-	l.Log(NewNodeRetryingEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, attemptNumber, delay))
-}
-
-func (l *ClickHouseLogger) LogNodeSkipped(executionID string, node *domain.Node, reason string) {
-	l.Log(NewNodeSkippedEvent(executionID, node, reason))
-}
-
-func (l *ClickHouseLogger) LogNodeSkippedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, reason string) {
-	l.Log(NewNodeSkippedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, reason))
-}
-
 func (l *ClickHouseLogger) LogNode(executionID string, node *domain.Node) {
 	if node == nil {
 		l.Log(NewInfoEvent(executionID, "Node info: node=<nil>"))

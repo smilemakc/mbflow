@@ -1,7 +1,6 @@
 package monitoring
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -26,7 +25,7 @@ type ExecutionObserver interface {
 
 	// OnNodeCompleted is called when a node completes successfully
 	// node can be nil if only config is available
-	OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration)
+	OnNodeCompleted(executionID string, node *domain.Node, output any, duration time.Duration)
 
 	// OnNodeFailed is called when a node fails
 	// node can be nil if only config is available
@@ -37,7 +36,7 @@ type ExecutionObserver interface {
 	OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration)
 
 	// OnVariableSet is called when a variable is set in the execution context
-	OnVariableSet(executionID, key string, value interface{})
+	OnVariableSet(executionID, key string, value any)
 
 	// OnNodeCallbackStarted is called when a node callback starts processing
 	OnNodeCallbackStarted(executionID string, node *domain.Node)
@@ -184,16 +183,13 @@ func (om *ObserverManager) NotifyNodeCallbackCompleted(executionID string, node 
 // CompositeObserver combines logging, metrics, and tracing into a single observer.
 // This is a convenience implementation that integrates all monitoring components.
 type CompositeObserver struct {
-	logger  LegacyExecutionLogger
+	logger  ExecutionLogger
 	metrics *MetricsCollector
 	trace   *ExecutionTrace
 }
 
 // NewCompositeObserver creates a new CompositeObserver.
-// The logger parameter should implement LegacyExecutionLogger for full compatibility.
-// If the logger only implements ExecutionLogger (the minimal interface),
-// you can wrap it with a legacy adapter or use the Log method directly.
-func NewCompositeObserver(logger LegacyExecutionLogger, metrics *MetricsCollector, trace *ExecutionTrace) *CompositeObserver {
+func NewCompositeObserver(logger ExecutionLogger, metrics *MetricsCollector, trace *ExecutionTrace) *CompositeObserver {
 	return &CompositeObserver{
 		logger:  logger,
 		metrics: metrics,
@@ -204,7 +200,7 @@ func NewCompositeObserver(logger LegacyExecutionLogger, metrics *MetricsCollecto
 // OnExecutionStarted implements ExecutionObserver.
 func (co *CompositeObserver) OnExecutionStarted(workflowID, executionID string) {
 	if co.logger != nil {
-		co.logger.LogExecutionStarted(workflowID, executionID)
+		co.logger.Log(NewExecutionStartedEvent(workflowID, executionID))
 	}
 	if co.trace != nil {
 		co.trace.AddEvent("execution_started", "", "", "Workflow execution started", nil, nil)
@@ -214,7 +210,7 @@ func (co *CompositeObserver) OnExecutionStarted(workflowID, executionID string) 
 // OnExecutionCompleted implements ExecutionObserver.
 func (co *CompositeObserver) OnExecutionCompleted(workflowID, executionID string, duration time.Duration) {
 	if co.logger != nil {
-		co.logger.LogExecutionCompleted(workflowID, executionID, duration)
+		co.logger.Log(NewExecutionCompletedEvent(workflowID, executionID, duration))
 	}
 	if co.metrics != nil {
 		co.metrics.RecordWorkflowExecution(workflowID, duration, true)
@@ -228,7 +224,7 @@ func (co *CompositeObserver) OnExecutionCompleted(workflowID, executionID string
 // OnExecutionFailed implements ExecutionObserver.
 func (co *CompositeObserver) OnExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
 	if co.logger != nil {
-		co.logger.LogExecutionFailed(workflowID, executionID, err, duration)
+		co.logger.Log(NewExecutionFailedEvent(workflowID, executionID, err, duration))
 	}
 	if co.metrics != nil {
 		co.metrics.RecordWorkflowExecution(workflowID, duration, false)
@@ -242,7 +238,7 @@ func (co *CompositeObserver) OnExecutionFailed(workflowID, executionID string, e
 // OnNodeStarted implements ExecutionObserver.
 func (co *CompositeObserver) OnNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
 	if co.logger != nil {
-		co.logger.LogNodeStarted(executionID, node, attemptNumber)
+		co.logger.Log(NewNodeStartedEvent(executionID, node, attemptNumber))
 	}
 	if co.trace != nil {
 		nodeID := ""
@@ -259,7 +255,7 @@ func (co *CompositeObserver) OnNodeStarted(executionID string, node *domain.Node
 // OnNodeCompleted implements ExecutionObserver.
 func (co *CompositeObserver) OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
 	if co.logger != nil {
-		co.logger.LogNodeCompleted(executionID, node, duration)
+		co.logger.Log(NewNodeCompletedEvent(executionID, node, output, duration))
 	}
 	if co.metrics != nil {
 		nodeType := ""
@@ -283,7 +279,7 @@ func (co *CompositeObserver) OnNodeCompleted(executionID string, node *domain.No
 // OnNodeFailed implements ExecutionObserver.
 func (co *CompositeObserver) OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
 	if co.logger != nil {
-		co.logger.LogNodeFailed(executionID, node, err, duration, willRetry)
+		co.logger.Log(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
 	}
 	if co.metrics != nil {
 		nodeType := ""
@@ -307,7 +303,7 @@ func (co *CompositeObserver) OnNodeFailed(executionID string, node *domain.Node,
 // OnNodeRetrying implements ExecutionObserver.
 func (co *CompositeObserver) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
 	if co.logger != nil {
-		co.logger.LogNodeRetrying(executionID, node, attemptNumber, delay)
+		co.logger.Log(NewNodeRetryingEvent(executionID, node, attemptNumber, delay))
 	}
 	if co.trace != nil {
 		nodeID := ""
@@ -322,7 +318,7 @@ func (co *CompositeObserver) OnNodeRetrying(executionID string, node *domain.Nod
 // OnVariableSet implements ExecutionObserver.
 func (co *CompositeObserver) OnVariableSet(executionID, key string, value interface{}) {
 	if co.logger != nil {
-		co.logger.LogVariableSet(executionID, key, value)
+		co.logger.Log(NewVariableSetEvent(executionID, key, value))
 	}
 	if co.trace != nil {
 		co.trace.AddEvent("variable_set", "", "", "Variable set",
@@ -333,11 +329,7 @@ func (co *CompositeObserver) OnVariableSet(executionID, key string, value interf
 // OnNodeCallbackStarted implements ExecutionObserver.
 func (co *CompositeObserver) OnNodeCallbackStarted(executionID string, node *domain.Node) {
 	if co.logger != nil {
-		nodeID := ""
-		if node != nil {
-			nodeID = node.ID()
-		}
-		co.logger.LogInfo(executionID, fmt.Sprintf("Callback started for node %s", nodeID))
+		co.logger.Log(NewNodeCallbackStartedEvent(executionID, node))
 	}
 	if co.trace != nil {
 		nodeID := ""
@@ -353,15 +345,7 @@ func (co *CompositeObserver) OnNodeCallbackStarted(executionID string, node *dom
 // OnNodeCallbackCompleted implements ExecutionObserver.
 func (co *CompositeObserver) OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
 	if co.logger != nil {
-		nodeID := ""
-		if node != nil {
-			nodeID = node.ID()
-		}
-		if err != nil {
-			co.logger.LogError(executionID, fmt.Sprintf("Callback failed for node %s (duration: %v)", nodeID, duration), err)
-		} else {
-			co.logger.LogInfo(executionID, fmt.Sprintf("Callback completed for node %s (duration: %v)", nodeID, duration))
-		}
+		co.logger.Log(NewNodeCallbackCompletedEvent(executionID, node, err, duration))
 	}
 	if co.trace != nil {
 		nodeID := ""

@@ -95,7 +95,7 @@ func (o *HTTPCallbackObserver) IsEnabled() bool {
 }
 
 // sendEvent sends an HTTP POST request with the given event payload.
-func (o *HTTPCallbackObserver) sendEvent(eventType string, payload map[string]interface{}) error {
+func (o *HTTPCallbackObserver) sendEvent(payload any) error {
 	o.mu.RLock()
 	enabled := o.enabled
 	url := o.callbackURL
@@ -109,11 +109,6 @@ func (o *HTTPCallbackObserver) sendEvent(eventType string, payload map[string]in
 	if !enabled {
 		return nil
 	}
-
-	// Add event type to payload
-	payload["event_type"] = eventType
-	payload["timestamp"] = time.Now().Format(time.RFC3339)
-
 	// Marshal payload to JSON
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
@@ -151,148 +146,50 @@ func (o *HTTPCallbackObserver) sendEvent(eventType string, payload map[string]in
 
 // OnExecutionStarted implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnExecutionStarted(workflowID, executionID string) {
-	payload := map[string]interface{}{
-		"workflow_id":  workflowID,
-		"execution_id": executionID,
-	}
-	_ = o.sendEvent("execution_started", payload)
+	_ = o.sendEvent(NewExecutionStartedEvent(workflowID, executionID))
 }
 
 // OnExecutionCompleted implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnExecutionCompleted(workflowID, executionID string, duration time.Duration) {
-	payload := map[string]interface{}{
-		"workflow_id":  workflowID,
-		"execution_id": executionID,
-		"duration_ms":  duration.Milliseconds(),
-		"success":      true,
-	}
-	_ = o.sendEvent("execution_completed", payload)
+	_ = o.sendEvent(NewExecutionCompletedEvent(workflowID, executionID, duration))
 }
 
 // OnExecutionFailed implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
-	payload := map[string]interface{}{
-		"workflow_id":  workflowID,
-		"execution_id": executionID,
-		"duration_ms":  duration.Milliseconds(),
-		"success":      false,
-		"error":        err.Error(),
-	}
-	_ = o.sendEvent("execution_failed", payload)
+	_ = o.sendEvent(NewExecutionFailedEvent(workflowID, executionID, err, duration))
 }
 
 // OnNodeStarted implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
-	payload := map[string]interface{}{
-		"execution_id":   executionID,
-		"attempt_number": attemptNumber,
-	}
-	if node != nil {
-		payload["node_id"] = node.ID()
-		payload["workflow_id"] = node.WorkflowID()
-		payload["node_type"] = node.Type()
-		payload["name"] = node.Name()
-		payload["config"] = node.Config()
-	}
-	_ = o.sendEvent("node_started", payload)
+	_ = o.sendEvent(NewNodeStartedEvent(executionID, node, attemptNumber))
 }
 
 // OnNodeCompleted implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
-	payload := map[string]interface{}{
-		"execution_id": executionID,
-		"duration_ms":  duration.Milliseconds(),
-		"success":      true,
-	}
-	if node != nil {
-		payload["node_id"] = node.ID()
-		payload["workflow_id"] = node.WorkflowID()
-		payload["node_type"] = node.Type()
-		payload["name"] = node.Name()
-		payload["config"] = node.Config()
-	}
-	// Include output if it can be serialized
-	if output != nil {
-		payload["output"] = output
-	}
-	_ = o.sendEvent("node_completed", payload)
+	_ = o.sendEvent(NewNodeCompletedEvent(executionID, node, output, duration))
 }
 
 // OnNodeFailed implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
-	payload := map[string]interface{}{
-		"execution_id": executionID,
-		"duration_ms":  duration.Milliseconds(),
-		"success":      false,
-		"will_retry":   willRetry,
-		"error":        err.Error(),
-	}
-	if node != nil {
-		payload["node_id"] = node.ID()
-		payload["workflow_id"] = node.WorkflowID()
-		payload["node_type"] = node.Type()
-		payload["name"] = node.Name()
-		payload["config"] = node.Config()
-	}
-	_ = o.sendEvent("node_failed", payload)
+	_ = o.sendEvent(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
 }
 
 // OnNodeRetrying implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
-	payload := map[string]interface{}{
-		"execution_id":   executionID,
-		"attempt_number": attemptNumber,
-		"delay_ms":       delay.Milliseconds(),
-	}
-	if node != nil {
-		payload["node_id"] = node.ID()
-		payload["workflow_id"] = node.WorkflowID()
-		payload["node_type"] = node.Type()
-		payload["name"] = node.Name()
-		payload["config"] = node.Config()
-	}
-	_ = o.sendEvent("node_retrying", payload)
+	_ = o.sendEvent(NewNodeRetryingEvent(executionID, node, attemptNumber, delay))
 }
 
 // OnVariableSet implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnVariableSet(executionID, key string, value interface{}) {
-	payload := map[string]interface{}{
-		"execution_id":   executionID,
-		"variable_key":   key,
-		"variable_value": value,
-	}
-	_ = o.sendEvent("variable_set", payload)
+	_ = o.sendEvent(NewVariableSetEvent(executionID, key, value))
 }
 
 // OnNodeCallbackStarted implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnNodeCallbackStarted(executionID string, node *domain.Node) {
-	payload := map[string]interface{}{
-		"execution_id": executionID,
-	}
-	if node != nil {
-		payload["node_id"] = node.ID()
-		payload["workflow_id"] = node.WorkflowID()
-		payload["node_type"] = node.Type()
-		payload["name"] = node.Name()
-	}
-	_ = o.sendEvent("node_callback_started", payload)
+	_ = o.sendEvent(NewNodeCallbackStartedEvent(executionID, node))
 }
 
 // OnNodeCallbackCompleted implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
-	payload := map[string]interface{}{
-		"execution_id": executionID,
-		"duration_ms":  duration.Milliseconds(),
-		"success":      err == nil,
-	}
-	if node != nil {
-		payload["node_id"] = node.ID()
-		payload["workflow_id"] = node.WorkflowID()
-		payload["node_type"] = node.Type()
-		payload["name"] = node.Name()
-	}
-	if err != nil {
-		payload["error"] = err.Error()
-	}
-	_ = o.sendEvent("node_callback_completed", payload)
+	_ = o.sendEvent(NewNodeCallbackCompletedEvent(executionID, node, err, duration))
 }

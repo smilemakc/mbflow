@@ -58,16 +58,7 @@ func (lo *LogObserver) OnNodeCompleted(executionID string, node *domain.Node, ou
 		return
 	}
 
-	event := NewNodeCompletedEvent(executionID, node, duration)
-	// Add output to metadata if available
-	if output != nil {
-		if event.Metadata == nil {
-			event.Metadata = make(map[string]interface{})
-		}
-		event.Metadata["output"] = output
-		event.Output = output
-	}
-
+	event := NewNodeCompletedEvent(executionID, node, output, duration)
 	lo.logger.Log(event)
 }
 
@@ -100,24 +91,7 @@ func (lo *LogObserver) OnNodeCallbackStarted(executionID string, node *domain.No
 	if lo.logger == nil {
 		return
 	}
-
-	var nodeID, nodeType string
-	if node != nil {
-		nodeID = node.ID()
-		nodeType = node.Type()
-	}
-
-	event := &LogEvent{
-		Timestamp:   time.Now(),
-		Type:        EventCallbackStarted,
-		Level:       LevelInfo,
-		Message:     "Node callback started",
-		ExecutionID: executionID,
-		NodeID:      nodeID,
-		NodeType:    nodeType,
-	}
-
-	lo.logger.Log(event)
+	lo.logger.Log(NewNodeCallbackStartedEvent(executionID, node))
 }
 
 // OnNodeCallbackCompleted is called when a node callback completes.
@@ -125,35 +99,5 @@ func (lo *LogObserver) OnNodeCallbackCompleted(executionID string, node *domain.
 	if lo.logger == nil {
 		return
 	}
-
-	var nodeID, nodeType string
-	if node != nil {
-		nodeID = node.ID()
-		nodeType = node.Type()
-	}
-
-	errorMsg := ""
-	level := LevelInfo
-	message := "Node callback completed"
-
-	if err != nil {
-		errorMsg = err.Error()
-		level = LevelError
-		message = "Node callback failed"
-	}
-
-	event := &LogEvent{
-		Timestamp:    time.Now(),
-		Type:         EventCallbackCompleted,
-		Level:        level,
-		Message:      message,
-		ExecutionID:  executionID,
-		NodeID:       nodeID,
-		NodeType:     nodeType,
-		Duration:     duration,
-		Error:        err,
-		ErrorMessage: errorMsg,
-	}
-
-	lo.logger.Log(event)
+	lo.logger.Log(NewNodeCallbackCompletedEvent(executionID, node, err, duration))
 }

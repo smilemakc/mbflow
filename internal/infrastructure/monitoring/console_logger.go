@@ -148,60 +148,6 @@ func (l *ConsoleLogger) formatEvent(event *LogEvent) string {
 	}
 }
 
-// Legacy methods for backward compatibility - these delegate to Log()
-
-func (l *ConsoleLogger) LogExecutionStarted(workflowID, executionID string) {
-	l.Log(NewExecutionStartedEvent(workflowID, executionID))
-}
-
-func (l *ConsoleLogger) LogExecutionCompleted(workflowID, executionID string, duration time.Duration) {
-	l.Log(NewExecutionCompletedEvent(workflowID, executionID, duration))
-}
-
-func (l *ConsoleLogger) LogExecutionFailed(workflowID, executionID string, err error, duration time.Duration) {
-	l.Log(NewExecutionFailedEvent(workflowID, executionID, err, duration))
-}
-
-func (l *ConsoleLogger) LogNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
-	l.Log(NewNodeStartedEvent(executionID, node, attemptNumber))
-}
-
-func (l *ConsoleLogger) LogNodeStartedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int) {
-	l.Log(NewNodeStartedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, attemptNumber))
-}
-
-func (l *ConsoleLogger) LogNodeCompleted(executionID string, node *domain.Node, duration time.Duration) {
-	l.Log(NewNodeCompletedEvent(executionID, node, duration))
-}
-
-func (l *ConsoleLogger) LogNodeCompletedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, duration time.Duration) {
-	l.Log(NewNodeCompletedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, duration))
-}
-
-func (l *ConsoleLogger) LogNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
-	l.Log(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
-}
-
-func (l *ConsoleLogger) LogNodeFailedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, err error, duration time.Duration, willRetry bool) {
-	l.Log(NewNodeFailedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, err, duration, willRetry))
-}
-
-func (l *ConsoleLogger) LogNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
-	l.Log(NewNodeRetryingEvent(executionID, node, attemptNumber, delay))
-}
-
-func (l *ConsoleLogger) LogNodeRetryingFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, attemptNumber int, delay time.Duration) {
-	l.Log(NewNodeRetryingEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, attemptNumber, delay))
-}
-
-func (l *ConsoleLogger) LogNodeSkipped(executionID string, node *domain.Node, reason string) {
-	l.Log(NewNodeSkippedEvent(executionID, node, reason))
-}
-
-func (l *ConsoleLogger) LogNodeSkippedFromConfig(executionID, nodeID, workflowID, nodeType, name string, config map[string]any, reason string) {
-	l.Log(NewNodeSkippedEventFromConfig(executionID, nodeID, workflowID, nodeType, name, config, reason))
-}
-
 func (l *ConsoleLogger) LogNode(executionID string, node *domain.Node) {
 	// Convert to info event
 	if node == nil {
