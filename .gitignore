@@ -108,4 +108,14 @@ go.work.sum
 
 # Binary files in examples directories (executable files without extensions)
 examples/logger-demo/logger-demo
+examples/ai-content-pipeline/ai-content-pipeline
+examples/code-review-refactoring/code-review-refactoring
+examples/customer-support-ai/customer-support-ai
+examples/data-analysis-reporting/data-analysis-reporting
 output/
+
+# Root-level example binaries (created by go build)
+/ai-content-pipeline
+/code-review-refactoring
+/customer-support-ai
+/data-analysis-reporting
