@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"mbflow"
+	"github.com/smilemakc/mbflow"
 
 	"github.com/google/uuid"
 )

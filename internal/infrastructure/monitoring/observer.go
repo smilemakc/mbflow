@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // ExecutionObserver defines the interface for observing workflow execution events.

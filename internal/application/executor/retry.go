@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	"mbflow/internal/domain/errors"
+	"github.com/smilemakc/mbflow/internal/domain/errors"
 )
 
 // RetryPolicy defines the retry behavior for failed nodes.

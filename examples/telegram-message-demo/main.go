@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"mbflow"
+	"github.com/smilemakc/mbflow"
 
 	"github.com/google/uuid"
 )
@@ -18,7 +18,8 @@ import (
 //  2. Substitute execution variables inside the Telegram message
 //  3. Read the Telegram API response stored in the execution state
 func main() {
-	fmt.Println("=== Telegram Message WorkflowEngine Demo ===\n")
+	fmt.Println("=== Telegram Message WorkflowEngine Demo ===")
+	fmt.Println()
 
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
 	chatID := os.Getenv("TELEGRAM_CHAT_ID")

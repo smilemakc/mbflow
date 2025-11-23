@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"mbflow"
+	"github.com/smilemakc/mbflow"
 
 	"github.com/google/uuid"
 )
@@ -37,14 +37,14 @@ func main() {
 
 	customerMessage := *customerMessageFlag
 
-	fmt.Println("=== AI-Powered Customer Support Workflow Demo ===\n")
+	fmt.Printf("=== AI-Powered Customer Support Workflow Demo ===\n\n")
 	fmt.Printf("Customer Message: %s\n\n", customerMessage)
 
 	// Get OpenAI API key from environment
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("ERROR: OPENAI_API_KEY environment variable is required for this demo.")
-		fmt.Println("Please set OPENAI_API_KEY to run this example.\n")
+		fmt.Printf("Please set OPENAI_API_KEY to run this example.\n\n")
 		os.Exit(1)
 	}
 
@@ -631,7 +631,7 @@ Generate JSON:
 	fmt.Printf("Nodes: %d\n", len(nodeConfigs))
 	fmt.Printf("Edges: %d\n\n", len(edgeConfigs))
 
-	fmt.Println("=== Executing Workflow ===\n")
+	fmt.Printf("=== Executing Workflow ===\n\n")
 	startTime := time.Now()
 
 	// Execute workflow
@@ -643,7 +643,7 @@ Generate JSON:
 
 	executionDuration := time.Since(startTime)
 
-	fmt.Println("\n=== Execution Results ===\n")
+	fmt.Printf("\n=== Execution Results ===\n\n")
 	fmt.Printf("Status: %s\n", state.GetStatusString())
 	fmt.Printf("Execution Duration: %s\n", executionDuration)
 	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
@@ -652,7 +652,7 @@ Generate JSON:
 	variables := state.GetAllVariables()
 
 	// Display detailed results
-	fmt.Println("\n=== CUSTOMER SUPPORT WORKFLOW RESULTS ===\n")
+	fmt.Printf("\n=== CUSTOMER SUPPORT WORKFLOW RESULTS ===\n\n")
 
 	// Helper function to safely get string value
 	getStringValue := func(key string) string {

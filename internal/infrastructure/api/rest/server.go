@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 type Server struct {

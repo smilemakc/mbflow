@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"

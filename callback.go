@@ -1,8 +1,8 @@
 package mbflow
 
 import (
-	"mbflow/internal/application/executor"
-	"mbflow/internal/infrastructure/monitoring"
+	"github.com/smilemakc/mbflow/internal/application/executor"
+	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
 // HTTPCallbackObserver sends execution events to an HTTP callback URL.

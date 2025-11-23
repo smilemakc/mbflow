@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	executor "mbflow/internal/application/executor"
-	"mbflow/internal/domain"
-	"mbflow/internal/infrastructure/monitoring"
+	executor "github.com/smilemakc/mbflow/internal/application/executor"
+	"github.com/smilemakc/mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
 // NodeExecutorType represents the type of a node executor.

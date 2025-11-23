@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // ExecutionState represents the state of a workflow execution.

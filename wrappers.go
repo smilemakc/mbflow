@@ -1,7 +1,7 @@
 package mbflow
 
 import (
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // executionWrapper wraps domain Execution entity for public API.

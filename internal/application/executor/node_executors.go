@@ -14,8 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 
-	"mbflow/internal/domain/errors"
-	"mbflow/internal/infrastructure/monitoring"
+	"github.com/smilemakc/mbflow/internal/domain/errors"
+	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
 // NodeExecutor defines the interface for executing different types of nodes.

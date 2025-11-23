@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 type MemoryStore struct {

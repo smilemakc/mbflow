@@ -1,4 +1,4 @@
-module mbflow
+module github.com/smilemakc/mbflow
 
 go 1.24.0
 

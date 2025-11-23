@@ -3,7 +3,7 @@ package monitoring
 import (
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // EventType represents the type of log event.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"mbflow/internal/domain"
-	"mbflow/internal/infrastructure/storage"
+	"github.com/smilemakc/mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +36,13 @@ func TestBunStore_Nodes(t *testing.T) {
 	workflowID := uuid.NewString()
 	nodeID := uuid.NewString()
 
-	node, err := domain.NewNode(nodeID, workflowID, "test-node", "Test Node", map[string]any{"foo": "bar"})
+	node, err := domain.NewNode(domain.NodeConfig{
+		ID:         nodeID,
+		WorkflowID: workflowID,
+		Type:       "test-node",
+		Name:       "Test Node",
+		Config:     map[string]any{"foo": "bar"},
+	})
 	assert.NoError(t, err)
 
 	err = store.SaveNode(ctx, node)

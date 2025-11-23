@@ -3,7 +3,7 @@ package monitoring
 import (
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // LogObserver is an implementation of ExecutionObserver that logs events using ExecutionLogger.

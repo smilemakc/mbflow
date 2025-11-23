@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 
 	"github.com/expr-lang/expr"
 )

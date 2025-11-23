@@ -3,8 +3,8 @@ package mbflow
 import (
 	"context"
 
-	"mbflow/internal/domain"
-	"mbflow/internal/infrastructure/storage"
+	"github.com/smilemakc/mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
 
 	"github.com/rs/zerolog/log"
 )

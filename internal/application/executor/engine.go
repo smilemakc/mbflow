@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"mbflow/internal/domain"
-	"mbflow/internal/domain/errors"
-	"mbflow/internal/infrastructure/monitoring"
+	"github.com/smilemakc/mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain/errors"
+	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
 type InitialVariables = map[string]any
@@ -730,7 +730,7 @@ func (e *WorkflowEngine) fromDomainExecutionState(domainState *domain.ExecutionS
 	// Convert error
 	var err error
 	if domainState.ErrorMessage() != "" {
-		err = fmt.Errorf(domainState.ErrorMessage())
+		err = fmt.Errorf("%s", domainState.ErrorMessage())
 	}
 
 	// Convert NodeStates
@@ -756,7 +756,7 @@ func (e *WorkflowEngine) fromDomainExecutionState(domainState *domain.ExecutionS
 
 		var nodeErr error
 		if ns.ErrorMessage() != "" {
-			nodeErr = fmt.Errorf(ns.ErrorMessage())
+			nodeErr = fmt.Errorf("%s", ns.ErrorMessage())
 		}
 
 		nodeStates[ID] = &NodeState{

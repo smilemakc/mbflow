@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"mbflow"
+	"github.com/smilemakc/mbflow"
 
 	"github.com/google/uuid"
 )
@@ -18,12 +18,12 @@ import (
 // 2. Executing a simple workflow with multiple node types
 // 3. Viewing execution metrics and results
 func main() {
-	fmt.Println("=== Workflow Execution Engine Demo ===\n")
+	fmt.Printf("=== Workflow Execution Engine Demo ===\n\n")
 	// Get OpenAI API key from environment (optional for this demo)
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("Note: OPENAI_API_KEY not set. OpenAI nodes will be skipped.")
-		fmt.Println("Set OPENAI_API_KEY environment variable to test AI features.\n")
+		fmt.Printf("Set OPENAI_API_KEY environment variable to test AI features.\n\n")
 	}
 
 	// Create executor with monitoring enabled
@@ -119,7 +119,7 @@ func main() {
 		"execution_status": "success",
 	}
 
-	fmt.Println("=== Executing Workflow ===\n")
+	fmt.Printf("=== Executing Workflow ===\n\n")
 
 	// Execute workflow (with empty edges for sequential execution)
 	ctx := context.Background()
@@ -129,13 +129,13 @@ func main() {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
 
-	fmt.Println("\n=== Execution Results ===\n")
+	fmt.Printf("\n=== Execution Results ===\n\n")
 	fmt.Printf("Execution Status: %s\n", state.GetStatusString())
 	fmt.Printf("Execution Duration: %s\n", state.GetExecutionDuration())
 	fmt.Printf("Execution ID: %s\n\n", state.GetExecutionID())
 
 	// Display variables
-	fmt.Println("=== Execution Variables ===\n")
+	fmt.Printf("=== Execution Variables ===\n\n")
 	variables := state.GetAllVariables()
 	for key, value := range variables {
 		fmt.Printf("  %s: %v\n", key, value)

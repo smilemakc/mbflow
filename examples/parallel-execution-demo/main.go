@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"mbflow"
+	"github.com/smilemakc/mbflow"
 
 	"github.com/google/uuid"
 )
@@ -18,13 +18,13 @@ import (
 // 2. Join node that aggregates results from parallel branches
 // 3. Graph-based execution with edges
 func main() {
-	fmt.Println("=== Parallel Workflow Execution Demo ===\n")
+	fmt.Printf("=== Parallel Workflow Execution Demo ===\n\n")
 
 	// Get OpenAI API key from environment
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("ERROR: OPENAI_API_KEY environment variable is required for this demo.")
-		fmt.Println("Please set OPENAI_API_KEY to run this example.\n")
+		fmt.Printf("Please set OPENAI_API_KEY to run this example.\n\n")
 		os.Exit(1)
 	}
 
@@ -177,7 +177,7 @@ func main() {
 	fmt.Println("  join (aggregator)")
 	fmt.Println()
 
-	fmt.Println("=== Executing Workflow (Parallel Execution) ===\n")
+	fmt.Printf("=== Executing Workflow (Parallel Execution) ===\n\n")
 	startTime := time.Now()
 
 	// Execute workflow with edges for parallel execution
@@ -190,13 +190,13 @@ func main() {
 
 	executionDuration := time.Since(startTime)
 
-	fmt.Println("\n=== Execution Results ===\n")
+	fmt.Printf("\n=== Execution Results ===\n\n")
 	fmt.Printf("Status: %s\n", state.GetStatusString())
 	fmt.Printf("Execution Duration: %s\n", executionDuration)
 	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
 
 	// Display all variables
-	fmt.Println("=== Execution Variables ===\n")
+	fmt.Printf("=== Execution Variables ===\n\n")
 	variables := state.GetAllVariables()
 	for key, value := range variables {
 		if key == "final_result" {
@@ -214,7 +214,7 @@ func main() {
 	}
 
 	// Display final aggregated result
-	fmt.Println("\n=== Final Aggregated Result ===\n")
+	fmt.Printf("\n=== Final Aggregated Result ===\n\n")
 	if finalResult, ok := variables["final_result"]; ok {
 		if resultMap, ok := finalResult.(map[string]interface{}); ok {
 			fmt.Println("Combined summaries from all parallel tasks:")

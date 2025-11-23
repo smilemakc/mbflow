@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"mbflow"
+	"github.com/smilemakc/mbflow"
 
 	"github.com/google/uuid"
 )
@@ -40,14 +40,14 @@ func main() {
 		topic = "искусственный интеллект и машинное обучение"
 	}
 
-	fmt.Println("=== AI Content Pipeline Demo ===\n")
+	fmt.Printf("=== AI Content Pipeline Demo ===\n\n")
 	fmt.Printf("Topic: %s\n\n", topic)
 
 	// Get OpenAI API key from environment
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("ERROR: OPENAI_API_KEY environment variable is required for this demo.")
-		fmt.Println("Please set OPENAI_API_KEY to run this example.\n")
+		fmt.Printf("Please set OPENAI_API_KEY to run this example.\n\n")
 		os.Exit(1)
 	}
 	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackObserverConfig{
@@ -435,7 +435,7 @@ Content: {{content_de}}`,
 	fmt.Printf("Nodes: %d\n", len(nodeConfigs))
 	fmt.Printf("Edges: %d\n\n", len(edgeConfigs))
 
-	fmt.Println("=== Executing Workflow ===\n")
+	fmt.Printf("=== Executing Workflow ===\n\n")
 	startTime := time.Now()
 
 	// Execute workflow with edges for parallel execution
@@ -448,7 +448,7 @@ Content: {{content_de}}`,
 
 	executionDuration := time.Since(startTime)
 
-	fmt.Println("\n=== Execution Results ===\n")
+	fmt.Printf("\n=== Execution Results ===\n\n")
 	fmt.Printf("Status: %s\n", state.GetStatusString())
 	fmt.Printf("Execution Duration: %s\n", executionDuration)
 	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
@@ -457,7 +457,7 @@ Content: {{content_de}}`,
 	variables := state.GetAllVariables()
 
 	// Display detailed content and SEO results
-	fmt.Println("\n=== DETAILED CONTENT AND SEO RESULTS ===\n")
+	fmt.Printf("\n=== DETAILED CONTENT AND SEO RESULTS ===\n\n")
 
 	// Extract final output
 	var finalOutput map[string]interface{}

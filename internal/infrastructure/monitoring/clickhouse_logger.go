@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // ClickHouseLogger provides structured logging for workflow execution to ClickHouse.

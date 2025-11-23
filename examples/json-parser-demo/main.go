@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"mbflow"
+	"github.com/smilemakc/mbflow"
 
 	"github.com/google/uuid"
 )
@@ -13,7 +13,7 @@ import (
 // JSONParserDemo demonstrates the json-parser node functionality.
 // This example shows how to parse JSON strings into objects for nested field access.
 func main() {
-	fmt.Println("=== JSON Parser Node Demo ===\n")
+	fmt.Printf("=== JSON Parser Node Demo ===\n\n")
 
 	// Create executor
 	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{

@@ -7,16 +7,16 @@ import (
 	"os"
 	"time"
 
-	"mbflow"
-	"mbflow/internal/application/executor"
-	"mbflow/internal/infrastructure/monitoring"
+	"github.com/smilemakc/mbflow"
+	"github.com/smilemakc/mbflow/internal/application/executor"
+	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
 // This demo demonstrates the complete workflow for collecting, storing, and exporting
 // metrics and execution traces using MetricsCollector and ExecutionTrace.
 
 func main() {
-	fmt.Println("=== Metrics & Trace Collection Demo ===\n")
+	fmt.Printf("=== Metrics & Trace Collection Demo ===\n\n")
 
 	// Create output directories
 	metricsDir := "./output/metrics"

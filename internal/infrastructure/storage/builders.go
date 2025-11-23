@@ -3,7 +3,7 @@ package storage
 import (
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 type WorkflowBuilder struct {

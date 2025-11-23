@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // HTTPCallbackObserver sends execution events to an HTTP callback URL.

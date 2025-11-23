@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"mbflow"
+	"github.com/smilemakc/mbflow"
 
 	"github.com/google/uuid"
 )
@@ -34,14 +34,14 @@ func main() {
 		productDesc = "High-performance laptop with 16GB RAM, Intel i7 processor, 512GB SSD, 15.6 inch display"
 	}
 
-	fmt.Println("=== OpenAI Responses API Demo ===\n")
+	fmt.Printf("=== OpenAI Responses API Demo ===\n\n")
 	fmt.Printf("Product Description: %s\n\n", productDesc)
 
 	// Get OpenAI API key from environment
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("ERROR: OPENAI_API_KEY environment variable is required for this demo.")
-		fmt.Println("Please set OPENAI_API_KEY to run this example.\n")
+		fmt.Printf("Please set OPENAI_API_KEY to run this example.\n\n")
 		os.Exit(1)
 	}
 
@@ -208,7 +208,7 @@ func main() {
 	}
 
 	// Execute workflow
-	fmt.Println("Starting workflow execution...\n")
+	fmt.Printf("Starting workflow execution...\n\n")
 	startTime := time.Now()
 
 	state, err := executor.ExecuteWorkflow(
@@ -227,7 +227,7 @@ func main() {
 	}
 
 	// Print results
-	fmt.Println("\n=== Execution Results ===\n")
+	fmt.Printf("\n=== Execution Results ===\n\n")
 	fmt.Printf("Status: %s\n", state.GetStatusString())
 	fmt.Printf("Duration: %v\n", duration)
 	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())

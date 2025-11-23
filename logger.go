@@ -1,6 +1,6 @@
 package mbflow
 
-import "mbflow/internal/infrastructure/monitoring"
+import "github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 
 type EventType = monitoring.EventType
 type LogEvent = monitoring.LogEvent

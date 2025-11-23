@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // ConsoleLogger provides structured logging for workflow execution to console or any writer.

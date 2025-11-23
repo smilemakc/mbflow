@@ -3,7 +3,7 @@ package mbflow
 import (
 	"context"
 
-	"mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/domain"
 )
 
 // storageAdapter adapts internal storage to the public interface.
