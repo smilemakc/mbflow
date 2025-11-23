@@ -208,6 +208,25 @@ go run main.go
 
 ---
 
+### 5. Telegram Message Executor (`telegram-message-demo/`)
+
+**Complexity**: Low
+**Features**: Simple single-node workflow, variable substitution, Telegram Bot API call
+
+A minimal demo that:
+
+- Loads `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` from the environment
+- Sends a templated message using the `telegram-message` node
+- Stores the Telegram API response in the execution state
+
+**Run**:
+
+```bash
+cd telegram-message-demo
+go run main.go
+```
+---
+
 ## Common Patterns Demonstrated
 
 ### 1. Conditional Branching
