@@ -62,7 +62,7 @@ func main() {
 
 	// Node 1: Extract structured product information using OpenAI Responses API
 	nodeExtractProduct, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "extract-product-info",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-responses",
 		Name:       "Extract Product Information",
@@ -128,7 +128,7 @@ func main() {
 
 	// Node 2: Generate recommendation using structured data
 	nodeGenerateRecommendation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "generate-recommendation",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-responses",
 		Name:       "Generate Product Recommendation",

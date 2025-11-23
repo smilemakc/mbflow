@@ -51,7 +51,7 @@ func main() {
 	nodes := []mbflow.ExecutorNodeConfig{
 		// Node 1: Data merger (simulates selecting from multiple sources)
 		{
-			NodeID:   "node-1",
+			NodeID:   uuid.NewString(),
 			Name:     "Data Merger",
 			NodeType: "data-merger",
 			Config: map[string]any{
@@ -63,7 +63,7 @@ func main() {
 
 		// Node 2: Data aggregator (combines multiple fields)
 		{
-			NodeID:   "node-2",
+			NodeID:   uuid.NewString(),
 			Name:     "Data Aggregator",
 			NodeType: "data-aggregator",
 			Config: map[string]any{
@@ -78,7 +78,7 @@ func main() {
 
 		// Node 3: Conditional router (routes based on status)
 		{
-			NodeID:   "node-3",
+			NodeID:   uuid.NewString(),
 			Name:     "Conditional Router",
 			NodeType: "conditional-router",
 			Config: map[string]any{
@@ -95,7 +95,7 @@ func main() {
 	// If OpenAI API key is available, add an OpenAI node
 	if apiKey != "" {
 		openaiNode := mbflow.ExecutorNodeConfig{
-			NodeID:   "node-openai",
+			NodeID:   uuid.NewString(),
 			Name:     "OpenAI Summarizer",
 			NodeType: "openai-completion",
 			Config: map[string]any{

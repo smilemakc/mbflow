@@ -32,12 +32,12 @@ import (
 // 4. Generate SEO metadata for each language version
 func main() {
 	// Parse command line arguments
-	topicFlag := flag.String("topic", "artificial intelligence and machine learning", "Topic for the blog post")
+	topicFlag := flag.String("topic", "искусственный интеллект и машинное обучение", "Topic for the blog post")
 	flag.Parse()
 
 	topic := *topicFlag
 	if topic == "" {
-		topic = "artificial intelligence and machine learning"
+		topic = "искусственный интеллект и машинное обучение"
 	}
 
 	fmt.Println("=== AI Content Pipeline Demo ===\n")
@@ -71,13 +71,13 @@ func main() {
 	// Create domain nodes (for demonstration of workflow structure)
 	// Node 1: Generate initial content using OpenAI
 	nodeGenerateContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "generate-content",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Generate Initial Content",
 		Config: map[string]any{
 			"model":       "gpt-4o",
-			"prompt":      "Write a comprehensive blog post about {{topic}}",
+			"prompt":      "Write a comprehensive blog post about {{topic}} with using source language",
 			"max_tokens":  2000,
 			"temperature": 0.7,
 			"output_key":  "generated_content",
@@ -89,7 +89,7 @@ func main() {
 
 	// Node 2: Analyze content quality using OpenAI
 	nodeAnalyzeQuality, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "analyze-quality",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Analyze Content Quality",
@@ -107,7 +107,7 @@ func main() {
 
 	// Node 3: Quality-based router (decision node)
 	nodeQualityRouter, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "quality-router",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "conditional-router",
 		Name:       "Route Based on Quality",
@@ -126,7 +126,7 @@ func main() {
 
 	// Node 4: Enhance content (for medium quality)
 	nodeEnhanceContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "enhance-content",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Enhance Content",
@@ -152,7 +152,7 @@ Provide the enhanced version:`,
 
 	// Node 5: Regenerate content (for low quality)
 	nodeRegenerateContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "regenerate-content",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Regenerate Content",
@@ -176,7 +176,7 @@ Requirements:
 
 	// Node 6: Merge content (combines different paths)
 	nodeMergeContent, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "merge-content",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "data-merger",
 		Name:       "Merge Content Versions",
@@ -192,7 +192,7 @@ Requirements:
 
 	// Node 7: Translate to Spanish (parallel branch 1)
 	nodeTranslateSpanish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "translate-spanish",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Translate to Spanish",
@@ -210,7 +210,7 @@ Requirements:
 
 	// Node 8: Translate to Russian (parallel branch 2)
 	nodeTranslateRussian, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "translate-russian",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Translate to Russian",
@@ -228,7 +228,7 @@ Requirements:
 
 	// Node 9: Translate to German (parallel branch 3)
 	nodeTranslateGerman, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "translate-german",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Translate to German",
@@ -246,7 +246,7 @@ Requirements:
 
 	// Node 10: Generate SEO metadata for English
 	nodeGenerateSEOEnglish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "generate-seo-en",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Generate SEO Metadata (EN)",
@@ -272,7 +272,7 @@ Content: {{final_content}}`,
 
 	// Node 11: Generate SEO metadata for Spanish
 	nodeGenerateSEOSpanish, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "generate-seo-es",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Generate SEO Metadata (ES)",
@@ -298,7 +298,7 @@ Content: {{content_es}}`,
 
 	// Node 12: Generate SEO metadata for Russian
 	nodeGenerateSEORussian, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "generate-seo-ru",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Generate SEO Metadata (RU)",
@@ -324,7 +324,7 @@ Content: {{content_ru}}`,
 
 	// Node 13: Generate SEO metadata for German
 	nodeGenerateSEOGerman, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "generate-seo-de",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "openai-completion",
 		Name:       "Generate SEO Metadata (DE)",
@@ -350,14 +350,14 @@ Content: {{content_de}}`,
 
 	// Node 14: Aggregate all results
 	nodeAggregateResults, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         "aggregate-results",
+		ID:         uuid.NewString(),
 		WorkflowID: workflowID,
 		Type:       "data-aggregator",
 		Name:       "Aggregate All Results",
 		Config: map[string]any{
 			"output_format": "json",
 			"fields": map[string]string{
-				"content_en": "final_content",
+				"content":    "final_content",
 				"content_es": "content_es",
 				"content_ru": "content_ru",
 				"content_de": "content_de",
@@ -606,9 +606,9 @@ Content: {{content_de}}`,
 
 	// Display English Content
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("📝 ENGLISH CONTENT")
+	fmt.Println("📝 ORIGINAL CONTENT")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	contentEn := getStringValue("content_en")
+	contentEn := getStringValue("content")
 	if contentEn == "" {
 		contentEn = getStringValue("final_content")
 	}

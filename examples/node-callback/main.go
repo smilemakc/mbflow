@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"mbflow"
+
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -38,7 +40,7 @@ func main() {
 	// Define nodes with callback configuration
 	nodes := []mbflow.ExecutorNodeConfig{
 		{
-			NodeID:   "generate-text",
+			NodeID:   uuid.NewString(),
 			Name:     "Generate Text",
 			NodeType: "openai-completion",
 			Config: map[string]any{
@@ -60,7 +62,7 @@ func main() {
 			},
 		},
 		{
-			NodeID:   "analyze-poem",
+			NodeID:   uuid.NewString(),
 			Name:     "Analyze Poem",
 			NodeType: "openai-completion",
 			Config: map[string]any{
@@ -83,8 +85,8 @@ func main() {
 	// Define workflow edges
 	edges := []mbflow.ExecutorEdgeConfig{
 		{
-			FromNodeID: "generate-text",
-			ToNodeID:   "analyze-poem",
+			FromNodeID: nodes[0].NodeID,
+			ToNodeID:   nodes[1].NodeID,
 			EdgeType:   "sequence",
 		},
 	}
