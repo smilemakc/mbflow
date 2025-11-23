@@ -115,6 +115,98 @@ const (
 
 Старые методы (например, `LogExecutionStarted`, `LogNodeCompleted`) по-прежнему работают благодаря интерфейсу `LegacyExecutionLogger`, который наследует `ExecutionLogger` и добавляет legacy методы. Все реализации (ConsoleLogger, ClickHouseLogger) поддерживают оба API.
 
+## LogObserver - Интеграция с Observer Pattern
+
+`LogObserver` - это реализация интерфейса `ExecutionObserver`, которая использует `ExecutionLogger` для логирования событий. Это обеспечивает чистое разделение ответственности между наблюдением за событиями и их логированием.
+
+### Преимущества LogObserver:
+
+1. **Чистая архитектура** - разделение Observer pattern и Logging
+2. **Гибкость** - можно использовать любой ExecutionLogger (Console, ClickHouse, custom)
+3. **Простая интеграция** - легко добавить в WorkflowEngine
+4. **Комбинирование** - можно использовать вместе с другими observers (metrics, tracing)
+5. **Type-safe** - типизированные события через observer интерфейс
+
+### Пример использования:
+
+```go
+import (
+    "mbflow/internal/application/executor"
+    "mbflow/internal/infrastructure/monitoring"
+)
+
+// Создаем logger
+logger := monitoring.NewConsoleLogger(monitoring.ConsoleLoggerConfig{
+    Prefix:  "MyApp",
+    Verbose: true,
+})
+
+// Создаем LogObserver с нашим logger
+logObserver := monitoring.NewLogObserver(logger)
+
+// Создаем WorkflowEngine
+engine := executor.NewWorkflowEngine(&executor.EngineConfig{
+    EnableMonitoring: false,
+})
+
+// Добавляем LogObserver
+engine.AddObserver(logObserver)
+
+// Теперь все события workflow будут автоматически логироваться!
+state, err := engine.ExecuteWorkflow(ctx, "workflow-1", "exec-1", nodes, edges, vars)
+```
+
+### LogObserver с ClickHouse:
+
+```go
+// Создаем ClickHouse logger
+chLogger, _ := monitoring.NewClickHouseLogger(monitoring.ClickHouseLoggerConfig{
+    DB:            db,
+    TableName:     "workflow_logs",
+    BatchSize:     100,
+    FlushInterval: 5 * time.Second,
+    CreateTable:   true,
+})
+defer chLogger.Close()
+
+// Создаем LogObserver с ClickHouse logger
+logObserver := monitoring.NewLogObserver(chLogger)
+
+// Добавляем в engine
+engine.AddObserver(logObserver)
+
+// Все события будут автоматически записываться в ClickHouse!
+```
+
+### Множественные Observers:
+
+```go
+// Можно добавить несколько observers одновременно
+consoleLogger := monitoring.NewConsoleLogger(...)
+chLogger, _ := monitoring.NewClickHouseLogger(...)
+
+engine.AddObserver(monitoring.NewLogObserver(consoleLogger))  // Логи в консоль
+engine.AddObserver(monitoring.NewLogObserver(chLogger))       // Логи в ClickHouse
+engine.AddObserver(metricsObserver)                           // Метрики
+engine.AddObserver(tracingObserver)                           // Tracing
+
+// Все observers будут получать события параллельно
+```
+
+### Сравнение подходов:
+
+**Прямое использование Logger:**
+```go
+logger := monitoring.NewConsoleLogger(...)
+logger.Log(monitoring.NewExecutionStartedEvent(...))  // Ручное логирование
+```
+
+**Через LogObserver:**
+```go
+logObserver := monitoring.NewLogObserver(logger)
+engine.AddObserver(logObserver)  // Автоматическое логирование всех событий
+```
+
 ## Доступные реализации
 
 ### 1. ConsoleLogger

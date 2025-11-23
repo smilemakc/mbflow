@@ -35,6 +35,9 @@ func main() {
 
 	// Пример 6: Использование нового метода Log() с LogEvent
 	demoNewLogMethod()
+
+	// Пример 7: Использование LogObserver
+	demoLogObserver()
 }
 
 // demoConsoleLoggerStdout демонстрирует использование ConsoleLogger с stdout
@@ -280,4 +283,79 @@ func demoNewLogMethod() {
 
 	fmt.Println("Custom event logged:")
 	fmt.Println(buffer.String())
+}
+
+// demoLogObserver демонстрирует использование LogObserver с WorkflowEngine
+func demoLogObserver() {
+	fmt.Println("--- 7. Using LogObserver with WorkflowEngine ---")
+
+	// Создаем буфер для сбора логов
+	var buffer bytes.Buffer
+
+	// Создаем ConsoleLogger
+	logger := monitoring.NewConsoleLogger(monitoring.ConsoleLoggerConfig{
+		Prefix:  "OBSERVER",
+		Verbose: true,
+		Writer:  &buffer,
+	})
+
+	// Создаем LogObserver, который будет использовать наш logger
+	logObserver := monitoring.NewLogObserver(logger)
+
+	// Создаем WorkflowEngine
+	engine := executor.NewWorkflowEngine(&executor.EngineConfig{
+		EnableMonitoring: false, // Отключаем встроенный мониторинг
+		VerboseLogging:   false,
+	})
+
+	// Добавляем LogObserver напрямую (без CompositeObserver)
+	engine.AddObserver(logObserver)
+
+	// Симулируем события через прямые вызовы observer методов
+	fmt.Println("Simulating workflow execution through observer events:")
+
+	logObserver.OnExecutionStarted("workflow-7", "exec-7")
+
+	// Используем nil node и логируем через LogEvent helper
+	// (в реальном использовании node будет передаваться из engine)
+	logger.Log(monitoring.NewNodeStartedEventFromConfig(
+		"exec-7",
+		"node-1",
+		"workflow-7",
+		"http",
+		"API Request",
+		map[string]any{
+			"url":    "https://api.example.com/data",
+			"method": "GET",
+		},
+		1,
+	))
+
+	logObserver.OnVariableSet("exec-7", "request_id", "req-12345")
+
+	logger.Log(monitoring.NewNodeCompletedEventFromConfig(
+		"exec-7",
+		"node-1",
+		"workflow-7",
+		"http",
+		"API Request",
+		map[string]any{
+			"url":    "https://api.example.com/data",
+			"method": "GET",
+		},
+		250*time.Millisecond,
+	))
+
+	logObserver.OnExecutionCompleted("workflow-7", "exec-7", 300*time.Millisecond)
+
+	fmt.Println("\nObserver events logged:")
+	fmt.Println(buffer.String())
+
+	fmt.Println("\n--- Benefits of LogObserver ---")
+	fmt.Println("✓ Clean separation: Observer pattern + Logging")
+	fmt.Println("✓ Any ExecutionLogger can be used (Console, ClickHouse, custom)")
+	fmt.Println("✓ Easy to integrate with WorkflowEngine.AddObserver()")
+	fmt.Println("✓ Type-safe event logging through observer interface")
+	fmt.Println("✓ Can combine multiple observers (metrics, logging, tracing)")
+	fmt.Println()
 }
