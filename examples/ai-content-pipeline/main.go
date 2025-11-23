@@ -383,155 +383,32 @@ Content: {{content_de}}`,
 	}
 
 	// Create edges (workflow connections)
-	edges := []mbflow.Edge{
+	// Create edges using RelationshipBuilder for cleaner and more readable code
+	edges := mbflow.NewRelationshipBuilder(workflowID).
 		// Main flow
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeGenerateContent.ID(),
-			nodeAnalyzeQuality.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeAnalyzeQuality.ID(),
-			nodeQualityRouter.ID(),
-			"direct",
-			nil,
-		),
-
+		Direct(nodeGenerateContent, nodeAnalyzeQuality).
+		Direct(nodeAnalyzeQuality, nodeQualityRouter).
 		// Branching based on quality - conditional edges
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeQualityRouter.ID(),
-			nodeMergeContent.ID(),
-			"conditional",
-			map[string]any{"condition": "quality_rating == 'high'"},
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeQualityRouter.ID(),
-			nodeEnhanceContent.ID(),
-			"conditional",
-			map[string]any{"condition": "quality_rating == 'medium'"},
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeQualityRouter.ID(),
-			nodeRegenerateContent.ID(),
-			"conditional",
-			map[string]any{"condition": "quality_rating == 'low'"},
-		),
-
+		Conditional(nodeQualityRouter, nodeMergeContent, "quality_rating == 'high'").
+		Conditional(nodeQualityRouter, nodeEnhanceContent, "quality_rating == 'medium'").
+		Conditional(nodeQualityRouter, nodeRegenerateContent, "quality_rating == 'low'").
 		// Merge paths
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeEnhanceContent.ID(),
-			nodeMergeContent.ID(),
-			"direct",
-			nil,
-		),
-
+		Direct(nodeEnhanceContent, nodeMergeContent).
 		// Parallel translation branches
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeMergeContent.ID(),
-			nodeTranslateSpanish.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeMergeContent.ID(),
-			nodeTranslateRussian.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeMergeContent.ID(),
-			nodeTranslateGerman.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeMergeContent.ID(),
-			nodeGenerateSEOEnglish.ID(),
-			"direct",
-			nil,
-		),
-
+		Direct(nodeMergeContent, nodeTranslateSpanish).
+		Direct(nodeMergeContent, nodeTranslateRussian).
+		Direct(nodeMergeContent, nodeTranslateGerman).
+		Direct(nodeMergeContent, nodeGenerateSEOEnglish).
 		// SEO generation (depends on translations)
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeTranslateSpanish.ID(),
-			nodeGenerateSEOSpanish.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeTranslateRussian.ID(),
-			nodeGenerateSEORussian.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeTranslateGerman.ID(),
-			nodeGenerateSEOGerman.ID(),
-			"direct",
-			nil,
-		),
-
+		Direct(nodeTranslateSpanish, nodeGenerateSEOSpanish).
+		Direct(nodeTranslateRussian, nodeGenerateSEORussian).
+		Direct(nodeTranslateGerman, nodeGenerateSEOGerman).
 		// Aggregate results (wait for all parallel branches)
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeGenerateSEOEnglish.ID(),
-			nodeAggregateResults.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeGenerateSEOSpanish.ID(),
-			nodeAggregateResults.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeGenerateSEORussian.ID(),
-			nodeAggregateResults.ID(),
-			"direct",
-			nil,
-		),
-		mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			nodeGenerateSEOGerman.ID(),
-			nodeAggregateResults.ID(),
-			"direct",
-			nil,
-		),
-	}
+		Direct(nodeGenerateSEOEnglish, nodeAggregateResults).
+		Direct(nodeGenerateSEOSpanish, nodeAggregateResults).
+		Direct(nodeGenerateSEORussian, nodeAggregateResults).
+		Direct(nodeGenerateSEOGerman, nodeAggregateResults).
+		Build()
 
 	// Convert domain nodes and edges to execution configs using helper functions
 	nodeConfigs := mbflow.NodesToConfigs(nodes)

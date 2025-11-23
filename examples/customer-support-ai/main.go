@@ -519,67 +519,41 @@ Generate JSON:
 	}
 
 	// Create edges
-	edges := []struct {
-		from     mbflow.Node
-		to       mbflow.Node
-		edgeType string
-		config   map[string]any
-	}{
+	// Create edges using RelationshipBuilder for cleaner and more readable code
+	edges := mbflow.NewRelationshipBuilder(workflowID).
 		// Initial processing (parallel)
-		{nodeExtractInfo, nodeClassifyInquiry, "parallel", nil},
-		{nodeExtractInfo, nodeAnalyzeSentiment, "parallel", nil},
-
+		Parallel(nodeExtractInfo, nodeClassifyInquiry).
+		Parallel(nodeExtractInfo, nodeAnalyzeSentiment).
 		// Check billing
-		{nodeClassifyInquiry, nodeCheckBilling, "direct", nil},
-		{nodeAnalyzeSentiment, nodeCheckBilling, "join", nil},
-
+		Direct(nodeClassifyInquiry, nodeCheckBilling).
+		Join(nodeAnalyzeSentiment, nodeCheckBilling).
 		// Billing path
-		{nodeCheckBilling, nodeFetchAccount, "conditional", map[string]any{"condition": "inquiry_type == 'billing'"}},
-		{nodeFetchAccount, nodeAnalyzeAccount, "direct", nil},
-		{nodeAnalyzeAccount, nodeCheckEscalation, "direct", nil},
-
+		Conditional(nodeCheckBilling, nodeFetchAccount, "inquiry_type == 'billing'").
+		Direct(nodeFetchAccount, nodeAnalyzeAccount).
+		Direct(nodeAnalyzeAccount, nodeCheckEscalation).
 		// Non-billing path
-		{nodeCheckBilling, nodeCheckEscalation, "conditional", map[string]any{"condition": "inquiry_type != 'billing'"}},
-
+		Conditional(nodeCheckBilling, nodeCheckEscalation, "inquiry_type != 'billing'").
 		// Escalation check
-		{nodeCheckEscalation, nodeEscalate, "conditional", map[string]any{"condition": "escalation_decision == 'escalate'"}},
-		{nodeCheckEscalation, nodeGenerateContext, "conditional", map[string]any{"condition": "escalation_decision != 'escalate'"}},
-
+		Conditional(nodeCheckEscalation, nodeEscalate, "escalation_decision == 'escalate'").
+		Conditional(nodeCheckEscalation, nodeGenerateContext, "escalation_decision != 'escalate'").
 		// Response generation
-		{nodeGenerateContext, nodeGenerateResponse, "direct", nil},
-		{nodeGenerateResponse, nodeQualityCheck, "direct", nil},
-		{nodeQualityCheck, nodeCheckQuality, "direct", nil},
-
+		Direct(nodeGenerateContext, nodeGenerateResponse).
+		Direct(nodeGenerateResponse, nodeQualityCheck).
+		Direct(nodeQualityCheck, nodeCheckQuality).
 		// Quality branching
-		{nodeCheckQuality, nodeMergeResponses, "conditional", map[string]any{"condition": "quality_score.pass == true"}},
-		{nodeCheckQuality, nodeRegenerateResponse, "conditional", map[string]any{"condition": "quality_score.pass == false"}},
-		{nodeRegenerateResponse, nodeMergeResponses, "direct", nil},
-
+		Conditional(nodeCheckQuality, nodeMergeResponses, "quality_score.pass == true").
+		Conditional(nodeCheckQuality, nodeRegenerateResponse, "quality_score.pass == false").
+		Direct(nodeRegenerateResponse, nodeMergeResponses).
 		// Finalization
-		{nodeMergeResponses, nodePersonalizeResponse, "direct", nil},
-		{nodePersonalizeResponse, nodeGenerateFollowUp, "parallel", nil},
-		{nodePersonalizeResponse, nodeSendResponse, "parallel", nil},
-
+		Direct(nodeMergeResponses, nodePersonalizeResponse).
+		Parallel(nodePersonalizeResponse, nodeGenerateFollowUp).
+		Parallel(nodePersonalizeResponse, nodeSendResponse).
 		// Logging (wait for both)
-		{nodeGenerateFollowUp, nodeLogInteraction, "join", nil},
-		{nodeSendResponse, nodeLogInteraction, "join", nil},
-	}
+		Join(nodeGenerateFollowUp, nodeLogInteraction).
+		Join(nodeSendResponse, nodeLogInteraction).
+		Build()
 
-	for i, e := range edges {
-		config := e.config
-		if config == nil {
-			config = map[string]any{}
-		}
-
-		edge := mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			e.from.ID(),
-			e.to.ID(),
-			e.edgeType,
-			config,
-		)
-
+	for i, edge := range edges {
 		if err := storage.SaveEdge(ctx, edge); err != nil {
 			log.Fatalf("Failed to save edge %d: %v", i, err)
 		}
