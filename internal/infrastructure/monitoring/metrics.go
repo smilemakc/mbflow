@@ -306,3 +306,25 @@ func (mc *MetricsCollector) GetSummary() *MetricsSummary {
 
 	return summary
 }
+
+// MetricsSnapshot represents a complete snapshot of all metrics at a point in time.
+// This structure is used for serialization, persistence, and export.
+type MetricsSnapshot struct {
+	Timestamp       time.Time                   `json:"timestamp"`
+	WorkflowMetrics map[string]*WorkflowMetrics `json:"workflow_metrics"`
+	NodeMetrics     map[string]*NodeMetrics     `json:"node_metrics"`
+	AIMetrics       *AIMetrics                  `json:"ai_metrics"`
+	Summary         *MetricsSummary             `json:"summary"`
+}
+
+// Snapshot creates a complete snapshot of all current metrics.
+// This is thread-safe and returns a copy of all metrics data.
+func (mc *MetricsCollector) Snapshot() *MetricsSnapshot {
+	return &MetricsSnapshot{
+		Timestamp:       time.Now(),
+		WorkflowMetrics: mc.GetAllWorkflowMetrics(),
+		NodeMetrics:     mc.GetAllNodeMetrics(),
+		AIMetrics:       mc.GetAIMetrics(),
+		Summary:         mc.GetSummary(),
+	}
+}

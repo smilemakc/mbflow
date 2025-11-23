@@ -90,3 +90,131 @@ func (t *ExecutionTrace) String() string {
 
 	return result
 }
+
+// GetDuration returns the total duration of the execution based on first and last events.
+func (t *ExecutionTrace) GetDuration() time.Duration {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if len(t.Events) < 2 {
+		return 0
+	}
+
+	first := t.Events[0].Timestamp
+	last := t.Events[len(t.Events)-1].Timestamp
+	return last.Sub(first)
+}
+
+// GetEventsByType returns all events of a specific type.
+func (t *ExecutionTrace) GetEventsByType(eventType string) []*TraceEvent {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	var filtered []*TraceEvent
+	for _, event := range t.Events {
+		if event.EventType == eventType {
+			filtered = append(filtered, event)
+		}
+	}
+	return filtered
+}
+
+// GetEventsByNodeID returns all events for a specific node.
+func (t *ExecutionTrace) GetEventsByNodeID(nodeID string) []*TraceEvent {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	var filtered []*TraceEvent
+	for _, event := range t.Events {
+		if event.NodeID == nodeID {
+			filtered = append(filtered, event)
+		}
+	}
+	return filtered
+}
+
+// GetErrorEvents returns all events that have an error.
+func (t *ExecutionTrace) GetErrorEvents() []*TraceEvent {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	var errors []*TraceEvent
+	for _, event := range t.Events {
+		if event.Error != nil {
+			errors = append(errors, event)
+		}
+	}
+	return errors
+}
+
+// HasErrors returns true if the trace contains any error events.
+func (t *ExecutionTrace) HasErrors() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for _, event := range t.Events {
+		if event.Error != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// Summary returns a summary of the trace.
+type TraceSummary struct {
+	ExecutionID   string
+	WorkflowID    string
+	TotalEvents   int
+	ErrorCount    int
+	Duration      time.Duration
+	StartTime     time.Time
+	EndTime       time.Time
+	EventTypes    map[string]int
+	NodeIDs       []string
+}
+
+// GetSummary returns a summary of the trace.
+func (t *ExecutionTrace) GetSummary() *TraceSummary {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	summary := &TraceSummary{
+		ExecutionID: t.ExecutionID,
+		WorkflowID:  t.WorkflowID,
+		TotalEvents: len(t.Events),
+		EventTypes:  make(map[string]int),
+		NodeIDs:     make([]string, 0),
+	}
+
+	nodeIDMap := make(map[string]bool)
+
+	for i, event := range t.Events {
+		// Track first and last timestamps
+		if i == 0 {
+			summary.StartTime = event.Timestamp
+		}
+		if i == len(t.Events)-1 {
+			summary.EndTime = event.Timestamp
+		}
+
+		// Count event types
+		summary.EventTypes[event.EventType]++
+
+		// Count errors
+		if event.Error != nil {
+			summary.ErrorCount++
+		}
+
+		// Collect unique node IDs
+		if event.NodeID != "" && !nodeIDMap[event.NodeID] {
+			nodeIDMap[event.NodeID] = true
+			summary.NodeIDs = append(summary.NodeIDs, event.NodeID)
+		}
+	}
+
+	if len(t.Events) >= 2 {
+		summary.Duration = summary.EndTime.Sub(summary.StartTime)
+	}
+
+	return summary
+}
