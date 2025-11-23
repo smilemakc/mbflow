@@ -10,6 +10,7 @@ import (
 	"mbflow/internal/domain"
 	"mbflow/internal/domain/errors"
 	"mbflow/internal/infrastructure/monitoring"
+	"mbflow/internal/utils"
 )
 
 // WorkflowEngine is the main execution engine for workflows.
@@ -440,6 +441,7 @@ func (e *WorkflowEngine) executeNodesInParallel(ctx context.Context, execCtx *Ex
 // NodeConfig represents the configuration for executing a node.
 type NodeConfig struct {
 	NodeID   string
+	Name     string
 	NodeType string
 	Config   map[string]any
 }
@@ -473,7 +475,7 @@ func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionCont
 		nodeConfig.NodeID,
 		execCtx.State().WorkflowID,
 		nodeConfig.NodeType,
-		nodeConfig.NodeID, // Use NodeID as name
+		utils.DefaultValue(nodeConfig.Name, nodeConfig.NodeID),
 		nodeConfig.Config,
 	)
 
