@@ -108,3 +108,4 @@ go.work.sum
 
 # Binary files in examples directories (executable files without extensions)
 examples/logger-demo/logger-demo
+output/

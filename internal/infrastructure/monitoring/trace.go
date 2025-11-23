@@ -9,21 +9,21 @@ import (
 // ExecutionTrace represents a trace of execution events.
 // It can be used for debugging and visualization.
 type ExecutionTrace struct {
-	ExecutionID string
-	WorkflowID  string
-	Events      []*TraceEvent
+	ExecutionID string        `json:"execution_id"`
+	WorkflowID  string        `json:"workflow_id"`
+	Events      []*TraceEvent `json:"events"`
 	mu          sync.Mutex
 }
 
 // TraceEvent represents a single event in the execution trace.
 type TraceEvent struct {
-	Timestamp time.Time
-	EventType string
-	NodeID    string
-	NodeType  string
-	Message   string
-	Data      map[string]interface{}
-	Error     error
+	Timestamp time.Time              `json:"timestamp"`
+	EventType string                 `json:"type"`
+	NodeID    string                 `json:"node_id,omitempty"`
+	NodeType  string                 `json:"node_type,omitempty"`
+	Message   string                 `json:"message,omitempty"`
+	Data      map[string]interface{} `json:"data,omitempty"`
+	Error     error                  `json:"error,omitempty"`
 }
 
 // NewExecutionTrace creates a new ExecutionTrace.
@@ -162,15 +162,15 @@ func (t *ExecutionTrace) HasErrors() bool {
 
 // Summary returns a summary of the trace.
 type TraceSummary struct {
-	ExecutionID   string
-	WorkflowID    string
-	TotalEvents   int
-	ErrorCount    int
-	Duration      time.Duration
-	StartTime     time.Time
-	EndTime       time.Time
-	EventTypes    map[string]int
-	NodeIDs       []string
+	ExecutionID string         `json:"execution_id"`
+	WorkflowID  string         `json:"workflow_id"`
+	TotalEvents int            `json:"total_events"`
+	ErrorCount  int            `json:"error_count"`
+	Duration    time.Duration  `json:"duration_ms"`
+	StartTime   time.Time      `json:"start_time"`
+	EndTime     time.Time      `json:"end_time"`
+	EventTypes  map[string]int `json:"event_types"`
+	NodeIDs     []string       `json:"node_ids"`
 }
 
 // GetSummary returns a summary of the trace.

@@ -20,38 +20,38 @@ type MetricsCollector struct {
 
 // WorkflowMetrics represents metrics for a workflow.
 type WorkflowMetrics struct {
-	WorkflowID      string
-	ExecutionCount  int
-	SuccessCount    int
-	FailureCount    int
-	TotalDuration   time.Duration
-	AverageDuration time.Duration
-	MinDuration     time.Duration
-	MaxDuration     time.Duration
-	LastExecutionAt time.Time
+	WorkflowID      string        `json:"workflow_id"`
+	ExecutionCount  int           `json:"execution_count"`
+	SuccessCount    int           `json:"success_count"`
+	FailureCount    int           `json:"failure_count"`
+	TotalDuration   time.Duration `json:"total_duration"`
+	AverageDuration time.Duration `json:"average_duration"`
+	MinDuration     time.Duration `json:"min_duration"`
+	MaxDuration     time.Duration `json:"max_duration"`
+	LastExecutionAt time.Time     `json:"last_execution_at"`
 }
 
 // NodeMetrics represents metrics for a node type.
 type NodeMetrics struct {
-	NodeType        string
-	ExecutionCount  int
-	SuccessCount    int
-	FailureCount    int
-	RetryCount      int
-	TotalDuration   time.Duration
-	AverageDuration time.Duration
-	MinDuration     time.Duration
-	MaxDuration     time.Duration
+	NodeType        string        `json:"node_type"`
+	ExecutionCount  int           `json:"execution_count"`
+	SuccessCount    int           `json:"success_count"`
+	FailureCount    int           `json:"failure_count"`
+	RetryCount      int           `json:"retry_count"`
+	TotalDuration   time.Duration `json:"total_duration"`
+	AverageDuration time.Duration `json:"average_duration"`
+	MinDuration     time.Duration `json:"min_duration"`
+	MaxDuration     time.Duration `json:"max_duration"`
 }
 
 // AIMetrics represents AI API usage metrics.
 type AIMetrics struct {
-	TotalRequests    int
-	TotalTokens      int
-	PromptTokens     int
-	CompletionTokens int
-	EstimatedCostUSD float64
-	AverageLatency   time.Duration
+	TotalRequests    int           `json:"total_requests"`
+	TotalTokens      int           `json:"total_tokens"`
+	PromptTokens     int           `json:"prompt_tokens"`
+	CompletionTokens int           `json:"completion_tokens"`
+	EstimatedCostUSD float64       `json:"estimated_cost_usd"`
+	AverageLatency   time.Duration `json:"average_latency"`
 	mu               sync.RWMutex
 }
 
@@ -262,16 +262,16 @@ func (mc *MetricsCollector) Reset() {
 
 // Summary returns a summary of all collected metrics.
 type MetricsSummary struct {
-	TotalWorkflows      int
-	TotalExecutions     int
-	TotalSuccesses      int
-	TotalFailures       int
-	OverallSuccessRate  float64
-	TotalNodeExecutions int
-	TotalNodeRetries    int
-	TotalAIRequests     int
-	TotalAITokens       int
-	EstimatedAICostUSD  float64
+	TotalWorkflows      int     `json:"total_workflows"`
+	TotalExecutions     int     `json:"total_executions"`
+	TotalSuccesses      int     `json:"total_successes"`
+	TotalFailures       int     `json:"total_failures"`
+	OverallSuccessRate  float64 `json:"overall_success_rate"`
+	TotalNodeExecutions int     `json:"total_node_executions"`
+	TotalNodeRetries    int     `json:"total_node_retries"`
+	TotalAIRequests     int     `json:"total_ai_requests"`
+	TotalAITokens       int     `json:"total_ai_tokens"`
+	EstimatedAICostUSD  float64 `json:"estimated_ai_cost_usd"`
 }
 
 // GetSummary returns a summary of all metrics.
@@ -311,9 +311,9 @@ func (mc *MetricsCollector) GetSummary() *MetricsSummary {
 // This structure is used for serialization, persistence, and export.
 type MetricsSnapshot struct {
 	Timestamp       time.Time                   `json:"timestamp"`
-	WorkflowMetrics map[string]*WorkflowMetrics `json:"workflow_metrics"`
-	NodeMetrics     map[string]*NodeMetrics     `json:"node_metrics"`
-	AIMetrics       *AIMetrics                  `json:"ai_metrics"`
+	WorkflowMetrics map[string]*WorkflowMetrics `json:"workflow_metrics,omitempty"`
+	NodeMetrics     map[string]*NodeMetrics     `json:"node_metrics,omitempty"`
+	AIMetrics       *AIMetrics                  `json:"ai_metrics,omitempty"`
 	Summary         *MetricsSummary             `json:"summary"`
 }
 

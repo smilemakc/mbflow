@@ -281,11 +281,11 @@ func demoTracePersistence(tracesDir string) {
 		execID := fmt.Sprintf("exec-%03d", i+1)
 		trace := monitoring.NewExecutionTrace(execID, "workflow-batch")
 
-		trace.AddEvent("execution_started", "", "", "Started", nil, nil)
-		trace.AddEvent("node_started", "node-1", "http", "Processing", nil, nil)
+		trace.AddEvent("execution_started", "", "", "started", nil, nil)
+		trace.AddEvent("node_started", "node-1", "http", "processing", nil, nil)
 		time.Sleep(10 * time.Millisecond)
-		trace.AddEvent("node_completed", "node-1", "http", "Completed", nil, nil)
-		trace.AddEvent("execution_completed", "", "", "Finished", nil, nil)
+		trace.AddEvent("node_completed", "node-1", "http", "completed", nil, nil)
+		trace.AddEvent("execution_completed", "", "", "finished", nil, nil)
 
 		traces[i] = trace
 	}
