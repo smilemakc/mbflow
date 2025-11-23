@@ -236,6 +236,13 @@ type ExecutionObserver interface {
 
 	// OnVariableSet is called when a variable is set in the execution context
 	OnVariableSet(executionID, key string, value interface{})
+
+	// OnNodeCallbackStarted is called when a node callback starts processing
+	OnNodeCallbackStarted(executionID string, node Node)
+
+	// OnNodeCallbackCompleted is called when a node callback completes
+	// err is nil if the callback succeeded, non-nil if it failed
+	OnNodeCallbackCompleted(executionID string, node Node, err error, duration time.Duration)
 }
 
 // ExecutorMetrics provides execution metrics.
@@ -366,6 +373,36 @@ func (o *HTTPCallbackObserver) OnNodeRetrying(executionID string, node Node, att
 // OnVariableSet implements ExecutionObserver.
 func (o *HTTPCallbackObserver) OnVariableSet(executionID, key string, value interface{}) {
 	o.internal.OnVariableSet(executionID, key, value)
+}
+
+// OnNodeCallbackStarted implements ExecutionObserver.
+func (o *HTTPCallbackObserver) OnNodeCallbackStarted(executionID string, node Node) {
+	var domainNode *domain.Node
+	if node != nil {
+		domainNode = domain.NewNode(
+			node.ID(),
+			node.WorkflowID(),
+			node.Type(),
+			node.Name(),
+			node.Config(),
+		)
+	}
+	o.internal.OnNodeCallbackStarted(executionID, domainNode)
+}
+
+// OnNodeCallbackCompleted implements ExecutionObserver.
+func (o *HTTPCallbackObserver) OnNodeCallbackCompleted(executionID string, node Node, err error, duration time.Duration) {
+	var domainNode *domain.Node
+	if node != nil {
+		domainNode = domain.NewNode(
+			node.ID(),
+			node.WorkflowID(),
+			node.Type(),
+			node.Name(),
+			node.Config(),
+		)
+	}
+	o.internal.OnNodeCallbackCompleted(executionID, domainNode, err, duration)
 }
 
 // SetEnabled enables or disables the observer.

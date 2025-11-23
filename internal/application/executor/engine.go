@@ -513,6 +513,9 @@ func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionCont
 				duration,
 			)
 
+			// Execute callback if configured (asynchronously, doesn't affect workflow)
+			e.executeNodeCallback(ctx, execCtx, nodeConfig, tempNode, output, duration)
+
 			return nil
 		},
 		func(attemptNumber int, err error, delay time.Duration) {
@@ -597,7 +600,65 @@ func (e *WorkflowEngine) ExecuteNodeSimple(ctx context.Context, execCtx *Executi
 		duration,
 	)
 
+	// Execute callback if configured (asynchronously, doesn't affect workflow)
+	e.executeNodeCallback(ctx, execCtx, nodeConfig, tempNode, output, duration)
+
 	return output, nil
+}
+
+// executeNodeCallback executes a callback for a node if configured.
+// The callback is executed asynchronously and does not affect the workflow execution.
+func (e *WorkflowEngine) executeNodeCallback(ctx context.Context, execCtx *ExecutionContext, nodeConfig NodeConfig, node *domain.Node, output interface{}, duration time.Duration) {
+	// Check if callback is configured
+	callbackConfig, err := parseCallbackConfig(nodeConfig.Config)
+	if err != nil {
+		// Invalid callback config, but don't fail the workflow
+		return
+	}
+	if callbackConfig == nil {
+		// No callback configured
+		return
+	}
+
+	// Create callback processor
+	processor, err := NewHTTPCallbackProcessor(*callbackConfig)
+	if err != nil {
+		// Invalid callback config, but don't fail the workflow
+		return
+	}
+
+	// Execute callback asynchronously
+	go func() {
+		// Notify observers that callback started
+		e.observerManager.NotifyNodeCallbackStarted(execCtx.State().ExecutionID, node)
+
+		startTime := time.Now()
+
+		// Prepare callback data
+		callbackData := &NodeCallbackData{
+			ExecutionID: execCtx.State().ExecutionID,
+			WorkflowID:  execCtx.State().WorkflowID,
+			NodeID:      nodeConfig.NodeID,
+			NodeType:    nodeConfig.NodeType,
+			Output:      output,
+			Duration:    duration,
+			StartedAt:   time.Now().Add(-duration),
+			CompletedAt: time.Now(),
+		}
+
+		// Include variables if configured
+		if callbackConfig.IncludeVariables {
+			callbackData.Variables = execCtx.GetAllVariables()
+		}
+
+		// Execute callback
+		callbackErr := processor.Process(ctx, callbackData)
+
+		callbackDuration := time.Since(startTime)
+
+		// Notify observers that callback completed
+		e.observerManager.NotifyNodeCallbackCompleted(execCtx.State().ExecutionID, node, callbackErr, callbackDuration)
+	}()
 }
 
 // GetExecutor returns the executor for a given node type.

@@ -263,3 +263,36 @@ func (o *HTTPCallbackObserver) OnVariableSet(executionID, key string, value inte
 	}
 	_ = o.sendEvent("variable_set", payload)
 }
+
+// OnNodeCallbackStarted implements ExecutionObserver.
+func (o *HTTPCallbackObserver) OnNodeCallbackStarted(executionID string, node *domain.Node) {
+	payload := map[string]interface{}{
+		"execution_id": executionID,
+	}
+	if node != nil {
+		payload["node_id"] = node.ID()
+		payload["workflow_id"] = node.WorkflowID()
+		payload["node_type"] = node.Type()
+		payload["name"] = node.Name()
+	}
+	_ = o.sendEvent("node_callback_started", payload)
+}
+
+// OnNodeCallbackCompleted implements ExecutionObserver.
+func (o *HTTPCallbackObserver) OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
+	payload := map[string]interface{}{
+		"execution_id": executionID,
+		"duration_ms":  duration.Milliseconds(),
+		"success":      err == nil,
+	}
+	if node != nil {
+		payload["node_id"] = node.ID()
+		payload["workflow_id"] = node.WorkflowID()
+		payload["node_type"] = node.Type()
+		payload["name"] = node.Name()
+	}
+	if err != nil {
+		payload["error"] = err.Error()
+	}
+	_ = o.sendEvent("node_callback_completed", payload)
+}
