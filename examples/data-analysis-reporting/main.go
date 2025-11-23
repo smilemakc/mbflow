@@ -648,71 +648,45 @@ Return JSON:
 	}
 
 	// Create edges
-	edges := []struct {
-		from     mbflow.Node
-		to       mbflow.Node
-		edgeType string
-		config   map[string]any
-	}{
+	// Create edges using RelationshipBuilder for cleaner and more readable code
+	edges := mbflow.NewRelationshipBuilder(workflowID).
 		// Parallel data fetching
-		{nodeFetchSales, nodeValidateData, "join", nil},
-		{nodeFetchCustomers, nodeValidateData, "join", nil},
-		{nodeFetchMarketing, nodeValidateData, "join", nil},
-		{nodeFetchOperations, nodeValidateData, "join", nil},
-
+		Join(nodeFetchSales, nodeValidateData).
+		Join(nodeFetchCustomers, nodeValidateData).
+		Join(nodeFetchMarketing, nodeValidateData).
+		Join(nodeFetchOperations, nodeValidateData).
 		// Data processing pipeline
-		{nodeValidateData, nodeCleanData, "direct", nil},
-		{nodeCleanData, nodeCalculateMetrics, "direct", nil},
-		{nodeCalculateMetrics, nodeDetectAnomalies, "direct", nil},
-		{nodeDetectAnomalies, nodeCheckDeepDive, "direct", nil},
-
+		Direct(nodeValidateData, nodeCleanData).
+		Direct(nodeCleanData, nodeCalculateMetrics).
+		Direct(nodeCalculateMetrics, nodeDetectAnomalies).
+		Direct(nodeDetectAnomalies, nodeCheckDeepDive).
 		// Deep dive branch
-		{nodeCheckDeepDive, nodeDeepDiveAnalysis, "conditional", map[string]any{"condition": "requires_deep_dive == true"}},
-		{nodeDeepDiveAnalysis, nodeGenerateAlerts, "direct", nil},
-		{nodeGenerateAlerts, nodeSendAlerts, "direct", nil},
-		{nodeSendAlerts, nodeGenerateInsights, "direct", nil},
-
+		Conditional(nodeCheckDeepDive, nodeDeepDiveAnalysis, "requires_deep_dive == true").
+		Direct(nodeDeepDiveAnalysis, nodeGenerateAlerts).
+		Direct(nodeGenerateAlerts, nodeSendAlerts).
+		Direct(nodeSendAlerts, nodeGenerateInsights).
 		// Normal flow
-		{nodeCheckDeepDive, nodeGenerateInsights, "conditional", map[string]any{"condition": "requires_deep_dive == false"}},
-
+		Conditional(nodeCheckDeepDive, nodeGenerateInsights, "requires_deep_dive == false").
 		// Parallel report generation
-		{nodeGenerateInsights, nodeGenerateVizSpecs, "parallel", nil},
-		{nodeGenerateInsights, nodeGenerateExecutiveSummary, "parallel", nil},
-
+		Parallel(nodeGenerateInsights, nodeGenerateVizSpecs).
+		Parallel(nodeGenerateInsights, nodeGenerateExecutiveSummary).
 		// Visualization creation
-		{nodeGenerateVizSpecs, nodeCreateVisualizations, "direct", nil},
-
+		Direct(nodeGenerateVizSpecs, nodeCreateVisualizations).
 		// Report generation (wait for visualizations)
-		{nodeCreateVisualizations, nodeGenerateDetailedReport, "direct", nil},
-		{nodeGenerateExecutiveSummary, nodeGenerateDetailedReport, "join", nil},
-
+		Direct(nodeCreateVisualizations, nodeGenerateDetailedReport).
+		Join(nodeGenerateExecutiveSummary, nodeGenerateDetailedReport).
 		// Distribution
-		{nodeGenerateDetailedReport, nodeDetermineDistribution, "direct", nil},
-		{nodeDetermineDistribution, nodeDistributeExecutives, "parallel", nil},
-		{nodeDetermineDistribution, nodeDistributeDetailed, "parallel", nil},
-		{nodeDetermineDistribution, nodeUpdateDashboard, "parallel", nil},
-
+		Direct(nodeGenerateDetailedReport, nodeDetermineDistribution).
+		Parallel(nodeDetermineDistribution, nodeDistributeExecutives).
+		Parallel(nodeDetermineDistribution, nodeDistributeDetailed).
+		Parallel(nodeDetermineDistribution, nodeUpdateDashboard).
 		// Archive (wait for all distributions)
-		{nodeDistributeExecutives, nodeArchiveReport, "join", nil},
-		{nodeDistributeDetailed, nodeArchiveReport, "join", nil},
-		{nodeUpdateDashboard, nodeArchiveReport, "join", nil},
-	}
+		Join(nodeDistributeExecutives, nodeArchiveReport).
+		Join(nodeDistributeDetailed, nodeArchiveReport).
+		Join(nodeUpdateDashboard, nodeArchiveReport).
+		Build()
 
-	for i, e := range edges {
-		config := e.config
-		if config == nil {
-			config = map[string]any{}
-		}
-
-		edge := mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			e.from.ID(),
-			e.to.ID(),
-			e.edgeType,
-			config,
-		)
-
+	for i, edge := range edges {
 		if err := storage.SaveEdge(ctx, edge); err != nil {
 			log.Fatalf("Failed to save edge %d: %v", i, err)
 		}

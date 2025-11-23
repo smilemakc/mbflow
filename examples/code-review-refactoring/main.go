@@ -713,77 +713,50 @@ Test Coverage: {{test_coverage.coverage_adequate}}
 	}
 
 	// Create edges
-	edges := []struct {
-		from     mbflow.Node
-		to       mbflow.Node
-		edgeType string
-		config   map[string]any
-	}{
+	// Create edges using RelationshipBuilder for cleaner and more readable code
+	edges := mbflow.NewRelationshipBuilder(workflowID).
 		// Initial parallel fetching
-		{nodeFetchChanges, nodeAnalyzeComplexity, "parallel", nil},
-		{nodeFetchChanges, nodeSecurityScan, "parallel", nil},
-		{nodeFetchChanges, nodeCheckTestCoverage, "parallel", nil},
-		{nodeFetchPRContext, nodeCheckTestCoverage, "join", nil},
-
+		Parallel(nodeFetchChanges, nodeAnalyzeComplexity).
+		Parallel(nodeFetchChanges, nodeSecurityScan).
+		Parallel(nodeFetchChanges, nodeCheckTestCoverage).
+		Join(nodeFetchPRContext, nodeCheckTestCoverage).
 		// Generate review (wait for all analyses)
-		{nodeAnalyzeComplexity, nodeGenerateReview, "join", nil},
-		{nodeSecurityScan, nodeGenerateReview, "join", nil},
-		{nodeCheckTestCoverage, nodeGenerateReview, "join", nil},
-
+		Join(nodeAnalyzeComplexity, nodeGenerateReview).
+		Join(nodeSecurityScan, nodeGenerateReview).
+		Join(nodeCheckTestCoverage, nodeGenerateReview).
 		// Severity routing
-		{nodeGenerateReview, nodeCheckSeverity, "direct", nil},
-
+		Direct(nodeGenerateReview, nodeCheckSeverity).
 		// Critical path
-		{nodeCheckSeverity, nodeBlockMerge, "conditional", map[string]any{"condition": "severity == 'critical'"}},
-		{nodeBlockMerge, nodePostBlockingComment, "direct", nil},
-		{nodePostBlockingComment, nodeGenerateDocumentation, "direct", nil},
-
+		Conditional(nodeCheckSeverity, nodeBlockMerge, "severity == 'critical'").
+		Direct(nodeBlockMerge, nodePostBlockingComment).
+		Direct(nodePostBlockingComment, nodeGenerateDocumentation).
 		// Major issues path
-		{nodeCheckSeverity, nodeCheckRefactoring, "conditional", map[string]any{"condition": "severity == 'major'"}},
-		{nodeCheckRefactoring, nodeGenerateRefactoringPlan, "conditional", map[string]any{"condition": "refactoring_needed == true"}},
-		{nodeGenerateRefactoringPlan, nodeGenerateRefactoredCode, "direct", nil},
-		{nodeGenerateRefactoredCode, nodeValidateRefactoring, "direct", nil},
-		{nodeValidateRefactoring, nodeCheckRefactoringValidation, "direct", nil},
-
+		Conditional(nodeCheckSeverity, nodeCheckRefactoring, "severity == 'major'").
+		Conditional(nodeCheckRefactoring, nodeGenerateRefactoringPlan, "refactoring_needed == true").
+		Direct(nodeGenerateRefactoringPlan, nodeGenerateRefactoredCode).
+		Direct(nodeGenerateRefactoredCode, nodeValidateRefactoring).
+		Direct(nodeValidateRefactoring, nodeCheckRefactoringValidation).
 		// Refactoring validation routing
-		{nodeCheckRefactoringValidation, nodeCreateRefactoringPR, "conditional", map[string]any{"condition": "recommendation == 'apply'"}},
-		{nodeCheckRefactoringValidation, nodeGenerateRefactoredCode, "conditional", map[string]any{"condition": "recommendation == 'revise'"}},
-		{nodeCheckRefactoringValidation, nodePostRefactoringSuggestions, "conditional", map[string]any{"condition": "recommendation == 'manual_review'"}},
-
+		Conditional(nodeCheckRefactoringValidation, nodeCreateRefactoringPR, "recommendation == 'apply'").
+		Conditional(nodeCheckRefactoringValidation, nodeGenerateRefactoredCode, "recommendation == 'revise'").
+		Conditional(nodeCheckRefactoringValidation, nodePostRefactoringSuggestions, "recommendation == 'manual_review'").
 		// No refactoring needed
-		{nodeCheckRefactoring, nodePostReviewComments, "conditional", map[string]any{"condition": "refactoring_needed == false"}},
-		{nodeCreateRefactoringPR, nodeGenerateDocumentation, "direct", nil},
-		{nodePostRefactoringSuggestions, nodeGenerateDocumentation, "direct", nil},
-		{nodePostReviewComments, nodeGenerateDocumentation, "direct", nil},
-
+		Conditional(nodeCheckRefactoring, nodePostReviewComments, "refactoring_needed == false").
+		Direct(nodeCreateRefactoringPR, nodeGenerateDocumentation).
+		Direct(nodePostRefactoringSuggestions, nodeGenerateDocumentation).
+		Direct(nodePostReviewComments, nodeGenerateDocumentation).
 		// Minor issues path
-		{nodeCheckSeverity, nodeApproveWithSuggestions, "conditional", map[string]any{"condition": "severity == 'minor'"}},
-		{nodeApproveWithSuggestions, nodeGenerateDocumentation, "direct", nil},
-
+		Conditional(nodeCheckSeverity, nodeApproveWithSuggestions, "severity == 'minor'").
+		Direct(nodeApproveWithSuggestions, nodeGenerateDocumentation).
 		// No issues path
-		{nodeCheckSeverity, nodeApproveDirect, "conditional", map[string]any{"condition": "severity == 'none'"}},
-		{nodeApproveDirect, nodeGenerateDocumentation, "direct", nil},
-
+		Conditional(nodeCheckSeverity, nodeApproveDirect, "severity == 'none'").
+		Direct(nodeApproveDirect, nodeGenerateDocumentation).
 		// Final steps
-		{nodeGenerateDocumentation, nodeUpdateMetrics, "parallel", nil},
-		{nodeGenerateDocumentation, nodeSendSummary, "parallel", nil},
-	}
+		Parallel(nodeGenerateDocumentation, nodeUpdateMetrics).
+		Parallel(nodeGenerateDocumentation, nodeSendSummary).
+		Build()
 
-	for i, e := range edges {
-		config := e.config
-		if config == nil {
-			config = map[string]any{}
-		}
-
-		edge := mbflow.NewEdge(
-			uuid.NewString(),
-			workflowID,
-			e.from.ID(),
-			e.to.ID(),
-			e.edgeType,
-			config,
-		)
-
+	for i, edge := range edges {
 		if err := storage.SaveEdge(ctx, edge); err != nil {
 			log.Fatalf("Failed to save edge %d: %v", i, err)
 		}
