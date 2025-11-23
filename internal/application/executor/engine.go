@@ -85,7 +85,10 @@ func NewWorkflowEngine(config *EngineConfig) *WorkflowEngine {
 	// Prepare monitoring if enabled
 	var metrics *monitoring.MetricsCollector
 	if config.EnableMonitoring {
-		logger := monitoring.NewExecutionLogger("WorkflowEngine", config.VerboseLogging)
+		logger := monitoring.NewConsoleLogger(monitoring.ConsoleLoggerConfig{
+			Prefix:  "WorkflowEngine",
+			Verbose: config.VerboseLogging,
+		})
 		metrics = monitoring.NewMetricsCollector()
 		observer := monitoring.NewCompositeObserver(logger, metrics, nil)
 		engine.observerManager.AddObserver(observer)
