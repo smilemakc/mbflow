@@ -1,216 +1,149 @@
 package mbflow
 
 import (
-	"context"
 	"time"
 
-	executor "github.com/smilemakc/mbflow/internal/application/executor"
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain"
 	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
-// NodeExecutorType represents the type of a node executor.
-// This is a type alias for string, allowing seamless use of string literals
-// while providing convenient predefined constants.
-type NodeExecutorType = executor.NodeExecutorType
+// ========== Type Exports ==========
 
-// Node executor type constants.
-// These define all available node types in the system.
-const (
-	// NodeTypeOpenAICompletion represents an OpenAI completion node.
-	NodeTypeOpenAICompletion = executor.NodeTypeOpenAICompletion
-
-	// NodeTypeOpenAIResponses represents an OpenAI Responses API node.
-	NodeTypeOpenAIResponses = executor.NodeTypeOpenAIResponses
-
-	// NodeTypeHTTPRequest represents an HTTP request node.
-	NodeTypeHTTPRequest = executor.NodeTypeHTTPRequest
-
-	// NodeTypeTelegramMessage represents a Telegram message node.
-	NodeTypeTelegramMessage = executor.NodeTypeTelegramMessage
-
-	// NodeTypeConditionalRouter represents a conditional routing node.
-	NodeTypeConditionalRouter = executor.NodeTypeConditionalRouter
-
-	// NodeTypeDataMerger represents a data merger node.
-	NodeTypeDataMerger = executor.NodeTypeDataMerger
-
-	// NodeTypeDataAggregator represents a data aggregator node.
-	NodeTypeDataAggregator = executor.NodeTypeDataAggregator
-
-	// NodeTypeScriptExecutor represents a script executor node.
-	NodeTypeScriptExecutor = executor.NodeTypeScriptExecutor
-
-	// NodeTypeJSONParser represents a JSON parser node.
-	NodeTypeJSONParser = executor.NodeTypeJSONParser
+// Core domain types
+type (
+	NodeType       = domain.NodeType
+	EdgeType       = domain.EdgeType
+	TriggerType    = domain.TriggerType
+	EventType      = domain.EventType
+	JoinStrategy   = domain.JoinStrategy
+	ExecutionPhase = domain.ExecutionPhase
+	NodeStatus     = domain.NodeStatus
 )
 
-// Workflow represents a workflow process.
-type Workflow interface {
-	ID() string
-	Name() string
-	Version() string
-	Spec() map[string]any
-	CreatedAt() time.Time
-}
+// Node type constants
+const (
+	NodeTypeStart                = domain.NodeTypeStart
+	NodeTypeEnd                  = domain.NodeTypeEnd
+	NodeTypeTransform            = domain.NodeTypeTransform
+	NodeTypeHTTP                 = domain.NodeTypeHTTP
+	NodeTypeLLM                  = domain.NodeTypeLLM
+	NodeTypeCode                 = domain.NodeTypeCode
+	NodeTypeParallel             = domain.NodeTypeParallel
+	NodeTypeConditionalRoute     = domain.NodeTypeConditionalRoute
+	NodeTypeDataMerger           = domain.NodeTypeDataMerger
+	NodeTypeDataAggregator       = domain.NodeTypeDataAggregator
+	NodeTypeScriptExecutor       = domain.NodeTypeScriptExecutor
+	NodeTypeJSONParser           = domain.NodeTypeJSONParser
+	NodeTypeOpenAICompletion     = domain.NodeTypeOpenAICompletion
+	NodeTypeOpenAIResponses      = domain.NodeTypeOpenAIResponses
+	NodeTypeHTTPRequest          = domain.NodeTypeHTTPRequest
+	NodeTypeTelegramMessage      = domain.NodeTypeTelegramMessage
+	NodeTypeFunctionCall         = domain.NodeTypeFunctionCall
+	NodeTypeFunctionExecution    = domain.NodeTypeFunctionExecution
+	NodeTypeOpenAIFunctionResult = domain.NodeTypeOpenAIFunctionResult
+)
 
-// Execution represents a workflow execution instance.
-type Execution interface {
-	ID() string
-	WorkflowID() string
-	Status() string
-	StartedAt() time.Time
-	FinishedAt() *time.Time
-}
+// Edge type constants
+const (
+	EdgeTypeDirect      = domain.EdgeTypeDirect
+	EdgeTypeConditional = domain.EdgeTypeConditional
+	EdgeTypeFork        = domain.EdgeTypeFork
+	EdgeTypeJoin        = domain.EdgeTypeJoin
+)
 
-// Node represents a step in a workflow.
-type Node interface {
-	ID() string
-	WorkflowID() string
-	Type() string
-	Name() string
-	Config() map[string]any
-}
+// Trigger type constants
+const (
+	TriggerTypeManual   = domain.TriggerTypeManual
+	TriggerTypeAuto     = domain.TriggerTypeAuto
+	TriggerTypeHTTP     = domain.TriggerTypeHTTP
+	TriggerTypeSchedule = domain.TriggerTypeSchedule
+	TriggerTypeEvent    = domain.TriggerTypeEvent
+)
 
-// Edge represents a connection between nodes.
-type Edge interface {
-	ID() string
-	WorkflowID() string
-	FromNodeID() string
-	ToNodeID() string
-	Type() string
-	Config() map[string]any
-}
+// Error strategy constants
+const (
+	ErrorStrategyFailFast        = domain.ErrorStrategyFailFast
+	ErrorStrategyContinueOnError = domain.ErrorStrategyContinueOnError
+	ErrorStrategyBestEffort      = domain.ErrorStrategyBestEffort
+	ErrorStrategyRequireN        = domain.ErrorStrategyRequireN
+)
 
-// Trigger represents a trigger for starting a workflow.
-type Trigger interface {
-	ID() string
-	WorkflowID() string
-	Type() string
-	Config() map[string]any
-}
+// Join strategy constants
+const (
+	JoinStrategyWaitAll   = domain.JoinStrategyWaitAll
+	JoinStrategyWaitAny   = domain.JoinStrategyWaitAny
+	JoinStrategyWaitFirst = domain.JoinStrategyWaitFirst
+	JoinStrategyWaitN     = domain.JoinStrategyWaitN
+)
 
-// Event represents a system event.
-type Event interface {
-	EventID() string
-	EventType() string
-	WorkflowID() string
-	ExecutionID() string
-	WorkflowName() string
-	NodeID() string
-	Timestamp() time.Time
-	Payload() []byte
-	Metadata() map[string]string
-}
+// Execution phase constants
+const (
+	ExecutionPhasePlanning  = domain.ExecutionPhasePlanning
+	ExecutionPhaseExecuting = domain.ExecutionPhaseExecuting
+	ExecutionPhasePaused    = domain.ExecutionPhasePaused
+	ExecutionPhaseCompleted = domain.ExecutionPhaseCompleted
+	ExecutionPhaseFailed    = domain.ExecutionPhaseFailed
+	ExecutionPhaseCancelled = domain.ExecutionPhaseCancelled
+)
 
-// WorkflowRepository defines the interface for workflow operations.
-type WorkflowRepository interface {
-	SaveWorkflow(ctx context.Context, w Workflow) error
-	GetWorkflow(ctx context.Context, id string) (Workflow, error)
-	ListWorkflows(ctx context.Context) ([]Workflow, error)
-}
+// Event type constants
+const (
+	EventTypeExecutionStarted   = domain.EventTypeExecutionStarted
+	EventTypeExecutionCompleted = domain.EventTypeExecutionCompleted
+	EventTypeExecutionFailed    = domain.EventTypeExecutionFailed
+	EventTypeExecutionPaused    = domain.EventTypeExecutionPaused
+	EventTypeExecutionResumed   = domain.EventTypeExecutionResumed
+	EventTypeExecutionCancelled = domain.EventTypeExecutionCancelled
+	EventTypeNodeStarted        = domain.EventTypeNodeStarted
+	EventTypeNodeCompleted      = domain.EventTypeNodeCompleted
+	EventTypeNodeFailed         = domain.EventTypeNodeFailed
+	EventTypeNodeSkipped        = domain.EventTypeNodeSkipped
+	EventTypeNodeRetrying       = domain.EventTypeNodeRetrying
+	EventTypeVariableSet        = domain.EventTypeVariableSet
+	EventTypeVariableUpdated    = domain.EventTypeVariableUpdated
+	EventTypeVariableDeleted    = domain.EventTypeVariableDeleted
+)
 
-// ExecutionRepository defines the interface for execution operations.
-type ExecutionRepository interface {
-	SaveExecution(ctx context.Context, e Execution) error
-	GetExecution(ctx context.Context, id string) (Execution, error)
-	ListExecutions(ctx context.Context) ([]Execution, error)
-}
+type Workflow = domain.Workflow
 
-// EventRepository defines the interface for event operations.
-type EventRepository interface {
-	AppendEvent(ctx context.Context, e Event) error
-	ListEventsByExecution(ctx context.Context, executionID string) ([]Event, error)
-}
+type Execution = domain.Execution
 
-// NodeRepository defines the interface for node operations.
-type NodeRepository interface {
-	SaveNode(ctx context.Context, n Node) error
-	GetNode(ctx context.Context, id string) (Node, error)
-	ListNodes(ctx context.Context, workflowID string) ([]Node, error)
-}
+type Trigger = domain.Trigger
 
-// EdgeRepository defines the interface for edge operations.
-type EdgeRepository interface {
-	SaveEdge(ctx context.Context, e Edge) error
-	GetEdge(ctx context.Context, id string) (Edge, error)
-	ListEdges(ctx context.Context, workflowID string) ([]Edge, error)
-}
+type Node = domain.Node
 
-// TriggerRepository defines the interface for trigger operations.
-type TriggerRepository interface {
-	SaveTrigger(ctx context.Context, t Trigger) error
-	GetTrigger(ctx context.Context, id string) (Trigger, error)
-	ListTriggers(ctx context.Context, workflowID string) ([]Trigger, error)
-}
+type Edge = domain.Edge
 
-// Storage combines all repositories.
-type Storage interface {
-	WorkflowRepository
-	ExecutionRepository
-	EventRepository
-	NodeRepository
-	EdgeRepository
-	TriggerRepository
-}
+// ========== Domain Interfaces ==========
 
-// NodeConfig represents the configuration for executing a node.
-type NodeConfig = domain.NodeConfig
+// Event represents a domain event in the event sourcing system
+type Event = domain.Event
 
-// ExecutorEdgeConfig represents the configuration for an edge in the workflow graph.
-type ExecutorEdgeConfig = executor.EdgeConfig
+// VariableSet represents a set of variables with optional schema validation
+type VariableSet = domain.VariableSet
 
-// NodeToConfig converts a domain Node to NodeConfig for execution.
-// This function extracts execution-relevant information (ID, Type, Name, Config) from a domain Node entity.
-// The workflowID field is omitted as it is not needed for execution.
-func NodeToConfig(node Node) NodeConfig {
-	return NodeConfig{
-		ID:     node.ID(),
-		Type:   node.Type(),
-		Name:   node.Name(),
-		Config: node.Config(),
-	}
-}
+// ========== Repository Interfaces ==========
 
-// NodesToConfigs converts a slice of domain Nodes to ExecutorNodeConfigs for execution.
-// This is useful when loading nodes from storage and preparing them for workflow execution.
-func NodesToConfigs(nodes []Node) []NodeConfig {
-	configs := make([]NodeConfig, len(nodes))
-	for i, node := range nodes {
-		configs[i] = NodeToConfig(node)
-	}
-	return configs
-}
+// WorkflowRepository defines the interface for workflow persistence
+type WorkflowRepository = domain.WorkflowRepository
 
-// EdgeToConfig converts a domain Edge to ExecutorEdgeConfig for execution.
-// This function extracts execution-relevant information (FromNodeID, ToNodeID, Type, Config) from a domain Edge entity.
-// The edge ID and workflowID are omitted as they are not needed for execution.
-func EdgeToConfig(edge Edge) ExecutorEdgeConfig {
-	return ExecutorEdgeConfig{
-		FromNodeID: edge.FromNodeID(),
-		ToNodeID:   edge.ToNodeID(),
-		EdgeType:   edge.Type(),
-		Config:     edge.Config(),
-	}
-}
+// ExecutionRepository defines the interface for execution persistence (event sourcing based)
+type ExecutionRepository = domain.ExecutionRepository
 
-// EdgesToConfigs converts a slice of domain Edges to ExecutorEdgeConfigs for execution.
-// This is useful when loading edges from storage and preparing them for workflow execution.
-func EdgesToConfigs(edges []Edge) []ExecutorEdgeConfig {
-	configs := make([]ExecutorEdgeConfig, len(edges))
-	for i, edge := range edges {
-		configs[i] = EdgeToConfig(edge)
-	}
-	return configs
-}
+// EventStore defines the interface for event sourcing persistence
+type EventStore = domain.EventStore
+
+// Storage combines all repository interfaces
+type Storage = domain.Storage
 
 // ExecutorState represents the state of a workflow execution.
 type ExecutorState interface {
 	// GetExecutionID returns the execution ID
-	GetExecutionID() string
+	GetExecutionID() uuid.UUID
 
 	// GetWorkflowID returns the workflow ID
-	GetWorkflowID() string
+	GetWorkflowID() uuid.UUID
 
 	// GetStatus returns the current status as string
 	GetStatusString() string
@@ -228,13 +161,13 @@ type ExecutorState interface {
 // ExecutorMetrics provides execution metrics.
 type ExecutorMetrics interface {
 	// GetWorkflowMetrics returns metrics for a workflow
-	GetWorkflowMetrics(workflowID string) *WorkflowMetrics
+	GetWorkflowMetrics(workflowID uuid.UUID) *WorkflowMetrics
 
 	// GetNodeMetrics returns aggregated metrics for a node type
 	GetNodeMetrics(nodeType string) *NodeMetrics
 
 	// GetNodeMetricsByID returns metrics for a specific node ID
-	GetNodeMetricsByID(nodeID string) *NodeMetrics
+	GetNodeMetricsByID(nodeID uuid.UUID) *NodeMetrics
 
 	// GetAIMetrics returns AI API usage metrics
 	GetAIMetrics() *AIMetrics

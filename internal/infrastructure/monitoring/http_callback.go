@@ -160,36 +160,36 @@ func (o *HTTPCallbackObserver) OnExecutionFailed(workflowID, executionID string,
 }
 
 // OnNodeStarted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
-	_ = o.sendEvent(NewNodeStartedEvent(executionID, node, attemptNumber))
+func (o *HTTPCallbackObserver) OnNodeStarted(workflowID, executionID string, node domain.Node, attemptNumber int) {
+	_ = o.sendEvent(NewNodeStartedEvent(workflowID, executionID, node, attemptNumber))
 }
 
 // OnNodeCompleted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
-	_ = o.sendEvent(NewNodeCompletedEvent(executionID, node, output, duration))
+func (o *HTTPCallbackObserver) OnNodeCompleted(workflowID, executionID string, node domain.Node, output interface{}, duration time.Duration) {
+	_ = o.sendEvent(NewNodeCompletedEvent(workflowID, executionID, node, output, duration))
 }
 
 // OnNodeFailed implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
-	_ = o.sendEvent(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
+func (o *HTTPCallbackObserver) OnNodeFailed(workflowID, executionID string, node domain.Node, err error, duration time.Duration, willRetry bool) {
+	_ = o.sendEvent(NewNodeFailedEvent(workflowID, executionID, node, err, duration, willRetry))
 }
 
 // OnNodeRetrying implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
-	_ = o.sendEvent(NewNodeRetryingEvent(executionID, node, attemptNumber, delay))
+func (o *HTTPCallbackObserver) OnNodeRetrying(workflowID, executionID string, node domain.Node, attemptNumber int, delay time.Duration) {
+	_ = o.sendEvent(NewNodeRetryingEvent(workflowID, executionID, node, attemptNumber, delay))
 }
 
 // OnVariableSet implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnVariableSet(executionID, key string, value interface{}) {
-	_ = o.sendEvent(NewVariableSetEvent(executionID, key, value))
+func (o *HTTPCallbackObserver) OnVariableSet(workflowID, executionID, key string, value interface{}) {
+	_ = o.sendEvent(NewVariableSetEvent(workflowID, executionID, key, value))
 }
 
 // OnNodeCallbackStarted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeCallbackStarted(executionID string, node *domain.Node) {
-	_ = o.sendEvent(NewNodeCallbackStartedEvent(executionID, node))
+func (o *HTTPCallbackObserver) OnNodeCallbackStarted(workflowID, executionID string, node domain.Node) {
+	_ = o.sendEvent(NewNodeCallbackStartedEvent(workflowID, executionID, node))
 }
 
 // OnNodeCallbackCompleted implements ExecutionObserver.
-func (o *HTTPCallbackObserver) OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
-	_ = o.sendEvent(NewNodeCallbackCompletedEvent(executionID, node, err, duration))
+func (o *HTTPCallbackObserver) OnNodeCallbackCompleted(workflowID, executionID string, node domain.Node, err error, duration time.Duration) {
+	_ = o.sendEvent(NewNodeCallbackCompletedEvent(workflowID, executionID, node, err, duration))
 }

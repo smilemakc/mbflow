@@ -2,339 +2,275 @@ package executor
 
 import (
 	"fmt"
-	"log"
-	"strings"
 
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain"
-
-	"github.com/expr-lang/expr"
 )
 
-// WorkflowGraph represents the structure of a workflow with nodes and edges.
-// It provides methods for graph traversal and identifying parallel execution opportunities.
+// WorkflowGraph represents a directed graph built from a workflow's nodes and edges.
+// It provides efficient graph traversal and analysis operations.
 type WorkflowGraph struct {
-	// nodes maps node ID to node configuration
-	nodes map[string]*domain.NodeConfig
+	workflowID uuid.UUID
 
-	// edges maps from node ID to list of target node IDs
-	forwardEdges map[string][]string
+	// Node storage
+	nodes    map[uuid.UUID]domain.Node
+	nodeList []domain.Node
 
-	// reverseEdges maps to node ID to list of source node IDs
-	reverseEdges map[string][]string
+	// Edge storage
+	edges        []domain.Edge
+	forwardEdges map[uuid.UUID][]domain.Edge // from node ID -> outgoing edges
+	reverseEdges map[uuid.UUID][]domain.Edge // to node ID -> incoming edges
 
-	// nodeConfigs is the original list of node configs
-	nodeConfigs []domain.NodeConfig
-
-	// edgeConfigs maps edge key (fromNodeID:toNodeID) to edge configuration
-	edgeConfigs map[string]EdgeConfig
+	// Cached analysis results
+	entryNodes []uuid.UUID
+	exitNodes  []uuid.UUID
+	hasCycles  bool
+	validated  bool
 }
 
-// EdgeConfig represents the configuration for an edge in the workflow graph.
-type EdgeConfig struct {
-	FromNodeID string
-	ToNodeID   string
-	EdgeType   string
-	Config     map[string]any
-}
+// NewWorkflowGraph creates a new WorkflowGraph from a Workflow aggregate
+func NewWorkflowGraph(workflow domain.Workflow) (*WorkflowGraph, error) {
+	nodes := workflow.GetAllNodes()
+	edges := workflow.GetAllEdges()
 
-// NewWorkflowGraph creates a new WorkflowGraph from nodes and edges.
-func NewWorkflowGraph(nodes []domain.NodeConfig, edges []EdgeConfig) *WorkflowGraph {
+	if len(nodes) == 0 {
+		return nil, domain.NewDomainError(
+			domain.ErrCodeValidationFailed,
+			"workflow has no nodes",
+			nil,
+		)
+	}
+
 	graph := &WorkflowGraph{
-		nodes:        make(map[string]*domain.NodeConfig),
-		forwardEdges: make(map[string][]string),
-		reverseEdges: make(map[string][]string),
-		nodeConfigs:  nodes,
-		edgeConfigs:  make(map[string]EdgeConfig),
+		workflowID:   workflow.ID(),
+		nodes:        make(map[uuid.UUID]domain.Node),
+		nodeList:     nodes,
+		edges:        edges,
+		forwardEdges: make(map[uuid.UUID][]domain.Edge),
+		reverseEdges: make(map[uuid.UUID][]domain.Edge),
 	}
 
 	// Build node map
-	for i := range nodes {
-		graph.nodes[nodes[i].ID] = &nodes[i]
+	for _, node := range nodes {
+		graph.nodes[node.ID()] = node
 	}
 
-	// Build edge maps and store edge configurations
+	// Build edge maps
 	for _, edge := range edges {
-		// Forward edge: from -> to
-		graph.forwardEdges[edge.FromNodeID] = append(graph.forwardEdges[edge.FromNodeID], edge.ToNodeID)
-
-		// Reverse edge: to <- from
-		graph.reverseEdges[edge.ToNodeID] = append(graph.reverseEdges[edge.ToNodeID], edge.FromNodeID)
-
-		// Store edge configuration with key "fromNodeID:toNodeID"
-		edgeKey := fmt.Sprintf("%s:%s", edge.FromNodeID, edge.ToNodeID)
-		graph.edgeConfigs[edgeKey] = edge
+		graph.forwardEdges[edge.FromNodeID()] = append(
+			graph.forwardEdges[edge.FromNodeID()],
+			edge,
+		)
+		graph.reverseEdges[edge.ToNodeID()] = append(
+			graph.reverseEdges[edge.ToNodeID()],
+			edge,
+		)
 	}
 
-	return graph
-}
-
-// GetNode returns the node configuration for a given node ID.
-func (g *WorkflowGraph) GetNode(nodeID string) (*domain.NodeConfig, bool) {
-	node, ok := g.nodes[nodeID]
-	return node, ok
-}
-
-// GetAllNodes returns all node configurations.
-func (g *WorkflowGraph) GetAllNodes() []domain.NodeConfig {
-	return g.nodeConfigs
-}
-
-// GetNextNodes returns all nodes that can be reached from the given node.
-func (g *WorkflowGraph) GetNextNodes(nodeID string) []string {
-	return g.forwardEdges[nodeID]
-}
-
-// GetPreviousNodes returns all nodes that lead to the given node.
-func (g *WorkflowGraph) GetPreviousNodes(nodeID string) []string {
-	return g.reverseEdges[nodeID]
-}
-
-// GetEdgeConfig returns the edge configuration for a given from-to node pair.
-func (g *WorkflowGraph) GetEdgeConfig(fromNodeID, toNodeID string) (*EdgeConfig, bool) {
-	edgeKey := fmt.Sprintf("%s:%s", fromNodeID, toNodeID)
-	edge, ok := g.edgeConfigs[edgeKey]
-	if !ok {
-		return nil, false
+	// Perform validation
+	if err := graph.Validate(); err != nil {
+		return nil, err
 	}
-	return &edge, true
+
+	return graph, nil
 }
 
-// GetEntryNodes returns all nodes that have no incoming edges (entry points).
-func (g *WorkflowGraph) GetEntryNodes() []string {
-	var entryNodes []string
+// Validate validates the graph structure
+func (g *WorkflowGraph) Validate() error {
+	if g.validated {
+		return nil
+	}
+
+	// Check for orphaned nodes (nodes with no incoming or outgoing edges)
+	// Allow entry and exit nodes, but warn about completely isolated nodes
+	for nodeID, node := range g.nodes {
+		hasIncoming := len(g.reverseEdges[nodeID]) > 0
+		hasOutgoing := len(g.forwardEdges[nodeID]) > 0
+
+		if !hasIncoming && !hasOutgoing && len(g.nodes) > 1 {
+			return domain.NewDomainError(
+				domain.ErrCodeValidationFailed,
+				fmt.Sprintf("node '%s' (%s) is isolated (no edges)", node.Name(), nodeID),
+				nil,
+			)
+		}
+	}
+
+	// Check for cycles
+	if g.detectCycles() {
+		g.hasCycles = true
+		return domain.NewDomainError(
+			domain.ErrCodeCyclicDependency,
+			"workflow graph contains cycles",
+			nil,
+		)
+	}
+
+	// Validate edge data sources (include_outputs_from configuration)
+	for _, edge := range g.edges {
+		if err := g.ValidateEdgeDataSources(edge); err != nil {
+			return err
+		}
+	}
+
+	// Identify entry and exit nodes
+	g.entryNodes = g.findEntryNodes()
+	g.exitNodes = g.findExitNodes()
+
+	if len(g.entryNodes) == 0 {
+		return domain.NewDomainError(
+			domain.ErrCodeValidationFailed,
+			"workflow has no entry nodes (all nodes have incoming edges)",
+			nil,
+		)
+	}
+
+	if len(g.exitNodes) == 0 {
+		return domain.NewDomainError(
+			domain.ErrCodeValidationFailed,
+			"workflow has no exit nodes (all nodes have outgoing edges)",
+			nil,
+		)
+	}
+
+	g.validated = true
+	return nil
+}
+
+// GetNode returns a node by ID
+func (g *WorkflowGraph) GetNode(nodeID uuid.UUID) (domain.Node, error) {
+	node, exists := g.nodes[nodeID]
+	if !exists {
+		return nil, domain.NewDomainError(
+			domain.ErrCodeNotFound,
+			fmt.Sprintf("node %s not found in graph", nodeID),
+			nil,
+		)
+	}
+	return node, nil
+}
+
+// GetAllNodes returns all nodes
+func (g *WorkflowGraph) GetAllNodes() []domain.Node {
+	return g.nodeList
+}
+
+// GetNodeCount returns the number of nodes
+func (g *WorkflowGraph) GetNodeCount() int {
+	return len(g.nodes)
+}
+
+// GetOutgoingEdges returns all outgoing edges from a node
+func (g *WorkflowGraph) GetOutgoingEdges(nodeID uuid.UUID) []domain.Edge {
+	edges, exists := g.forwardEdges[nodeID]
+	if !exists {
+		return []domain.Edge{}
+	}
+	return edges
+}
+
+// GetIncomingEdges returns all incoming edges to a node
+func (g *WorkflowGraph) GetIncomingEdges(nodeID uuid.UUID) []domain.Edge {
+	edges, exists := g.reverseEdges[nodeID]
+	if !exists {
+		return []domain.Edge{}
+	}
+	return edges
+}
+
+// GetSuccessors returns IDs of nodes that can be reached from the given node
+func (g *WorkflowGraph) GetSuccessors(nodeID uuid.UUID) []uuid.UUID {
+	edges := g.GetOutgoingEdges(nodeID)
+	successors := make([]uuid.UUID, 0, len(edges))
+	for _, edge := range edges {
+		successors = append(successors, edge.ToNodeID())
+	}
+	return successors
+}
+
+// GetPredecessors returns IDs of nodes that lead to the given node
+func (g *WorkflowGraph) GetPredecessors(nodeID uuid.UUID) []uuid.UUID {
+	edges := g.GetIncomingEdges(nodeID)
+	predecessors := make([]uuid.UUID, 0, len(edges))
+	for _, edge := range edges {
+		predecessors = append(predecessors, edge.FromNodeID())
+	}
+	return predecessors
+}
+
+// GetEntryNodes returns all entry nodes (no incoming edges)
+func (g *WorkflowGraph) GetEntryNodes() []uuid.UUID {
+	if g.entryNodes != nil {
+		return g.entryNodes
+	}
+	return g.findEntryNodes()
+}
+
+// GetExitNodes returns all exit nodes (no outgoing edges)
+func (g *WorkflowGraph) GetExitNodes() []uuid.UUID {
+	if g.exitNodes != nil {
+		return g.exitNodes
+	}
+	return g.findExitNodes()
+}
+
+// findEntryNodes identifies nodes with no incoming edges
+func (g *WorkflowGraph) findEntryNodes() []uuid.UUID {
+	var entries []uuid.UUID
 	for nodeID := range g.nodes {
 		if len(g.reverseEdges[nodeID]) == 0 {
-			entryNodes = append(entryNodes, nodeID)
+			entries = append(entries, nodeID)
 		}
 	}
-	return entryNodes
+	return entries
 }
 
-// GetExitNodes returns all nodes that have no outgoing edges (exit points).
-func (g *WorkflowGraph) GetExitNodes() []string {
-	var exitNodes []string
+// findExitNodes identifies nodes with no outgoing edges
+func (g *WorkflowGraph) findExitNodes() []uuid.UUID {
+	var exits []uuid.UUID
 	for nodeID := range g.nodes {
 		if len(g.forwardEdges[nodeID]) == 0 {
-			exitNodes = append(exitNodes, nodeID)
+			exits = append(exits, nodeID)
 		}
 	}
-	return exitNodes
+	return exits
 }
 
-// IsJoinNode checks if a node is a join node (has multiple incoming edges).
-func (g *WorkflowGraph) IsJoinNode(nodeID string) bool {
+// IsJoinNode checks if a node is a join point (multiple incoming edges)
+func (g *WorkflowGraph) IsJoinNode(nodeID uuid.UUID) bool {
 	return len(g.reverseEdges[nodeID]) > 1
 }
 
-// IsForkNode checks if a node is a fork node (has multiple outgoing edges).
-func (g *WorkflowGraph) IsForkNode(nodeID string) bool {
+// IsForkNode checks if a node is a fork point (multiple outgoing edges)
+func (g *WorkflowGraph) IsForkNode(nodeID uuid.UUID) bool {
 	return len(g.forwardEdges[nodeID]) > 1
 }
 
-// GetParallelBranches returns all nodes that share the same parent node (can execute in parallel).
-// This identifies nodes that can be executed concurrently after a fork.
-func (g *WorkflowGraph) GetParallelBranches(parentNodeID string) []string {
-	return g.forwardEdges[parentNodeID]
+// GetJoinStrategy returns the join strategy for a join node
+func (g *WorkflowGraph) GetJoinStrategy(nodeID uuid.UUID) domain.JoinStrategy {
+	node, exists := g.nodes[nodeID]
+	if !exists {
+		return domain.JoinStrategyWaitAll // Default
+	}
+
+	// Check node config for join strategy
+	config := node.Config()
+	if strategyStr, ok := config["join_strategy"].(string); ok {
+		return domain.JoinStrategy(strategyStr)
+	}
+
+	// Default: wait for all incoming branches
+	return domain.JoinStrategyWaitAll
 }
 
-// normalizeStringValues recursively normalizes string values in a map by trimming whitespace.
-// This ensures string comparisons in conditions work correctly even if values have trailing whitespace.
-func normalizeStringValues(data interface{}) interface{} {
-	switch v := data.(type) {
-	case string:
-		return strings.TrimSpace(v)
-	case map[string]interface{}:
-		normalized := make(map[string]interface{})
-		for k, val := range v {
-			normalized[k] = normalizeStringValues(val)
-		}
-		return normalized
-	case []interface{}:
-		normalized := make([]interface{}, len(v))
-		for i, val := range v {
-			normalized[i] = normalizeStringValues(val)
-		}
-		return normalized
-	default:
-		return v
-	}
-}
-
-// evaluateCondition evaluates a condition expression using the expr library.
-// The condition can access variables from the variables map, including nested fields using dot notation.
-// String values are normalized (trimmed) before evaluation to handle whitespace issues.
-// Returns true if condition is true, false if false, and error if condition is invalid or variable is missing.
-func evaluateCondition(condition string, variables map[string]interface{}) (bool, error) {
-	if condition == "" {
-		return false, fmt.Errorf("condition is empty")
-	}
-
-	// Normalize string values in variables to handle whitespace issues
-	normalizedVars := normalizeStringValues(variables).(map[string]interface{})
-
-	// For expr library, we need to pass variables in a way that allows direct access
-	// We'll create a wrapper that makes map keys accessible as variables
-	// Compile with a map type environment
-	envType := map[string]interface{}{}
-
-	// Compile the expression - expr will allow accessing map keys directly
-	program, err := expr.Compile(condition, expr.Env(envType), expr.AsBool())
-	if err != nil {
-		// If compilation fails, try without Env (allows dynamic variables)
-		program, err = expr.Compile(condition, expr.AsBool())
-		if err != nil {
-			return false, fmt.Errorf("failed to compile condition '%s': %w", condition, err)
-		}
-	}
-
-	// Run the compiled program with actual variable values
-	// expr library will make map keys accessible as variables when passed to Run()
-	result, err := expr.Run(program, normalizedVars)
-	if err != nil {
-		// Check if error is due to missing/nil variables (graceful handling)
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "cannot fetch") ||
-			strings.Contains(errMsg, "undefined") ||
-			strings.Contains(errMsg, "unknown name") ||
-			strings.Contains(errMsg, "nil pointer") {
-			// Variable doesn't exist yet or is nil - return false (condition not met)
-			// This allows conditional edges to "wait" for variables to be created
-			log.Printf("[WorkflowGraph] Condition '%s' evaluated to false: variable not yet available (%v)", condition, err)
-			return false, nil
-		}
-		// For other errors (syntax, type errors), return the error
-		var varInfo []string
-		for k, v := range normalizedVars {
-			if strVal, ok := v.(string); ok && len(strVal) < 100 {
-				varInfo = append(varInfo, fmt.Sprintf("%s=%q", k, strVal))
-			}
-		}
-		if len(varInfo) > 0 {
-			return false, fmt.Errorf("failed to evaluate condition '%s' with variables [%s]: %w", condition, strings.Join(varInfo, ", "), err)
-		}
-		return false, fmt.Errorf("failed to evaluate condition '%s': %w", condition, err)
-	}
-
-	// Convert result to boolean (expr.AsBool() should ensure this, but check anyway)
-	resultBool, ok := result.(bool)
-	if !ok {
-		return false, fmt.Errorf("condition '%s' did not return a boolean value, got %T", condition, result)
-	}
-
-	return resultBool, nil
-}
-
-// GetReadyNodes returns all nodes that are ready to execute (all dependencies completed).
-// For conditional edges, only active edges (where condition is true) are considered as dependencies.
-// Returns error if any conditional edge has an invalid condition or missing variables.
-func (g *WorkflowGraph) GetReadyNodes(completedNodes map[string]bool, execCtx *ExecutionContext) ([]string, error) {
-	var readyNodes []string
-
-	// Get all variables for condition evaluation
-	variables := execCtx.GetAllVariables()
-
-	// Track condition evaluation results to avoid excessive logging
-	conditionCache := make(map[string]bool) // key: "fromNodeID:toNodeID:condition"
-
-	for nodeID := range g.nodes {
-		// Skip if already completed
-		if completedNodes[nodeID] {
-			continue
-		}
-
-		// Check if all active dependencies are completed
-		dependencies := g.reverseEdges[nodeID]
-		activeDependencies := make([]string, 0) // Dependencies that are actually active (conditions satisfied)
-
-		for _, depNodeID := range dependencies {
-			// Check if this is a conditional edge
-			edgeConfig, ok := g.GetEdgeConfig(depNodeID, nodeID)
-			if ok && edgeConfig.EdgeType == "conditional" {
-				// Parse conditional edge configuration
-				conditionalConfig, err := parseConfig[ConditionalEdgeConfig](edgeConfig.Config)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse conditional edge config from node '%s' to node '%s': %w", depNodeID, nodeID, err)
-				}
-
-				// Validate condition
-				if conditionalConfig.Condition == "" {
-					return nil, fmt.Errorf("conditional edge from node '%s' to node '%s' has no condition", depNodeID, nodeID)
-				}
-
-				// Check cache first to avoid re-evaluation
-				cacheKey := fmt.Sprintf("%s:%s:%s", depNodeID, nodeID, conditionalConfig.Condition)
-				conditionResult, cached := conditionCache[cacheKey]
-
-				if !cached {
-					// Evaluate condition
-					var err error
-					conditionResult, err = evaluateCondition(conditionalConfig.Condition, variables)
-					if err != nil {
-						return nil, fmt.Errorf("failed to evaluate condition '%s' for edge from node '%s' to node '%s': %w", conditionalConfig.Condition, depNodeID, nodeID, err)
-					}
-
-					// Cache the result
-					conditionCache[cacheKey] = conditionResult
-
-					// Log condition evaluation result only once per unique condition
-					log.Printf("[WorkflowGraph] Condition evaluation: condition='%s' from_node='%s' to_node='%s' result=%v", conditionalConfig.Condition, depNodeID, nodeID, conditionResult)
-					if !conditionResult {
-						// Log variable values that might be relevant to the condition (only once)
-						var relevantVars []string
-						for k, v := range variables {
-							if strVal, ok := v.(string); ok && len(strVal) < 100 {
-								relevantVars = append(relevantVars, fmt.Sprintf("%s=%q", k, strVal))
-							}
-						}
-						if len(relevantVars) > 0 {
-							log.Printf("[WorkflowGraph] Condition false - current variables: %s", strings.Join(relevantVars, ", "))
-						}
-					}
-				}
-
-				// If condition is true, this edge is active and dependency must be completed
-				if conditionResult {
-					activeDependencies = append(activeDependencies, depNodeID)
-				}
-				// If condition is false, this edge is not active - ignore it
-			} else {
-				// For direct edges (and other non-conditional types), always consider as active dependency
-				activeDependencies = append(activeDependencies, depNodeID)
-			}
-		}
-
-		// If there are no active dependencies, node is ready (entry node or all conditional edges inactive)
-		if len(activeDependencies) == 0 {
-			readyNodes = append(readyNodes, nodeID)
-			continue
-		}
-
-		// Check if all active dependencies are completed
-		allActiveDepsCompleted := true
-		for _, depNodeID := range activeDependencies {
-			if !completedNodes[depNodeID] {
-				allActiveDepsCompleted = false
-				break
-			}
-		}
-
-		// If all active dependencies are completed, node is ready
-		if allActiveDepsCompleted {
-			readyNodes = append(readyNodes, nodeID)
-		}
-	}
-
-	return readyNodes, nil
-}
-
-// HasCycles checks if the graph contains cycles using DFS.
-func (g *WorkflowGraph) HasCycles() bool {
-	visited := make(map[string]bool)
-	recStack := make(map[string]bool)
+// detectCycles performs cycle detection using DFS
+func (g *WorkflowGraph) detectCycles() bool {
+	visited := make(map[uuid.UUID]bool)
+	recStack := make(map[uuid.UUID]bool)
 
 	for nodeID := range g.nodes {
 		if !visited[nodeID] {
-			if g.hasCyclesDFS(nodeID, visited, recStack) {
+			if g.hasCycleDFS(nodeID, visited, recStack) {
 				return true
 			}
 		}
@@ -343,14 +279,15 @@ func (g *WorkflowGraph) HasCycles() bool {
 	return false
 }
 
-// hasCyclesDFS performs DFS to detect cycles.
-func (g *WorkflowGraph) hasCyclesDFS(nodeID string, visited, recStack map[string]bool) bool {
+// hasCycleDFS performs DFS-based cycle detection
+func (g *WorkflowGraph) hasCycleDFS(nodeID uuid.UUID, visited, recStack map[uuid.UUID]bool) bool {
 	visited[nodeID] = true
 	recStack[nodeID] = true
 
-	for _, nextNodeID := range g.forwardEdges[nodeID] {
+	for _, edge := range g.forwardEdges[nodeID] {
+		nextNodeID := edge.ToNodeID()
 		if !visited[nextNodeID] {
-			if g.hasCyclesDFS(nextNodeID, visited, recStack) {
+			if g.hasCycleDFS(nextNodeID, visited, recStack) {
 				return true
 			}
 		} else if recStack[nextNodeID] {
@@ -362,37 +299,38 @@ func (g *WorkflowGraph) hasCyclesDFS(nodeID string, visited, recStack map[string
 	return false
 }
 
-// TopologicalSort returns nodes in topological order (if no cycles exist).
-func (g *WorkflowGraph) TopologicalSort() ([]string, error) {
-	if g.HasCycles() {
-		return nil, fmt.Errorf("graph contains cycles, cannot perform topological sort")
+// TopologicalSort returns nodes in topological order
+func (g *WorkflowGraph) TopologicalSort() ([]uuid.UUID, error) {
+	if g.hasCycles {
+		return nil, domain.NewDomainError(
+			domain.ErrCodeCyclicDependency,
+			"cannot perform topological sort on graph with cycles",
+			nil,
+		)
 	}
 
-	// Calculate in-degree for each node
-	inDegree := make(map[string]int)
+	// Kahn's algorithm
+	inDegree := make(map[uuid.UUID]int)
 	for nodeID := range g.nodes {
 		inDegree[nodeID] = len(g.reverseEdges[nodeID])
 	}
 
-	// Find all nodes with in-degree 0 (entry nodes)
-	queue := make([]string, 0)
+	queue := make([]uuid.UUID, 0)
 	for nodeID, degree := range inDegree {
 		if degree == 0 {
 			queue = append(queue, nodeID)
 		}
 	}
 
-	result := make([]string, 0)
+	result := make([]uuid.UUID, 0, len(g.nodes))
 
-	// Process nodes
 	for len(queue) > 0 {
-		// Get node from queue
 		nodeID := queue[0]
 		queue = queue[1:]
 		result = append(result, nodeID)
 
-		// Reduce in-degree of adjacent nodes
-		for _, nextNodeID := range g.forwardEdges[nodeID] {
+		for _, edge := range g.forwardEdges[nodeID] {
+			nextNodeID := edge.ToNodeID()
 			inDegree[nextNodeID]--
 			if inDegree[nextNodeID] == 0 {
 				queue = append(queue, nextNodeID)
@@ -400,5 +338,271 @@ func (g *WorkflowGraph) TopologicalSort() ([]string, error) {
 		}
 	}
 
+	if len(result) != len(g.nodes) {
+		return nil, domain.NewDomainError(
+			domain.ErrCodeCyclicDependency,
+			"topological sort failed - graph may have cycles",
+			nil,
+		)
+	}
+
 	return result, nil
+}
+
+// GetParallelizableNodes identifies nodes that can be executed in parallel
+// Returns a slice of "waves" where each wave contains nodes that can execute concurrently
+func (g *WorkflowGraph) GetParallelizableNodes() ([][]uuid.UUID, error) {
+	// Use topological sort to get execution order
+	sorted, err := g.TopologicalSort()
+	if err != nil {
+		return nil, err
+	}
+
+	// Group nodes into waves based on their depth in the graph
+	waves := make([][]uuid.UUID, 0)
+	processed := make(map[uuid.UUID]bool)
+
+	for len(processed) < len(g.nodes) {
+		wave := make([]uuid.UUID, 0)
+
+		// Find nodes whose dependencies are all processed
+		for _, nodeID := range sorted {
+			if processed[nodeID] {
+				continue
+			}
+
+			// Check if all predecessors are processed
+			predecessors := g.GetPredecessors(nodeID)
+			allProcessed := true
+			for _, predID := range predecessors {
+				if !processed[predID] {
+					allProcessed = false
+					break
+				}
+			}
+
+			if allProcessed {
+				wave = append(wave, nodeID)
+			}
+		}
+
+		if len(wave) == 0 {
+			break // Should not happen if graph is valid
+		}
+
+		waves = append(waves, wave)
+
+		// Mark wave nodes as processed
+		for _, nodeID := range wave {
+			processed[nodeID] = true
+		}
+	}
+
+	return waves, nil
+}
+
+// GetDepth returns the maximum depth of the graph (longest path from entry to exit)
+func (g *WorkflowGraph) GetDepth() int {
+	depths := make(map[uuid.UUID]int)
+
+	// Initialize entry nodes with depth 0
+	for _, nodeID := range g.GetEntryNodes() {
+		depths[nodeID] = 0
+	}
+
+	// Topological order ensures we process nodes after their dependencies
+	sorted, err := g.TopologicalSort()
+	if err != nil {
+		return 0
+	}
+
+	maxDepth := 0
+	for _, nodeID := range sorted {
+		currentDepth := depths[nodeID]
+
+		// Update depth for successors
+		for _, edge := range g.forwardEdges[nodeID] {
+			nextNodeID := edge.ToNodeID()
+			newDepth := currentDepth + 1
+			if newDepth > depths[nextNodeID] {
+				depths[nextNodeID] = newDepth
+			}
+			if newDepth > maxDepth {
+				maxDepth = newDepth
+			}
+		}
+	}
+
+	return maxDepth
+}
+
+// GetNodeByName returns a node by its name
+func (g *WorkflowGraph) GetNodeByName(name string) (domain.Node, error) {
+	for _, node := range g.nodes {
+		if node.Name() == name {
+			return node, nil
+		}
+	}
+	return nil, domain.NewDomainError(
+		domain.ErrCodeNotFound,
+		fmt.Sprintf("node '%s' not found in graph", name),
+		nil,
+	)
+}
+
+// IsAncestor checks if ancestorID is an ancestor of descendantID in the graph.
+// Uses BFS traversal to check if descendantID is reachable from ancestorID.
+// Returns false if nodes are the same or if no path exists.
+func (g *WorkflowGraph) IsAncestor(ancestorID, descendantID uuid.UUID) bool {
+	// Self-reference check
+	if ancestorID == descendantID {
+		return false
+	}
+
+	// BFS to check reachability
+	visited := make(map[uuid.UUID]bool)
+	queue := []uuid.UUID{ancestorID}
+	visited[ancestorID] = true
+
+	for len(queue) > 0 {
+		currentID := queue[0]
+		queue = queue[1:]
+
+		// Check all successors
+		for _, edge := range g.forwardEdges[currentID] {
+			nextID := edge.ToNodeID()
+
+			// Found path to descendant
+			if nextID == descendantID {
+				return true
+			}
+
+			// Continue BFS if not visited
+			if !visited[nextID] {
+				visited[nextID] = true
+				queue = append(queue, nextID)
+			}
+		}
+	}
+
+	// No path found
+	return false
+}
+
+// ValidateEdgeDataSources validates that nodes referenced in edge's include_outputs_from
+// configuration exist and are ancestors of the target node.
+func (g *WorkflowGraph) ValidateEdgeDataSources(edge domain.Edge) error {
+	config := edge.Config()
+	if config == nil {
+		return nil
+	}
+
+	// Check if include_outputs_from is present
+	includeOutputsFrom, ok := config["include_outputs_from"]
+	if !ok {
+		return nil // No additional sources specified
+	}
+
+	// Convert to string slice
+	var nodeNames []string
+	switch v := includeOutputsFrom.(type) {
+	case []string:
+		nodeNames = v
+	case []interface{}:
+		nodeNames = make([]string, len(v))
+		for i, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				return domain.NewDomainError(
+					domain.ErrCodeValidationFailed,
+					fmt.Sprintf("include_outputs_from contains non-string value at index %d", i),
+					nil,
+				)
+			}
+			nodeNames[i] = str
+		}
+	default:
+		return domain.NewDomainError(
+			domain.ErrCodeValidationFailed,
+			"include_outputs_from must be a string array",
+			nil,
+		)
+	}
+
+	// Validate each referenced node
+	targetNodeID := edge.ToNodeID()
+	for _, nodeName := range nodeNames {
+		// Check node exists
+		sourceNode, err := g.GetNodeByName(nodeName)
+		if err != nil {
+			return domain.NewDomainError(
+				domain.ErrCodeValidationFailed,
+				fmt.Sprintf("node '%s' in include_outputs_from not found in workflow", nodeName),
+				nil,
+			)
+		}
+
+		sourceNodeID := sourceNode.ID()
+
+		// Check for self-reference
+		if sourceNodeID == targetNodeID {
+			return domain.NewDomainError(
+				domain.ErrCodeValidationFailed,
+				fmt.Sprintf("node '%s' cannot include outputs from itself", nodeName),
+				nil,
+			)
+		}
+
+		// Check that source is an ancestor of target
+		if !g.IsAncestor(sourceNodeID, targetNodeID) {
+			targetNode, _ := g.GetNode(targetNodeID)
+			return domain.NewDomainError(
+				domain.ErrCodeValidationFailed,
+				fmt.Sprintf("node '%s' in include_outputs_from is not an ancestor of target node '%s'",
+					nodeName, targetNode.Name()),
+				nil,
+			)
+		}
+	}
+
+	return nil
+}
+
+// Clone creates a copy of the graph
+func (g *WorkflowGraph) Clone() *WorkflowGraph {
+	clone := &WorkflowGraph{
+		workflowID:   g.workflowID,
+		nodes:        make(map[uuid.UUID]domain.Node, len(g.nodes)),
+		nodeList:     make([]domain.Node, len(g.nodeList)),
+		edges:        make([]domain.Edge, len(g.edges)),
+		forwardEdges: make(map[uuid.UUID][]domain.Edge),
+		reverseEdges: make(map[uuid.UUID][]domain.Edge),
+		hasCycles:    g.hasCycles,
+		validated:    g.validated,
+	}
+
+	// Copy nodes
+	for k, v := range g.nodes {
+		clone.nodes[k] = v
+	}
+	copy(clone.nodeList, g.nodeList)
+
+	// Copy edges
+	copy(clone.edges, g.edges)
+	for k, v := range g.forwardEdges {
+		clone.forwardEdges[k] = append([]domain.Edge{}, v...)
+	}
+	for k, v := range g.reverseEdges {
+		clone.reverseEdges[k] = append([]domain.Edge{}, v...)
+	}
+
+	// Copy entry/exit nodes
+	if g.entryNodes != nil {
+		clone.entryNodes = append([]uuid.UUID{}, g.entryNodes...)
+	}
+	if g.exitNodes != nil {
+		clone.exitNodes = append([]uuid.UUID{}, g.exitNodes...)
+	}
+
+	return clone
 }

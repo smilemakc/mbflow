@@ -310,9 +310,9 @@ func (l *ClickHouseLogger) Close() error {
 	return nil
 }
 
-func (l *ClickHouseLogger) LogNode(executionID string, node *domain.Node) {
+func (l *ClickHouseLogger) LogNode(workflowID, executionID string, node domain.Node) {
 	if node == nil {
-		l.Log(NewInfoEvent(executionID, "Node info: node=<nil>"))
+		l.Log(NewInfoEvent(workflowID, executionID, "Node info: node=<nil>"))
 		return
 	}
 
@@ -322,9 +322,8 @@ func (l *ClickHouseLogger) LogNode(executionID string, node *domain.Node) {
 		Level:       LevelDebug,
 		Message:     "Node info",
 		ExecutionID: executionID,
-		WorkflowID:  node.WorkflowID(),
-		NodeID:      node.ID(),
-		NodeType:    node.Type(),
+		NodeID:      node.ID().String(),
+		NodeType:    string(node.Type()),
 		NodeName:    node.Name(),
 		Config:      node.Config(),
 	})
@@ -345,31 +344,31 @@ func (l *ClickHouseLogger) LogNodeFromConfig(executionID, nodeID, workflowID, no
 	})
 }
 
-func (l *ClickHouseLogger) LogVariableSet(executionID, key string, value interface{}) {
+func (l *ClickHouseLogger) LogVariableSet(workflowID, executionID, key string, value interface{}) {
 	if !l.verbose {
 		return
 	}
-	l.Log(NewVariableSetEvent(executionID, key, value))
+	l.Log(NewVariableSetEvent(workflowID, executionID, key, value))
 }
 
-func (l *ClickHouseLogger) LogError(executionID string, message string, err error) {
-	l.Log(NewErrorEvent(executionID, message, err))
+func (l *ClickHouseLogger) LogError(workflowID, executionID string, message string, err error) {
+	l.Log(NewErrorEvent(workflowID, executionID, message, err))
 }
 
-func (l *ClickHouseLogger) LogInfo(executionID string, message string) {
-	l.Log(NewInfoEvent(executionID, message))
+func (l *ClickHouseLogger) LogInfo(workflowID, executionID string, message string) {
+	l.Log(NewInfoEvent(workflowID, executionID, message))
 }
 
-func (l *ClickHouseLogger) LogDebug(executionID string, message string) {
+func (l *ClickHouseLogger) LogDebug(workflowID, executionID string, message string) {
 	if !l.verbose {
 		return
 	}
-	l.Log(NewDebugEvent(executionID, message))
+	l.Log(NewDebugEvent(workflowID, executionID, message))
 }
 
-func (l *ClickHouseLogger) LogTransition(executionID, nodeID, fromState, toState string) {
+func (l *ClickHouseLogger) LogTransition(workflowID, executionID, nodeID, fromState, toState string) {
 	if !l.verbose {
 		return
 	}
-	l.Log(NewStateTransitionEvent(executionID, nodeID, fromState, toState))
+	l.Log(NewStateTransitionEvent(workflowID, executionID, nodeID, fromState, toState))
 }

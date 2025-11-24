@@ -33,8 +33,8 @@ func main() {
 	})
 
 	ctx := context.Background()
-	workflowID := uuid.NewString()
-	executionID := fmt.Sprintf("exec-%d", time.Now().Unix())
+	workflowID := uuid.New()
+	executionID := uuid.New()
 
 	httpConfig := mbflow.HTTPCallbackConfig{
 		URL:    "http://localhost:8087/callback",
@@ -45,51 +45,57 @@ func main() {
 		TimeoutSeconds:   10,
 		IncludeVariables: true,
 	}
+
 	// Define nodes with callback configuration
-	nodes := []mbflow.NodeConfig{
-		{
-			ID:   uuid.NewString(),
-			Name: "Generate Text",
-			Type: "openai-completion",
-			Config: map[string]any{
-				"model":       "gpt-4o-mini",
-				"prompt":      "Write a short poem about {{topic}}",
-				"max_tokens":  100,
-				"temperature": 0.7,
-				"output_key":  "poem",
-				// Configure callback as a certain type of HTTPCallbackConfig to be called after successful execution
-				"on_success_callback": httpConfig,
-			},
+	nodeGenerateText, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		"openai-completion",
+		"Generate Text",
+		map[string]any{
+			"model":       "gpt-4o-mini",
+			"prompt":      "Write a short poem about {{topic}}",
+			"max_tokens":  100,
+			"temperature": 0.7,
+			"output_key":  "poem",
+			// Configure callback as a certain type of HTTPCallbackConfig to be called after successful execution
+			"on_success_callback": httpConfig,
 		},
-		{
-			ID:   uuid.NewString(),
-			Name: "Analyze Poem",
-			Type: "openai-completion",
-			Config: map[string]any{
-				"model":       "gpt-4o-mini",
-				"prompt":      "Analyze this poem and provide a brief critique:\n\n{{poem}}",
-				"max_tokens":  150,
-				"temperature": 0.3,
-				"output_key":  "critique",
-				// Configure callback as a map of callback configuration parameters
-				"on_success_callback": map[string]any{
-					"url":               "http://localhost:8087/callback",
-					"method":            "POST",
-					"timeout_seconds":   10,
-					"include_variables": false, // Don't include variables in this callback
-				},
-			},
-		},
+	)
+	if err != nil {
+		log.Fatalf("Failed to create nodeGenerateText: %v", err)
 	}
 
-	// Define workflow edges
-	edges := []mbflow.ExecutorEdgeConfig{
-		{
-			FromNodeID: nodes[0].ID,
-			ToNodeID:   nodes[1].ID,
-			EdgeType:   "sequence",
+	nodeAnalyzePoem, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		"openai-completion",
+		"Analyze Poem",
+		map[string]any{
+			"model":       "gpt-4o-mini",
+			"prompt":      "Analyze this poem and provide a brief critique:\n\n{{poem}}",
+			"max_tokens":  150,
+			"temperature": 0.3,
+			"output_key":  "critique",
+			// Configure callback as a map of callback configuration parameters
+			"on_success_callback": map[string]any{
+				"url":               "http://localhost:8087/callback",
+				"method":            "POST",
+				"timeout_seconds":   10,
+				"include_variables": false, // Don't include variables in this callback
+			},
 		},
+	)
+	if err != nil {
+		log.Fatalf("Failed to create nodeAnalyzePoem: %v", err)
 	}
+
+	nodes := []mbflow.Node{nodeGenerateText, nodeAnalyzePoem}
+
+	// Define workflow edges
+	edges := mbflow.NewRelationshipBuilder(workflowID).
+		Direct(nodeGenerateText, nodeAnalyzePoem).
+		Build()
 
 	// Execute workflow
 	fmt.Println("Starting workflow execution...")

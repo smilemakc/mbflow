@@ -1,0 +1,1299 @@
+openapi: 3.0.3
+info:
+  title: MBFlow REST API
+  description: |
+    REST API for MBFlow - a workflow orchestration engine with Event Sourcing.
+
+    MBFlow enables you to:
+    - Create and manage workflows with complex routing logic
+    - Execute workflows with parallel processing
+    - Track execution state with event sourcing
+    - Monitor workflow performance with metrics
+
+    ## Authentication
+
+    API endpoints can be protected with API keys. Include your API key in the `X-API-Key` header
+    or as a Bearer token in the `Authorization` header.
+
+  version: 1.0.0
+  contact:
+    name: MBFlow API Support
+    url: https://github.com/smilemakc/mbflow
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://localhost:8080/api/v1
+    description: API v1 base path
+
+tags:
+  - name: health
+    description: Health check endpoints
+  - name: workflows
+    description: Workflow management operations
+  - name: nodes
+    description: Node management operations within workflows
+  - name: edges
+    description: Edge management operations for connecting nodes
+  - name: executions
+    description: Workflow execution operations
+
+paths:
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check
+      description: Returns the health status of the API server
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      tags:
+        - health
+      summary: Readiness check
+      description: Returns the readiness status of the API server
+      operationId: getReady
+      responses:
+        '200':
+          description: Server is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/workflows:
+    get:
+      tags:
+        - workflows
+      summary: List all workflows
+      description: Returns a list of all registered workflows
+      operationId: listWorkflows
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - workflows
+      summary: Create a new workflow
+      description: Creates a new workflow definition
+      operationId: createWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkflowRequest'
+      responses:
+        '201':
+          description: Workflow created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/workflows/{id}:
+    get:
+      tags:
+        - workflows
+      summary: Get workflow by ID
+      description: Returns a single workflow by its ID
+      operationId: getWorkflow
+      parameters:
+        - $ref: '#/components/parameters/WorkflowId'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - workflows
+      summary: Update a workflow
+      description: Updates an existing workflow definition
+      operationId: updateWorkflow
+      parameters:
+        - $ref: '#/components/parameters/WorkflowId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkflowRequest'
+      responses:
+        '200':
+          description: Workflow updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - workflows
+      summary: Delete a workflow
+      description: Deletes a workflow by its ID
+      operationId: deleteWorkflow
+      parameters:
+        - $ref: '#/components/parameters/WorkflowId'
+      responses:
+        '204':
+          description: Workflow deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/node-types:
+    get:
+      tags:
+        - nodes
+      summary: Get available node types
+      description: Returns a list of all available node types with their descriptions
+      operationId: getNodeTypes
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    category:
+                      type: string
+                    config_schema:
+                      type: object
+
+  /api/v1/workflows/{workflow_id}/nodes:
+    get:
+      tags:
+        - nodes
+      summary: List all nodes in a workflow
+      description: Returns all nodes for a specific workflow
+      operationId: listNodes
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NodeDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - nodes
+      summary: Create a new node
+      description: Adds a new node to the workflow
+      operationId: createNode
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNodeRequest'
+      responses:
+        '201':
+          description: Node created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/workflows/{workflow_id}/nodes/{node_id}:
+    get:
+      tags:
+        - nodes
+      summary: Get node by ID
+      description: Returns a specific node from a workflow
+      operationId: getNode
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: node_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - nodes
+      summary: Update a node
+      description: Updates an existing node in the workflow
+      operationId: updateNode
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: node_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNodeRequest'
+      responses:
+        '200':
+          description: Node updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - nodes
+      summary: Delete a node
+      description: Removes a node from the workflow
+      operationId: deleteNode
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: node_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Node deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/edge-types:
+    get:
+      tags:
+        - edges
+      summary: Get available edge types
+      description: Returns a list of all available edge types with their descriptions
+      operationId: getEdgeTypes
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    category:
+                      type: string
+
+  /api/v1/workflows/{workflow_id}/edges:
+    get:
+      tags:
+        - edges
+      summary: List all edges in a workflow
+      description: Returns all edges for a specific workflow
+      operationId: listEdges
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EdgeDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - edges
+      summary: Create a new edge
+      description: Creates a new edge in the workflow
+      operationId: createEdge
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEdgeRequest'
+      responses:
+        '201':
+          description: Edge created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EdgeDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/workflows/{workflow_id}/edges/{edge_id}:
+    get:
+      tags:
+        - edges
+      summary: Get a specific edge
+      description: Returns details of a specific edge by ID
+      operationId: getEdge
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: edge_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EdgeDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - edges
+      summary: Update an edge
+      description: Updates an existing edge (creates new edge with new ID)
+      operationId: updateEdge
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: edge_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEdgeRequest'
+      responses:
+        '200':
+          description: Edge updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EdgeDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - edges
+      summary: Delete an edge
+      description: Deletes an edge from the workflow
+      operationId: deleteEdge
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: edge_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Edge deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/workflows/{workflow_id}/graph:
+    get:
+      tags:
+        - edges
+      summary: Get workflow graph visualization
+      description: Returns a visual representation of the workflow graph with nodes and edges
+      operationId: getWorkflowGraph
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowGraphResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/executions:
+    get:
+      tags:
+        - executions
+      summary: List all executions
+      description: Returns a list of all workflow executions
+      operationId: listExecutions
+      parameters:
+        - name: workflow_id
+          in: query
+          description: Filter by workflow ID
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Filter by execution status
+          schema:
+            type: string
+            enum: [pending, running, completed, failed, cancelled, paused]
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutionResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - executions
+      summary: Execute a workflow
+      description: Starts a new workflow execution
+      operationId: executeWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteWorkflowRequest'
+      responses:
+        '201':
+          description: Execution started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/executions/{id}:
+    get:
+      tags:
+        - executions
+      summary: Get execution by ID
+      description: Returns a single execution by its ID
+      operationId: getExecution
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/executions/{id}/events:
+    get:
+      tags:
+        - executions
+      summary: Get execution events
+      description: Returns all events for a specific execution
+      operationId: getExecutionEvents
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionEventsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/executions/{id}/cancel:
+    post:
+      tags:
+        - executions
+      summary: Cancel execution
+      description: Cancels a running execution
+      operationId: cancelExecution
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+      responses:
+        '200':
+          description: Execution cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/executions/{id}/pause:
+    post:
+      tags:
+        - executions
+      summary: Pause execution
+      description: Pauses a running execution
+      operationId: pauseExecution
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+      responses:
+        '200':
+          description: Execution paused successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/executions/{id}/resume:
+    post:
+      tags:
+        - executions
+      summary: Resume execution
+      description: Resumes a paused execution
+      operationId: resumeExecution
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+      responses:
+        '200':
+          description: Execution resumed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    WorkflowId:
+      name: id
+      in: path
+      description: Workflow ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ExecutionId:
+      name: id
+      in: path
+      description: Execution ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        time:
+          type: string
+          format: date-time
+
+    CreateWorkflowRequest:
+      type: object
+      required:
+        - name
+        - version
+        - nodes
+        - edges
+        - triggers
+      properties:
+        name:
+          type: string
+          description: Workflow name
+          example: content-pipeline
+        version:
+          type: string
+          description: Workflow version
+          example: 1.0.0
+        description:
+          type: string
+          description: Workflow description
+          example: AI content generation pipeline
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeRequest'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/EdgeRequest'
+        triggers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriggerRequest'
+        metadata:
+          type: object
+          additionalProperties: true
+
+    NodeRequest:
+      type: object
+      required:
+        - type
+        - name
+      properties:
+        type:
+          type: string
+          description: Node type
+          enum: [start, end, transform, http, llm, openai-completion, conditional-route]
+          example: start
+        name:
+          type: string
+          description: Unique node name
+          example: start-node
+        config:
+          type: object
+          additionalProperties: true
+          description: Node-specific configuration
+
+    EdgeRequest:
+      type: object
+      required:
+        - from
+        - to
+        - type
+      properties:
+        from:
+          type: string
+          description: Source node name
+          example: start-node
+        to:
+          type: string
+          description: Target node name
+          example: transform-node
+        type:
+          type: string
+          description: Edge type
+          enum: [direct, conditional, fork, join]
+          example: direct
+        condition:
+          type: object
+          additionalProperties: true
+          description: Condition for conditional edges
+
+    TriggerRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: Trigger type
+          enum: [manual, auto, http, schedule, event]
+          example: manual
+        config:
+          type: object
+          additionalProperties: true
+          description: Trigger-specific configuration
+
+    WorkflowResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeResponse'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/EdgeResponse'
+        triggers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriggerResponse'
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+
+    NodeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        name:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+
+    EdgeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        from:
+          type: string
+        to:
+          type: string
+        type:
+          type: string
+        condition:
+          type: object
+          additionalProperties: true
+
+    TriggerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+
+    ExecuteWorkflowRequest:
+      type: object
+      required:
+        - workflow_id
+      properties:
+        workflow_id:
+          type: string
+          format: uuid
+          description: ID of the workflow to execute
+        trigger_id:
+          type: string
+          format: uuid
+          description: Optional trigger ID
+        variables:
+          type: object
+          additionalProperties: true
+          description: Initial execution variables
+          example:
+            api_key: secret123
+            topic: artificial intelligence
+
+    ExecutionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflow_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        phase:
+          type: string
+          enum: [planning, executing, paused, completed, failed, cancelled]
+        variables:
+          type: object
+          additionalProperties: true
+        node_states:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeStateResponse'
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+        error:
+          type: string
+        current_node_id:
+          type: string
+          format: uuid
+        sequence_number:
+          type: integer
+
+    NodeStateResponse:
+      type: object
+      properties:
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed, skipped]
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+        output:
+          type: object
+          additionalProperties: true
+        error:
+          type: string
+        retry_count:
+          type: integer
+
+    ExecutionEventsResponse:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          format: uuid
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventResponse'
+
+    EventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - execution_started
+            - execution_completed
+            - execution_failed
+            - execution_paused
+            - execution_resumed
+            - execution_cancelled
+            - node_started
+            - node_completed
+            - node_failed
+            - node_skipped
+            - node_retrying
+            - variable_set
+            - variable_updated
+            - variable_deleted
+        execution_id:
+          type: string
+          format: uuid
+        workflow_id:
+          type: string
+          format: uuid
+        sequence_number:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: string
+          description: Additional error details
+
+    CreateNodeRequest:
+      type: object
+      required:
+        - type
+        - name
+      properties:
+        type:
+          type: string
+          description: Node type
+          enum: [start, end, transform, http, conditional-route, parallel, openai-completion, json-parser, telegram-message]
+          example: transform
+        name:
+          type: string
+          description: Unique node name
+          example: calculate
+        config:
+          type: object
+          additionalProperties: true
+          description: Node-specific configuration
+          example:
+            transformations:
+              result: "input * 2"
+
+    UpdateNodeRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Node type
+          enum: [start, end, transform, http, conditional-route, parallel, openai-completion, json-parser, telegram-message]
+        name:
+          type: string
+          description: Unique node name
+        config:
+          type: object
+          additionalProperties: true
+          description: Node-specific configuration
+
+    NodeDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Node ID
+        workflow_id:
+          type: string
+          format: uuid
+          description: Workflow ID this node belongs to
+        type:
+          type: string
+          description: Node type
+        name:
+          type: string
+          description: Node name
+        config:
+          type: object
+          additionalProperties: true
+          description: Node configuration
+        description:
+          type: string
+          description: Node description
+
+    CreateEdgeRequest:
+      type: object
+      required:
+        - from
+        - to
+        - type
+      properties:
+        from:
+          type: string
+          description: Source node name
+          example: start
+        to:
+          type: string
+          description: Target node name
+          example: process
+        type:
+          type: string
+          description: Edge type
+          enum: [direct, conditional, fork, join]
+          example: direct
+        config:
+          type: object
+          additionalProperties: true
+          description: Edge configuration (e.g., condition for conditional edges)
+          example:
+            expression: "status == 200"
+
+    UpdateEdgeRequest:
+      type: object
+      properties:
+        from:
+          type: string
+          description: New source node name
+        to:
+          type: string
+          description: New target node name
+        type:
+          type: string
+          description: New edge type
+          enum: [direct, conditional, fork, join]
+        config:
+          type: object
+          additionalProperties: true
+          description: Updated edge configuration
+
+    EdgeDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Edge ID
+        workflow_id:
+          type: string
+          format: uuid
+          description: Workflow ID this edge belongs to
+        from:
+          type: string
+          description: Source node name
+          example: start
+        from_id:
+          type: string
+          format: uuid
+          description: Source node ID
+        to:
+          type: string
+          description: Target node name
+          example: process
+        to_id:
+          type: string
+          format: uuid
+          description: Target node ID
+        type:
+          type: string
+          description: Edge type
+          enum: [direct, conditional, fork, join]
+        config:
+          type: object
+          additionalProperties: true
+          description: Edge configuration
+
+    WorkflowGraphResponse:
+      type: object
+      properties:
+        workflow_id:
+          type: string
+          format: uuid
+          description: Workflow ID
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              type:
+                type: string
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/EdgeDetailResponse'
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []

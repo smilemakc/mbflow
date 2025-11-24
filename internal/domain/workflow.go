@@ -1,64 +1,543 @@
 package domain
 
 import (
+	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
-// Workflow is a domain entity that represents a workflow definition.
+// Workflow is an aggregate root that represents a workflow definition.
 // A workflow defines the structure and configuration of a business process,
 // including its nodes, edges, and triggers.
-// It is immutable once created and serves as a template for workflow executions.
-type Workflow struct {
-	id        string
-	name      string
-	version   string
-	spec      map[string]any
-	createdAt time.Time
+// The workflow owns and manages its child entities (nodes, edges, triggers).
+type Workflow interface {
+	// Identity
+	ID() uuid.UUID
+	Name() string
+	Version() string
+	Description() string
+	Spec() map[string]any
+	CreatedAt() time.Time
+	UpdatedAt() time.Time
+
+	// Node management
+	UseNode(node Node) error
+	AddNode(nodeType NodeType, name string, config map[string]any) (uuid.UUID, error)
+	GetNode(id uuid.UUID) (Node, error)
+	GetAllNodes() []Node
+	RemoveNode(id uuid.UUID) error
+
+	// Edge management
+	AddEdge(fromNodeID, toNodeID uuid.UUID, edgeType EdgeType, config map[string]any) (uuid.UUID, error)
+	GetEdge(id uuid.UUID) (Edge, error)
+	GetAllEdges() []Edge
+	RemoveEdge(id uuid.UUID) error
+
+	// Trigger management
+	AddTrigger(triggerType TriggerType, config map[string]any) (uuid.UUID, error)
+	GetTrigger(id uuid.UUID) (Trigger, error)
+	GetAllTriggers() []Trigger
+	RemoveTrigger(id uuid.UUID) error
+
+	// Validation
+	Validate() error
+}
+
+type workflow struct {
+	id          uuid.UUID
+	name        string
+	version     string
+	description string
+	spec        map[string]any
+	createdAt   time.Time
+	updatedAt   time.Time
+
+	// Child entities owned by this aggregate
+	nodes    map[uuid.UUID]*node
+	edges    map[uuid.UUID]*edge
+	triggers map[uuid.UUID]*trigger
 }
 
 // NewWorkflow creates a new Workflow instance.
-func NewWorkflow(id, name, version string, spec map[string]any) *Workflow {
-	return &Workflow{
-		id:        id,
-		name:      name,
-		version:   version,
-		spec:      spec,
-		createdAt: time.Now(),
+// If id is uuid.Nil, a new UUID will be generated automatically.
+func NewWorkflow(id uuid.UUID, name, version, description string, spec map[string]any) (Workflow, error) {
+	// Generate ID if not provided
+	if id == uuid.Nil {
+		id = uuid.New()
 	}
+
+	// Validate required fields
+	if name == "" {
+		return nil, NewDomainError(ErrCodeInvalidInput, "workflow name cannot be empty", nil)
+	}
+
+	now := time.Now()
+	return &workflow{
+		id:          id,
+		name:        name,
+		version:     version,
+		description: description,
+		spec:        spec,
+		createdAt:   now,
+		updatedAt:   now,
+		nodes:       make(map[uuid.UUID]*node),
+		edges:       make(map[uuid.UUID]*edge),
+		triggers:    make(map[uuid.UUID]*trigger),
+	}, nil
 }
 
-// ReconstructWorkflow reconstructs a Workflow from persistence.
-func ReconstructWorkflow(id, name, version string, spec map[string]any, createdAt time.Time) *Workflow {
-	return &Workflow{
-		id:        id,
-		name:      name,
-		version:   version,
-		spec:      spec,
-		createdAt: createdAt,
+// ReconstructWorkflow reconstructs a Workflow from persistence with all its child entities.
+func ReconstructWorkflow(
+	id uuid.UUID,
+	name, version, description string,
+	spec map[string]any,
+	createdAt, updatedAt time.Time,
+	nodes []Node,
+	edges []Edge,
+	triggers []Trigger,
+) (Workflow, error) {
+	w := &workflow{
+		id:          id,
+		name:        name,
+		version:     version,
+		description: description,
+		spec:        spec,
+		createdAt:   createdAt,
+		updatedAt:   updatedAt,
+		nodes:       make(map[uuid.UUID]*node),
+		edges:       make(map[uuid.UUID]*edge),
+		triggers:    make(map[uuid.UUID]*trigger),
 	}
+
+	// Reconstruct nodes
+	for _, n := range nodes {
+		if impl, ok := n.(*node); ok {
+			w.nodes[impl.ID()] = impl
+		}
+	}
+
+	// Reconstruct edges
+	for _, e := range edges {
+		if impl, ok := e.(*edge); ok {
+			w.edges[impl.ID()] = impl
+		}
+	}
+
+	// Reconstruct triggers
+	for _, t := range triggers {
+		if impl, ok := t.(*trigger); ok {
+			w.triggers[impl.ID()] = impl
+		}
+	}
+
+	return w, nil
 }
 
 // ID returns the workflow ID.
-func (w *Workflow) ID() string {
+func (w *workflow) ID() uuid.UUID {
 	return w.id
 }
 
 // Name returns the workflow name.
-func (w *Workflow) Name() string {
+func (w *workflow) Name() string {
 	return w.name
 }
 
 // Version returns the workflow version.
-func (w *Workflow) Version() string {
+func (w *workflow) Version() string {
 	return w.version
 }
 
+// Description returns the workflow description.
+func (w *workflow) Description() string {
+	return w.description
+}
+
 // Spec returns the workflow specification.
-func (w *Workflow) Spec() map[string]any {
+func (w *workflow) Spec() map[string]any {
 	return w.spec
 }
 
 // CreatedAt returns the creation timestamp.
-func (w *Workflow) CreatedAt() time.Time {
+func (w *workflow) CreatedAt() time.Time {
 	return w.createdAt
+}
+
+// UpdatedAt returns the last update timestamp.
+func (w *workflow) UpdatedAt() time.Time {
+	return w.updatedAt
+}
+
+func (w *workflow) UseNode(n Node) error {
+	if err := w.validateUniqueness(n.Name()); err != nil {
+		return err
+	}
+	nn := &node{
+		id:       n.ID(),
+		nodeType: n.Type(),
+		name:     n.Name(),
+		config:   n.Config(),
+	}
+	w.nodes[nn.id] = nn
+	w.updatedAt = time.Now()
+	return nil
+}
+
+// AddNode adds a new node to the workflow.
+func (w *workflow) AddNode(nodeType NodeType, name string, config map[string]any) (uuid.UUID, error) {
+	// Validate node type
+	if !nodeType.IsValid() {
+		return uuid.Nil, NewDomainError(
+			ErrCodeInvalidInput,
+			fmt.Sprintf("invalid node type: %s", nodeType),
+			nil,
+		)
+	}
+
+	// Create new node (without workflowID since it's part of aggregate)
+	n := &node{
+		id:       uuid.New(),
+		nodeType: nodeType,
+		name:     name,
+		config:   config,
+	}
+
+	if err := w.validateUniqueness(name); err != nil {
+		return uuid.Nil, err
+	}
+
+	w.nodes[n.id] = n
+	w.updatedAt = time.Now()
+
+	return n.id, nil
+}
+
+func (w *workflow) validateUniqueness(name string) error {
+	// Validate node name uniqueness
+	for _, existing := range w.nodes {
+		if existing.name == name {
+			return NewDomainError(
+				ErrCodeAlreadyExists,
+				fmt.Sprintf("node with name '%s' already exists", name),
+				nil,
+			)
+		}
+	}
+	return nil
+}
+
+// GetNode retrieves a node by ID.
+func (w *workflow) GetNode(id uuid.UUID) (Node, error) {
+	n, exists := w.nodes[id]
+	if !exists {
+		return nil, NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("node with ID %s not found", id),
+			nil,
+		)
+	}
+	return n, nil
+}
+
+// GetAllNodes returns all nodes in the workflow.
+func (w *workflow) GetAllNodes() []Node {
+	nodes := make([]Node, 0, len(w.nodes))
+	for _, n := range w.nodes {
+		nodes = append(nodes, n)
+	}
+	return nodes
+}
+
+// RemoveNode removes a node from the workflow.
+// It also removes all edges connected to this node.
+func (w *workflow) RemoveNode(id uuid.UUID) error {
+	if _, exists := w.nodes[id]; !exists {
+		return NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("node with ID %s not found", id),
+			nil,
+		)
+	}
+
+	// Remove all edges connected to this node
+	for edgeID, e := range w.edges {
+		if e.fromNodeID == id || e.toNodeID == id {
+			delete(w.edges, edgeID)
+		}
+	}
+
+	delete(w.nodes, id)
+	w.updatedAt = time.Now()
+
+	return nil
+}
+
+// AddEdge adds a new edge to the workflow.
+func (w *workflow) AddEdge(fromNodeID, toNodeID uuid.UUID, edgeType EdgeType, config map[string]any) (uuid.UUID, error) {
+	// Validate edge type
+	if !edgeType.IsValid() {
+		return uuid.Nil, NewDomainError(
+			ErrCodeInvalidInput,
+			fmt.Sprintf("invalid edge type: %s", edgeType),
+			nil,
+		)
+	}
+
+	// Validate that both nodes exist
+	if _, exists := w.nodes[fromNodeID]; !exists {
+		return uuid.Nil, NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("source node with ID %s not found", fromNodeID),
+			nil,
+		)
+	}
+	if _, exists := w.nodes[toNodeID]; !exists {
+		return uuid.Nil, NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("destination node with ID %s not found", toNodeID),
+			nil,
+		)
+	}
+
+	// Check for self-loop
+	if fromNodeID == toNodeID {
+		return uuid.Nil, NewDomainError(
+			ErrCodeInvalidInput,
+			"self-loop edges are not allowed",
+			nil,
+		)
+	}
+
+	// Create new edge
+	e := &edge{
+		id:         uuid.New(),
+		fromNodeID: fromNodeID,
+		toNodeID:   toNodeID,
+		edgeType:   edgeType,
+		config:     config,
+	}
+
+	w.edges[e.id] = e
+	w.updatedAt = time.Now()
+
+	return e.id, nil
+}
+
+// GetEdge retrieves an edge by ID.
+func (w *workflow) GetEdge(id uuid.UUID) (Edge, error) {
+	e, exists := w.edges[id]
+	if !exists {
+		return nil, NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("edge with ID %s not found", id),
+			nil,
+		)
+	}
+	return e, nil
+}
+
+// GetAllEdges returns all edges in the workflow.
+func (w *workflow) GetAllEdges() []Edge {
+	edges := make([]Edge, 0, len(w.edges))
+	for _, e := range w.edges {
+		edges = append(edges, e)
+	}
+	return edges
+}
+
+// RemoveEdge removes an edge from the workflow.
+func (w *workflow) RemoveEdge(id uuid.UUID) error {
+	if _, exists := w.edges[id]; !exists {
+		return NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("edge with ID %s not found", id),
+			nil,
+		)
+	}
+
+	delete(w.edges, id)
+	w.updatedAt = time.Now()
+
+	return nil
+}
+
+// AddTrigger adds a new trigger to the workflow.
+func (w *workflow) AddTrigger(triggerType TriggerType, config map[string]any) (uuid.UUID, error) {
+	// Validate trigger type
+	if !triggerType.IsValid() {
+		return uuid.Nil, NewDomainError(
+			ErrCodeInvalidInput,
+			fmt.Sprintf("invalid trigger type: %s", triggerType),
+			nil,
+		)
+	}
+
+	// Create new trigger
+	t := &trigger{
+		id:          uuid.New(),
+		triggerType: triggerType,
+		config:      config,
+	}
+
+	w.triggers[t.id] = t
+	w.updatedAt = time.Now()
+
+	return t.id, nil
+}
+
+// GetTrigger retrieves a trigger by ID.
+func (w *workflow) GetTrigger(id uuid.UUID) (Trigger, error) {
+	t, exists := w.triggers[id]
+	if !exists {
+		return nil, NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("trigger with ID %s not found", id),
+			nil,
+		)
+	}
+	return t, nil
+}
+
+// GetAllTriggers returns all triggers in the workflow.
+func (w *workflow) GetAllTriggers() []Trigger {
+	triggers := make([]Trigger, 0, len(w.triggers))
+	for _, t := range w.triggers {
+		triggers = append(triggers, t)
+	}
+	return triggers
+}
+
+// RemoveTrigger removes a trigger from the workflow.
+func (w *workflow) RemoveTrigger(id uuid.UUID) error {
+	if _, exists := w.triggers[id]; !exists {
+		return NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("trigger with ID %s not found", id),
+			nil,
+		)
+	}
+
+	delete(w.triggers, id)
+	w.updatedAt = time.Now()
+
+	return nil
+}
+
+func checkUniqueNames(nodes []Node) error {
+	// map for fast uniqueness check
+	seen := make(map[string]struct{})
+
+	for _, n := range nodes {
+		name := n.Name()
+
+		// check if name already seen
+		if _, exists := seen[name]; exists {
+			return fmt.Errorf("duplicate name: %s", name)
+		}
+
+		// mark as seen
+		seen[name] = struct{}{}
+	}
+
+	return nil
+}
+
+// Validate validates the workflow structure and checks for invariant violations.
+func (w *workflow) Validate() error {
+	// Check that workflow has at least one node
+	if len(w.nodes) == 0 {
+		return NewDomainError(
+			ErrCodeValidationFailed,
+			"workflow must have at least one node",
+			nil,
+		)
+	}
+	if err := checkUniqueNames(w.GetAllNodes()); err != nil {
+		return NewDomainError(
+			ErrCodeValidationFailed,
+			"node names must be unique",
+			err,
+		)
+	}
+	// Check that workflow has at least one trigger
+	if len(w.triggers) == 0 {
+		return NewDomainError(
+			ErrCodeValidationFailed,
+			"workflow must have at least one trigger",
+			nil,
+		)
+	}
+
+	// Check for cycles using DFS
+	if err := w.checkForCycles(); err != nil {
+		return err
+	}
+
+	// Check that all edges reference existing nodes (should be guaranteed by AddEdge, but double-check)
+	for _, e := range w.edges {
+		if _, exists := w.nodes[e.fromNodeID]; !exists {
+			return NewDomainError(
+				ErrCodeInvariantViolated,
+				fmt.Sprintf("edge %s references non-existent source node %s", e.id, e.fromNodeID),
+				nil,
+			)
+		}
+		if _, exists := w.nodes[e.toNodeID]; !exists {
+			return NewDomainError(
+				ErrCodeInvariantViolated,
+				fmt.Sprintf("edge %s references non-existent destination node %s", e.id, e.toNodeID),
+				nil,
+			)
+		}
+	}
+
+	return nil
+}
+
+// checkForCycles performs a DFS-based cycle detection.
+func (w *workflow) checkForCycles() error {
+	// Build adjacency list
+	adj := make(map[uuid.UUID][]uuid.UUID)
+	for _, e := range w.edges {
+		adj[e.fromNodeID] = append(adj[e.fromNodeID], e.toNodeID)
+	}
+
+	// Track visited nodes and nodes in current recursion stack
+	visited := make(map[uuid.UUID]bool)
+	recStack := make(map[uuid.UUID]bool)
+
+	var dfs func(nodeID uuid.UUID) error
+	dfs = func(nodeID uuid.UUID) error {
+		visited[nodeID] = true
+		recStack[nodeID] = true
+
+		for _, neighborID := range adj[nodeID] {
+			if !visited[neighborID] {
+				if err := dfs(neighborID); err != nil {
+					return err
+				}
+			} else if recStack[neighborID] {
+				return NewDomainError(
+					ErrCodeCyclicDependency,
+					fmt.Sprintf("cycle detected involving node %s", neighborID),
+					nil,
+				)
+			}
+		}
+
+		recStack[nodeID] = false
+		return nil
+	}
+
+	// Run DFS from each unvisited node
+	for nodeID := range w.nodes {
+		if !visited[nodeID] {
+			if err := dfs(nodeID); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

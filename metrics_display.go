@@ -1,6 +1,10 @@
 package mbflow
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
 
 // ANSI colors & styles
 const (
@@ -28,7 +32,7 @@ const (
 //	// ... execute workflow ...
 //	nodeIDs := []string{"start", "process", "end"}
 //	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, true)
-func DisplayMetrics(metrics ExecutorMetrics, workflowID string, nodeIDs []string, showAIMetrics bool) {
+func DisplayMetrics(metrics ExecutorMetrics, workflowID uuid.UUID, nodeIDs []uuid.UUID, showAIMetrics bool) {
 	title := func(text string) {
 		fmt.Printf("\n%s%s=== %s ===%s\n\n", bold, colorBlue, text, colorReset)
 	}
@@ -60,7 +64,7 @@ func DisplayMetrics(metrics ExecutorMetrics, workflowID string, nodeIDs []string
 	}
 
 	// Workflow metrics
-	if workflowID != "" {
+	if workflowID != uuid.Nil {
 		workflowMetrics := metrics.GetWorkflowMetrics(workflowID)
 		if workflowMetrics != nil {
 			section("\nWorkflow Metrics:")
@@ -71,6 +75,7 @@ func DisplayMetrics(metrics ExecutorMetrics, workflowID string, nodeIDs []string
 			kv("Avg Duration", workflowMetrics.AverageDuration)
 			kv("Min Duration", workflowMetrics.MinDuration)
 			kv("Max Duration", workflowMetrics.MaxDuration)
+
 		}
 	}
 
@@ -82,7 +87,7 @@ func DisplayMetrics(metrics ExecutorMetrics, workflowID string, nodeIDs []string
 			if nodeMetrics != nil {
 				displayName := nodeMetrics.NodeName
 				if displayName == "" {
-					displayName = nodeID
+					displayName = nodeID.String()
 				}
 				fmt.Printf("\n  %s%s%s (%s)\n", bold, displayName, colorReset, nodeMetrics.NodeType)
 				kv("Node ID", nodeMetrics.NodeID)

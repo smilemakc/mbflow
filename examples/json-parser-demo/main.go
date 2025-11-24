@@ -21,35 +21,35 @@ func main() {
 	})
 
 	ctx := context.Background()
-	workflowID := uuid.NewString()
-	executionID := uuid.NewString()
+	workflowID := uuid.New()
+	executionID := uuid.New()
 
 	// Example 1: Parse a JSON string and access nested fields
 	fmt.Println("Example 1: Parsing JSON string for nested field access")
 	fmt.Println("-------------------------------------------------------")
 
 	// Node 1: Parse the JSON string
-	nodeParseJSON, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         uuid.NewString(),
-		WorkflowID: workflowID,
-		Type:       mbflow.NodeTypeJSONParser,
-		Name:       "Parse API Response",
-		Config: map[string]any{
+	nodeParseJSON, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		mbflow.NodeTypeJSONParser,
+		"Parse API Response",
+		map[string]any{
 			"input_key":  "api_response",
 			"output_key": "parsed_response",
 		},
-	})
+	)
 	if err != nil {
 		log.Fatalf("Failed to create nodeParseJSON: %v", err)
 	}
 
 	// Node 2: Use nested field in conditional routing
-	nodeCheckStatus, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         uuid.NewString(),
-		WorkflowID: workflowID,
-		Type:       mbflow.NodeTypeConditionalRouter,
-		Name:       "Check User Status",
-		Config: map[string]any{
+	nodeCheckStatus, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		mbflow.NodeTypeConditionalRouter,
+		"Check User Status",
+		map[string]any{
 			"input_key": "parsed_response.user.status",
 			"routes": map[string]string{
 				"active":   "active_path",
@@ -57,41 +57,41 @@ func main() {
 				"default":  "default_path",
 			},
 		},
-	})
+	)
 	if err != nil {
 		log.Fatalf("Failed to create nodeCheckStatus: %v", err)
 	}
 
 	// Node 3a: Active path
-	nodeActivePath, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         uuid.NewString(),
-		WorkflowID: workflowID,
-		Type:       mbflow.NodeTypeDataAggregator,
-		Name:       "Handle Active User",
-		Config: map[string]any{
+	nodeActivePath, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		mbflow.NodeTypeDataAggregator,
+		"Handle Active User",
+		map[string]any{
 			"fields": map[string]string{
 				"message": "parsed_response.user.name",
 			},
 			"output_key": "result",
 		},
-	})
+	)
 	if err != nil {
 		log.Fatalf("Failed to create nodeActivePath: %v", err)
 	}
 
 	// Node 3b: Inactive path
-	nodeInactivePath, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         uuid.NewString(),
-		WorkflowID: workflowID,
-		Type:       mbflow.NodeTypeDataAggregator,
-		Name:       "Handle Inactive User",
-		Config: map[string]any{
+	nodeInactivePath, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		mbflow.NodeTypeDataAggregator,
+		"Handle Inactive User",
+		map[string]any{
 			"fields": map[string]string{
 				"message": "parsed_response.user.name",
 			},
 			"output_key": "result",
 		},
-	})
+	)
 	if err != nil {
 		log.Fatalf("Failed to create nodeInactivePath: %v", err)
 	}
@@ -110,9 +110,6 @@ func main() {
 		Conditional(nodeCheckStatus, nodeInactivePath, "parsed_response.user.status == 'inactive'").
 		Build()
 
-	nodeConfigs := mbflow.NodesToConfigs(nodes)
-	edgeConfigs := mbflow.EdgesToConfigs(edges)
-
 	// Test with active user
 	fmt.Println("\n▶ Test Case 1: Active User")
 	initialVariables := map[string]interface{}{
@@ -128,7 +125,7 @@ func main() {
 		}`,
 	}
 
-	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodeConfigs, edgeConfigs, initialVariables)
+	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodes, edges, initialVariables)
 	if err != nil {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
@@ -152,7 +149,7 @@ func main() {
 
 	// Test with inactive user
 	fmt.Println("\n\n▶ Test Case 2: Inactive User")
-	executionID2 := uuid.NewString()
+	executionID2 := uuid.New()
 	initialVariables2 := map[string]interface{}{
 		"api_response": `{
 			"user": {
@@ -166,7 +163,7 @@ func main() {
 		}`,
 	}
 
-	state2, err := executor.ExecuteWorkflow(ctx, workflowID, executionID2, nodeConfigs, edgeConfigs, initialVariables2)
+	state2, err := executor.ExecuteWorkflow(ctx, workflowID, executionID2, nodes, edges, initialVariables2)
 	if err != nil {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
@@ -189,30 +186,29 @@ func main() {
 
 	// Example 2: Handling parse errors gracefully
 	fmt.Println("\n\n▶ Test Case 3: Invalid JSON with fail_on_error=false")
-	executionID3 := uuid.NewString()
+	executionID3 := uuid.New()
 
-	nodeParseInvalid, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         uuid.NewString(),
-		WorkflowID: workflowID,
-		Type:       mbflow.NodeTypeJSONParser,
-		Name:       "Try Parse Invalid JSON",
-		Config: map[string]any{
+	nodeParseInvalid, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		mbflow.NodeTypeJSONParser,
+		"Try Parse Invalid JSON",
+		map[string]any{
 			"input_key":     "invalid_json",
 			"fail_on_error": false,
 		},
-	})
+	)
 	if err != nil {
 		log.Fatalf("Failed to create nodeParseInvalid: %v", err)
 	}
 
 	nodes3 := []mbflow.Node{nodeParseInvalid}
-	nodeConfigs3 := mbflow.NodesToConfigs(nodes3)
 
 	initialVariables3 := map[string]interface{}{
 		"invalid_json": "this is not valid JSON",
 	}
 
-	state3, err := executor.ExecuteWorkflow(ctx, workflowID, executionID3, nodeConfigs3, nil, initialVariables3)
+	state3, err := executor.ExecuteWorkflow(ctx, workflowID, executionID3, nodes3, nil, initialVariables3)
 	if err != nil {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}

@@ -1,22 +1,33 @@
 package domain
 
+import "github.com/google/uuid"
+
 // Edge is a domain entity that represents a connection between two nodes in a workflow.
 // It defines the control flow and data transformation rules between workflow steps.
-// Edges are immutable entities that are part of a Workflow aggregate.
-type Edge struct {
-	id         string
-	workflowID string
-	fromNodeID string
-	toNodeID   string
-	edgeType   string
+// Edge is an entity that is part of the Workflow aggregate.
+type Edge interface {
+	ID() uuid.UUID
+	FromNodeID() uuid.UUID
+	ToNodeID() uuid.UUID
+	Type() EdgeType
+	Config() map[string]any
+}
+
+// edge is the internal implementation of Edge entity.
+// It is managed by the Workflow aggregate and has no independent lifecycle.
+type edge struct {
+	id         uuid.UUID
+	fromNodeID uuid.UUID
+	toNodeID   uuid.UUID
+	edgeType   EdgeType
 	config     map[string]any
 }
 
-// NewEdge creates a new Edge instance.
-func NewEdge(id, workflowID, fromNodeID, toNodeID, edgeType string, config map[string]any) *Edge {
-	return &Edge{
+// RestoreEdge creates an Edge instance for reconstruction from persistence.
+// This function is used internally for rebuilding the aggregate from storage.
+func RestoreEdge(id, fromNodeID, toNodeID uuid.UUID, edgeType EdgeType, config map[string]any) Edge {
+	return &edge{
 		id:         id,
-		workflowID: workflowID,
 		fromNodeID: fromNodeID,
 		toNodeID:   toNodeID,
 		edgeType:   edgeType,
@@ -24,32 +35,33 @@ func NewEdge(id, workflowID, fromNodeID, toNodeID, edgeType string, config map[s
 	}
 }
 
+// NewEdge creates a new Edge connecting two nodes with a specified type and configuration.
+// It generates a unique ID for the Edge.
+func NewEdge(fromNodeID, toNodeID uuid.UUID, edgeType EdgeType, config map[string]any) Edge {
+	return RestoreEdge(uuid.New(), fromNodeID, toNodeID, edgeType, config)
+}
+
 // ID returns the edge ID.
-func (e *Edge) ID() string {
+func (e *edge) ID() uuid.UUID {
 	return e.id
 }
 
-// WorkflowID returns the workflow ID this edge belongs to.
-func (e *Edge) WorkflowID() string {
-	return e.workflowID
-}
-
 // FromNodeID returns the source node ID.
-func (e *Edge) FromNodeID() string {
+func (e *edge) FromNodeID() uuid.UUID {
 	return e.fromNodeID
 }
 
 // ToNodeID returns the destination node ID.
-func (e *Edge) ToNodeID() string {
+func (e *edge) ToNodeID() uuid.UUID {
 	return e.toNodeID
 }
 
 // Type returns the type of the edge.
-func (e *Edge) Type() string {
+func (e *edge) Type() EdgeType {
 	return e.edgeType
 }
 
 // Config returns the configuration of the edge.
-func (e *Edge) Config() map[string]any {
+func (e *edge) Config() map[string]any {
 	return e.config
 }

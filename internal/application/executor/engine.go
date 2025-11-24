@@ -3,305 +3,628 @@ package executor
 import (
 	"context"
 	"fmt"
-	"strings"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain"
-	"github.com/smilemakc/mbflow/internal/domain/errors"
 	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
-type InitialVariables = map[string]any
-
-// WorkflowEngine is the main execution engine for workflows.
-// It orchestrates node execution, manages state, handles retries, and monitors execution.
+// WorkflowEngine is the main execution engine that orchestrates workflow execution
+// using a three-phase architecture: Plan → Execute → Finalize
 type WorkflowEngine struct {
-	// executors maps node types to their executors
-	executors map[string]NodeExecutor
+	// Dependencies
+	eventStore        domain.EventStore
+	observerManager   *monitoring.ObserverManager
+	planner           *ExecutionPlanner
+	evaluator         *ConditionEvaluator
+	templateProcessor *TemplateProcessor
+	variableBinder    *VariableBinder
 
-	// retryPolicy defines the retry behavior
-	retryPolicy *RetryPolicy
+	// Node executors registry
+	nodeExecutors map[domain.NodeType]NodeExecutor
 
-	// observerManager manages execution observers
-	observerManager *monitoring.ObserverManager
-
-	// stateRepository is optional; when set, execution states will be persisted
-	stateRepository domain.ExecutionStateRepository
-
-	// parallelErrorHandling defines error handling behavior for parallel execution
-	parallelErrorHandling bool
-
-	// metrics collects execution metrics
-	metrics *monitoring.MetricsCollector
-
-	// mu protects concurrent access
-	mu sync.RWMutex
+	// Configuration
+	config EngineConfig
 }
 
-// EngineConfig configures the workflow engine.
+// EngineConfig holds configuration for the workflow engine
 type EngineConfig struct {
-	// OpenAIAPIKey is the API key for OpenAI
-	OpenAIAPIKey string
+	// Parallelism
+	MaxParallelNodes int
+	EnableParallel   bool
 
-	// RetryPolicy defines the retry behavior
-	RetryPolicy *RetryPolicy
+	// Error handling
+	DefaultErrorStrategy domain.ErrorStrategy
 
-	// EnableMonitoring enables monitoring and logging
-	EnableMonitoring bool
+	// Retry
+	EnableRetry       bool
+	DefaultMaxRetries int
+	DefaultRetryDelay time.Duration
 
-	// VerboseLogging enables verbose logging
-	VerboseLogging bool
+	// Circuit breaker
+	EnableCircuitBreaker bool
 
-	// StateRepository is optional; when set, execution states will be persisted
-	StateRepository domain.ExecutionStateRepository
+	// Timeouts
+	NodeExecutionTimeout     time.Duration
+	WorkflowExecutionTimeout time.Duration
 
-	// ParallelErrorHandling defines how to handle errors in parallel branches.
-	// If true, execution stops immediately when any parallel branch fails (default behavior).
-	// If false, other branches continue and join nodes handle partial failures.
-	ParallelErrorHandling bool
+	// Monitoring
+	EnableMetrics bool
+	EnableTracing bool
+
+	// Templating
+	EnableTemplating    bool
+	DefaultTemplateMode string
 }
 
-// NewWorkflowEngine creates a new WorkflowEngine.
-func NewWorkflowEngine(config *EngineConfig) *WorkflowEngine {
-	if config == nil {
-		config = &EngineConfig{}
+// DefaultEngineConfig returns default configuration
+func DefaultEngineConfig() EngineConfig {
+	return EngineConfig{
+		MaxParallelNodes:         10,
+		EnableParallel:           true,
+		DefaultErrorStrategy:     domain.ErrorStrategyFailFast,
+		EnableRetry:              true,
+		DefaultMaxRetries:        3,
+		DefaultRetryDelay:        time.Second,
+		EnableCircuitBreaker:     false,
+		NodeExecutionTimeout:     5 * time.Minute,
+		WorkflowExecutionTimeout: 30 * time.Minute,
+		EnableMetrics:            true,
+		EnableTracing:            false,
+		EnableTemplating:         true,
+		DefaultTemplateMode:      TemplateModeLenient,
 	}
+}
 
-	if config.RetryPolicy == nil {
-		config.RetryPolicy = DefaultRetryPolicy()
-	}
-
-	// Default parallel error handling: stop on first error (true)
-	// Since bool zero value is false, we default to true for safety (stop on error)
-	// User must explicitly set ParallelErrorHandling to false to enable continue-on-error
-	parallelErrorHandling := true
-	// Note: We can't distinguish "not set" from "set to false", so we always default to true
-	// This means the default behavior is to stop on error, which is safer
-
+// NewWorkflowEngine creates a new workflow execution engine
+func NewWorkflowEngine(eventStore domain.EventStore, observerManager *monitoring.ObserverManager, config EngineConfig) *WorkflowEngine {
+	evaluator := NewConditionEvaluator(true)
 	engine := &WorkflowEngine{
-		executors:             make(map[string]NodeExecutor),
-		retryPolicy:           config.RetryPolicy,
-		observerManager:       monitoring.NewObserverManager(),
-		stateRepository:       config.StateRepository,
-		parallelErrorHandling: parallelErrorHandling,
+		eventStore:        eventStore,
+		observerManager:   observerManager,
+		planner:           NewExecutionPlanner(),
+		evaluator:         evaluator,
+		templateProcessor: NewTemplateProcessor(evaluator),
+		variableBinder:    NewVariableBinder(evaluator),
+		nodeExecutors:     make(map[domain.NodeType]NodeExecutor),
+		config:            config,
 	}
 
-	// Prepare monitoring if enabled
-	var metrics *monitoring.MetricsCollector
-	if config.EnableMonitoring {
-		logger := monitoring.NewConsoleLogger(monitoring.ConsoleLoggerConfig{
-			Prefix:  "WorkflowEngine",
-			Verbose: config.VerboseLogging,
-		})
-		metrics = monitoring.NewMetricsCollector()
-		observer := monitoring.NewCompositeObserver(logger, metrics, nil)
-		engine.observerManager.AddObserver(observer)
-		engine.metrics = metrics
-	}
-
-	// Register default executors
-	// OpenAI executors are always registered (API key can come from node config or context)
-	if metrics != nil {
-		engine.RegisterExecutor(NewOpenAICompletionExecutorWithMetrics(config.OpenAIAPIKey, metrics))
-		engine.RegisterExecutor(NewOpenAIResponsesExecutorWithMetrics(config.OpenAIAPIKey, metrics))
-	} else {
-		engine.RegisterExecutor(NewOpenAICompletionExecutor(config.OpenAIAPIKey))
-		engine.RegisterExecutor(NewOpenAIResponsesExecutor(config.OpenAIAPIKey))
-	}
-	engine.RegisterExecutor(NewHTTPRequestExecutor())
-	engine.RegisterExecutor(NewTelegramMessageExecutor())
-	engine.RegisterExecutor(NewConditionalRouterExecutor())
-	engine.RegisterExecutor(NewDataMergerExecutor())
-	engine.RegisterExecutor(NewDataAggregatorExecutor())
-	engine.RegisterExecutor(NewScriptExecutorExecutor())
-	engine.RegisterExecutor(NewJSONParserExecutor())
+	// Register default node executors
+	engine.registerDefaultExecutors()
 
 	return engine
-
 }
 
-// RegisterExecutor registers a node executor.
-func (e *WorkflowEngine) RegisterExecutor(executor NodeExecutor) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.executors[executor.Type()] = executor
+// RegisterNodeExecutor registers a custom node executor
+func (e *WorkflowEngine) RegisterNodeExecutor(nodeType domain.NodeType, executor NodeExecutor) {
+	e.nodeExecutors[nodeType] = executor
 }
 
-// AddObserver adds an execution observer.
-func (e *WorkflowEngine) AddObserver(observer monitoring.ExecutionObserver) {
-	e.observerManager.AddObserver(observer)
+// registerDefaultExecutors registers built-in node executors
+func (e *WorkflowEngine) registerDefaultExecutors() {
+	RegisterDefaultExecutors(e)
 }
 
-// GetMetrics returns the metrics collector.
-func (e *WorkflowEngine) GetMetrics() *monitoring.MetricsCollector {
-	return e.metrics
-}
+// ExecuteWorkflow executes a workflow with the given trigger and initial variables
+// This is the main entry point for workflow execution
+func (e *WorkflowEngine) ExecuteWorkflow(
+	ctx context.Context,
+	workflow domain.Workflow,
+	trigger domain.Trigger,
+	initialVariables map[string]any,
+) (domain.Execution, error) {
+	// Generate execution ID
+	executionID := uuid.New()
 
-// ExecuteWorkflow executes a complete workflow.
-// If edges are provided, it uses graph-based traversal with parallel execution support.
-// If edges are empty, it falls back to sequential execution for backward compatibility.
-func (e *WorkflowEngine) ExecuteWorkflow(ctx context.Context, workflowID, executionID string, nodes []domain.NodeConfig, edges []EdgeConfig, initialVariables InitialVariables) (*ExecutionState, error) {
-	// Try to load existing state if repository is available
-	var state *ExecutionState
-	if e.stateRepository != nil {
-		domainState, err := e.stateRepository.GetExecutionState(ctx, executionID)
-		if err == nil && domainState != nil {
-			// Convert domain state to application state
-			state = e.fromDomainExecutionState(domainState, ctx)
-		}
+	// Create execution aggregate
+	execution, err := domain.NewExecution(executionID, workflow.ID())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create execution: %w", err)
 	}
 
-	// Create new state if not loaded
-	if state == nil {
-		if e.stateRepository != nil {
-			state = NewExecutionStateWithRepository(ctx, executionID, workflowID, e.stateRepository)
-		} else {
-			state = NewExecutionState(executionID, workflowID)
-		}
+	// Phase 1: Planning
+	plan, err := e.planExecution(ctx, workflow, execution)
+	if err != nil {
+		return nil, fmt.Errorf("planning phase failed: %w", err)
 	}
 
-	// Set initial variables
-	for k, v := range initialVariables {
-		state.SetVariable(k, v)
+	// Phase 2: Execute
+	err = e.executeWorkflow(ctx, workflow, execution, trigger, plan, initialVariables)
+	if err != nil {
+		// Execution phase failed - finalize with error
+		_ = e.finalizeExecution(ctx, execution, err)
+		return execution, err
 	}
 
-	// Create execution context
-	execCtx := NewExecutionContext(ctx, state)
+	// Phase 3: Finalize
+	err = e.finalizeExecution(ctx, execution, nil)
+	if err != nil {
+		return execution, fmt.Errorf("finalization phase failed: %w", err)
+	}
+
+	return execution, nil
+}
+
+// planExecution - Phase 1: Planning
+// Validates workflow, builds graph, creates execution plan
+func (e *WorkflowEngine) planExecution(
+	ctx context.Context,
+	workflow domain.Workflow,
+	execution domain.Execution,
+) (*ExecutionPlan, error) {
+	// Validate workflow
+	if err := workflow.Validate(); err != nil {
+		return nil, fmt.Errorf("workflow validation failed: %w", err)
+	}
+
+	// Create execution plan
+	plan, err := e.planner.CreatePlan(workflow)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create execution plan: %w", err)
+	}
+
+	// Validate plan
+	if err := e.planner.ValidatePlan(plan); err != nil {
+		return nil, fmt.Errorf("execution plan validation failed: %w", err)
+	}
+
+	return plan, nil
+}
+
+// executeWorkflow - Phase 2: Execute
+// Executes nodes according to the plan
+func (e *WorkflowEngine) executeWorkflow(
+	ctx context.Context,
+	workflow domain.Workflow,
+	execution domain.Execution,
+	trigger domain.Trigger,
+	plan *ExecutionPlan,
+	initialVariables map[string]any,
+) error {
+	// Check trigger condition
+	if !trigger.IsActive() || !trigger.ShouldTrigger(initialVariables) {
+		return domain.NewDomainError(
+			domain.ErrCodeValidationFailed,
+			"trigger condition not met",
+			nil,
+		)
+	}
+	// Start execution
+	if err := execution.Start(trigger.ID(), initialVariables); err != nil {
+		return fmt.Errorf("failed to start execution: %w", err)
+	}
 
 	// Notify observers
-	e.observerManager.NotifyExecutionStarted(workflowID, executionID)
-	state.SetStatus(ExecutionStatusRunning)
-
-	// If edges are provided, use graph-based execution with parallel support
-	if len(edges) > 0 {
-		err := e.executeWorkflowGraph(ctx, execCtx, nodes, edges)
-		if err != nil {
-			// Mark execution as failed
-			state.SetStatus(ExecutionStatusFailed)
-			state.Error = err
-
-			duration := state.GetExecutionDuration()
-			e.observerManager.NotifyExecutionFailed(workflowID, executionID, err, duration)
-
-			return state, err
-		}
-
-		// Mark execution as completed
-		state.SetStatus(ExecutionStatusCompleted)
-		duration := state.GetExecutionDuration()
-		e.observerManager.NotifyExecutionCompleted(workflowID, executionID, duration)
-
-		return state, nil
+	if e.observerManager != nil {
+		e.observerManager.NotifyExecutionStarted(workflow.ID().String(), execution.ID().String())
 	}
 
-	// Fallback to sequential execution for backward compatibility
-	for _, nodeConfig := range nodes {
-		// Check context cancellation
-		select {
-		case <-ctx.Done():
-			state.SetStatus(ExecutionStatusCancelled)
-			return state, ctx.Err()
-		default:
-		}
-
-		// Execute node
-		if err := e.ExecuteNode(ctx, execCtx, nodeConfig); err != nil {
-			// Mark execution as failed
-			state.SetStatus(ExecutionStatusFailed)
-			state.Error = err
-
-			duration := state.GetExecutionDuration()
-			e.observerManager.NotifyExecutionFailed(workflowID, executionID, err, duration)
-
-			return state, err
-		}
+	// Persist start event
+	if err := e.persistEvents(ctx, execution); err != nil {
+		return fmt.Errorf("failed to persist start event: %w", err)
 	}
 
-	// Mark execution as completed
-	state.SetStatus(ExecutionStatusCompleted)
-	duration := state.GetExecutionDuration()
-	e.observerManager.NotifyExecutionCompleted(workflowID, executionID, duration)
+	// Execute workflow using wave-based execution
+	if e.config.EnableParallel {
+		return e.executeWaves(ctx, execution, plan)
+	}
 
-	return state, nil
+	// Fallback to sequential execution
+	return e.executeSequential(ctx, execution, plan)
 }
 
-// executeWorkflowGraph executes a workflow using graph-based traversal with parallel execution support.
-func (e *WorkflowEngine) executeWorkflowGraph(ctx context.Context, execCtx *ExecutionContext, nodes []domain.NodeConfig, edges []EdgeConfig) error {
-	// Build workflow graph
-	graph := NewWorkflowGraph(nodes, edges)
-
-	// Check for cycles
-	if graph.HasCycles() {
-		return fmt.Errorf("workflow graph contains cycles, cannot execute")
-	}
-
-	// Track completed nodes
-	completedNodes := make(map[string]bool)
-	executingNodes := make(map[string]bool)
-	var mu sync.Mutex
-
-	// Get entry nodes to start execution
-	readyNodes := graph.GetEntryNodes()
-	if len(readyNodes) == 0 {
-		return fmt.Errorf("workflow has no entry nodes")
-	}
-
-	// Track stuck detection
-	stuckIterations := 0
-	const maxStuckIterations = 100 // 100 * 10ms = 1 second
-
-	// Continue until all nodes are completed
-	for {
-		// Check context cancellation
+// executeWaves executes nodes in waves (parallel execution within each wave)
+func (e *WorkflowEngine) executeWaves(
+	ctx context.Context,
+	execution domain.Execution,
+	plan *ExecutionPlan,
+) error {
+	for waveNum, wave := range plan.Waves {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		// Find all ready nodes (nodes whose dependencies are completed and conditions are satisfied)
-		mu.Lock()
-		readyNodes, errGetReady := graph.GetReadyNodes(completedNodes, execCtx)
-		if errGetReady != nil {
-			mu.Unlock()
-			return fmt.Errorf("failed to get ready nodes: %w", errGetReady)
+		// Execute wave in parallel
+		if err := e.executeWave(ctx, execution, wave, plan.Graph); err != nil {
+			return fmt.Errorf("wave %d failed: %w", waveNum, err)
 		}
 
-		currentReadyNodes := make([]string, 0)
-		for _, ID := range readyNodes {
-			if !executingNodes[ID] {
-				currentReadyNodes = append(currentReadyNodes, ID)
-				executingNodes[ID] = true
+		// Persist events after each wave
+		if err := e.persistEvents(ctx, execution); err != nil {
+			return fmt.Errorf("failed to persist events after wave %d: %w", waveNum, err)
+		}
+	}
+
+	return nil
+}
+
+// executeWave executes all nodes in a wave in parallel
+func (e *WorkflowEngine) executeWave(
+	ctx context.Context,
+	execution domain.Execution,
+	wave ExecutionWave,
+	graph *WorkflowGraph,
+) error {
+	// Limit parallelism
+	maxParallel := e.config.MaxParallelNodes
+	if len(wave.Nodes) < maxParallel {
+		maxParallel = len(wave.Nodes)
+	}
+
+	// Create semaphore for limiting concurrent executions
+	semaphore := make(chan struct{}, maxParallel)
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(wave.Nodes))
+
+	for _, nodeExec := range wave.Nodes {
+		wg.Add(1)
+
+		go func(ne NodeExecution) {
+			defer wg.Done()
+
+			// Acquire semaphore
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			// Execute node
+			if err := e.executeNode(ctx, execution, ne, graph); err != nil {
+				errChan <- err
+			}
+		}(nodeExec)
+	}
+
+	// Wait for all nodes to complete
+	wg.Wait()
+	close(errChan)
+
+	// Check for errors
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		// Handle based on error strategy
+		return e.handleWaveErrors(errors)
+	}
+
+	return nil
+}
+
+// executeNode executes a single node
+func (e *WorkflowEngine) executeNode(
+	ctx context.Context,
+	execution domain.Execution,
+	nodeExec NodeExecution,
+	graph *WorkflowGraph,
+) error {
+	node := nodeExec.Node
+	nodeID := node.ID()
+	nodeName := node.Name()
+	workflowID := execution.WorkflowID().String()
+	// Check if node should be skipped (conditional edges)
+	shouldExecute, err := e.shouldExecuteNode(execution, nodeID, graph)
+	if err != nil {
+		return err
+	}
+
+	if !shouldExecute {
+		// Skip node
+		return execution.SkipNode(nodeID, node.Name(), "conditional edge evaluated to false")
+	}
+
+	// Get node executor
+	executor, exists := e.nodeExecutors[node.Type()]
+	if !exists {
+		return domain.NewDomainError(
+			domain.ErrCodeNotFound,
+			fmt.Sprintf("no executor registered for node type %s", node.Type()),
+			nil,
+		)
+	}
+
+	// Bind inputs using VariableBinder
+	nodeInputs, err := e.variableBinder.BindInputs(node, graph, execution)
+	if err != nil {
+		return fmt.Errorf("failed to bind inputs for node %s: %w", node.Name(), err)
+	}
+
+	// Start node execution (store bound inputs in event)
+	inputVars := nodeInputs.Variables.All()
+	if err := execution.StartNode(nodeID, node.Name(), node.Type(), inputVars); err != nil {
+		return err
+	}
+
+	// Notify observers
+	if e.observerManager != nil {
+		e.observerManager.NotifyNodeStarted(workflowID, execution.ID().String(), node, 1)
+	}
+
+	// Preprocess node config with templating (using scoped variables)
+	if e.config.EnableTemplating {
+		templateConfig := extractTemplateConfig(node.Config(), e.config.DefaultTemplateMode)
+
+		// Merge scoped + global for templating
+		templateVars := nodeInputs.Variables.Clone()
+		_ = templateVars.Merge(nodeInputs.GlobalContext)
+
+		processedConfig, err := e.templateProcessor.ProcessMap(
+			node.Config(),
+			templateVars.All(),
+			templateConfig,
+		)
+		if err != nil {
+			return fmt.Errorf("template processing failed for node %s: %w", node.Name(), err)
+		}
+		node = cloneNodeWithConfig(node, processedConfig)
+	}
+
+	// Execute node with timeout
+	execCtx, cancel := context.WithTimeout(ctx, e.config.NodeExecutionTimeout)
+	defer cancel()
+
+	startTime := time.Now()
+	output, err := executor.Execute(execCtx, node, nodeInputs)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		// Node execution failed
+		if err := execution.FailNode(nodeID, node.Name(), node.Type(), err.Error(), 0); err != nil {
+			return err
+		}
+
+		// Notify observers
+		if e.observerManager != nil {
+			e.observerManager.NotifyNodeFailed(workflowID, execution.ID().String(), node, err, duration, false)
+		}
+
+		// Check if we should retry (check both global config and per-node config)
+		if e.config.EnableRetry {
+			retryConfig := GetRetryConfig(node)
+			if retryConfig.Enabled {
+				return e.retryNode(ctx, execution, nodeExec, executor, graph)
 			}
 		}
-		mu.Unlock()
 
-		// If no ready nodes, check if we're done or stuck
-		if len(currentReadyNodes) == 0 {
-			// Check if all nodes are completed
-			if len(completedNodes) == len(nodes) {
-				break
+		return fmt.Errorf("node %s failed: %w", node.Name(), err)
+	}
+
+	// Filter output to schema if defined
+	if schema := node.IOSchema(); schema != nil && schema.Outputs != nil {
+		output = e.filterOutputToSchema(output, schema.Outputs)
+	}
+
+	// Node execution succeeded
+	if err := execution.CompleteNode(nodeID, node.Name(), node.Type(), output, duration); err != nil {
+		return err
+	}
+
+	// Notify observers
+	if e.observerManager != nil {
+		e.observerManager.NotifyNodeCompleted(workflowID, execution.ID().String(), node, output, duration)
+	}
+
+	// Store node output separately
+	if err := execution.SetNodeOutput(nodeID, output); err != nil {
+		return err
+	}
+	if err := execution.Variables().Set(nodeName, output); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// filterOutputToSchema filters output to only include keys declared in the schema
+func (e *WorkflowEngine) filterOutputToSchema(
+	output map[string]any,
+	schema *domain.VariableSchema,
+) map[string]any {
+	filtered := make(map[string]any)
+
+	for key, value := range output {
+		if _, exists := schema.GetDefinition(key); exists {
+			// Key is in schema - include it
+			filtered[key] = value
+		}
+	}
+
+	return filtered
+}
+
+// shouldExecuteNode checks if a node should be executed based on conditional edges
+func (e *WorkflowEngine) shouldExecuteNode(
+	execution domain.Execution,
+	nodeID uuid.UUID,
+	graph *WorkflowGraph,
+) (bool, error) {
+	// Get incoming edges
+	incomingEdges := graph.GetIncomingEdges(nodeID)
+	if len(incomingEdges) == 0 {
+		// Entry node - always execute
+		return true, nil
+	}
+
+	// Check all incoming edges
+	hasConditional := false
+	anyConditionTrue := false
+
+	for _, edge := range incomingEdges {
+		if edge.Type() == domain.EdgeTypeConditional {
+			hasConditional = true
+
+			// Evaluate condition
+			result, err := e.evaluator.EvaluateEdge(edge, execution.Variables())
+			if err != nil {
+				return false, err
 			}
 
-			// Check if we're stuck (no progress possible)
-			stuckIterations++
-			if stuckIterations >= maxStuckIterations {
-				// Analyze why we're stuck
-				return e.analyzeStuckExecution(graph, completedNodes, execCtx)
+			if result {
+				anyConditionTrue = true
 			}
+		} else {
+			// Non-conditional edge - execute
+			return true, nil
+		}
+	}
 
-			// Wait a bit and retry (in case of race conditions)
-			time.Sleep(10 * time.Millisecond)
+	// If has conditional edges, at least one must be true
+	if hasConditional && !anyConditionTrue {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// retryNode retries a failed node execution
+func (e *WorkflowEngine) retryNode(
+	ctx context.Context,
+	execution domain.Execution,
+	nodeExec NodeExecution,
+	executor NodeExecutor,
+	graph *WorkflowGraph,
+) error {
+	node := nodeExec.Node
+	nodeID := node.ID()
+	workflowID := execution.WorkflowID().String()
+	// Get retry configuration from node config
+	retryConfig := GetRetryConfig(node)
+	if !retryConfig.Enabled {
+		// Retry not enabled for this node
+		return fmt.Errorf("node %s failed and retry is not enabled", node.Name())
+	}
+
+	// Create retry policy from config
+	policy := CreateRetryPolicy(retryConfig)
+
+	// Attempt retries
+	var lastErr error
+	for attempt := 1; attempt <= policy.MaxAttempts; attempt++ {
+		// Calculate delay
+		delay := e.calculateRetryDelay(policy, attempt)
+
+		// Notify observers about retry
+		if e.observerManager != nil && attempt > 1 {
+			e.observerManager.NotifyNodeRetrying(workflowID, execution.ID().String(), node, attempt, delay)
+		}
+
+		// Wait before retry
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+			// Continue with retry
+		}
+
+		// Bind inputs for retry
+		nodeInputs, bindErr := e.variableBinder.BindInputs(node, graph, execution)
+		if bindErr != nil {
+			lastErr = fmt.Errorf("failed to bind inputs: %w", bindErr)
 			continue
 		}
 
-		// Reset stuck counter when we make progress
-		stuckIterations = 0
+		// Retry node execution
+		startTime := time.Now()
+		output, err := executor.Execute(ctx, node, nodeInputs)
+		duration := time.Since(startTime)
 
-		// Execute ready nodes in parallel
-		err := e.executeNodesInParallel(ctx, execCtx, graph, currentReadyNodes, completedNodes, executingNodes, &mu)
+		if err == nil {
+			// Retry succeeded
+			if err := execution.CompleteNode(nodeID, node.Name(), node.Type(), output, duration); err != nil {
+				return err
+			}
+
+			// Notify observers
+			if e.observerManager != nil {
+				e.observerManager.NotifyNodeCompleted(workflowID, execution.ID().String(), node, output, duration)
+			}
+
+			// Store output in variables if configured
+			if outputKey, ok := node.Config()["output_key"].(string); ok && outputKey != "" {
+				if err := execution.SetVariable(outputKey, output, domain.ScopeExecution, uuid.Nil); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
+		lastErr = err
+
+		// Update failure with retry count
+		if err := execution.FailNode(nodeID, node.Name(), node.Type(), err.Error(), attempt); err != nil {
+			return err
+		}
+
+		// Notify observers
+		if e.observerManager != nil {
+			willRetry := attempt < policy.MaxAttempts
+			e.observerManager.NotifyNodeFailed(workflowID, execution.ID().String(), node, err, duration, willRetry)
+		}
+	}
+
+	// All retries exhausted
+	return fmt.Errorf("node %s failed after %d retry attempts: %w", node.Name(), policy.MaxAttempts, lastErr)
+}
+
+// calculateRetryDelay calculates the delay before the next retry using exponential backoff
+func (e *WorkflowEngine) calculateRetryDelay(policy *RetryPolicy, attempt int) time.Duration {
+	// Calculate exponential delay
+	delay := float64(policy.InitialDelay) * math.Pow(policy.Multiplier, float64(attempt-1))
+
+	// Apply max delay cap
+	if delay > float64(policy.MaxDelay) {
+		delay = float64(policy.MaxDelay)
+	}
+
+	// Add jitter if enabled
+	if policy.Jitter {
+		jitterAmount := delay * 0.1 // 10% jitter
+		jitter := (2*float64(time.Now().UnixNano()%1000)/1000 - 1) * jitterAmount
+		delay += jitter
+	}
+
+	return time.Duration(delay)
+}
+
+// executeSequential executes nodes sequentially (fallback when parallel is disabled)
+func (e *WorkflowEngine) executeSequential(
+	ctx context.Context,
+	execution domain.Execution,
+	plan *ExecutionPlan,
+) error {
+	// Get topological order
+	order, err := plan.Graph.TopologicalSort()
+	if err != nil {
+		return err
+	}
+
+	// Execute nodes in order
+	for _, nodeID := range order {
+		node, err := plan.Graph.GetNode(nodeID)
 		if err != nil {
+			return err
+		}
+
+		nodeExec := NodeExecution{
+			NodeID:       nodeID,
+			Node:         node,
+			Dependencies: plan.Graph.GetPredecessors(nodeID),
+		}
+
+		if err := e.executeNode(ctx, execution, nodeExec, plan.Graph); err != nil {
+			return err
+		}
+
+		// Persist events after each node
+		if err := e.persistEvents(ctx, execution); err != nil {
 			return err
 		}
 	}
@@ -309,486 +632,191 @@ func (e *WorkflowEngine) executeWorkflowGraph(ctx context.Context, execCtx *Exec
 	return nil
 }
 
-// analyzeStuckExecution analyzes why execution is stuck and returns a detailed error.
-func (e *WorkflowEngine) analyzeStuckExecution(graph *WorkflowGraph, completedNodes map[string]bool, execCtx *ExecutionContext) error {
-	var stuckNodes []string
-	var stuckReasons []string
-
-	variables := execCtx.GetAllVariables()
-
-	// Find all nodes that are not completed
-	for ID := range graph.nodes {
-		if completedNodes[ID] {
-			continue
-		}
-
-		// Check dependencies
-		dependencies := graph.GetPreviousNodes(ID)
-		allDepsCompleted := true
-		var failedConditions []string
-
-		for _, depNodeID := range dependencies {
-			if !completedNodes[depNodeID] {
-				allDepsCompleted = false
-				break
-			}
-
-			// Check conditional edges
-			edgeConfig, ok := graph.GetEdgeConfig(depNodeID, ID)
-			if ok && edgeConfig.EdgeType == "conditional" {
-				conditionalConfig, err := parseConfig[ConditionalEdgeConfig](edgeConfig.Config)
-				if err == nil && conditionalConfig.Condition != "" {
-					conditionResult, err := evaluateCondition(conditionalConfig.Condition, variables)
-					if err == nil && !conditionResult {
-						// Condition failed - this is why the node is stuck
-						failedConditions = append(failedConditions, fmt.Sprintf("condition '%s' from node '%s' evaluated to false", conditionalConfig.Condition, depNodeID))
-					}
-				}
-			}
-		}
-
-		// If all dependencies are completed but node is not ready, it's stuck
-		if allDepsCompleted {
-			stuckNodes = append(stuckNodes, ID)
-			if len(failedConditions) > 0 {
-				stuckReasons = append(stuckReasons, fmt.Sprintf("node '%s': %s", ID, strings.Join(failedConditions, "; ")))
-			} else {
-				stuckReasons = append(stuckReasons, fmt.Sprintf("node '%s': all dependencies completed but node is not ready (possible missing edge or condition issue)", ID))
-			}
-		}
+// handleWaveErrors handles errors that occurred during wave execution
+func (e *WorkflowEngine) handleWaveErrors(errors []error) error {
+	if len(errors) == 0 {
+		return nil
 	}
 
-	if len(stuckNodes) == 0 {
-		return fmt.Errorf("execution stuck: no nodes can become ready, but not all nodes are completed (%d/%d completed)", len(completedNodes), len(graph.nodes))
-	}
+	// Based on error strategy
+	switch e.config.DefaultErrorStrategy {
+	case domain.ErrorStrategyFailFast:
+		// Return first error
+		return errors[0]
 
-	// Build detailed error message
-	var msg strings.Builder
-	msg.WriteString(fmt.Sprintf("execution stuck: %d node(s) cannot become ready:\n", len(stuckNodes)))
-	for i, reason := range stuckReasons {
-		msg.WriteString(fmt.Sprintf("  %d. %s\n", i+1, reason))
-	}
+	case domain.ErrorStrategyContinueOnError:
+		// Collect all errors
+		return fmt.Errorf("wave execution encountered %d errors: %v", len(errors), errors)
 
-	// Add variable context for debugging
-	msg.WriteString("\nCurrent variable values:\n")
-	for k, v := range variables {
-		if strVal, ok := v.(string); ok && len(strVal) < 200 {
-			msg.WriteString(fmt.Sprintf("  %s = %q\n", k, strVal))
-		}
-	}
+	case domain.ErrorStrategyBestEffort:
+		// Log errors but continue
+		// For now, just return nil
+		return nil
 
-	return fmt.Errorf("%s", msg.String())
+	default:
+		return errors[0]
+	}
 }
 
-// executeNodesInParallel executes multiple nodes concurrently using goroutines.
-func (e *WorkflowEngine) executeNodesInParallel(ctx context.Context, execCtx *ExecutionContext, graph *WorkflowGraph, nodeIDs []string, completedNodes map[string]bool, executingNodes map[string]bool, mu *sync.Mutex) error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(nodeIDs))
-
-	// Execute each node in a separate goroutine
-	for _, ID := range nodeIDs {
-		nodeConfig, ok := graph.GetNode(ID)
-		if !ok {
-			mu.Lock()
-			delete(executingNodes, ID)
-			mu.Unlock()
-			return fmt.Errorf("node %s not found in graph", ID)
+// finalizeExecution - Phase 3: Finalize
+// Completes execution, runs compensations if needed
+func (e *WorkflowEngine) finalizeExecution(
+	ctx context.Context,
+	execution domain.Execution,
+	executionErr error,
+) error {
+	if executionErr != nil {
+		// Execution failed - mark as failed
+		if err := execution.Fail(executionErr.Error(), uuid.Nil); err != nil {
+			return err
 		}
 
-		wg.Add(1)
-		go func(nID string, nConfig domain.NodeConfig) {
-			defer wg.Done()
-
-			// Execute the node
-			err := e.ExecuteNode(ctx, execCtx, nConfig)
-
-			// Update state
-			mu.Lock()
-			delete(executingNodes, nID)
-			if err == nil {
-				completedNodes[nID] = true
-			}
-			mu.Unlock()
-
-			// Send error if any
-			if err != nil {
-				select {
-				case errChan <- err:
-				default:
-				}
-			}
-		}(ID, *nodeConfig)
-	}
-
-	// Wait for all nodes to complete
-	wg.Wait()
-	close(errChan)
-
-	// Check for errors based on error handling strategy
-	if e.parallelErrorHandling {
-		// Stop on first error: return immediately if any node failed
-		select {
-		case err := <-errChan:
-			return err
-		default:
-			return nil
+		// Notify observers
+		if e.observerManager != nil {
+			duration := time.Since(execution.StartedAt())
+			e.observerManager.NotifyExecutionFailed(execution.WorkflowID().String(), execution.ID().String(), executionErr, duration)
 		}
 	} else {
-		// Continue on error: collect all errors but continue execution
-		// Join nodes will handle partial failures
-		// For now, we still return the first error but mark nodes as failed
-		// This allows join nodes to check which dependencies failed
-		select {
-		case err := <-errChan:
-			// Log error but continue - join nodes will handle it
-			// Return nil to continue execution
-			_ = err
-			return nil
-		default:
-			return nil
+		// Execution succeeded - mark as completed
+		finalVars := execution.Variables().All()
+		if err := execution.Complete(finalVars); err != nil {
+			return err
+		}
+
+		// Notify observers
+		if e.observerManager != nil {
+			duration := time.Since(execution.StartedAt())
+			e.observerManager.NotifyExecutionCompleted(execution.WorkflowID().String(), execution.ID().String(), duration)
 		}
 	}
-}
 
-// NodeConfig represents the configuration for executing a node.
-// type NodeConfig struct {
-// 	ID   string
-// 	Name     string
-// 	Type string
-// 	Config   map[string]any
-// }
-
-// ExecuteNode executes a single node with retry logic.
-func (e *WorkflowEngine) ExecuteNode(ctx context.Context, execCtx *ExecutionContext, nodeConfig domain.NodeConfig) error {
-	// Get executor for node type
-	e.mu.RLock()
-	executor, ok := e.executors[nodeConfig.Type]
-	e.mu.RUnlock()
-
-	if !ok {
-		return errors.NewNodeExecutionError(
-			execCtx.State().WorkflowID,
-			execCtx.State().ExecutionID,
-			nodeConfig.ID,
-			nodeConfig.Type,
-			1,
-			fmt.Sprintf("no executor registered for node type '%s'", nodeConfig.Type),
-			nil,
-			false,
-		)
-	}
-
-	// Create retry executor
-	retryExecutor := NewRetryExecutor(e.retryPolicy)
-
-	// Create a temporary node object from config for logging
-	// Use ID as name if name is not available
-	nodeConfig.WorkflowID = execCtx.State().WorkflowID
-	tempNode, err := domain.NewNode(nodeConfig)
-
-	if err != nil {
+	// Persist final events
+	if err := e.persistEvents(ctx, execution); err != nil {
 		return err
 	}
-	// Execute with retry logic
-	err = retryExecutor.ExecuteWithCallback(
-		ctx,
-		func(attemptNumber int) error {
-			// Mark node as started
-			execCtx.State().MarkNodeStarted(nodeConfig.ID)
-			e.observerManager.NotifyNodeStarted(execCtx.State().ExecutionID, tempNode, attemptNumber)
 
-			startTime := time.Now()
-
-			// Execute the node
-			output, execErr := executor.Execute(ctx, execCtx, nodeConfig.ID, nodeConfig.Config)
-
-			duration := time.Since(startTime)
-
-			if execErr != nil {
-				// Mark node as failed
-				execCtx.State().MarkNodeFailed(nodeConfig.ID, execErr)
-
-				// Check if we should retry
-				willRetry := e.retryPolicy.ShouldRetry(execErr, attemptNumber)
-
-				e.observerManager.NotifyNodeFailed(
-					execCtx.State().ExecutionID,
-					tempNode,
-					execErr,
-					duration,
-					willRetry,
-				)
-
-				return execErr
-			}
-
-			// Mark node as completed
-			execCtx.State().MarkNodeCompleted(nodeConfig.ID, output)
-			e.observerManager.NotifyNodeCompleted(
-				execCtx.State().ExecutionID,
-				tempNode,
-				output,
-				duration,
-			)
-
-			// Execute callback if configured (asynchronously, doesn't affect workflow)
-			e.executeNodeCallback(ctx, execCtx, nodeConfig, tempNode, output, duration)
-
-			return nil
-		},
-		func(attemptNumber int, err error, delay time.Duration) {
-			// Callback before retry
-			execCtx.State().MarkNodeRetrying(nodeConfig.ID)
-			e.observerManager.NotifyNodeRetrying(
-				execCtx.State().ExecutionID,
-				tempNode,
-				attemptNumber+1,
-				delay,
-			)
-		},
-	)
-
-	return err
+	return nil
 }
 
-// ExecuteNodeWithState executes a single node using an abstract state.
-// This is a helper to bridge the public ExecutorState interface with the internal ExecutionState.
-func (e *WorkflowEngine) ExecuteNodeWithState(ctx context.Context, state interface{}, nodeConfig domain.NodeConfig) error {
-	execState, ok := state.(*ExecutionState)
-	if !ok {
-		return fmt.Errorf("invalid state type: expected *executor.ExecutionState, got %T", state)
+// persistEvents persists uncommitted events from execution
+func (e *WorkflowEngine) persistEvents(ctx context.Context, execution domain.Execution) error {
+	events := execution.GetUncommittedEvents()
+	if len(events) == 0 {
+		return nil
 	}
-	execCtx := NewExecutionContext(ctx, execState)
-	return e.ExecuteNode(ctx, execCtx, nodeConfig)
+
+	// Persist events atomically
+	if err := e.eventStore.AppendEvents(ctx, events); err != nil {
+		return fmt.Errorf("failed to persist events: %w", err)
+	}
+
+	// Mark events as committed
+	execution.MarkEventsAsCommitted()
+
+	return nil
 }
 
-// ExecuteNodeSimple executes a single node without retry logic.
-// This is useful for testing or when you want to handle retries externally.
-func (e *WorkflowEngine) ExecuteNodeSimple(ctx context.Context, execCtx *ExecutionContext, nodeConfig domain.NodeConfig) (interface{}, error) {
-	// Get executor for node type
-	e.mu.RLock()
-	executor, ok := e.executors[nodeConfig.Type]
-	e.mu.RUnlock()
+// GetExecution retrieves an execution by ID (rebuilds from events)
+func (e *WorkflowEngine) GetExecution(ctx context.Context, executionID, workflowID uuid.UUID) (domain.Execution, error) {
+	// Get events
+	events, err := e.eventStore.GetEvents(ctx, executionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get events: %w", err)
+	}
 
-	if !ok {
-		return nil, errors.NewNodeExecutionError(
-			execCtx.State().WorkflowID,
-			execCtx.State().ExecutionID,
-			nodeConfig.ID,
-			nodeConfig.Type,
-			1,
-			fmt.Sprintf("no executor registered for node type '%s'", nodeConfig.Type),
+	if len(events) == 0 {
+		return nil, domain.NewDomainError(
+			domain.ErrCodeNotFound,
+			fmt.Sprintf("execution %s not found", executionID),
 			nil,
-			false,
 		)
 	}
 
-	// Create a temporary node object from config for logging
-	// Use ID as name if name is not available
-	nodeConfig.WorkflowID = execCtx.State().WorkflowID
-	tempNode, err := domain.NewNode(nodeConfig)
+	// Rebuild execution from events
+	execution, err := domain.RebuildFromEvents(executionID, workflowID, events)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to rebuild execution: %w", err)
 	}
 
-	// Initialize node state
-	execCtx.State().InitializeNodeState(nodeConfig.ID, 1)
-
-	// Mark node as started
-	execCtx.State().MarkNodeStarted(nodeConfig.ID)
-	e.observerManager.NotifyNodeStarted(execCtx.State().ExecutionID, tempNode, 1)
-
-	startTime := time.Now()
-
-	// Execute the node
-	output, err := executor.Execute(ctx, execCtx, nodeConfig.ID, nodeConfig.Config)
-
-	duration := time.Since(startTime)
-
-	if err != nil {
-		// Mark node as failed
-		execCtx.State().MarkNodeFailed(nodeConfig.ID, err)
-		e.observerManager.NotifyNodeFailed(
-			execCtx.State().ExecutionID,
-			tempNode,
-			err,
-			duration,
-			false,
-		)
-		return nil, err
-	}
-
-	// Mark node as completed
-	execCtx.State().MarkNodeCompleted(nodeConfig.ID, output)
-	e.observerManager.NotifyNodeCompleted(
-		execCtx.State().ExecutionID,
-		tempNode,
-		output,
-		duration,
-	)
-
-	// Execute callback if configured (asynchronously, doesn't affect workflow)
-	e.executeNodeCallback(ctx, execCtx, nodeConfig, tempNode, output, duration)
-
-	return output, nil
+	return execution, nil
 }
 
-// executeNodeCallback executes a callback for a node if configured.
-// The callback is executed asynchronously and does not affect the workflow execution.
-func (e *WorkflowEngine) executeNodeCallback(ctx context.Context, execCtx *ExecutionContext, nodeConfig domain.NodeConfig, node *domain.Node, output interface{}, duration time.Duration) {
-	// Check if callback is configured
-	callbackConfig, err := parseCallbackConfig(nodeConfig.Config)
-	if err != nil {
-		// Invalid callback config, but don't fail the workflow
-		return
-	}
-	if callbackConfig == nil {
-		// No callback configured
-		return
+// extractTemplateConfig extracts template configuration from node config
+func extractTemplateConfig(config map[string]any, defaultMode string) TemplateConfig {
+	templateConfig := TemplateConfig{
+		StrictMode: defaultMode == TemplateModeStrict,
+		Fields:     nil, // Empty means all fields
 	}
 
-	// Create callback processor
-	processor, err := NewHTTPCallbackProcessor(*callbackConfig)
-	if err != nil {
-		// Invalid callback config, but don't fail the workflow
-		return
-	}
-
-	// Execute callback asynchronously
-	go func() {
-		// Notify observers that callback started
-		e.observerManager.NotifyNodeCallbackStarted(execCtx.State().ExecutionID, node)
-
-		startTime := time.Now()
-
-		// Prepare callback data
-		callbackData := &NodeCallbackData{
-			ExecutionID: execCtx.State().ExecutionID,
-			WorkflowID:  execCtx.State().WorkflowID,
-			NodeID:      nodeConfig.ID,
-			NodeType:    nodeConfig.Type,
-			Output:      output,
-			Duration:    duration,
-			StartedAt:   time.Now().Add(-duration),
-			CompletedAt: time.Now(),
+	// Check if node has template_config
+	if tc, ok := config["template_config"].(map[string]any); ok {
+		// Extract mode
+		if mode, ok := tc["mode"].(string); ok {
+			templateConfig.StrictMode = mode == TemplateModeStrict
 		}
 
-		// Include variables if configured
-		if callbackConfig.IncludeVariables {
-			callbackData.Variables = execCtx.GetAllVariables()
+		// Extract fields
+		if fields, ok := tc["fields"].([]interface{}); ok {
+			strFields := make([]string, 0, len(fields))
+			for _, f := range fields {
+				if str, ok := f.(string); ok {
+					strFields = append(strFields, str)
+				}
+			}
+			templateConfig.Fields = strFields
 		}
+	}
 
-		// Execute callback
-		callbackErr := processor.Process(ctx, callbackData)
-
-		callbackDuration := time.Since(startTime)
-
-		// Notify observers that callback completed
-		e.observerManager.NotifyNodeCallbackCompleted(execCtx.State().ExecutionID, node, callbackErr, callbackDuration)
-	}()
+	return templateConfig
 }
 
-// GetExecutor returns the executor for a given node type.
-func (e *WorkflowEngine) GetExecutor(nodeType string) (NodeExecutor, bool) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-	executor, ok := e.executors[nodeType]
-	return executor, ok
+// cloneNodeWithConfig creates a new node with processed config
+// This preserves the node's identity but uses the templated config
+func cloneNodeWithConfig(node domain.Node, processedConfig map[string]any) domain.Node {
+	return &templateNode{
+		original:        node,
+		processedConfig: processedConfig,
+	}
 }
 
-// GetRegisteredExecutors returns all registered executor types.
-func (e *WorkflowEngine) GetRegisteredExecutors() []string {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-
-	types := make([]string, 0, len(e.executors))
-	for t := range e.executors {
-		types = append(types, t)
-	}
-	return types
+// templateNode wraps a node with processed config
+type templateNode struct {
+	original        domain.Node
+	processedConfig map[string]any
 }
 
-// fromDomainExecutionState converts a domain ExecutionState to application ExecutionState.
-func (e *WorkflowEngine) fromDomainExecutionState(domainState *domain.ExecutionState, ctx context.Context) *ExecutionState {
-	// Convert status
-	var status ExecutionStatus
-	switch domainState.Status() {
-	case domain.ExecutionStateStatusPending:
-		status = ExecutionStatusPending
-	case domain.ExecutionStateStatusRunning:
-		status = ExecutionStatusRunning
-	case domain.ExecutionStateStatusCompleted:
-		status = ExecutionStatusCompleted
-	case domain.ExecutionStateStatusFailed:
-		status = ExecutionStatusFailed
-	case domain.ExecutionStateStatusCancelled:
-		status = ExecutionStatusCancelled
-	default:
-		status = ExecutionStatusPending
-	}
+func (tn *templateNode) ID() uuid.UUID {
+	return tn.original.ID()
+}
 
-	// Convert error
-	var err error
-	if domainState.ErrorMessage() != "" {
-		err = fmt.Errorf("%s", domainState.ErrorMessage())
-	}
+func (tn *templateNode) Type() domain.NodeType {
+	return tn.original.Type()
+}
 
-	// Convert NodeStates
-	nodeStates := make(map[string]*NodeState)
-	for ID, ns := range domainState.NodeStates() {
-		var nodeStatus NodeStatus
-		switch ns.Status() {
-		case domain.NodeStateStatusPending:
-			nodeStatus = NodeStatusPending
-		case domain.NodeStateStatusRunning:
-			nodeStatus = NodeStatusRunning
-		case domain.NodeStateStatusCompleted:
-			nodeStatus = NodeStatusCompleted
-		case domain.NodeStateStatusFailed:
-			nodeStatus = NodeStatusFailed
-		case domain.NodeStateStatusSkipped:
-			nodeStatus = NodeStatusSkipped
-		case domain.NodeStateStatusRetrying:
-			nodeStatus = NodeStatusRetrying
-		default:
-			nodeStatus = NodeStatusPending
-		}
+func (tn *templateNode) Name() string {
+	return tn.original.Name()
+}
 
-		var nodeErr error
-		if ns.ErrorMessage() != "" {
-			nodeErr = fmt.Errorf("%s", ns.ErrorMessage())
-		}
+func (tn *templateNode) Config() map[string]any {
+	return tn.processedConfig
+}
 
-		nodeStates[ID] = &NodeState{
-			NodeID:        ns.NodeID(),
-			Status:        nodeStatus,
-			StartedAt:     ns.StartedAt(),
-			FinishedAt:    ns.FinishedAt(),
-			Output:        ns.Output(),
-			Error:         nodeErr,
-			AttemptNumber: ns.AttemptNumber(),
-			MaxAttempts:   ns.MaxAttempts(),
-		}
-	}
+func (tn *templateNode) IOSchema() *domain.NodeIOSchema {
+	return tn.original.IOSchema()
+}
 
-	// Copy variables
-	variables := make(map[string]interface{})
-	for k, v := range domainState.Variables() {
-		variables[k] = v
-	}
+func (tn *templateNode) InputBindingConfig() *domain.InputBindingConfig {
+	return tn.original.InputBindingConfig()
+}
 
-	state := &ExecutionState{
-		ExecutionID: domainState.ExecutionID(),
-		WorkflowID:  domainState.WorkflowID(),
-		Status:      status,
-		Variables:   variables,
-		NodeStates:  nodeStates,
-		StartedAt:   domainState.StartedAt(),
-		FinishedAt:  domainState.FinishedAt(),
-		Error:       err,
-		repository:  e.stateRepository,
-		ctx:         ctx,
-	}
+// NodeExecutor defines the interface for node executors
+type NodeExecutor interface {
+	Execute(ctx context.Context, node domain.Node, inputs *NodeExecutionInputs) (map[string]any, error)
+}
 
-	return state
+// NoOpExecutor is a no-operation executor for start/end nodes
+type NoOpExecutor struct{}
+
+func (e *NoOpExecutor) Execute(ctx context.Context, node domain.Node, variables *domain.VariableSet) (map[string]any, error) {
+	return make(map[string]any), nil
 }

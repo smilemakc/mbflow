@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/smilemakc/mbflow"
-	"github.com/smilemakc/mbflow/internal/application/executor"
 	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
+
+	"github.com/google/uuid"
 )
 
 // This demo demonstrates the complete workflow for collecting, storing, and exporting
@@ -165,39 +166,51 @@ func demoWorkflowWithMetricsAndTraces(metricsDir, tracesDir string) {
 	// Add our composite observer
 	engine.AddObserver(observer)
 
+	workflowID := uuid.New()
+	executionID := uuid.New()
+
 	// Define a simple workflow
-	nodes := []mbflow.NodeConfig{
-		{
-			ID:     "start",
-			Type:   "start",
-			Config: map[string]interface{}{},
-		},
-		{
-			ID:   "transform-1",
-			Type: "transform",
-			Config: map[string]interface{}{
-				"expression": "user_count * 2",
-			},
-		},
-		{
-			ID:     "end",
-			Type:   "end",
-			Config: map[string]interface{}{},
-		},
+	nodeStart, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		"start",
+		"Start Node",
+		map[string]interface{}{},
+	)
+	if err != nil {
+		log.Fatalf("Failed to create nodeStart: %v", err)
 	}
 
-	edges := []executor.EdgeConfig{
-		{
-			FromNodeID: "start",
-			ToNodeID:   "transform-1",
-			EdgeType:   "direct",
+	nodeTransform, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		"transform",
+		"Transform Node",
+		map[string]interface{}{
+			"expression": "user_count * 2",
 		},
-		{
-			FromNodeID: "transform-1",
-			ToNodeID:   "end",
-			EdgeType:   "direct",
-		},
+	)
+	if err != nil {
+		log.Fatalf("Failed to create nodeTransform: %v", err)
 	}
+
+	nodeEnd, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		"end",
+		"End Node",
+		map[string]interface{}{},
+	)
+	if err != nil {
+		log.Fatalf("Failed to create nodeEnd: %v", err)
+	}
+
+	nodes := []mbflow.Node{nodeStart, nodeTransform, nodeEnd}
+
+	edges := mbflow.NewRelationshipBuilder(workflowID).
+		Direct(nodeStart, nodeTransform).
+		Direct(nodeTransform, nodeEnd).
+		Build()
 
 	// Execute workflow
 	ctx := context.Background()
@@ -205,14 +218,14 @@ func demoWorkflowWithMetricsAndTraces(metricsDir, tracesDir string) {
 		"user_count": 42,
 	}
 
-	_, err := engine.ExecuteWorkflow(ctx, "workflow-demo", "exec-real-001", nodes, edges, initialVars)
+	_, err = engine.ExecuteWorkflow(ctx, workflowID, executionID, nodes, edges, initialVars)
 	if err != nil {
 		log.Printf("Workflow execution failed: %v", err)
 	}
 
 	// Display collected metrics
 	fmt.Println("\nCollected Metrics:")
-	workflowMetrics := metrics.GetWorkflowMetrics("workflow-demo")
+	workflowMetrics := metrics.GetWorkflowMetrics(workflowID)
 	if workflowMetrics != nil {
 		fmt.Printf("  Executions: %d\n", workflowMetrics.ExecutionCount)
 		fmt.Printf("  Success: %d, Failures: %d\n", workflowMetrics.SuccessCount, workflowMetrics.FailureCount)

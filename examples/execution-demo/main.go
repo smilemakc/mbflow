@@ -4,149 +4,132 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/smilemakc/mbflow"
-
-	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
 // ExecutionDemo demonstrates the workflow execution engine with monitoring and error handling.
 // This example shows:
 // 1. Creating an executor with monitoring enabled
-// 2. Executing a simple workflow with multiple node types
-// 3. Viewing execution metrics and results
+// 2. Executing a workflow with multiple node types
+// 3. EventStore integration and metrics
 func main() {
 	fmt.Printf("=== Workflow Execution Engine Demo ===\n\n")
-	// Get OpenAI API key from environment (optional for this demo)
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		fmt.Println("Note: OPENAI_API_KEY not set. OpenAI nodes will be skipped.")
-		fmt.Printf("Set OPENAI_API_KEY environment variable to test AI features.\n\n")
-	}
 
-	// Create executor with monitoring enabled
-	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
-		OpenAIAPIKey:     apiKey,
-		EnableMonitoring: true,
-		VerboseLogging:   true,
-	})
-	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackObserverConfig{
-		CallbackURL: "https://heabot.nl.tuna.am",
-	})
+	// Create a workflow with multiple node types
+	workflow, err := mbflow.NewWorkflowBuilder("Demo Workflow", "1.0").
+		WithDescription("Demonstrates various node types and execution features").
+		// Start node
+		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
+		// Transform node - process input data
+		AddNode(string(mbflow.NodeTypeTransform), "process_data", map[string]any{
+			"transformations": map[string]any{
+				"processed": `input_data + " [PROCESSED]"`,
+				"timestamp": `execution_time`,
+				"status":    `"success"`,
+			},
+		}).
+		// Another transform - aggregate results
+		AddNode(string(mbflow.NodeTypeTransform), "aggregate", map[string]any{
+			"transformations": map[string]any{
+				"final_result": `"Data: " + processed + ", Time: " + timestamp + ", Status: " + status`,
+			},
+		}).
+		// End node
+		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
+			"output_keys": []string{"processed", "timestamp", "status", "final_result"},
+		}).
+		// Connect nodes
+		AddEdge("start", "process_data", string(mbflow.EdgeTypeDirect), nil).
+		AddEdge("process_data", "aggregate", string(mbflow.EdgeTypeDirect), nil).
+		AddEdge("aggregate", "end", string(mbflow.EdgeTypeDirect), nil).
+		// Add manual trigger
+		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
+			"name": "Execute Demo",
+		}).
+		Build()
+
 	if err != nil {
-		log.Fatalf("Failed to create HTTP callback observer: %v", err)
-	}
-	executor.AddObserver(httpObserver)
-	// Create a simple workflow
-	workflowID := uuid.NewString()
-	executionID := uuid.NewString()
-
-	fmt.Printf("Workflow ID: %s\n", workflowID)
-	fmt.Printf("Execution ID: %s\n\n", executionID)
-
-	// Define nodes to execute
-	nodes := []mbflow.NodeConfig{
-		// Node 1: Data merger (simulates selecting from multiple sources)
-		{
-			ID:   uuid.NewString(),
-			Name: "Data Merger",
-			Type: "data-merger",
-			Config: map[string]any{
-				"strategy":   "select_first_available",
-				"sources":    []string{"input_data", "fallback_data"},
-				"output_key": "merged_data",
-			},
-		},
-
-		// Node 2: Data aggregator (combines multiple fields)
-		{
-			ID:   uuid.NewString(),
-			Name: "Data Aggregator",
-			Type: "data-aggregator",
-			Config: map[string]any{
-				"fields": map[string]string{
-					"data":      "merged_data",
-					"timestamp": "execution_time",
-					"status":    "execution_status",
-				},
-				"output_key": "aggregated_result",
-			},
-		},
-
-		// Node 3: Conditional router (routes based on status)
-		{
-			ID:   uuid.NewString(),
-			Name: "Conditional Router",
-			Type: "conditional-router",
-			Config: map[string]any{
-				"input_key": "execution_status",
-				"routes": map[string]string{
-					"success": "success_path",
-					"failure": "failure_path",
-					"default": "default_path",
-				},
-			},
-		},
+		log.Fatalf("Failed to create workflow: %v", err)
 	}
 
-	// If OpenAI API key is available, add an OpenAI node
-	if apiKey != "" {
-		openaiNode := mbflow.NodeConfig{
-			ID:   uuid.NewString(),
-			Name: "OpenAI Summarizer",
-			Type: "openai-completion",
-			Config: map[string]any{
-				"model":      "gpt-4o",
-				"prompt":     "Summarize this data in one sentence: {{merged_data}}",
-				"max_tokens": 100,
-				"output_key": "ai_summary",
-			},
-		}
-		nodes = append(nodes, openaiNode)
-	}
+	fmt.Printf("✓ Workflow created: %s\n", workflow.Name())
+	fmt.Printf("  Nodes: %d\n", len(workflow.GetAllNodes()))
+	fmt.Printf("  Edges: %d\n\n", len(workflow.GetAllEdges()))
+
+	// Create executor with monitoring and metrics enabled
+	executor := mbflow.NewExecutorBuilder().
+		EnableParallelExecution(5).
+		WithObserver(monitoring.NewLogObserver(monitoring.NewDefaultConsoleLogger("execution-demo"))).
+		EnableRetry(2).
+		EnableCircuitBreaker().
+		EnableMetrics().
+		Build()
+
+	fmt.Println("✓ Executor configured:")
+	fmt.Println("  - Monitoring: enabled")
+	fmt.Println("  - Metrics: enabled")
+	fmt.Println("  - Retry: enabled (max 2 attempts)")
+	fmt.Println("  - Circuit breaker: enabled")
 
 	// Set initial variables
-	initialVariables := map[string]interface{}{
+	initialVars := map[string]any{
 		"input_data": `**Execution Engine Core**
 
 - Workflow orchestration and state management
 - Node-by-node execution with dependency handling
 - Thread-safe execution state tracking
 - Variable storage and substitution`,
-		"execution_time":   time.Now().Format(time.RFC3339),
-		"execution_status": "success",
+		"execution_time": time.Now().Format(time.RFC3339),
 	}
 
-	fmt.Printf("=== Executing Workflow ===\n\n")
+	fmt.Println("▶ Executing workflow...")
+	fmt.Printf("  Input data: %s\n", initialVars["input_data"].(string))
+	fmt.Printf("  Execution time: %s\n\n", initialVars["execution_time"].(string))
 
-	// Execute workflow (with empty edges for sequential execution)
+	// Execute workflow
 	ctx := context.Background()
-	state, err := executor.ExecuteWorkflow(ctx, workflowID, executionID, nodes, nil, initialVariables)
+	execution, err := executor.ExecuteWorkflow(
+		ctx,
+		workflow,
+		workflow.GetAllTriggers()[0],
+		initialVars,
+	)
 
 	if err != nil {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
 
-	fmt.Printf("\n=== Execution Results ===\n\n")
-	fmt.Printf("Execution Status: %s\n", state.GetStatusString())
-	fmt.Printf("Execution Duration: %s\n", state.GetExecutionDuration())
-	fmt.Printf("Execution ID: %s\n\n", state.GetExecutionID())
+	fmt.Println("\n✓ Workflow execution completed!")
+	fmt.Printf("  Execution ID: %s\n", execution.ID())
+	fmt.Printf("  Phase: %s\n", execution.Phase())
+	fmt.Printf("  Duration: %v\n", execution.Duration())
 
 	// Display variables
-	fmt.Printf("=== Execution Variables ===\n\n")
-	variables := state.GetAllVariables()
-	for key, value := range variables {
+	fmt.Println("\n📊 Final Variables:")
+	vars := execution.Variables().All()
+	for key, value := range vars {
 		fmt.Printf("  %s: %v\n", key, value)
 	}
 
-	// Display metrics
-	var nodeIDs []string
-	for _, node := range nodes {
-		nodeIDs = append(nodeIDs, node.ID)
+	// Get and display events from event store
+	events, err := executor.EventStore().GetEvents(ctx, execution.ID())
+	if err != nil {
+		log.Printf("Warning: Failed to get events: %v", err)
+	} else {
+		fmt.Printf("\n📝 Event Store - Total events: %d\n", len(events))
+		for i, evt := range events {
+			fmt.Printf("  %d. [Seq:%d] %s\n", i+1, evt.SequenceNumber(), evt.EventType())
+		}
 	}
-	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, apiKey != "")
 
 	fmt.Println("\n=== Demo Complete ===")
+	fmt.Println("\nKey Features Demonstrated:")
+	fmt.Println("✓ Workflow Builder pattern")
+	fmt.Println("✓ Multiple node types (Start, Transform, End)")
+	fmt.Println("✓ Event sourcing with EventStore")
+	fmt.Println("✓ Execution monitoring")
+	fmt.Println("✓ Variable substitution and transformations")
 }

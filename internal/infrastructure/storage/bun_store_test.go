@@ -36,7 +36,7 @@ func TestBunStore_Nodes(t *testing.T) {
 	workflowID := uuid.NewString()
 	nodeID := uuid.NewString()
 
-	node, err := domain.NewNode(domain.NodeConfig{
+	node, err := domain.RestoreNode(domain.NodeConfig{
 		ID:         nodeID,
 		WorkflowID: workflowID,
 		Type:       "test-node",

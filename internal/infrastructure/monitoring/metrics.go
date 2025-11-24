@@ -3,6 +3,8 @@ package monitoring
 import (
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // MetricsCollector collects execution metrics for workflows and nodes.
@@ -160,11 +162,11 @@ func (mc *MetricsCollector) RecordAIRequest(promptTokens, completionTokens int, 
 }
 
 // GetWorkflowMetrics returns metrics for a specific workflow.
-func (mc *MetricsCollector) GetWorkflowMetrics(workflowID string) *WorkflowMetrics {
+func (mc *MetricsCollector) GetWorkflowMetrics(workflowID uuid.UUID) *WorkflowMetrics {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
-	if metrics, ok := mc.workflowMetrics[workflowID]; ok {
+	if metrics, ok := mc.workflowMetrics[workflowID.String()]; ok {
 		// Return a copy
 		c := *metrics
 		return &c
@@ -186,11 +188,11 @@ func (mc *MetricsCollector) GetAllWorkflowMetrics() map[string]*WorkflowMetrics 
 }
 
 // GetNodeMetricsByID returns metrics for a specific node ID.
-func (mc *MetricsCollector) GetNodeMetricsByID(nodeID string) *NodeMetrics {
+func (mc *MetricsCollector) GetNodeMetricsByID(nodeID uuid.UUID) *NodeMetrics {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
-	if metrics, ok := mc.nodeMetrics[nodeID]; ok {
+	if metrics, ok := mc.nodeMetrics[nodeID.String()]; ok {
 		c := *metrics
 		return &c
 	}

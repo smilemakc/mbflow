@@ -45,59 +45,59 @@ func (lo *LogObserver) OnExecutionFailed(workflowID, executionID string, err err
 }
 
 // OnNodeStarted is called when a node starts executing.
-func (lo *LogObserver) OnNodeStarted(executionID string, node *domain.Node, attemptNumber int) {
+func (lo *LogObserver) OnNodeStarted(workflowID, executionID string, node domain.Node, attemptNumber int) {
 	if lo.logger == nil {
 		return
 	}
-	lo.logger.Log(NewNodeStartedEvent(executionID, node, attemptNumber))
+	lo.logger.Log(NewNodeStartedEvent(workflowID, executionID, node, attemptNumber))
 }
 
 // OnNodeCompleted is called when a node completes successfully.
-func (lo *LogObserver) OnNodeCompleted(executionID string, node *domain.Node, output interface{}, duration time.Duration) {
+func (lo *LogObserver) OnNodeCompleted(workflowID, executionID string, node domain.Node, output interface{}, duration time.Duration) {
 	if lo.logger == nil {
 		return
 	}
 
-	event := NewNodeCompletedEvent(executionID, node, output, duration)
+	event := NewNodeCompletedEvent(workflowID, executionID, node, output, duration)
 	lo.logger.Log(event)
 }
 
 // OnNodeFailed is called when a node fails.
-func (lo *LogObserver) OnNodeFailed(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) {
+func (lo *LogObserver) OnNodeFailed(workflowID, executionID string, node domain.Node, err error, duration time.Duration, willRetry bool) {
 	if lo.logger == nil {
 		return
 	}
-	lo.logger.Log(NewNodeFailedEvent(executionID, node, err, duration, willRetry))
+	lo.logger.Log(NewNodeFailedEvent(workflowID, executionID, node, err, duration, willRetry))
 }
 
 // OnNodeRetrying is called when a node is being retried.
-func (lo *LogObserver) OnNodeRetrying(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) {
+func (lo *LogObserver) OnNodeRetrying(workflowID, executionID string, node domain.Node, attemptNumber int, delay time.Duration) {
 	if lo.logger == nil {
 		return
 	}
-	lo.logger.Log(NewNodeRetryingEvent(executionID, node, attemptNumber, delay))
+	lo.logger.Log(NewNodeRetryingEvent(workflowID, executionID, node, attemptNumber, delay))
 }
 
 // OnVariableSet is called when a variable is set in the execution context.
-func (lo *LogObserver) OnVariableSet(executionID, key string, value interface{}) {
+func (lo *LogObserver) OnVariableSet(workflowID, executionID, key string, value interface{}) {
 	if lo.logger == nil {
 		return
 	}
-	lo.logger.Log(NewVariableSetEvent(executionID, key, value))
+	lo.logger.Log(NewVariableSetEvent(workflowID, executionID, key, value))
 }
 
 // OnNodeCallbackStarted is called when a node callback starts processing.
-func (lo *LogObserver) OnNodeCallbackStarted(executionID string, node *domain.Node) {
+func (lo *LogObserver) OnNodeCallbackStarted(workflowID, executionID string, node domain.Node) {
 	if lo.logger == nil {
 		return
 	}
-	lo.logger.Log(NewNodeCallbackStartedEvent(executionID, node))
+	lo.logger.Log(NewNodeCallbackStartedEvent(workflowID, executionID, node))
 }
 
 // OnNodeCallbackCompleted is called when a node callback completes.
-func (lo *LogObserver) OnNodeCallbackCompleted(executionID string, node *domain.Node, err error, duration time.Duration) {
+func (lo *LogObserver) OnNodeCallbackCompleted(workflowID, executionID string, node domain.Node, err error, duration time.Duration) {
 	if lo.logger == nil {
 		return
 	}
-	lo.logger.Log(NewNodeCallbackCompletedEvent(executionID, node, err, duration))
+	lo.logger.Log(NewNodeCallbackCompletedEvent(workflowID, executionID, node, err, duration))
 }

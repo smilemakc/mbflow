@@ -1,216 +1,509 @@
-# MBFlow - Workflow Engine Library
+# MBFlow - Modern Workflow Orchestration Engine
 
-MBFlow - это библиотека для создания и выполнения рабочих процессов (workflows) на Go, следующая принципам Domain-Driven Design (DDD).
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Установка
+MBFlow is a sophisticated workflow orchestration engine written in Go that implements Domain-Driven Design (DDD) principles with Event Sourcing. It provides powerful features for building complex, reliable, and scalable workflow automation systems.
+
+## 🌟 Key Features
+
+### Core Capabilities
+- **Event Sourcing Architecture** - Complete audit trail and state reconstruction
+- **Domain-Driven Design** - Clean, maintainable, and testable codebase
+- **Parallel Execution** - Automatic wave-based parallel node execution
+- **Scoped Variable Handling** - Intelligent data flow with automatic collision resolution
+- **Retry Mechanisms** - Configurable retry policies with exponential backoff
+- **Circuit Breakers** - Fault tolerance for external service calls
+- **Complex Routing** - Conditional branching and dynamic workflow paths
+- **Schema Validation** - Type-safe input/output contracts for nodes
+
+### Advanced Features
+- **Multi-Parent Nodes** - Automatic namespace collision resolution
+- **Expression Language** - Dynamic transformations using expr-lang
+- **Template Processing** - Variable substitution in configurations
+- **Join Strategies** - WaitAll, WaitAny, WaitN for synchronizing parallel branches
+- **Error Strategies** - FailFast, ContinueOnError, BestEffort, RequireN
+- **Real-time Monitoring** - Observer pattern for execution tracking
+- **Metrics & Tracing** - Prometheus-compatible metrics and distributed tracing
+
+## 📦 Installation
 
 ```bash
-go get github.com/yourusername/mbflow
+go get github.com/smilemakc/mbflow
 ```
 
-## Быстрый старт
+## 🚀 Quick Start
+
+### Simple Workflow Example
 
 ```go
 package main
 
 import (
     "context"
-    "encoding/json"
     "fmt"
     "log"
-    
-    "github.com/google/uuid"
+
     "github.com/smilemakc/mbflow"
 )
 
 func main() {
-    // Создаем хранилище в памяти
-    storage := mbflow.NewMemoryStorage()
-    
-    ctx := context.Background()
-    
-    // Создаем новый рабочий процесс
-    var spec map[string]any
-    json.Unmarshal([]byte(`{"description": "My first workflow"}`), &spec)
-    workflow := mbflow.NewWorkflow(
-        uuid.NewString(),
-        "My Workflow",
-        "1.0.0",
-        spec,
-    )
-    
-    // Сохраняем workflow
-    if err := storage.SaveWorkflow(ctx, workflow); err != nil {
+    // Create a simple workflow
+    workflow, err := mbflow.NewWorkflowBuilder("Simple Workflow", "1.0").
+        WithDescription("Process and transform data").
+        // Define nodes
+        AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
+        AddNodeWithConfig(string(mbflow.NodeTypeTransform), "process", &mbflow.TransformConfig{
+            Transformations: map[string]string{
+                "doubled": "input * 2",
+                "message": `"Processed: " + string(doubled)`,
+            },
+        }).
+        AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
+            "output_keys": []string{"doubled", "message"},
+        }).
+        // Connect nodes
+        AddEdge("start", "process", string(mbflow.EdgeTypeDirect), nil).
+        AddEdge("process", "end", string(mbflow.EdgeTypeDirect), nil).
+        // Add trigger
+        AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
+            "name": "Manual Start",
+        }).
+        Build()
+
+    if err != nil {
         log.Fatal(err)
     }
-    
-    fmt.Printf("Created workflow: %s\n", workflow.Name())
+
+    // Create executor
+    executor := mbflow.NewExecutorBuilder().
+        EnableParallelExecution(10).
+        EnableRetry(3).
+        Build()
+
+    // Execute workflow
+    ctx := context.Background()
+    execution, err := executor.ExecuteWorkflow(ctx, workflow, workflow.GetAllTriggers()[0], map[string]any{
+        "input": 21.0,
+    })
+
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Get results
+    vars := execution.Variables().All()
+    fmt.Printf("Result: doubled=%v, message=%v\n", vars["doubled"], vars["message"])
+    // Output: Result: doubled=42, message=Processed: 42
 }
 ```
 
-## Основные концепции
-
-### Workflow (Рабочий процесс)
-
-Workflow представляет собой граф из узлов (nodes) и связей (edges), определяющий последовательность операций.
+### Parallel Workflow with Collision Resolution
 
 ```go
-workflow := mbflow.NewWorkflow(id, name, version, spec)
+workflow, _ := mbflow.NewWorkflowBuilder("Parallel Processing", "1.0").
+    AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
+    AddNode(string(mbflow.NodeTypeParallel), "fork", map[string]any{}).
+
+    // Three parallel branches
+    AddNodeWithConfig(string(mbflow.NodeTypeTransform), "branch1", &mbflow.TransformConfig{
+        Transformations: map[string]string{"result": "value * 2"},
+    }).
+    AddNodeWithConfig(string(mbflow.NodeTypeTransform), "branch2", &mbflow.TransformConfig{
+        Transformations: map[string]string{"result": "value * value"},
+    }).
+    AddNodeWithConfig(string(mbflow.NodeTypeTransform), "branch3", &mbflow.TransformConfig{
+        Transformations: map[string]string{"result": "value + 100"},
+    }).
+
+    // Aggregate results with automatic namespace collision resolution
+    AddNodeWithConfig(string(mbflow.NodeTypeTransform), "aggregate", &mbflow.TransformConfig{
+        Transformations: map[string]string{
+            // Variables automatically namespaced: branch1_result, branch2_result, branch3_result
+            "sum": "branch1_result + branch2_result + branch3_result",
+        },
+    }).
+
+    AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{}).
+
+    // Connect workflow
+    AddEdge("start", "fork", string(mbflow.EdgeTypeDirect), nil).
+    AddEdge("fork", "branch1", string(mbflow.EdgeTypeFork), nil).
+    AddEdge("fork", "branch2", string(mbflow.EdgeTypeFork), nil).
+    AddEdge("fork", "branch3", string(mbflow.EdgeTypeFork), nil).
+    AddEdge("branch1", "aggregate", string(mbflow.EdgeTypeJoin), map[string]any{
+        "join_strategy": string(mbflow.JoinStrategyWaitAll),
+    }).
+    AddEdge("branch2", "aggregate", string(mbflow.EdgeTypeJoin), nil).
+    AddEdge("branch3", "aggregate", string(mbflow.EdgeTypeJoin), nil).
+    AddEdge("aggregate", "end", string(mbflow.EdgeTypeDirect), nil).
+
+    AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{}).
+    Build()
+
+// Execute with value=10
+// branch1: 10 * 2 = 20
+// branch2: 10 * 10 = 100
+// branch3: 10 + 100 = 110
+// sum: 20 + 100 + 110 = 230
 ```
 
-### Node (Узел)
+## 🏗️ Architecture
 
-Node - это отдельная операция в рабочем процессе.
-
-```go
-node := mbflow.NewNode(
-    id,
-    workflowID,
-    "http-request",  // тип узла
-    "Fetch Data",    // имя
-    map[string]any{"url": "https://api.example.com"}, // конфигурация
-)
-```
-
-Для отправки уведомлений доступен тип узла `telegram-message`, использующий Telegram Bot API:
-
-```go
-node := mbflow.NewNode(
-    id,
-    workflowID,
-    "telegram-message",
-    "Send update",
-    map[string]any{
-        "chat_id": "@my_channel",
-        "text":    "Build finished with status {{status}}",
-    },
-)
-```
-
-### Edge (Связь)
-
-Edge определяет переход между узлами.
-
-```go
-edge := mbflow.NewEdge(
-    id,
-    workflowID,
-    fromNodeID,
-    toNodeID,
-    "direct",  // тип связи
-    map[string]any{}, // конфигурация
-)
-```
-
-### Execution (Выполнение)
-
-Execution представляет собой конкретный запуск workflow.
-
-```go
-execution := mbflow.NewExecution(id, workflowID)
-```
-
-## Хранилища
-
-### In-Memory Storage
-
-Для разработки и тестирования:
-
-```go
-storage := mbflow.NewMemoryStorage()
-```
-
-### PostgreSQL Storage
-
-Для production использования:
-
-```go
-storage := mbflow.NewPostgresStorage("postgres://user:pass@localhost:5432/dbname?sslmode=disable")
-```
-
-## Примеры
-
-Полные примеры использования находятся в директории [examples/](./examples/).
-
-### Базовый пример
-
-```bash
-cd examples/basic
-go run main.go
-```
-
-## API Reference
-
-### Storage Interface
-
-```go
-type Storage interface {
-    // Workflows
-    SaveWorkflow(ctx context.Context, w Workflow) error
-    GetWorkflow(ctx context.Context, id string) (Workflow, error)
-    ListWorkflows(ctx context.Context) ([]Workflow, error)
-    
-    // Executions
-    SaveExecution(ctx context.Context, e Execution) error
-    GetExecution(ctx context.Context, id string) (Execution, error)
-    ListExecutions(ctx context.Context) ([]Execution, error)
-    
-    // Nodes
-    SaveNode(ctx context.Context, n Node) error
-    GetNode(ctx context.Context, id string) (Node, error)
-    ListNodes(ctx context.Context, workflowID string) ([]Node, error)
-    
-    // Edges
-    SaveEdge(ctx context.Context, e Edge) error
-    GetEdge(ctx context.Context, id string) (Edge, error)
-    ListEdges(ctx context.Context, workflowID string) ([]Edge, error)
-    
-    // Triggers
-    SaveTrigger(ctx context.Context, t Trigger) error
-    GetTrigger(ctx context.Context, id string) (Trigger, error)
-    ListTriggers(ctx context.Context, workflowID string) ([]Trigger, error)
-    
-    // Events
-    AppendEvent(ctx context.Context, e Event) error
-    ListEventsByExecution(ctx context.Context, executionID string) ([]Event, error)
-}
-```
-
-## Архитектура
-
-Проект следует принципам Domain-Driven Design (DDD):
+### Layered Design (DDD)
 
 ```
 mbflow/
-├── mbflow.go           # Публичные интерфейсы
-├── factory.go          # Фабричные функции
-├── adapter.go          # Адаптеры для внутренних реализаций
-├── internal/           # Внутренняя реализация (не экспортируется)
-│   ├── domain/         # Доменная логика
-│   ├── infrastructure/ # Инфраструктурный слой
-│   └── application/    # Слой приложения
-└── examples/           # Примеры использования
+├── internal/
+│   ├── domain/              # Domain layer - Business logic & aggregates
+│   │   ├── workflow.go      # Workflow aggregate
+│   │   ├── execution.go     # Execution aggregate (event sourced)
+│   │   ├── node.go          # Node entity
+│   │   ├── edge.go          # Edge entity
+│   │   ├── variables.go     # Variable handling
+│   │   └── events.go        # Domain events
+│   │
+│   ├── application/         # Application layer - Use cases & orchestration
+│   │   └── executor/
+│   │       ├── engine.go           # Workflow execution engine
+│   │       ├── variable_binder.go  # Scoped variable binding
+│   │       ├── node_executors.go   # Built-in node executors
+│   │       └── graph.go            # Execution graph & planning
+│   │
+│   └── infrastructure/      # Infrastructure layer - External concerns
+│       ├── storage/         # Event store implementations
+│       └── monitoring/      # Observability
+│
+├── mbflow.go               # Public API
+└── executor.go             # Executor builder API
 ```
 
-## Разработка
+### Event Sourcing Flow
 
-### Запуск тестов
+```
+Command → Aggregate → Event → EventStore → State Reconstruction
+   ↓                              ↓
+State Change                  Observers
+```
+
+All state changes in `Execution` are captured as immutable events:
+- `ExecutionStarted`
+- `NodeStarted`, `NodeCompleted`, `NodeFailed`
+- `VariableSet`
+- `ExecutionCompleted`, `ExecutionFailed`
+
+Events are the source of truth - state can be completely reconstructed by replaying events.
+
+## 🔄 Scoped Variable Handling
+
+MBFlow implements a sophisticated variable scoping system that ensures data isolation and prevents unintended side effects.
+
+### Key Concepts
+
+**1. Three Variable Contexts**
+
+- **Global Variables**: Read-only context available to all nodes (from `initialValues`)
+- **Scoped Variables**: Only contains outputs from direct parent nodes
+- **Node Outputs**: Separately tracked per-node for precise data lineage
+
+**2. NodeExecutionInputs**
+
+Every node executor receives:
+
+```go
+type NodeExecutionInputs struct {
+    Variables     *VariableSet  // Scoped variables from parents
+    GlobalContext *VariableSet  // Read-only global context
+    ParentOutputs map[UUID]*VariableSet  // Raw parent outputs
+    ExecutionID   UUID
+    WorkflowID    UUID
+}
+```
+
+**3. Automatic Collision Resolution**
+
+When multiple parent nodes produce the same variable name:
+
+```
+Strategy: NamespaceByParent (default)
+├── branch1 → { result: 10 }
+├── branch2 → { result: 20 }
+└── Child receives: { branch1_result: 10, branch2_result: 20 }
+
+Strategy: Collect
+├── branch1 → { result: 10 }
+├── branch2 → { result: 20 }
+└── Child receives: { result: [10, 20] }
+
+Strategy: Error
+└── Fails execution if collision detected
+```
+
+### Configuration
+
+```go
+// Custom variable binding
+bindingConfig := &InputBindingConfig{
+    AutoBind: true,
+    CollisionStrategy: CollisionStrategyNamespaceByParent,
+    Mappings: map[string]string{
+        "user_id": "fetch_user.id",    // Explicit mapping
+        "total":   "calculate.sum",
+    },
+}
+```
+
+## 🎯 Node Types
+
+### Built-in Node Types
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| **Start** | Entry point | Workflow initialization |
+| **End** | Exit point | Workflow completion |
+| **Transform** | Data transformation | Expression-based data manipulation |
+| **HTTP** | HTTP requests | API calls, webhooks |
+| **ConditionalRoute** | Branching logic | Dynamic routing based on conditions |
+| **Parallel** | Fork execution | Start parallel branches |
+| **Join** | Synchronize | Wait for parallel branches |
+| **JSONParser** | Parse JSON | Extract structured data |
+| **DataAggregator** | Aggregate data | Sum, count, min, max, collect |
+| **DataMerger** | Merge objects | Combine multiple data sources |
+| **ScriptExecutor** | Run scripts | Execute expr-lang scripts |
+| **OpenAICompletion** | AI integration | OpenAI API calls |
+
+### Custom Node Executors
+
+Create custom nodes by implementing the `NodeExecutor` interface:
+
+```go
+type CustomExecutor struct{}
+
+func (e *CustomExecutor) Execute(
+    ctx context.Context,
+    node domain.Node,
+    inputs *NodeExecutionInputs,
+) (map[string]any, error) {
+    // Access scoped variables
+    value, _ := inputs.Variables.Get("input_key")
+
+    // Access global context
+    apiKey, _ := inputs.GlobalContext.Get("api_key")
+
+    // Your custom logic here
+    result := processData(value, apiKey)
+
+    return map[string]any{
+        "output_key": result,
+    }, nil
+}
+
+// Register the executor
+executor.RegisterExecutor("custom_type", &CustomExecutor{})
+```
+
+## 🔧 Configuration
+
+### Workflow Builder
+
+```go
+workflow := mbflow.NewWorkflowBuilder("MyWorkflow", "1.0").
+    WithDescription("Workflow description").
+    WithMetadata(map[string]string{
+        "author": "team",
+        "environment": "production",
+    }).
+    AddNode(...).
+    AddEdge(...).
+    AddTrigger(...).
+    Build()
+```
+
+### Executor Builder
+
+```go
+executor := mbflow.NewExecutorBuilder().
+    // Parallel execution
+    EnableParallelExecution(10).  // Max 10 concurrent nodes
+
+    // Retry configuration
+    EnableRetry(3).  // Max 3 retry attempts
+    WithRetryPolicy(&RetryPolicy{
+        MaxAttempts:  3,
+        InitialDelay: time.Second,
+        MaxDelay:     30 * time.Second,
+        Multiplier:   2.0,
+    }).
+
+    // Circuit breaker
+    EnableCircuitBreaker().
+    WithCircuitBreakerConfig(&CircuitBreakerConfig{
+        Threshold:     5,
+        Timeout:       60 * time.Second,
+        HalfOpenMax:   3,
+    }).
+
+    // Monitoring
+    WithObserver(observer).
+    EnableMetrics().
+
+    // Storage
+    WithEventStore(customEventStore).
+
+    Build()
+```
+
+## 📊 Monitoring & Observability
+
+### Observer Pattern
+
+```go
+type MyObserver struct{}
+
+func (o *MyObserver) OnExecutionStarted(executionID uuid.UUID, workflow Workflow) {
+    log.Printf("Execution %s started for workflow %s", executionID, workflow.Name())
+}
+
+func (o *MyObserver) OnNodeCompleted(executionID, nodeID uuid.UUID, output map[string]any, duration time.Duration) {
+    log.Printf("Node completed in %v: %+v", duration, output)
+}
+
+// Attach observer
+executor := mbflow.NewExecutorBuilder().
+    WithObserver(&MyObserver{}).
+    Build()
+```
+
+### Metrics Collection
+
+```go
+import "github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
+
+metricsCollector := monitoring.NewMetricsCollector()
+executor := mbflow.NewExecutorBuilder().
+    WithObserver(metricsCollector).
+    EnableMetrics().
+    Build()
+
+// Access Prometheus metrics
+metrics := metricsCollector.GetMetrics()
+```
+
+## 🧪 Testing
+
+### Unit Testing Nodes
+
+```go
+func TestCustomNode(t *testing.T) {
+    executor := &CustomExecutor{}
+
+    // Create test inputs
+    variables := domain.NewVariableSet(nil)
+    variables.Set("input", 42)
+
+    globalContext := domain.NewVariableSet(nil)
+    globalContext.Set("config", "value")
+    globalContext.SetReadOnly(true)
+
+    inputs := &NodeExecutionInputs{
+        Variables:     variables,
+        GlobalContext: globalContext,
+    }
+
+    // Execute
+    node := createTestNode("custom", nil)
+    output, err := executor.Execute(context.Background(), node, inputs)
+
+    // Assert
+    require.NoError(t, err)
+    assert.Equal(t, expectedValue, output["result"])
+}
+```
+
+### Integration Testing
+
+```go
+func TestWorkflowExecution(t *testing.T) {
+    workflow := buildTestWorkflow()
+    executor := mbflow.NewExecutorBuilder().Build()
+
+    execution, err := executor.ExecuteWorkflow(
+        context.Background(),
+        workflow,
+        workflow.GetAllTriggers()[0],
+        map[string]any{"input": "test"},
+    )
+
+    require.NoError(t, err)
+    assert.Equal(t, domain.ExecutionPhaseCompleted, execution.Phase())
+
+    // Verify results
+    vars := execution.Variables().All()
+    assert.Equal(t, expectedOutput, vars["output_key"])
+}
+```
+
+## 📚 Examples
+
+Explore comprehensive examples in the `/examples` directory:
+
+- **simple-workflow** - Basic transformation workflow
+- **parallel-workflow** - Parallel execution with join
+- **error-handling** - Error strategies and recovery
+- **ai-content-pipeline** - OpenAI integration
+- **customer-support-ai** - Complex AI workflow
+- **data-analysis-reporting** - Data processing pipeline
+
+Run examples:
+```bash
+go run examples/simple-workflow/main.go
+go run examples/parallel-workflow/main.go
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+1. Fork the repository
+2. Create a feature branch
+3. Write tests for new functionality
+4. Ensure all tests pass: `go test ./...`
+5. Run linter: `go vet ./...`
+6. Submit a pull request
+
+### Development Setup
 
 ```bash
+# Clone repository
+git clone https://github.com/smilemakc/mbflow.git
+cd mbflow
+
+# Run tests
 go test ./...
+
+# Run with coverage
+go test -cover ./...
+
+# Build all examples
+go build ./examples/...
 ```
 
-### Запуск сервера (для разработки)
+## 📄 License
 
-```bash
-cd cmd/server
-go run main.go
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Лицензия
+## 🙏 Acknowledgments
 
-MIT
+- Built with [expr-lang/expr](https://github.com/expr-lang/expr) for expression evaluation
+- Inspired by modern workflow engines and DDD principles
+- Event sourcing patterns from Domain-Driven Design community
 
-## Вклад в проект
+## 📞 Support
 
-Мы приветствуем вклад в проект! Пожалуйста, создавайте issues и pull requests.
+- 📧 Email: support@mbflow.dev
+- 🐛 Issues: [GitHub Issues](https://github.com/smilemakc/mbflow/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/smilemakc/mbflow/discussions)
+
+---
+
+**MBFlow** - Build reliable, scalable workflow automation systems with confidence.

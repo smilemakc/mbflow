@@ -3,10 +3,10 @@ package executor
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain"
 )
 
@@ -14,15 +14,15 @@ import (
 // It manages the execution context, variables, and node states.
 type ExecutionState struct {
 	// ExecutionID is the unique identifier for this execution
-	ExecutionID string
+	ExecutionID uuid.UUID
 	// WorkflowID is the ID of the workflow being executed
-	WorkflowID string
+	WorkflowID uuid.UUID
 	// Status is the current status of the execution
 	Status ExecutionStatus
 	// Variables stores the execution variables (output from nodes)
 	Variables map[string]interface{}
 	// NodeStates tracks the state of each node
-	NodeStates map[string]*NodeState
+	NodeStates map[uuid.UUID]*NodeState
 	// StartedAt is when the execution started
 	StartedAt time.Time
 	// FinishedAt is when the execution finished (nil if still running)
@@ -30,7 +30,7 @@ type ExecutionState struct {
 	// Error stores any execution error
 	Error error
 	// repository is optional; when set, state will be persisted on every change
-	repository domain.ExecutionStateRepository
+	// repository domain.ExecutionStateRepository
 	// ctx is the context for persistence operations
 	ctx context.Context
 	// mu protects concurrent access to the state
@@ -56,7 +56,7 @@ const (
 // NodeState represents the state of a single node execution.
 type NodeState struct {
 	// NodeID is the ID of the node
-	NodeID string
+	NodeID uuid.UUID
 	// Status is the current status of the node
 	Status NodeStatus
 	// StartedAt is when the node started executing
@@ -92,28 +92,28 @@ const (
 )
 
 // NewExecutionState creates a new ExecutionState.
-func NewExecutionState(executionID, workflowID string) *ExecutionState {
+func NewExecutionState(executionID, workflowID uuid.UUID) *ExecutionState {
 	return &ExecutionState{
 		ExecutionID: executionID,
 		WorkflowID:  workflowID,
 		Status:      ExecutionStatusPending,
 		Variables:   make(map[string]interface{}),
-		NodeStates:  make(map[string]*NodeState),
+		NodeStates:  make(map[uuid.UUID]*NodeState),
 		StartedAt:   time.Now(),
 	}
 }
 
 // NewExecutionStateWithRepository creates a new ExecutionState with persistence support.
-func NewExecutionStateWithRepository(ctx context.Context, executionID, workflowID string, repository domain.ExecutionStateRepository) *ExecutionState {
+func NewExecutionStateWithRepository(ctx context.Context, executionID, workflowID uuid.UUID, repository any) *ExecutionState {
 	return &ExecutionState{
 		ExecutionID: executionID,
 		WorkflowID:  workflowID,
 		Status:      ExecutionStatusPending,
 		Variables:   make(map[string]interface{}),
-		NodeStates:  make(map[string]*NodeState),
+		NodeStates:  make(map[uuid.UUID]*NodeState),
 		StartedAt:   time.Now(),
-		repository:  repository,
-		ctx:         ctx,
+		// repository:  repository,
+		ctx: ctx,
 	}
 }
 
@@ -144,12 +144,12 @@ func (s *ExecutionState) GetStatusString() string {
 }
 
 // GetExecutionID returns the execution ID.
-func (s *ExecutionState) GetExecutionID() string {
+func (s *ExecutionState) GetExecutionID() uuid.UUID {
 	return s.ExecutionID
 }
 
 // GetWorkflowID returns the workflow ID.
-func (s *ExecutionState) GetWorkflowID() string {
+func (s *ExecutionState) GetWorkflowID() uuid.UUID {
 	return s.WorkflowID
 }
 
@@ -183,7 +183,7 @@ func (s *ExecutionState) GetAllVariables() map[string]interface{} {
 }
 
 // SetNodeState sets the state for a node.
-func (s *ExecutionState) SetNodeState(nodeID string, state *NodeState) {
+func (s *ExecutionState) SetNodeState(nodeID uuid.UUID, state *NodeState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.NodeStates[nodeID] = state
@@ -192,7 +192,7 @@ func (s *ExecutionState) SetNodeState(nodeID string, state *NodeState) {
 }
 
 // GetNodeState retrieves the state for a node.
-func (s *ExecutionState) GetNodeState(nodeID string) (*NodeState, bool) {
+func (s *ExecutionState) GetNodeState(nodeID uuid.UUID) (*NodeState, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	state, ok := s.NodeStates[nodeID]
@@ -200,7 +200,7 @@ func (s *ExecutionState) GetNodeState(nodeID string) (*NodeState, bool) {
 }
 
 // InitializeNodeState initializes the state for a node if it doesn't exist.
-func (s *ExecutionState) InitializeNodeState(nodeID string, maxAttempts int) *NodeState {
+func (s *ExecutionState) InitializeNodeState(nodeID uuid.UUID, maxAttempts int) *NodeState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if state, ok := s.NodeStates[nodeID]; ok {
@@ -220,7 +220,7 @@ func (s *ExecutionState) InitializeNodeState(nodeID string, maxAttempts int) *No
 }
 
 // MarkNodeStarted marks a node as started.
-func (s *ExecutionState) MarkNodeStarted(nodeID string) {
+func (s *ExecutionState) MarkNodeStarted(nodeID uuid.UUID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if state, ok := s.NodeStates[nodeID]; ok {
@@ -234,7 +234,7 @@ func (s *ExecutionState) MarkNodeStarted(nodeID string) {
 }
 
 // MarkNodeCompleted marks a node as completed with output.
-func (s *ExecutionState) MarkNodeCompleted(nodeID string, output interface{}) {
+func (s *ExecutionState) MarkNodeCompleted(nodeID uuid.UUID, output interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if state, ok := s.NodeStates[nodeID]; ok {
@@ -249,7 +249,7 @@ func (s *ExecutionState) MarkNodeCompleted(nodeID string, output interface{}) {
 }
 
 // MarkNodeFailed marks a node as failed with an error.
-func (s *ExecutionState) MarkNodeFailed(nodeID string, err error) {
+func (s *ExecutionState) MarkNodeFailed(nodeID uuid.UUID, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if state, ok := s.NodeStates[nodeID]; ok {
@@ -263,7 +263,7 @@ func (s *ExecutionState) MarkNodeFailed(nodeID string, err error) {
 }
 
 // MarkNodeRetrying marks a node as retrying.
-func (s *ExecutionState) MarkNodeRetrying(nodeID string) {
+func (s *ExecutionState) MarkNodeRetrying(nodeID uuid.UUID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if state, ok := s.NodeStates[nodeID]; ok {
@@ -275,7 +275,7 @@ func (s *ExecutionState) MarkNodeRetrying(nodeID string) {
 }
 
 // CanRetryNode checks if a node can be retried.
-func (s *ExecutionState) CanRetryNode(nodeID string) bool {
+func (s *ExecutionState) CanRetryNode(nodeID uuid.UUID) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -297,7 +297,7 @@ func (s *ExecutionState) GetExecutionDuration() time.Duration {
 }
 
 // GetNodeDuration returns the duration of a node execution.
-func (s *ExecutionState) GetNodeDuration(nodeID string) time.Duration {
+func (s *ExecutionState) GetNodeDuration(nodeID uuid.UUID) time.Duration {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -322,7 +322,7 @@ func (s *ExecutionState) Clone() *ExecutionState {
 		WorkflowID:  s.WorkflowID,
 		Status:      s.Status,
 		Variables:   make(map[string]interface{}),
-		NodeStates:  make(map[string]*NodeState),
+		NodeStates:  make(map[uuid.UUID]*NodeState),
 		StartedAt:   s.StartedAt,
 		FinishedAt:  s.FinishedAt,
 		Error:       s.Error,
@@ -414,21 +414,21 @@ func (ec *ExecutionContext) GetAllVariables() map[string]interface{} {
 // persist saves the execution state to storage if a repository is configured.
 // Errors are logged but do not affect execution.
 func (s *ExecutionState) persist() {
-	if s.repository == nil || s.ctx == nil {
-		return
-	}
+	// if s.repository == nil || s.ctx == nil {
+	// 	return
+	// }
 
 	// Convert to domain ExecutionState
-	domainState := s.toDomainExecutionState()
+	// domainState := s.toDomainExecutionState()
 
 	// Persist asynchronously to avoid blocking execution
-	go func() {
-		if err := s.repository.SaveExecutionState(s.ctx, domainState); err != nil {
-			slog.Warn("Failed to persist execution state",
-				"executionID", s.ExecutionID,
-				"error", err)
-		}
-	}()
+	// go func() {
+	// if err := s.repository.SaveExecutionState(s.ctx, domainState); err != nil {
+	// 	slog.Warn("Failed to persist execution state",
+	// 		"executionID", s.ExecutionID,
+	// 		"error", err)
+	// }
+	// }()
 }
 
 // toDomainExecutionState converts the application ExecutionState to domain ExecutionState.
@@ -460,7 +460,7 @@ func (s *ExecutionState) toDomainExecutionState() *domain.ExecutionState {
 	}
 
 	// Convert NodeStates
-	nodeStates := make(map[string]*domain.NodeState)
+	nodeStates := make(map[uuid.UUID]*domain.NodeState)
 	for nodeID, ns := range s.NodeStates {
 		var domainNodeStatus domain.NodeStateStatus
 		switch ns.Status {

@@ -143,7 +143,7 @@ func NewExecutionFailedEvent(workflowID, executionID string, err error, duration
 }
 
 // NewNodeStartedEvent creates a node started event from a domain.Node.
-func NewNodeStartedEvent(executionID string, node *domain.Node, attemptNumber int) *LogEvent {
+func NewNodeStartedEvent(workflowID, executionID string, node domain.Node, attemptNumber int) *LogEvent {
 	if node == nil {
 		return &LogEvent{
 			Timestamp:     time.Now(),
@@ -151,15 +151,16 @@ func NewNodeStartedEvent(executionID string, node *domain.Node, attemptNumber in
 			Level:         LevelInfo,
 			Message:       "Node started",
 			ExecutionID:   executionID,
+			WorkflowID:    workflowID,
 			AttemptNumber: attemptNumber,
 		}
 	}
 
 	return NewNodeStartedEventFromConfig(
 		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
+		node.ID().String(),
+		workflowID,
+		string(node.Type()),
 		node.Name(),
 		node.Config(),
 		attemptNumber,
@@ -189,7 +190,7 @@ func NewNodeStartedEventFromConfig(executionID, nodeID, workflowID, nodeType, na
 }
 
 // NewNodeCompletedEvent creates a node completed event from a domain.Node.
-func NewNodeCompletedEvent(executionID string, node *domain.Node, output any, duration time.Duration) *LogEvent {
+func NewNodeCompletedEvent(workflowID, executionID string, node domain.Node, output any, duration time.Duration) *LogEvent {
 	if node == nil {
 		return &LogEvent{
 			Timestamp:   time.Now(),
@@ -204,9 +205,9 @@ func NewNodeCompletedEvent(executionID string, node *domain.Node, output any, du
 
 	return NewNodeCompletedEventFromConfig(
 		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
+		node.ID().String(),
+		workflowID,
+		string(node.Type()),
 		node.Name(),
 		node.Config(),
 		duration,
@@ -231,7 +232,7 @@ func NewNodeCompletedEventFromConfig(executionID, nodeID, workflowID, nodeType, 
 }
 
 // NewNodeFailedEvent creates a node failed event from a domain.Node.
-func NewNodeFailedEvent(executionID string, node *domain.Node, err error, duration time.Duration, willRetry bool) *LogEvent {
+func NewNodeFailedEvent(workflowID, executionID string, node domain.Node, err error, duration time.Duration, willRetry bool) *LogEvent {
 	if node == nil {
 		errorMsg := ""
 		if err != nil {
@@ -258,9 +259,9 @@ func NewNodeFailedEvent(executionID string, node *domain.Node, err error, durati
 
 	return NewNodeFailedEventFromConfig(
 		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
+		node.ID().String(),
+		"",
+		string(node.Type()),
 		node.Name(),
 		node.Config(),
 		err,
@@ -300,7 +301,7 @@ func NewNodeFailedEventFromConfig(executionID, nodeID, workflowID, nodeType, nam
 }
 
 // NewNodeRetryingEvent creates a node retrying event from a domain.Node.
-func NewNodeRetryingEvent(executionID string, node *domain.Node, attemptNumber int, delay time.Duration) *LogEvent {
+func NewNodeRetryingEvent(workflowID, executionID string, node domain.Node, attemptNumber int, delay time.Duration) *LogEvent {
 	if node == nil {
 		return &LogEvent{
 			Timestamp:     time.Now(),
@@ -315,9 +316,9 @@ func NewNodeRetryingEvent(executionID string, node *domain.Node, attemptNumber i
 
 	return NewNodeRetryingEventFromConfig(
 		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
+		node.ID().String(),
+		workflowID,
+		string(node.Type()),
 		node.Name(),
 		node.Config(),
 		attemptNumber,
@@ -344,7 +345,7 @@ func NewNodeRetryingEventFromConfig(executionID, nodeID, workflowID, nodeType, n
 }
 
 // NewNodeSkippedEvent creates a node skipped event from a domain.Node.
-func NewNodeSkippedEvent(executionID string, node *domain.Node, reason string) *LogEvent {
+func NewNodeSkippedEvent(workflowID, executionID string, node domain.Node, reason string) *LogEvent {
 	if node == nil {
 		return &LogEvent{
 			Timestamp:   time.Now(),
@@ -358,9 +359,9 @@ func NewNodeSkippedEvent(executionID string, node *domain.Node, reason string) *
 
 	return NewNodeSkippedEventFromConfig(
 		executionID,
-		node.ID(),
-		node.WorkflowID(),
-		node.Type(),
+		node.ID().String(),
+		workflowID,
+		string(node.Type()),
 		node.Name(),
 		node.Config(),
 		reason,
@@ -385,7 +386,7 @@ func NewNodeSkippedEventFromConfig(executionID, nodeID, workflowID, nodeType, na
 }
 
 // NewVariableSetEvent creates a variable set event.
-func NewVariableSetEvent(executionID, key string, value interface{}) *LogEvent {
+func NewVariableSetEvent(workflowID, executionID, key string, value interface{}) *LogEvent {
 	return &LogEvent{
 		Timestamp:     time.Now(),
 		Type:          EventVariableSet,
@@ -394,11 +395,12 @@ func NewVariableSetEvent(executionID, key string, value interface{}) *LogEvent {
 		ExecutionID:   executionID,
 		VariableKey:   key,
 		VariableValue: value,
+		WorkflowID:    workflowID,
 	}
 }
 
 // NewStateTransitionEvent creates a state transition event.
-func NewStateTransitionEvent(executionID, nodeID, fromState, toState string) *LogEvent {
+func NewStateTransitionEvent(workflowID, executionID, nodeID, fromState, toState string) *LogEvent {
 	return &LogEvent{
 		Timestamp:   time.Now(),
 		Type:        EventStateTransition,
@@ -408,33 +410,36 @@ func NewStateTransitionEvent(executionID, nodeID, fromState, toState string) *Lo
 		NodeID:      nodeID,
 		FromState:   fromState,
 		ToState:     toState,
+		WorkflowID:  workflowID,
 	}
 }
 
 // NewInfoEvent creates an info level event.
-func NewInfoEvent(executionID, message string) *LogEvent {
+func NewInfoEvent(workflowID, executionID, message string) *LogEvent {
 	return &LogEvent{
 		Timestamp:   time.Now(),
 		Type:        EventInfo,
 		Level:       LevelInfo,
 		Message:     message,
 		ExecutionID: executionID,
+		WorkflowID:  workflowID,
 	}
 }
 
 // NewDebugEvent creates a debug level event.
-func NewDebugEvent(executionID, message string) *LogEvent {
+func NewDebugEvent(workflowID, executionID, message string) *LogEvent {
 	return &LogEvent{
 		Timestamp:   time.Now(),
 		Type:        EventDebug,
 		Level:       LevelDebug,
 		Message:     message,
 		ExecutionID: executionID,
+		WorkflowID:  workflowID,
 	}
 }
 
 // NewErrorEvent creates an error level event.
-func NewErrorEvent(executionID, message string, err error) *LogEvent {
+func NewErrorEvent(workflowID, executionID, message string, err error) *LogEvent {
 	errorMsg := ""
 	if err != nil {
 		errorMsg = err.Error()
@@ -448,10 +453,11 @@ func NewErrorEvent(executionID, message string, err error) *LogEvent {
 		ExecutionID:  executionID,
 		Error:        err,
 		ErrorMessage: errorMsg,
+		WorkflowID:   workflowID,
 	}
 }
 
-func NewNodeCallbackStartedEvent(executionID string, node *domain.Node) *LogEvent {
+func NewNodeCallbackStartedEvent(workflowID, executionID string, node domain.Node) *LogEvent {
 	if node == nil {
 		return &LogEvent{
 			Timestamp:   time.Now(),
@@ -459,6 +465,7 @@ func NewNodeCallbackStartedEvent(executionID string, node *domain.Node) *LogEven
 			Level:       LevelInfo,
 			Message:     "Node callback started. Node is nil",
 			ExecutionID: executionID,
+			WorkflowID:  workflowID,
 		}
 	}
 	return &LogEvent{
@@ -467,15 +474,15 @@ func NewNodeCallbackStartedEvent(executionID string, node *domain.Node) *LogEven
 		Level:       LevelInfo,
 		Message:     "Node callback started",
 		ExecutionID: executionID,
-		WorkflowID:  node.WorkflowID(),
-		NodeID:      node.ID(),
-		NodeType:    node.Type(),
+		NodeID:      node.ID().String(),
+		NodeType:    string(node.Type()),
 		NodeName:    node.Name(),
 		Config:      node.Config(),
+		WorkflowID:  workflowID,
 	}
 }
 
-func NewNodeCallbackCompletedEvent(executionID string, node *domain.Node, output any, duration time.Duration) *LogEvent {
+func NewNodeCallbackCompletedEvent(workflowID, executionID string, node domain.Node, output any, duration time.Duration) *LogEvent {
 	if node == nil {
 		return &LogEvent{
 			Timestamp:   time.Now(),
@@ -485,6 +492,7 @@ func NewNodeCallbackCompletedEvent(executionID string, node *domain.Node, output
 			ExecutionID: executionID,
 			Duration:    duration,
 			Output:      output,
+			WorkflowID:  workflowID,
 		}
 	}
 	return &LogEvent{
@@ -493,10 +501,10 @@ func NewNodeCallbackCompletedEvent(executionID string, node *domain.Node, output
 		Level:       LevelInfo,
 		Message:     "Node callback completed",
 		ExecutionID: executionID,
-		WorkflowID:  node.WorkflowID(),
-		NodeID:      node.ID(),
-		NodeType:    node.Type(),
+		NodeID:      node.ID().String(),
+		NodeType:    string(node.Type()),
 		NodeName:    node.Name(),
 		Config:      node.Config(),
+		WorkflowID:  workflowID,
 	}
 }

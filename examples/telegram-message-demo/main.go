@@ -33,23 +33,27 @@ func main() {
 		VerboseLogging: true,
 	})
 
-	workflowID := uuid.NewString()
-	executionID := uuid.NewString()
+	workflowID := uuid.New()
+	executionID := uuid.New()
 
-	nodes := []mbflow.NodeConfig{
-		{
-			ID:   "telegram-message",
-			Name: "Send Telegram Message",
-			Type: "telegram-message",
-			Config: map[string]any{
-				"bot_token":  botToken,
-				"chat_id":    chatID,
-				"text":       "Hello, {{user_name}}! Workflow {{workflow_id}} started at {{timestamp}}.",
-				"parse_mode": "Markdown",
-				"output_key": "telegram_message",
-			},
+	nodeTelegram, err := mbflow.NewNode(
+		uuid.New(),
+		workflowID,
+		"telegram-message",
+		"Send Telegram Message",
+		map[string]any{
+			"bot_token":  botToken,
+			"chat_id":    chatID,
+			"text":       "Hello, {{user_name}}! Workflow {{workflow_id}} started at {{timestamp}}.",
+			"parse_mode": "Markdown",
+			"output_key": "telegram_message",
 		},
+	)
+	if err != nil {
+		log.Fatalf("Failed to create nodeTelegram: %v", err)
 	}
+
+	nodes := []mbflow.Node{nodeTelegram}
 
 	initialVariables := map[string]any{
 		"user_name":   "mbflow user",

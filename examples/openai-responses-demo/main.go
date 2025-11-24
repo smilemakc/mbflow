@@ -2,16 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/smilemakc/mbflow"
-
-	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/internal/infrastructure/monitoring"
 )
 
 // OpenAIResponsesDemo demonstrates using OpenAI Responses API for structured JSON output.
@@ -46,26 +43,8 @@ func main() {
 	}
 
 	// Create executor with monitoring enabled
-	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
-		OpenAIAPIKey:     apiKey,
-		EnableMonitoring: true,
-		VerboseLogging:   true,
-	})
-
-	// Create workflow and execution IDs
-	workflowID := uuid.NewString()
-	executionID := uuid.NewString()
-
-	fmt.Printf("Workflow ID: %s\n", workflowID)
-	fmt.Printf("Execution ID: %s\n\n", executionID)
-
-	// Node 1: Extract structured product information using OpenAI Responses API
-	nodeExtractProduct, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         uuid.NewString(),
-		WorkflowID: workflowID,
-		Type:       mbflow.NodeTypeOpenAIResponses,
-		Name:       "Extract Product Information",
-		Config: map[string]any{
+	workflow, err := mbflow.NewWorkflowBuilder("OpenAIResponsesDemo", "1.0.0").
+		AddNode(string(mbflow.NodeTypeOpenAICompletion), "extract_info", map[string]any{
 			"model":  "gpt-4o",
 			"prompt": "Extract structured product information from the following description: {{product_description}}",
 			"response_format": map[string]interface{}{
@@ -119,21 +98,10 @@ func main() {
 			},
 			"temperature": 0.3,
 			"output_key":  "product_info",
-		},
-	})
-	if err != nil {
-		log.Fatalf("Failed to create nodeExtractProduct: %v", err)
-	}
-
-	// Node 2: Generate recommendation using structured data
-	nodeGenerateRecommendation, err := mbflow.NewNodeFromConfig(mbflow.NodeConfig{
-		ID:         uuid.NewString(),
-		WorkflowID: workflowID,
-		Type:       mbflow.NodeTypeOpenAIResponses,
-		Name:       "Generate Product Recommendation",
-		Config: map[string]any{
+		}).
+		AddNode(string(mbflow.NodeTypeOpenAICompletion), "generate_recommendation", map[string]any{
 			"model":  "gpt-4o",
-			"prompt": "Based on the following product information, generate a personalized recommendation: {{product_info}}",
+			"prompt": "Based on the following product information, generate a personalized recommendation: {{content}}",
 			"response_format": map[string]interface{}{
 				"type": "json_schema",
 				"json_schema": map[string]interface{}{
@@ -181,80 +149,50 @@ func main() {
 			"frequency_penalty": 0.3,
 			"presence_penalty":  0.2,
 			"output_key":        "recommendation",
-		},
-	})
+		}).
+		AddEdge("extract_info", "generate_recommendation", string(mbflow.EdgeTypeDirect), nil).
+		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
+			"name": "Start Content Pipeline",
+		}).
+		Build()
+
 	if err != nil {
-		log.Fatalf("Failed to create nodeGenerateRecommendation: %v", err)
+		log.Fatalf("Failed to create workflow: %v", err)
 	}
-
-	// Convert domain nodes to executor node configs using helper function
-	nodes := []mbflow.NodeConfig{
-		mbflow.NodeToConfig(nodeExtractProduct),
-		mbflow.NodeToConfig(nodeGenerateRecommendation),
-	}
-
-	// Define edges: extract -> generate
-	edges := []mbflow.ExecutorEdgeConfig{
-		{
-			FromNodeID: nodeExtractProduct.ID(),
-			ToNodeID:   nodeGenerateRecommendation.ID(),
-			EdgeType:   "direct",
-		},
-	}
-
 	// Set initial variables
 	initialVars := map[string]interface{}{
 		"product_description": productDesc,
+		"openai_api_key":      apiKey,
 	}
 
+	executor := mbflow.NewExecutorBuilder().
+		EnableParallelExecution(10).
+		EnableRetry(2).
+		EnableMetrics().
+		WithObserver(monitoring.NewLogObserver(monitoring.NewDefaultConsoleLogger("ai-pipeline"))).
+		Build()
+
 	// Execute workflow
-	fmt.Printf("Starting workflow execution...\n\n")
-	startTime := time.Now()
+	ctx := context.Background()
+	triggers := workflow.GetAllTriggers()
+	if len(triggers) == 0 {
+		log.Fatal("No triggers found in workflow")
+	}
 
-	state, err := executor.ExecuteWorkflow(
-		context.Background(),
-		workflowID,
-		executionID,
-		nodes,
-		edges,
-		initialVars,
-	)
-
-	duration := time.Since(startTime)
-
+	fmt.Println("▶ Executing workflow...")
+	execution, err := executor.ExecuteWorkflow(ctx, workflow, triggers[0], initialVars)
 	if err != nil {
 		log.Fatalf("Workflow execution failed: %v", err)
 	}
+	fmt.Printf("\n✓ Workflow execution completed!\n")
+	fmt.Printf("  Execution ID: %s\n", execution.ID())
+	fmt.Printf("  Phase: %s\n", execution.Phase())
+	fmt.Printf("  Duration: %v\n\n", execution.Duration())
 
-	// Print results
-	fmt.Printf("\n=== Execution Results ===\n\n")
-	fmt.Printf("Status: %s\n", state.GetStatusString())
-	fmt.Printf("Duration: %v\n", duration)
-	fmt.Printf("State Duration: %s\n\n", state.GetExecutionDuration())
+	// Display results
+	vars := execution.Variables().All()
 
-	// Get all variables
-	variables := state.GetAllVariables()
-
-	// Print extracted product information
-	if productInfo, ok := variables["product_info"]; ok {
-		fmt.Println("📦 Extracted Product Information:")
-		prettyJSON, _ := json.MarshalIndent(productInfo, "", "  ")
-		fmt.Println(string(prettyJSON))
-		fmt.Println()
-	}
-
-	// Print recommendation
-	if recommendation, ok := variables["recommendation"]; ok {
-		fmt.Println("💡 Product Recommendation:")
-		prettyJSON, _ := json.MarshalIndent(recommendation, "", "  ")
-		fmt.Println(string(prettyJSON))
-		fmt.Println()
-	}
-	var nodeIDs []string
-	for _, node := range nodes {
-		nodeIDs = append(nodeIDs, node.ID)
-	}
-	mbflow.DisplayMetrics(executor.GetMetrics(), workflowID, nodeIDs, true)
+	log.Printf("vars: %+v\n", vars["content"])
 
 	fmt.Println("\n=== Demo Completed Successfully ===")
 }

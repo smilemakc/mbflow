@@ -3,11 +3,11 @@ package monitoring
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/smilemakc/mbflow/internal/domain"
 )
 
@@ -21,7 +21,7 @@ type ConsoleLogger struct {
 	// writer is the destination for log output
 	writer io.Writer
 	// logger is the underlying logger
-	logger *log.Logger
+	logger zerolog.Logger
 	// mu protects concurrent writes
 	mu sync.Mutex
 }
@@ -43,11 +43,19 @@ func NewConsoleLogger(config ConsoleLoggerConfig) *ConsoleLogger {
 		writer = os.Stdout
 	}
 
+	level := zerolog.InfoLevel
+	if config.Verbose {
+		level = zerolog.DebugLevel
+	}
+	logger := zerolog.New(writer).With().Timestamp().Logger().Level(level).Output(zerolog.ConsoleWriter{Out: writer})
+	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Str("prefix", config.Prefix)
+	})
 	return &ConsoleLogger{
 		prefix:  config.Prefix,
 		verbose: config.Verbose,
 		writer:  writer,
-		logger:  log.New(writer, "", log.LstdFlags),
+		logger:  logger,
 	}
 }
 
@@ -75,83 +83,75 @@ func (l *ConsoleLogger) Log(event *LogEvent) {
 	defer l.mu.Unlock()
 
 	// Format message based on event type
-	message := l.formatEvent(event)
-	l.logger.Print(message)
+	l.formatEvent(event)
 }
 
 // formatEvent formats a log event into a human-readable string.
-func (l *ConsoleLogger) formatEvent(event *LogEvent) string {
+func (l *ConsoleLogger) formatEvent(event *LogEvent) {
 	// Build message based on event type
-	switch event.Type {
-	case EventExecutionStarted:
-		return fmt.Sprintf("[%s] Execution started: workflow=%s execution=%s",
-			l.prefix, event.WorkflowID, event.ExecutionID)
-
-	case EventExecutionCompleted:
-		return fmt.Sprintf("[%s] Execution completed: workflow=%s execution=%s duration=%s",
-			l.prefix, event.WorkflowID, event.ExecutionID, event.Duration)
-
-	case EventExecutionFailed:
-		return fmt.Sprintf("[%s] Execution failed: workflow=%s execution=%s duration=%s error=%v",
-			l.prefix, event.WorkflowID, event.ExecutionID, event.Duration, event.ErrorMessage)
-
-	case EventNodeStarted:
-		if event.AttemptNumber > 1 {
-			return fmt.Sprintf("[%s] Node started (retry %d): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
-				l.prefix, event.AttemptNumber, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config)
-		}
-		return fmt.Sprintf("[%s] Node started: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v",
-			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config)
-
-	case EventNodeCompleted:
-		return fmt.Sprintf("[%s] Node completed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s",
-			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.Duration)
-
-	case EventNodeFailed:
-		if event.WillRetry {
-			return fmt.Sprintf("[%s] Node failed (will retry): execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
-				l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.Duration, event.ErrorMessage)
-		}
-		return fmt.Sprintf("[%s] Node failed: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v duration=%s error=%v",
-			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.Duration, event.ErrorMessage)
-
-	case EventNodeRetrying:
-		return fmt.Sprintf("[%s] Node retrying: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v attempt=%d delay=%s",
-			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.AttemptNumber, event.RetryDelay)
-
-	case EventNodeSkipped:
-		return fmt.Sprintf("[%s] Node skipped: execution=%s node_id=%s workflow_id=%s node_type=%s name=%s config=%v reason=%s",
-			l.prefix, event.ExecutionID, event.NodeID, event.WorkflowID, event.NodeType, event.NodeName, event.Config, event.Reason)
-
-	case EventVariableSet:
-		return fmt.Sprintf("[%s] Variable set: execution=%s key=%s value=%v",
-			l.prefix, event.ExecutionID, event.VariableKey, event.VariableValue)
-
-	case EventStateTransition:
-		return fmt.Sprintf("[%s] State transition: execution=%s node=%s from=%s to=%s",
-			l.prefix, event.ExecutionID, event.NodeID, event.FromState, event.ToState)
-
-	case EventInfo:
-		return fmt.Sprintf("[%s] Info: execution=%s message=%s", l.prefix, event.ExecutionID, event.Message)
-
-	case EventDebug:
-		return fmt.Sprintf("[%s] Debug: execution=%s message=%s", l.prefix, event.ExecutionID, event.Message)
-
-	case EventError:
-		return fmt.Sprintf("[%s] Error: execution=%s message=%s error=%v",
-			l.prefix, event.ExecutionID, event.Message, event.ErrorMessage)
-
+	var zeroEvent *zerolog.Event
+	switch event.Level {
+	case LevelDebug:
+		zeroEvent = l.logger.Debug()
+	case LevelInfo:
+		zeroEvent = l.logger.Info()
+	case LevelError:
+		zeroEvent = l.logger.Error()
+	case LevelWarning:
+		zeroEvent = l.logger.Warn()
 	default:
-		// Generic formatting for unknown event types
-		return fmt.Sprintf("[%s] %s: execution=%s message=%s",
-			l.prefix, event.Type, event.ExecutionID, event.Message)
+		zeroEvent = l.logger.Info()
+	}
+
+	// if event.NodeID != "" {
+	// 	zeroEvent.Str("node", event.NodeID)
+	// }
+	if event.NodeName != "" {
+		zeroEvent.Str("node-name", event.NodeName)
+	} else {
+		zeroEvent.Str("execution", event.ExecutionID).Str("workflow", event.WorkflowID)
+	}
+	// if event.NodeType != "" {
+	// 	zeroEvent.Str("node-type", event.NodeType)
+	// }
+	if event.FromState != "" {
+		zeroEvent.Str("from-state", event.FromState)
+	}
+	if event.ToState != "" {
+		zeroEvent.Str("to-state", event.ToState)
+	}
+	if event.Reason != "" {
+		zeroEvent.Str("reason", event.Reason)
+	}
+	if event.VariableKey != "" {
+		zeroEvent.Str("variable-key", event.VariableKey)
+	}
+	if event.ErrorMessage != "" {
+		zeroEvent.Err(fmt.Errorf(event.ErrorMessage))
+	}
+	if event.AttemptNumber > 0 {
+		zeroEvent.Int("attempt", event.AttemptNumber)
+	}
+	if event.Duration > 0 {
+		zeroEvent.Dur("duration", event.Duration)
+	}
+	// if event.Config != nil {
+	// 	zeroEvent.Int("config-keys-count", len(event.Config))
+	// }
+	if event.RetryDelay > 0 {
+		zeroEvent.Dur("retry-delay", event.RetryDelay)
+	}
+	if event.Message != "" {
+		zeroEvent.Msg(event.Message)
+	} else {
+		zeroEvent.Send()
 	}
 }
 
-func (l *ConsoleLogger) LogNode(executionID string, node *domain.Node) {
+func (l *ConsoleLogger) LogNode(workflowID, executionID string, node domain.Node) {
 	// Convert to info event
 	if node == nil {
-		l.Log(NewInfoEvent(executionID, "Node info: node=<nil>"))
+		l.Log(NewInfoEvent(workflowID, executionID, "Node info: node=<nil>"))
 		return
 	}
 
@@ -161,9 +161,8 @@ func (l *ConsoleLogger) LogNode(executionID string, node *domain.Node) {
 		Level:       LevelInfo,
 		Message:     "Node info",
 		ExecutionID: executionID,
-		WorkflowID:  node.WorkflowID(),
-		NodeID:      node.ID(),
-		NodeType:    node.Type(),
+		NodeID:      node.ID().String(),
+		NodeType:    string(node.Type()),
 		NodeName:    node.Name(),
 		Config:      node.Config(),
 	})
@@ -184,33 +183,33 @@ func (l *ConsoleLogger) LogNodeFromConfig(executionID, nodeID, workflowID, nodeT
 	})
 }
 
-func (l *ConsoleLogger) LogVariableSet(executionID, key string, value interface{}) {
+func (l *ConsoleLogger) LogVariableSet(workflowID, executionID, key string, value interface{}) {
 	if !l.verbose {
 		return
 	}
-	l.Log(NewVariableSetEvent(executionID, key, value))
+	l.Log(NewVariableSetEvent(workflowID, executionID, key, value))
 }
 
-func (l *ConsoleLogger) LogError(executionID string, message string, err error) {
-	l.Log(NewErrorEvent(executionID, message, err))
+func (l *ConsoleLogger) LogError(workflowID, executionID string, message string, err error) {
+	l.Log(NewErrorEvent(workflowID, executionID, message, err))
 }
 
-func (l *ConsoleLogger) LogInfo(executionID string, message string) {
-	l.Log(NewInfoEvent(executionID, message))
+func (l *ConsoleLogger) LogInfo(workflowID, executionID string, message string) {
+	l.Log(NewInfoEvent(workflowID, executionID, message))
 }
 
-func (l *ConsoleLogger) LogDebug(executionID string, message string) {
+func (l *ConsoleLogger) LogDebug(workflowID, executionID string, message string) {
 	if !l.verbose {
 		return
 	}
-	l.Log(NewDebugEvent(executionID, message))
+	l.Log(NewDebugEvent(workflowID, executionID, message))
 }
 
-func (l *ConsoleLogger) LogTransition(executionID, nodeID, fromState, toState string) {
+func (l *ConsoleLogger) LogTransition(workflowID, executionID, nodeID, fromState, toState string) {
 	if !l.verbose {
 		return
 	}
-	l.Log(NewStateTransitionEvent(executionID, nodeID, fromState, toState))
+	l.Log(NewStateTransitionEvent(workflowID, executionID, nodeID, fromState, toState))
 }
 
 // Additional utility methods
@@ -221,7 +220,16 @@ func (l *ConsoleLogger) SetWriter(writer io.Writer) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.writer = writer
-	l.logger = log.New(writer, "", log.LstdFlags)
+	level := zerolog.InfoLevel
+	if l.verbose {
+		level = zerolog.DebugLevel
+	}
+	logger := zerolog.New(writer).With().Timestamp().Logger().Level(level)
+	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Str("prefix", l.prefix)
+	})
+	l.logger = logger
+
 }
 
 // GetWriter returns the current writer.

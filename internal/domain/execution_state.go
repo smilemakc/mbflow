@@ -2,6 +2,8 @@ package domain
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // ExecutionStateStatus represents the status of an execution state.
@@ -42,7 +44,7 @@ const (
 // It encapsulates all information about a node's execution status, timing, output, and errors.
 // This is part of the ExecutionState aggregate and is used to track individual node progress.
 type NodeState struct {
-	nodeID        string
+	nodeID        uuid.UUID
 	status        NodeStateStatus
 	startedAt     *time.Time
 	finishedAt    *time.Time
@@ -53,7 +55,7 @@ type NodeState struct {
 }
 
 // NewNodeState creates a new NodeState instance.
-func NewNodeState(nodeID string, status NodeStateStatus, startedAt, finishedAt *time.Time, output interface{}, errorMessage string, attemptNumber, maxAttempts int) *NodeState {
+func NewNodeState(nodeID uuid.UUID, status NodeStateStatus, startedAt, finishedAt *time.Time, output interface{}, errorMessage string, attemptNumber, maxAttempts int) *NodeState {
 	return &NodeState{
 		nodeID:        nodeID,
 		status:        status,
@@ -67,7 +69,7 @@ func NewNodeState(nodeID string, status NodeStateStatus, startedAt, finishedAt *
 }
 
 // ReconstructNodeState reconstructs a NodeState from persistence.
-func ReconstructNodeState(nodeID string, status NodeStateStatus, startedAt, finishedAt *time.Time, output interface{}, errorMessage string, attemptNumber, maxAttempts int) *NodeState {
+func ReconstructNodeState(nodeID uuid.UUID, status NodeStateStatus, startedAt, finishedAt *time.Time, output interface{}, errorMessage string, attemptNumber, maxAttempts int) *NodeState {
 	return &NodeState{
 		nodeID:        nodeID,
 		status:        status,
@@ -81,7 +83,7 @@ func ReconstructNodeState(nodeID string, status NodeStateStatus, startedAt, fini
 }
 
 // NodeID returns the node ID.
-func (ns *NodeState) NodeID() string {
+func (ns *NodeState) NodeID() uuid.UUID {
 	return ns.nodeID
 }
 
@@ -126,35 +128,35 @@ func (ns *NodeState) MaxAttempts() int {
 // consistency of the execution context throughout the workflow lifecycle.
 // ExecutionState is separate from Execution entity which serves as a lightweight execution record.
 type ExecutionState struct {
-	executionID string
-	workflowID  string
+	executionID uuid.UUID
+	workflowID  uuid.UUID
 	status      ExecutionStateStatus
 	variables   map[string]interface{}
-	nodeStates  map[string]*NodeState
+	nodeStates  map[uuid.UUID]*NodeState
 	startedAt   time.Time
 	finishedAt  *time.Time
 	errorMsg    string
 }
 
 // NewExecutionState creates a new ExecutionState instance.
-func NewExecutionState(executionID, workflowID string) *ExecutionState {
+func NewExecutionState(executionID, workflowID uuid.UUID) *ExecutionState {
 	return &ExecutionState{
 		executionID: executionID,
 		workflowID:  workflowID,
 		status:      ExecutionStateStatusPending,
 		variables:   make(map[string]interface{}),
-		nodeStates:  make(map[string]*NodeState),
+		nodeStates:  make(map[uuid.UUID]*NodeState),
 		startedAt:   time.Now(),
 	}
 }
 
 // ReconstructExecutionState reconstructs an ExecutionState from persistence.
-func ReconstructExecutionState(executionID, workflowID string, status ExecutionStateStatus, variables map[string]interface{}, nodeStates map[string]*NodeState, startedAt time.Time, finishedAt *time.Time, errorMsg string) *ExecutionState {
+func ReconstructExecutionState(executionID, workflowID uuid.UUID, status ExecutionStateStatus, variables map[string]interface{}, nodeStates map[uuid.UUID]*NodeState, startedAt time.Time, finishedAt *time.Time, errorMsg string) *ExecutionState {
 	if variables == nil {
 		variables = make(map[string]interface{})
 	}
 	if nodeStates == nil {
-		nodeStates = make(map[string]*NodeState)
+		nodeStates = make(map[uuid.UUID]*NodeState)
 	}
 	return &ExecutionState{
 		executionID: executionID,
@@ -169,12 +171,12 @@ func ReconstructExecutionState(executionID, workflowID string, status ExecutionS
 }
 
 // ExecutionID returns the unique identifier for this execution.
-func (es *ExecutionState) ExecutionID() string {
+func (es *ExecutionState) ExecutionID() uuid.UUID {
 	return es.executionID
 }
 
 // WorkflowID returns the ID of the workflow being executed.
-func (es *ExecutionState) WorkflowID() string {
+func (es *ExecutionState) WorkflowID() uuid.UUID {
 	return es.workflowID
 }
 
@@ -207,8 +209,8 @@ func (es *ExecutionState) SetVariable(key string, value interface{}) {
 }
 
 // NodeStates returns a copy of all node states.
-func (es *ExecutionState) NodeStates() map[string]*NodeState {
-	states := make(map[string]*NodeState, len(es.nodeStates))
+func (es *ExecutionState) NodeStates() map[uuid.UUID]*NodeState {
+	states := make(map[uuid.UUID]*NodeState, len(es.nodeStates))
 	for k, v := range es.nodeStates {
 		states[k] = v
 	}
@@ -216,15 +218,15 @@ func (es *ExecutionState) NodeStates() map[string]*NodeState {
 }
 
 // GetNodeState retrieves the state for a node.
-func (es *ExecutionState) GetNodeState(nodeID string) (*NodeState, bool) {
+func (es *ExecutionState) GetNodeState(nodeID uuid.UUID) (*NodeState, bool) {
 	state, ok := es.nodeStates[nodeID]
 	return state, ok
 }
 
 // SetNodeState sets the state for a node.
-func (es *ExecutionState) SetNodeState(nodeID string, state *NodeState) {
+func (es *ExecutionState) SetNodeState(nodeID uuid.UUID, state *NodeState) {
 	if es.nodeStates == nil {
-		es.nodeStates = make(map[string]*NodeState)
+		es.nodeStates = make(map[uuid.UUID]*NodeState)
 	}
 	es.nodeStates[nodeID] = state
 }

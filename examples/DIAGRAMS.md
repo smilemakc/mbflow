@@ -15,11 +15,11 @@ graph TD
     Enhance --> Merge
     Regenerate --> Analyze
     Merge --> TransES["Translate to Spanish<br/>OpenAI GPT-4"]
-    Merge --> TransFR["Translate to French<br/>OpenAI GPT-4"]
+    Merge --> TransFR["Translate to Russian<br/>OpenAI GPT-4"]
     Merge --> TransDE["Translate to German<br/>OpenAI GPT-4"]
-    Merge --> SEOEN["Generate SEO EN<br/>OpenAI GPT-4"]
+    Merge --> SEOEN["Generate SEO Original<br/>OpenAI GPT-4"]
     TransES --> SEOES["Generate SEO ES<br/>OpenAI GPT-4"]
-    TransFR --> SEOFR["Generate SEO FR<br/>OpenAI GPT-4"]
+    TransFR --> SEOFR["Generate SEO RU<br/>OpenAI GPT-4"]
     TransDE --> SEODE["Generate SEO DE<br/>OpenAI GPT-4"]
     SEOEN --> Aggregate["Aggregate All Results"]
     SEOES --> Aggregate
