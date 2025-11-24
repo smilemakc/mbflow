@@ -50,16 +50,13 @@ func main() {
 		fmt.Printf("Please set OPENAI_API_KEY to run this example.\n\n")
 		os.Exit(1)
 	}
-	httpObserver, err := mbflow.NewHTTPCallbackObserver(mbflow.HTTPCallbackObserverConfig{
-		CallbackURL: "https://heabot.nl.tuna.am",
-	})
 	// Create executor with monitoring enabled
 	executor := mbflow.NewWorkflowEngine(&mbflow.EngineConfig{
 		OpenAIAPIKey:     apiKey,
 		EnableMonitoring: true,
 		VerboseLogging:   true,
 	})
-	executor.AddObserver(httpObserver)
+
 	// Create workflow and execution IDs
 	workflowID := uuid.NewString()
 	executionID := uuid.NewString()

@@ -100,12 +100,6 @@ func (e *OpenAICompletionExecutor) Execute(ctx context.Context, execCtx *Executi
 	// Get all variables for substitution
 	allVars := execCtx.GetAllVariables()
 
-	// Log available variables for debugging (only if verbose logging is enabled)
-	log.Debug().
-		Str("node_id", nodeID).
-		Interface("available_variables", allVars).
-		Msg("Substituting variables in prompt")
-
 	// Substitute variables in prompt
 	prompt := substituteVariables(cfg.Prompt, allVars)
 
@@ -114,10 +108,6 @@ func (e *OpenAICompletionExecutor) Execute(ctx context.Context, execCtx *Executi
 	if len(promptPreview) > 500 {
 		promptPreview = promptPreview[:500] + "..."
 	}
-	log.Debug().
-		Str("node_id", nodeID).
-		Str("prompt_preview", promptPreview).
-		Msg("Final prompt after variable substitution")
 
 	// Create OpenAI request
 	req := openai.ChatCompletionRequest{
