@@ -8,6 +8,7 @@ import (
 
 	"github.com/smilemakc/mbflow"
 	"github.com/smilemakc/mbflow/internal/domain"
+	"github.com/smilemakc/mbflow/internal/infrastructure/websocket"
 )
 
 // Server represents the REST API server
@@ -17,6 +18,10 @@ type Server struct {
 	mux      *http.ServeMux
 	logger   *slog.Logger
 	config   ServerConfig
+
+	// WebSocket components
+	wsHub     *websocket.Hub
+	wsHandler *websocket.Handler
 }
 
 // ServerConfig holds server configuration
@@ -26,6 +31,10 @@ type ServerConfig struct {
 	RateLimitMax    int
 	RateLimitWindow time.Duration
 	APIKeys         []string
+
+	// WebSocket configuration
+	EnableWebSocket bool
+	JWTSecret       string // Secret for JWT validation (empty = no auth)
 }
 
 // DefaultServerConfig returns default server configuration
@@ -36,6 +45,8 @@ func DefaultServerConfig() ServerConfig {
 		RateLimitMax:    100,
 		RateLimitWindow: time.Minute,
 		APIKeys:         []string{},
+		EnableWebSocket: true,
+		JWTSecret:       "",
 	}
 }
 
@@ -48,8 +59,45 @@ func NewServer(store domain.Storage, executor *mbflow.Executor, logger *slog.Log
 		logger:   logger,
 		config:   config,
 	}
+
+	// Initialize WebSocket if enabled
+	if config.EnableWebSocket {
+		s.initWebSocket()
+	}
+
 	s.routes()
 	return s
+}
+
+// initWebSocket initializes WebSocket hub and handler
+func (s *Server) initWebSocket() {
+	// Create WebSocket hub
+	s.wsHub = websocket.NewHub(s.logger)
+
+	// Start hub in background
+	go s.wsHub.Run()
+
+	// Create authenticator
+	var auth websocket.Authenticator
+	if s.config.JWTSecret != "" {
+		auth = websocket.NewJWTAuth(s.config.JWTSecret)
+	} else {
+		auth = websocket.NewNoAuth()
+	}
+
+	// Create handler
+	s.wsHandler = websocket.NewHandler(s.wsHub, auth, s.logger)
+
+	// Register socket observer with executor
+	socketObserver := websocket.NewSocketObserver(s.wsHub)
+	s.executor.AddObserver(socketObserver)
+
+	s.logger.Info("WebSocket support enabled")
+}
+
+// WebSocketHub returns the WebSocket hub (useful for external access)
+func (s *Server) WebSocketHub() *websocket.Hub {
+	return s.wsHub
 }
 
 // routes registers all HTTP routes
@@ -92,6 +140,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/executions/{id}/cancel", s.handleCancelExecution)
 	s.mux.HandleFunc("POST /api/v1/executions/{id}/pause", s.handlePauseExecution)
 	s.mux.HandleFunc("POST /api/v1/executions/{id}/resume", s.handleResumeExecution)
+
+	// WebSocket endpoint
+	if s.wsHandler != nil {
+		s.mux.Handle("GET /ws", s.wsHandler)
+	}
 }
 
 // ServeHTTP implements http.Handler with middleware chain
