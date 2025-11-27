@@ -8,8 +8,8 @@ import (
 // NewWorkflow creates a new workflow.
 // If id is uuid.Nil, a new UUID will be generated automatically.
 // Note: Use WorkflowBuilder for a more convenient way to build workflows.
-func NewWorkflow(id uuid.UUID, name, version, description string, spec map[string]any) (Workflow, error) {
-	return domain.NewWorkflow(id, name, version, description, spec)
+func NewWorkflow(name, version, description string, spec map[string]any) (Workflow, error) {
+	return domain.NewWorkflow(name, version, description, spec)
 }
 
 // NewExecution creates a new workflow execution.
@@ -39,7 +39,7 @@ type WorkflowBuilder struct {
 // name - the workflow name (required)
 // version - the workflow version (required)
 func NewWorkflowBuilder(name, version string) *WorkflowBuilder {
-	wf, err := domain.NewWorkflow(uuid.Nil, name, version, "", make(map[string]any))
+	wf, err := domain.NewWorkflow(name, version, "", make(map[string]any))
 	if err != nil {
 		return &WorkflowBuilder{err: err}
 	}
@@ -55,7 +55,7 @@ func (b *WorkflowBuilder) WithID(id uuid.UUID) *WorkflowBuilder {
 		return b
 	}
 	// Recreate workflow with specific ID
-	wf, err := domain.NewWorkflow(id, b.workflow.Name(), b.workflow.Version(), b.workflow.Description(), b.workflow.Spec())
+	wf, err := domain.RestoreWorkflow(id, b.workflow.Name(), b.workflow.Version(), b.workflow.Description(), b.workflow.Spec())
 	if err != nil {
 		b.err = err
 		return b
@@ -70,7 +70,7 @@ func (b *WorkflowBuilder) WithDescription(description string) *WorkflowBuilder {
 		return b
 	}
 	// Recreate workflow with description
-	wf, err := domain.NewWorkflow(b.workflow.ID(), b.workflow.Name(), b.workflow.Version(), description, b.workflow.Spec())
+	wf, err := domain.RestoreWorkflow(b.workflow.ID(), b.workflow.Name(), b.workflow.Version(), description, b.workflow.Spec())
 	if err != nil {
 		b.err = err
 		return b
@@ -86,7 +86,7 @@ func (b *WorkflowBuilder) WithSpec(spec map[string]any) *WorkflowBuilder {
 		return b
 	}
 	// Recreate workflow with spec
-	wf, err := domain.NewWorkflow(b.workflow.ID(), b.workflow.Name(), b.workflow.Version(), b.workflow.Description(), spec)
+	wf, err := domain.RestoreWorkflow(b.workflow.ID(), b.workflow.Name(), b.workflow.Version(), b.workflow.Description(), spec)
 	if err != nil {
 		b.err = err
 		return b

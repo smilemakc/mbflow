@@ -30,15 +30,14 @@ func main() {
 
 	ctx := context.Background()
 
-	workflowID := uuid.New()
 	spec := map[string]any{
 		"description": "Automated data analysis with AI-generated insights and intelligent reporting",
 		"features":    []string{"multi_source_data", "anomaly_detection", "ai_insights", "conditional_alerts", "automated_reporting"},
 	}
-	workflow := mbflow.NewWorkflow(
-		workflowID,
+	workflow, _ := mbflow.NewWorkflow(
 		"AI-Powered Data Analysis and Reporting",
 		"1.0.0",
+		"",
 		spec,
 	)
 

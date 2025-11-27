@@ -29,6 +29,7 @@ type Workflow interface {
 	RemoveNode(id uuid.UUID) error
 
 	// Edge management
+	UseEdge(edge Edge) error
 	AddEdge(fromNodeID, toNodeID uuid.UUID, edgeType EdgeType, config map[string]any) (uuid.UUID, error)
 	GetEdge(id uuid.UUID) (Edge, error)
 	GetAllEdges() []Edge
@@ -59,19 +60,7 @@ type workflow struct {
 	triggers map[uuid.UUID]*trigger
 }
 
-// NewWorkflow creates a new Workflow instance.
-// If id is uuid.Nil, a new UUID will be generated automatically.
-func NewWorkflow(id uuid.UUID, name, version, description string, spec map[string]any) (Workflow, error) {
-	// Generate ID if not provided
-	if id == uuid.Nil {
-		id = uuid.New()
-	}
-
-	// Validate required fields
-	if name == "" {
-		return nil, NewDomainError(ErrCodeInvalidInput, "workflow name cannot be empty", nil)
-	}
-
+func RestoreWorkflow(id uuid.UUID, name, version, description string, spec map[string]any) (Workflow, error) {
 	now := time.Now()
 	return &workflow{
 		id:          id,
@@ -85,6 +74,12 @@ func NewWorkflow(id uuid.UUID, name, version, description string, spec map[strin
 		edges:       make(map[uuid.UUID]*edge),
 		triggers:    make(map[uuid.UUID]*trigger),
 	}, nil
+}
+
+// NewWorkflow creates a new Workflow instance.
+// If id is uuid.Nil, a new UUID will be generated automatically.
+func NewWorkflow(name, version, description string, spec map[string]any) (Workflow, error) {
+	return RestoreWorkflow(uuid.New(), name, version, description, spec)
 }
 
 // ReconstructWorkflow reconstructs a Workflow from persistence with all its child entities.
@@ -170,31 +165,20 @@ func (w *workflow) UpdatedAt() time.Time {
 }
 
 func (w *workflow) UseNode(n Node) error {
-	if err := w.validateUniqueness(n.Name()); err != nil {
-		return err
-	}
 	nn := &node{
 		id:       n.ID(),
 		nodeType: n.Type(),
 		name:     n.Name(),
 		config:   n.Config(),
 	}
-	w.nodes[nn.id] = nn
-	w.updatedAt = time.Now()
+	if err := w.addNode(nn); err != nil {
+		return err
+	}
 	return nil
 }
 
 // AddNode adds a new node to the workflow.
 func (w *workflow) AddNode(nodeType NodeType, name string, config map[string]any) (uuid.UUID, error) {
-	// Validate node type
-	if !nodeType.IsValid() {
-		return uuid.Nil, NewDomainError(
-			ErrCodeInvalidInput,
-			fmt.Sprintf("invalid node type: %s", nodeType),
-			nil,
-		)
-	}
-
 	// Create new node (without workflowID since it's part of aggregate)
 	n := &node{
 		id:       uuid.New(),
@@ -203,17 +187,31 @@ func (w *workflow) AddNode(nodeType NodeType, name string, config map[string]any
 		config:   config,
 	}
 
-	if err := w.validateUniqueness(name); err != nil {
+	if err := w.addNode(n); err != nil {
 		return uuid.Nil, err
 	}
-
-	w.nodes[n.id] = n
-	w.updatedAt = time.Now()
-
 	return n.id, nil
 }
 
-func (w *workflow) validateUniqueness(name string) error {
+func (w *workflow) addNode(n *node) error {
+	if err := w.validateUniqueness(n.name, n.nodeType); err != nil {
+		return err
+	}
+	w.nodes[n.id] = n
+	w.updatedAt = time.Now()
+	return nil
+}
+
+func (w *workflow) validateUniqueness(name string, nodeType NodeType) error {
+	// Validate node type
+	if !nodeType.IsValid() {
+		return NewDomainError(
+			ErrCodeInvalidInput,
+			fmt.Sprintf("invalid node type: %s", nodeType),
+			nil,
+		)
+	}
+
 	// Validate node name uniqueness
 	for _, existing := range w.nodes {
 		if existing.name == name {
@@ -273,42 +271,23 @@ func (w *workflow) RemoveNode(id uuid.UUID) error {
 	return nil
 }
 
+func (w *workflow) UseEdge(e Edge) error {
+	ee := &edge{
+		id:         e.ID(),
+		fromNodeID: e.FromNodeID(),
+		toNodeID:   e.ToNodeID(),
+		edgeType:   e.Type(),
+		config:     e.Config(),
+	}
+	if err := w.addEdge(ee); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // AddEdge adds a new edge to the workflow.
 func (w *workflow) AddEdge(fromNodeID, toNodeID uuid.UUID, edgeType EdgeType, config map[string]any) (uuid.UUID, error) {
-	// Validate edge type
-	if !edgeType.IsValid() {
-		return uuid.Nil, NewDomainError(
-			ErrCodeInvalidInput,
-			fmt.Sprintf("invalid edge type: %s", edgeType),
-			nil,
-		)
-	}
-
-	// Validate that both nodes exist
-	if _, exists := w.nodes[fromNodeID]; !exists {
-		return uuid.Nil, NewDomainError(
-			ErrCodeNotFound,
-			fmt.Sprintf("source node with ID %s not found", fromNodeID),
-			nil,
-		)
-	}
-	if _, exists := w.nodes[toNodeID]; !exists {
-		return uuid.Nil, NewDomainError(
-			ErrCodeNotFound,
-			fmt.Sprintf("destination node with ID %s not found", toNodeID),
-			nil,
-		)
-	}
-
-	// Check for self-loop
-	if fromNodeID == toNodeID {
-		return uuid.Nil, NewDomainError(
-			ErrCodeInvalidInput,
-			"self-loop edges are not allowed",
-			nil,
-		)
-	}
-
 	// Create new edge
 	e := &edge{
 		id:         uuid.New(),
@@ -317,11 +296,56 @@ func (w *workflow) AddEdge(fromNodeID, toNodeID uuid.UUID, edgeType EdgeType, co
 		edgeType:   edgeType,
 		config:     config,
 	}
+	if err := w.addEdge(e); err != nil {
+		return uuid.Nil, err
+	}
+	return e.id, nil
+}
 
+func (w *workflow) addEdge(e *edge) error {
+	if err := w.validateEdge(e.fromNodeID, e.toNodeID, e.edgeType); err != nil {
+		return err
+	}
 	w.edges[e.id] = e
 	w.updatedAt = time.Now()
+	return nil
+}
 
-	return e.id, nil
+func (w *workflow) validateEdge(fromNodeID uuid.UUID, toNodeID uuid.UUID, edgeType EdgeType) error {
+	// Validate edge type
+	if !edgeType.IsValid() {
+		return NewDomainError(
+			ErrCodeInvalidInput,
+			fmt.Sprintf("invalid edge type: %s", edgeType),
+			nil,
+		)
+	}
+
+	// Validate that both nodes exist
+	if _, exists := w.nodes[fromNodeID]; !exists {
+		return NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("source node with ID %s not found", fromNodeID),
+			nil,
+		)
+	}
+	if _, exists := w.nodes[toNodeID]; !exists {
+		return NewDomainError(
+			ErrCodeNotFound,
+			fmt.Sprintf("destination node with ID %s not found", toNodeID),
+			nil,
+		)
+	}
+
+	// Check for self-loop
+	if fromNodeID == toNodeID {
+		return NewDomainError(
+			ErrCodeInvalidInput,
+			"self-loop edges are not allowed",
+			nil,
+		)
+	}
+	return nil
 }
 
 // GetEdge retrieves an edge by ID.

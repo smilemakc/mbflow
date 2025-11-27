@@ -94,6 +94,9 @@ func (w *testGraphWorkflow) UseNode(domain.Node) error {
 func (w *testGraphWorkflow) AddNode(domain.NodeType, string, map[string]any) (uuid.UUID, error) {
 	return uuid.Nil, nil
 }
+func (w *testGraphWorkflow) UseEdge(edge domain.Edge) error {
+	return nil
+}
 func (w *testGraphWorkflow) AddEdge(uuid.UUID, uuid.UUID, domain.EdgeType, map[string]any) (uuid.UUID, error) {
 	return uuid.Nil, nil
 }
