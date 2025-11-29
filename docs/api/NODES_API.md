@@ -17,7 +17,7 @@ GET /api/v1/node-types
 **Пример запроса:**
 
 ```bash
-curl http://localhost:8080/api/v1/node-types
+curl http://localhost:8181/api/v1/node-types
 ```
 
 **Пример ответа:**
@@ -62,7 +62,7 @@ GET /api/v1/workflows/{workflow_id}/nodes
 **Пример запроса:**
 
 ```bash
-curl http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes
+curl http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes
 ```
 
 **Пример ответа:**
@@ -106,7 +106,7 @@ GET /api/v1/workflows/{workflow_id}/nodes/{node_id}
 **Пример запроса:**
 
 ```bash
-curl http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001
+curl http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001
 ```
 
 **Пример ответа:**
@@ -134,7 +134,7 @@ POST /api/v1/workflows/{workflow_id}/nodes
 **Пример запроса - Transform Node:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes \
+curl -X POST http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "transform",
@@ -150,7 +150,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-4466
 **Пример запроса - HTTP Node:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes \
+curl -X POST http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "http",
@@ -168,7 +168,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-4466
 **Пример запроса - OpenAI Node:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes \
+curl -X POST http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "openai-completion",
@@ -184,7 +184,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-4466
 **Пример запроса - Conditional Route Node:**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes \
+curl -X POST http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "conditional-route",
@@ -229,7 +229,7 @@ PUT /api/v1/workflows/{workflow_id}/nodes/{node_id}
 **Пример запроса - обновление конфигурации:**
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001 \
+curl -X PUT http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001 \
   -H "Content-Type: application/json" \
   -d '{
     "config": {
@@ -244,7 +244,7 @@ curl -X PUT http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-44665
 **Пример запроса - изменение имени:**
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001 \
+curl -X PUT http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001 \
   -H "Content-Type: application/json" \
   -d '{
     "name": "quadruple"
@@ -254,7 +254,7 @@ curl -X PUT http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-44665
 **Пример запроса - полное обновление:**
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001 \
+curl -X PUT http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001 \
   -H "Content-Type: application/json" \
   -d '{
     "type": "transform",
@@ -294,7 +294,7 @@ DELETE /api/v1/workflows/{workflow_id}/nodes/{node_id}
 **Пример запроса:**
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001
+curl -X DELETE http://localhost:8181/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000/nodes/223e4567-e89b-12d3-a456-426614174001
 ```
 
 **Ответ:** HTTP 204 No Content
@@ -429,7 +429,7 @@ curl -X DELETE http://localhost:8080/api/v1/workflows/550e8400-e29b-41d4-a716-44
 
 ```bash
 # 1. Создать workflow
-WORKFLOW_ID=$(curl -X POST http://localhost:8080/api/v1/workflows \
+WORKFLOW_ID=$(curl -X POST http://localhost:8181/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d '{
     "name": "api-workflow",
@@ -445,7 +445,7 @@ WORKFLOW_ID=$(curl -X POST http://localhost:8080/api/v1/workflows \
   }' | jq -r '.id')
 
 # 2. Добавить HTTP ноду
-HTTP_NODE_ID=$(curl -X POST http://localhost:8080/api/v1/workflows/$WORKFLOW_ID/nodes \
+HTTP_NODE_ID=$(curl -X POST http://localhost:8181/api/v1/workflows/$WORKFLOW_ID/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "http",
@@ -457,7 +457,7 @@ HTTP_NODE_ID=$(curl -X POST http://localhost:8080/api/v1/workflows/$WORKFLOW_ID/
   }' | jq -r '.id')
 
 # 3. Добавить обработчик ошибок
-ERROR_NODE_ID=$(curl -X POST http://localhost:8080/api/v1/workflows/$WORKFLOW_ID/nodes \
+ERROR_NODE_ID=$(curl -X POST http://localhost:8181/api/v1/workflows/$WORKFLOW_ID/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "telegram-message",
@@ -474,7 +474,7 @@ ERROR_NODE_ID=$(curl -X POST http://localhost:8080/api/v1/workflows/$WORKFLOW_ID
 
 ```bash
 # Обновить transform ноду с новой логикой
-curl -X PUT http://localhost:8080/api/v1/workflows/$WORKFLOW_ID/nodes/$NODE_ID \
+curl -X PUT http://localhost:8181/api/v1/workflows/$WORKFLOW_ID/nodes/$NODE_ID \
   -H "Content-Type: application/json" \
   -d '{
     "config": {
@@ -490,7 +490,7 @@ curl -X PUT http://localhost:8080/api/v1/workflows/$WORKFLOW_ID/nodes/$NODE_ID \
 
 ```bash
 # Создать две версии обработки
-curl -X POST http://localhost:8080/api/v1/workflows/$WORKFLOW_ID/nodes \
+curl -X POST http://localhost:8181/api/v1/workflows/$WORKFLOW_ID/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "transform",
@@ -502,7 +502,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/$WORKFLOW_ID/nodes \
     }
   }'
 
-curl -X POST http://localhost:8080/api/v1/workflows/$WORKFLOW_ID/nodes \
+curl -X POST http://localhost:8181/api/v1/workflows/$WORKFLOW_ID/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "transform",

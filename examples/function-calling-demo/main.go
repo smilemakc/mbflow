@@ -82,14 +82,9 @@ func main() {
 			Model:             "gpt-4o",
 			MaxTokens:         300,
 		}).
-		// End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"ai_response", "function_result", "final_response"},
-		}).
 		// Connect nodes
 		AddEdge("ask_ai", "execute_function", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("execute_function", "continue_conversation", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("continue_conversation", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Start Function Call Demo",

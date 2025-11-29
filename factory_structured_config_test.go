@@ -7,7 +7,6 @@ import (
 func TestWorkflowBuilder_AddNodeWithConfig(t *testing.T) {
 	// Test adding a node with structured config
 	workflow, err := NewWorkflowBuilder("Test Workflow", "1.0").
-		AddNode(string(NodeTypeStart), "start", map[string]any{}).
 		AddNodeWithConfig(
 			string(NodeTypeHTTPRequest),
 			"fetch",
@@ -19,9 +18,12 @@ func TestWorkflowBuilder_AddNodeWithConfig(t *testing.T) {
 				},
 			},
 		).
-		AddNode(string(NodeTypeEnd), "end", map[string]any{}).
-		AddEdge("start", "fetch", string(EdgeTypeDirect), nil).
-		AddEdge("fetch", "end", string(EdgeTypeDirect), nil).
+		AddNode(string(NodeTypeTransform), "output", map[string]any{
+			"transformations": map[string]any{
+				"result": "fetch.body",
+			},
+		}).
+		AddEdge("fetch", "output", string(EdgeTypeDirect), nil).
 		AddTrigger(string(TriggerTypeManual), map[string]any{}).
 		Build()
 
@@ -36,8 +38,8 @@ func TestWorkflowBuilder_AddNodeWithConfig(t *testing.T) {
 
 	// Verify nodes
 	nodes := workflow.GetAllNodes()
-	if len(nodes) != 3 {
-		t.Errorf("Expected 3 nodes, got %d", len(nodes))
+	if len(nodes) != 2 {
+		t.Errorf("Expected 2 nodes, got %d", len(nodes))
 	}
 
 	// Find the HTTP request node
@@ -74,7 +76,6 @@ func TestWorkflowBuilder_AddNodeWithConfig(t *testing.T) {
 func TestWorkflowBuilder_AddNodeWithConfig_MultipleTypes(t *testing.T) {
 	// Test adding multiple nodes with different structured configs
 	workflow, err := NewWorkflowBuilder("Multi Config Test", "1.0").
-		AddNode(string(NodeTypeStart), "start", map[string]any{}).
 		AddNodeWithConfig(
 			string(NodeTypeJSONParser),
 			"parser",
@@ -92,10 +93,7 @@ func TestWorkflowBuilder_AddNodeWithConfig_MultipleTypes(t *testing.T) {
 				},
 			},
 		).
-		AddNode(string(NodeTypeEnd), "end", map[string]any{}).
-		AddEdge("start", "parser", string(EdgeTypeDirect), nil).
 		AddEdge("parser", "aggregator", string(EdgeTypeDirect), nil).
-		AddEdge("aggregator", "end", string(EdgeTypeDirect), nil).
 		AddTrigger(string(TriggerTypeManual), map[string]any{}).
 		Build()
 
@@ -105,8 +103,8 @@ func TestWorkflowBuilder_AddNodeWithConfig_MultipleTypes(t *testing.T) {
 
 	// Verify nodes
 	nodes := workflow.GetAllNodes()
-	if len(nodes) != 4 {
-		t.Errorf("Expected 4 nodes, got %d", len(nodes))
+	if len(nodes) != 2 {
+		t.Errorf("Expected 2 nodes, got %d", len(nodes))
 	}
 
 	// Verify JSON Parser config
@@ -165,7 +163,6 @@ func TestWorkflowBuilder_AddNodeWithConfig_InvalidConfig(t *testing.T) {
 	// configs don't cause errors
 
 	workflow, err := NewWorkflowBuilder("Valid Config Test", "1.0").
-		AddNode(string(NodeTypeStart), "start", map[string]any{}).
 		AddNodeWithConfig(
 			string(NodeTypeOpenAICompletion),
 			"ai",
@@ -176,9 +173,6 @@ func TestWorkflowBuilder_AddNodeWithConfig_InvalidConfig(t *testing.T) {
 				Temperature: 0.7,
 			},
 		).
-		AddNode(string(NodeTypeEnd), "end", map[string]any{}).
-		AddEdge("start", "ai", string(EdgeTypeDirect), nil).
-		AddEdge("ai", "end", string(EdgeTypeDirect), nil).
 		AddTrigger(string(TriggerTypeManual), map[string]any{}).
 		Build()
 
@@ -194,7 +188,6 @@ func TestWorkflowBuilder_AddNodeWithConfig_InvalidConfig(t *testing.T) {
 func TestWorkflowBuilder_AddNodeWithConfig_MixedWithAddNode(t *testing.T) {
 	// Test that AddNodeWithConfig works alongside traditional AddNode
 	workflow, err := NewWorkflowBuilder("Mixed Test", "1.0").
-		AddNode(string(NodeTypeStart), "start", map[string]any{}).
 		AddNode(string(NodeTypeTransform), "transform1", map[string]any{
 			"transformations": map[string]any{
 				"result": "input * 2",
@@ -210,14 +203,11 @@ func TestWorkflowBuilder_AddNodeWithConfig_MixedWithAddNode(t *testing.T) {
 		).
 		AddNode(string(NodeTypeTransform), "transform2", map[string]any{
 			"transformations": map[string]any{
-				"output": "response.data",
+				"output": "fetch.body",
 			},
 		}).
-		AddNode(string(NodeTypeEnd), "end", map[string]any{}).
-		AddEdge("start", "transform1", string(EdgeTypeDirect), nil).
 		AddEdge("transform1", "fetch", string(EdgeTypeDirect), nil).
 		AddEdge("fetch", "transform2", string(EdgeTypeDirect), nil).
-		AddEdge("transform2", "end", string(EdgeTypeDirect), nil).
 		AddTrigger(string(TriggerTypeManual), map[string]any{}).
 		Build()
 
@@ -226,8 +216,8 @@ func TestWorkflowBuilder_AddNodeWithConfig_MixedWithAddNode(t *testing.T) {
 	}
 
 	nodes := workflow.GetAllNodes()
-	if len(nodes) != 5 {
-		t.Errorf("Expected 5 nodes, got %d", len(nodes))
+	if len(nodes) != 3 {
+		t.Errorf("Expected 3 nodes, got %d", len(nodes))
 	}
 
 	// Verify the structured config node

@@ -33,56 +33,6 @@ func parseNodeConfig[T any](config map[string]any) (*T, error) {
 	return &result, nil
 }
 
-// StartNodeExecutor executes start nodes (entry points)
-type StartNodeExecutor struct{}
-
-func NewStartNodeExecutor() *StartNodeExecutor {
-	return &StartNodeExecutor{}
-}
-
-func (e *StartNodeExecutor) Execute(
-	ctx context.Context,
-	node domain.Node,
-	inputs *NodeExecutionInputs,
-) (map[string]any, error) {
-	// Start nodes just pass through their input
-	return make(map[string]any), nil
-}
-
-// EndNodeExecutor executes end nodes (exit points)
-type EndNodeExecutor struct{}
-
-func NewEndNodeExecutor() *EndNodeExecutor {
-	return &EndNodeExecutor{}
-}
-
-func (e *EndNodeExecutor) Execute(
-	ctx context.Context,
-	node domain.Node,
-	inputs *NodeExecutionInputs,
-) (map[string]any, error) {
-	// End nodes collect final output from variables
-	output := make(map[string]any)
-	allVars := inputs.Variables.All()
-	// Get output keys from config
-	if outputKeys, ok := node.Config()["output_keys"].([]interface{}); ok {
-		for _, key := range outputKeys {
-			keyStr, ok := key.(string)
-			if !ok {
-				continue
-			}
-			if value := getNestedValue(allVars, keyStr); value != nil {
-				output[keyStr] = value
-			}
-		}
-	} else {
-		// If no output keys specified, return all variables
-		output = inputs.Variables.All()
-	}
-
-	return output, nil
-}
-
 // TransformNodeExecutor executes transform nodes using expressions
 type TransformNodeExecutor struct {
 	evaluator *ConditionEvaluator
@@ -1387,8 +1337,6 @@ func (e *OpenAIFunctionResultExecutor) Execute(
 
 // RegisterDefaultExecutors registers all default node executors with the engine
 func RegisterDefaultExecutors(engine *WorkflowEngine) {
-	engine.RegisterNodeExecutor(domain.NodeTypeStart, NewStartNodeExecutor())
-	engine.RegisterNodeExecutor(domain.NodeTypeEnd, NewEndNodeExecutor())
 	engine.RegisterNodeExecutor(domain.NodeTypeTransform, NewTransformNodeExecutor())
 	engine.RegisterNodeExecutor(domain.NodeTypeHTTP, NewHTTPNodeExecutor())
 	engine.RegisterNodeExecutor(domain.NodeTypeHTTPRequest, NewHTTPNodeExecutor())

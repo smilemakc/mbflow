@@ -22,7 +22,7 @@ The Edge API enables dynamic management of connections between nodes in workflow
 - Immutable update pattern (delete + recreate)
 - Graph visualization endpoint
 
-**Base URL:** `http://localhost:8080/api/v1`
+**Base URL:** `http://localhost:8181/api/v1`
 
 ## API Endpoints
 
@@ -431,7 +431,7 @@ GET /api/v1/workflows/{workflow_id}/graph
 
 ```bash
 # Create start -> process edge
-curl -X POST http://localhost:8080/api/v1/workflows/$WF_ID/edges \
+curl -X POST http://localhost:8181/api/v1/workflows/$WF_ID/edges \
   -H "Content-Type: application/json" \
   -d '{
     "from": "start",
@@ -440,7 +440,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/$WF_ID/edges \
   }'
 
 # Create process -> end edge
-curl -X POST http://localhost:8080/api/v1/workflows/$WF_ID/edges \
+curl -X POST http://localhost:8181/api/v1/workflows/$WF_ID/edges \
   -H "Content-Type: application/json" \
   -d '{
     "from": "process",

@@ -16,8 +16,6 @@ func main() {
 	// This provides type safety and better IDE support
 	workflow, err := mbflow.NewWorkflowBuilder("Structured Config Demo", "1.0").
 		WithDescription("Demonstrates using type-safe structured configs").
-		// Add Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Add HTTP Request node with structured config
 		AddNodeWithConfig(
 			string(mbflow.NodeTypeHTTPRequest),
@@ -51,15 +49,9 @@ func main() {
 				},
 			},
 		).
-		// Add End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"repo_info"},
-		}).
 		// Connect nodes
-		AddEdge("start", "fetch_data", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("fetch_data", "parse_json", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("parse_json", "extract_info", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("extract_info", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add manual trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Start Processing",

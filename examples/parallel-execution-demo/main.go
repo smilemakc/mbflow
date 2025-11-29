@@ -29,8 +29,6 @@ func main() {
 	// Create a workflow with parallel execution pattern
 	workflow, err := mbflow.NewWorkflowBuilder("Parallel AI Processing", "1.0").
 		WithDescription("Demonstrates parallel execution of multiple AI tasks").
-		// Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Three parallel nodes that process different topics
 		AddNodeWithConfig(string(mbflow.NodeTypeOpenAICompletion), "task1", &mbflow.OpenAICompletionConfig{
 			Model:     "gpt-4o",
@@ -55,21 +53,10 @@ func main() {
 				"final_result": `"Combined: " + result_1['content'] + " | " + result_2 + " | " + result_3`,
 			},
 		}).
-		// End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"result_1", "result_2", "result_3", "final_result"},
-		}).
-		// Create fork-join pattern with edges
-		// Fork: start -> task1, task2, task3 (parallel execution)
-		AddEdge("start", "task1", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("start", "task2", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("start", "task3", string(mbflow.EdgeTypeDirect), nil).
 		// Join: task1, task2, task3 -> aggregate (wait for all)
 		AddEdge("task1", "aggregate", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("task2", "aggregate", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("task3", "aggregate", string(mbflow.EdgeTypeDirect), nil).
-		// Complete the flow
-		AddEdge("aggregate", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add manual trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name":        "Start Parallel Processing",

@@ -40,8 +40,6 @@ func (et EdgeType) String() string {
 type NodeType string
 
 const (
-	NodeTypeStart                NodeType = "start"
-	NodeTypeEnd                  NodeType = "end"
 	NodeTypeTransform            NodeType = "transform"
 	NodeTypeHTTP                 NodeType = "http"
 	NodeTypeLLM                  NodeType = "llm"
@@ -64,7 +62,7 @@ const (
 // IsValid checks if the NodeType is valid
 func (nt NodeType) IsValid() bool {
 	switch nt {
-	case NodeTypeStart, NodeTypeEnd, NodeTypeTransform, NodeTypeHTTP, NodeTypeLLM,
+	case NodeTypeTransform, NodeTypeHTTP, NodeTypeLLM,
 		NodeTypeCode, NodeTypeParallel, NodeTypeConditionalRoute, NodeTypeDataMerger,
 		NodeTypeDataAggregator, NodeTypeScriptExecutor, NodeTypeJSONParser,
 		NodeTypeOpenAICompletion, NodeTypeOpenAIResponses, NodeTypeHTTPRequest,

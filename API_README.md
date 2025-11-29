@@ -10,7 +10,7 @@
 # Сборка сервера
 go build -o mbflow-server ./cmd/server
 
-# Запуск с настройками по умолчанию (порт 8080)
+# Запуск с настройками по умолчанию (порт 8181)
 ./mbflow-server
 
 # Запуск с пользовательскими параметрами
@@ -82,7 +82,7 @@ docker-compose down
 ### 1. Создание простого workflow
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/workflows \
+curl -X POST http://localhost:8181/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d '{
     "name": "simple-workflow",
@@ -130,13 +130,13 @@ curl -X POST http://localhost:8080/api/v1/workflows \
 ### 2. Получение списка workflows
 
 ```bash
-curl http://localhost:8080/api/v1/workflows
+curl http://localhost:8181/api/v1/workflows
 ```
 
 ### 3. Выполнение workflow
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/executions \
+curl -X POST http://localhost:8181/api/v1/executions \
   -H "Content-Type: application/json" \
   -d '{
     "workflow_id": "{workflow-id}",
@@ -149,23 +149,23 @@ curl -X POST http://localhost:8080/api/v1/executions \
 ### 4. Получение информации об execution
 
 ```bash
-curl http://localhost:8080/api/v1/executions/{execution-id}
+curl http://localhost:8181/api/v1/executions/{execution-id}
 ```
 
 ### 5. Получение событий execution
 
 ```bash
-curl http://localhost:8080/api/v1/executions/{execution-id}/events
+curl http://localhost:8181/api/v1/executions/{execution-id}/events
 ```
 
 ### 6. Фильтрация executions
 
 ```bash
 # По workflow ID
-curl "http://localhost:8080/api/v1/executions?workflow_id={workflow-id}"
+curl "http://localhost:8181/api/v1/executions?workflow_id={workflow-id}"
 
 # По статусу
-curl "http://localhost:8080/api/v1/executions?status=completed"
+curl "http://localhost:8181/api/v1/executions?status=completed"
 ```
 
 ### 7. Работа с нодами
@@ -173,19 +173,19 @@ curl "http://localhost:8080/api/v1/executions?status=completed"
 #### Получить список доступных типов нод
 
 ```bash
-curl http://localhost:8080/api/v1/node-types
+curl http://localhost:8181/api/v1/node-types
 ```
 
 #### Получить все ноды в workflow
 
 ```bash
-curl http://localhost:8080/api/v1/workflows/{workflow-id}/nodes
+curl http://localhost:8181/api/v1/workflows/{workflow-id}/nodes
 ```
 
 #### Создать новую ноду
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/workflows/{workflow-id}/nodes \
+curl -X POST http://localhost:8181/api/v1/workflows/{workflow-id}/nodes \
   -H "Content-Type: application/json" \
   -d '{
     "type": "transform",
@@ -201,7 +201,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/{workflow-id}/nodes \
 #### Обновить существующую ноду
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/workflows/{workflow-id}/nodes/{node-id} \
+curl -X PUT http://localhost:8181/api/v1/workflows/{workflow-id}/nodes/{node-id} \
   -H "Content-Type: application/json" \
   -d '{
     "config": {
@@ -215,7 +215,7 @@ curl -X PUT http://localhost:8080/api/v1/workflows/{workflow-id}/nodes/{node-id}
 #### Удалить ноду
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/workflows/{workflow-id}/nodes/{node-id}
+curl -X DELETE http://localhost:8181/api/v1/workflows/{workflow-id}/nodes/{node-id}
 ```
 
 ### 8. Работа со связями (edges)
@@ -223,7 +223,7 @@ curl -X DELETE http://localhost:8080/api/v1/workflows/{workflow-id}/nodes/{node-
 #### Получить список типов связей
 
 ```bash
-curl http://localhost:8080/api/v1/edge-types
+curl http://localhost:8181/api/v1/edge-types
 ```
 
 Доступные типы:
@@ -235,14 +235,14 @@ curl http://localhost:8080/api/v1/edge-types
 #### Получить все связи в workflow
 
 ```bash
-curl http://localhost:8080/api/v1/workflows/{workflow-id}/edges
+curl http://localhost:8181/api/v1/workflows/{workflow-id}/edges
 ```
 
 #### Создать новую связь
 
 ```bash
 # Простая связь
-curl -X POST http://localhost:8080/api/v1/workflows/{workflow-id}/edges \
+curl -X POST http://localhost:8181/api/v1/workflows/{workflow-id}/edges \
   -H "Content-Type: application/json" \
   -d '{
     "from": "start",
@@ -251,7 +251,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/{workflow-id}/edges \
   }'
 
 # Условная связь
-curl -X POST http://localhost:8080/api/v1/workflows/{workflow-id}/edges \
+curl -X POST http://localhost:8181/api/v1/workflows/{workflow-id}/edges \
   -H "Content-Type: application/json" \
   -d '{
     "from": "router",
@@ -263,7 +263,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/{workflow-id}/edges \
   }'
 
 # Fork связь (начало параллельных веток)
-curl -X POST http://localhost:8080/api/v1/workflows/{workflow-id}/edges \
+curl -X POST http://localhost:8181/api/v1/workflows/{workflow-id}/edges \
   -H "Content-Type: application/json" \
   -d '{
     "from": "parallel_start",
@@ -275,7 +275,7 @@ curl -X POST http://localhost:8080/api/v1/workflows/{workflow-id}/edges \
 #### Обновить существующую связь
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/workflows/{workflow-id}/edges/{edge-id} \
+curl -X PUT http://localhost:8181/api/v1/workflows/{workflow-id}/edges/{edge-id} \
   -H "Content-Type: application/json" \
   -d '{
     "config": {
@@ -287,17 +287,17 @@ curl -X PUT http://localhost:8080/api/v1/workflows/{workflow-id}/edges/{edge-id}
 #### Удалить связь
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/workflows/{workflow-id}/edges/{edge-id}
+curl -X DELETE http://localhost:8181/api/v1/workflows/{workflow-id}/edges/{edge-id}
 ```
 
 #### Визуализация графа workflow
 
 ```bash
 # Получить полный граф с нодами и связями
-curl http://localhost:8080/api/v1/workflows/{workflow-id}/graph | jq
+curl http://localhost:8181/api/v1/workflows/{workflow-id}/graph | jq
 
 # Упрощенный вывод - только имена и связи
-curl -s http://localhost:8080/api/v1/workflows/{workflow-id}/graph | \
+curl -s http://localhost:8181/api/v1/workflows/{workflow-id}/graph | \
   jq '{
     nodes: [.nodes[].name],
     connections: [.edges[] | {from: .from, to: .to, type: .type}]
@@ -422,10 +422,10 @@ curl -s http://localhost:8080/api/v1/workflows/{workflow-id}/graph | \
 
 ```bash
 # Использование X-API-Key header
-curl -H "X-API-Key: your-api-key" http://localhost:8080/api/v1/workflows
+curl -H "X-API-Key: your-api-key" http://localhost:8181/api/v1/workflows
 
 # Использование Authorization Bearer token
-curl -H "Authorization: Bearer your-api-key" http://localhost:8080/api/v1/workflows
+curl -H "Authorization: Bearer your-api-key" http://localhost:8181/api/v1/workflows
 ```
 
 ## Интерактивная документация (Swagger UI)
@@ -465,7 +465,7 @@ Swagger UI предоставляет:
 
 ### Переменные окружения
 
-- `PORT` - Порт сервера (по умолчанию: 8080)
+- `PORT` - Порт сервера (по умолчанию: 8181)
 - `LOG_LEVEL` - Уровень логирования: debug, info, warn, error (по умолчанию: info)
 - `CORS_ENABLED` - Включить CORS (по умолчанию: true)
 - `METRICS_ENABLED` - Включить сбор метрик (по умолчанию: true)

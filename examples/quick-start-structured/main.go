@@ -15,7 +15,6 @@ func main() {
 
 	// Создаем workflow с типобезопасными конфигами
 	workflow, err := mbflow.NewWorkflowBuilder("Quick Start", "1.0").
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Используем структурный конфиг вместо map[string]any
 		AddNodeWithConfig(
 			string(mbflow.NodeTypeHTTPRequest),
@@ -25,9 +24,6 @@ func main() {
 				Method: "GET",
 			},
 		).
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{}).
-		AddEdge("start", "get_weather", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("get_weather", "end", string(mbflow.EdgeTypeDirect), nil).
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{}).
 		Build()
 

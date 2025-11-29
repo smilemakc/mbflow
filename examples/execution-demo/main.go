@@ -21,8 +21,6 @@ func main() {
 	// Create a workflow with multiple node types
 	workflow, err := mbflow.NewWorkflowBuilder("Demo Workflow", "1.0").
 		WithDescription("Demonstrates various node types and execution features").
-		// Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Transform node - process input data
 		AddNode(string(mbflow.NodeTypeTransform), "process_data", map[string]any{
 			"transformations": map[string]any{
@@ -37,14 +35,8 @@ func main() {
 				"final_result": `"Data: " + processed + ", Time: " + timestamp + ", Status: " + status`,
 			},
 		}).
-		// End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"processed", "timestamp", "status", "final_result"},
-		}).
 		// Connect nodes
-		AddEdge("start", "process_data", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("process_data", "aggregate", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("aggregate", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add manual trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Execute Demo",

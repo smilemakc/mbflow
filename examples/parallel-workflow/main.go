@@ -14,8 +14,6 @@ func main() {
 	// Create a workflow with parallel branches demonstrating fork/join pattern
 	workflow, err := mbflow.NewWorkflowBuilder("Parallel Processing", "1.0").
 		WithDescription("Demonstrates parallel execution with fork and join").
-		// Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Fork node - spawns multiple parallel branches
 		AddNode(string(mbflow.NodeTypeParallel), "fork", map[string]any{
 			"max_parallel": 3,
@@ -44,12 +42,7 @@ func main() {
 				"sum": "branch1_result + branch2_result + branch3_result",
 			},
 		}).
-		// End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"sum"},
-		}).
 		// Connect edges - fork pattern
-		AddEdge("start", "fork", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("fork", "branch1", string(mbflow.EdgeTypeFork), nil).
 		AddEdge("fork", "branch2", string(mbflow.EdgeTypeFork), nil).
 		AddEdge("fork", "branch3", string(mbflow.EdgeTypeFork), nil).
@@ -59,8 +52,6 @@ func main() {
 		}).
 		AddEdge("branch2", "aggregate", string(mbflow.EdgeTypeJoin), nil).
 		AddEdge("branch3", "aggregate", string(mbflow.EdgeTypeJoin), nil).
-		// Continue to end
-		AddEdge("aggregate", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Start Parallel Processing",

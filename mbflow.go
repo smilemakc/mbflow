@@ -23,8 +23,6 @@ type (
 
 // Node type constants
 const (
-	NodeTypeStart                = domain.NodeTypeStart
-	NodeTypeEnd                  = domain.NodeTypeEnd
 	NodeTypeTransform            = domain.NodeTypeTransform
 	NodeTypeHTTP                 = domain.NodeTypeHTTP
 	NodeTypeLLM                  = domain.NodeTypeLLM

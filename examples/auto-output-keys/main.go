@@ -18,8 +18,6 @@ func main() {
 	// The engine will automatically generate unique keys: {node_id}_output
 	workflow, err := mbflow.NewWorkflowBuilder("Auto Output Keys Demo", "1.0").
 		WithDescription("Demonstrates automatic output key generation").
-		// Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Transform node 1 - no output_key specified
 		AddNodeWithConfig(string(mbflow.NodeTypeTransform), "transform1", &mbflow.TransformConfig{
 			Transformations: map[string]string{
@@ -41,14 +39,9 @@ func main() {
 				"transform2_result": "result", // From auto-merged transform2 output
 			},
 		}).
-		// End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{}).
 		// Connect nodes
-		AddEdge("start", "transform1", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("start", "transform2", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("transform1", "aggregate", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("transform2", "aggregate", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("aggregate", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Start Demo",

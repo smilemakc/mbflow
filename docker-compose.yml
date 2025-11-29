@@ -7,9 +7,9 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8181:8080"
     environment:
-      - PORT=8080
+      - PORT=8181
       - LOG_LEVEL=info
       - CORS_ENABLED=true
       - METRICS_ENABLED=true

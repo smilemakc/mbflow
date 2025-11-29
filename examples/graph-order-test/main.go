@@ -23,8 +23,6 @@ func main() {
 	// Create a workflow with fork-join pattern
 	workflow, err := mbflow.NewWorkflowBuilder("Graph Order Test", "1.0").
 		WithDescription("Tests graph execution order with parallel and join patterns").
-		// Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Three parallel tasks
 		AddNode(string(mbflow.NodeTypeTransform), "task1", map[string]any{
 			"transformations": map[string]any{
@@ -47,21 +45,11 @@ func main() {
 				"joined": `task1_result + ", " + task2_result + ", " + task3_result`,
 			},
 		}).
-		// End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"task1_result", "task2_result", "task3_result", "joined"},
-		}).
 		// Create edges for fork-join pattern
-		// Fork: start -> task1, task2, task3 (parallel)
-		AddEdge("start", "task1", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("start", "task2", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("start", "task3", string(mbflow.EdgeTypeDirect), nil).
 		// Join: task1, task2, task3 -> join (wait for all)
 		AddEdge("task1", "join", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("task2", "join", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("task3", "join", string(mbflow.EdgeTypeDirect), nil).
-		// Sequential: join -> end
-		AddEdge("join", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Test Graph Execution",

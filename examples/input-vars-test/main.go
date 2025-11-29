@@ -19,8 +19,6 @@ func main() {
 	// transform2 should receive "result1" from transform1
 	workflow, err := mbflow.NewWorkflowBuilder("Input Vars Test", "1.0").
 		WithDescription("Tests that nodes receive inputs from predecessors").
-		// Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Transform 1: Creates "result1" from initial variable
 		AddNodeWithConfig(string(mbflow.NodeTypeTransform), "transform1", &mbflow.TransformConfig{
 			Transformations: map[string]string{
@@ -33,14 +31,8 @@ func main() {
 				"result2": `"Further transformed: " + result1`,
 			},
 		}).
-		// End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"result1", "result2"},
-		}).
 		// Create edges
-		AddEdge("start", "transform1", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("transform1", "transform2", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("transform2", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Test Trigger",

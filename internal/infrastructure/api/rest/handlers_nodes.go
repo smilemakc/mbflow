@@ -319,18 +319,6 @@ func (s *Server) handleDeleteNode(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetNodeTypes(w http.ResponseWriter, r *http.Request) {
 	nodeTypes := []map[string]interface{}{
 		{
-			"type":        "start",
-			"name":        "Start Node",
-			"description": "Entry point of the workflow",
-			"category":    "control",
-		},
-		{
-			"type":        "end",
-			"name":        "End Node",
-			"description": "Exit point of the workflow",
-			"category":    "control",
-		},
-		{
 			"type":        "transform",
 			"name":        "Transform",
 			"description": "Transform data using expressions",

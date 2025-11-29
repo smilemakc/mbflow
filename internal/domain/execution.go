@@ -645,7 +645,11 @@ func (e *execution) applyNodeSkipped(event Event) error {
 	if !exists {
 		// Create state if it doesn't exist
 		nodeName, _ := data["node_name"].(string)
-		state = NewNodeExecutionState(nodeID, nodeName, NodeTypeStart)
+		nodeType, _ := data["node_type"].(string)
+		if nodeType == "" {
+			nodeType = string(NodeTypeTransform)
+		}
+		state = NewNodeExecutionState(nodeID, nodeName, NodeType(nodeType))
 		e.nodeStates[nodeID] = state
 	}
 

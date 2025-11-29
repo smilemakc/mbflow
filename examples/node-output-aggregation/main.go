@@ -17,8 +17,6 @@ func main() {
 	// Create workflow with parallel nodes
 	workflow, err := mbflow.NewWorkflowBuilder("Node Output Aggregation Demo", "1.0").
 		WithDescription("Demonstrates aggregating outputs from multiple parallel nodes").
-		// Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Parallel transform nodes - each processes different data
 		AddNodeWithConfig(string(mbflow.NodeTypeTransform), "process_user", &mbflow.TransformConfig{
 			Transformations: map[string]string{
@@ -61,12 +59,6 @@ func main() {
 			},
 			MergeStrategy: "flatten", // All fields in one map
 		}).
-		// End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{}).
-		// Connect nodes - parallel execution from start
-		AddEdge("start", "process_user", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("start", "process_order", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("start", "process_shipping", string(mbflow.EdgeTypeDirect), nil).
 		// All parallel nodes feed into both aggregators
 		AddEdge("process_user", "combine_separate", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("process_order", "combine_separate", string(mbflow.EdgeTypeDirect), nil).
@@ -74,9 +66,6 @@ func main() {
 		AddEdge("process_user", "combine_flatten", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("process_order", "combine_flatten", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("process_shipping", "combine_flatten", string(mbflow.EdgeTypeDirect), nil).
-		// Aggregators to end
-		AddEdge("combine_separate", "end", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("combine_flatten", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Start Demo",

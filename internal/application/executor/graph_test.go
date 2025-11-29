@@ -122,9 +122,9 @@ func createTestWorkflowForGraph(nodes []domain.Node, edges []domain.Edge) domain
 func TestGetNodeByName(t *testing.T) {
 	t.Run("Found", func(t *testing.T) {
 		// Create a valid connected workflow: node1 -> node2 -> node3
-		node1 := createSimpleNode("node1", domain.NodeTypeStart)
+		node1 := createSimpleNode("node1", domain.NodeTypeTransform)
 		node2 := createSimpleNode("node2", domain.NodeTypeTransform)
-		node3 := createSimpleNode("node3", domain.NodeTypeEnd)
+		node3 := createSimpleNode("node3", domain.NodeTypeTransform)
 
 		edge1 := createSimpleEdge(node1.ID(), node2.ID(), domain.EdgeTypeDirect, nil)
 		edge2 := createSimpleEdge(node2.ID(), node3.ID(), domain.EdgeTypeDirect, nil)
@@ -151,8 +151,8 @@ func TestGetNodeByName(t *testing.T) {
 
 	t.Run("NotFound", func(t *testing.T) {
 		// Create a valid single-node workflow
-		node1 := createSimpleNode("node1", domain.NodeTypeStart)
-		node2 := createSimpleNode("node2", domain.NodeTypeEnd)
+		node1 := createSimpleNode("node1", domain.NodeTypeTransform)
+		node2 := createSimpleNode("node2", domain.NodeTypeTransform)
 		edge := createSimpleEdge(node1.ID(), node2.ID(), domain.EdgeTypeDirect, nil)
 
 		workflow := createTestWorkflowForGraph([]domain.Node{node1, node2}, []domain.Edge{edge})
@@ -174,8 +174,8 @@ func TestGetNodeByName(t *testing.T) {
 func TestIsAncestor(t *testing.T) {
 	t.Run("DirectParent", func(t *testing.T) {
 		// Create workflow: A -> B
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
-		nodeB := createSimpleNode("B", domain.NodeTypeEnd)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
+		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
 		edge := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, nil)
 
 		workflow := createTestWorkflowForGraph([]domain.Node{nodeA, nodeB}, []domain.Edge{edge})
@@ -194,10 +194,10 @@ func TestIsAncestor(t *testing.T) {
 
 	t.Run("IndirectAncestor", func(t *testing.T) {
 		// Create workflow: A -> B -> C -> D
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
 		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
 		nodeC := createSimpleNode("C", domain.NodeTypeTransform)
-		nodeD := createSimpleNode("D", domain.NodeTypeEnd)
+		nodeD := createSimpleNode("D", domain.NodeTypeTransform)
 
 		edge1 := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, nil)
 		edge2 := createSimpleEdge(nodeB.ID(), nodeC.ID(), domain.EdgeTypeDirect, nil)
@@ -227,7 +227,7 @@ func TestIsAncestor(t *testing.T) {
 
 	t.Run("NotAncestor_Parallel", func(t *testing.T) {
 		// Create workflow: A -> B, A -> C (B and C are parallel)
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
 		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
 		nodeC := createSimpleNode("C", domain.NodeTypeTransform)
 
@@ -252,7 +252,7 @@ func TestIsAncestor(t *testing.T) {
 	})
 
 	t.Run("SelfReference", func(t *testing.T) {
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
 		workflow := createTestWorkflowForGraph([]domain.Node{nodeA}, nil)
 		graph, _ := NewWorkflowGraph(workflow)
 
@@ -268,9 +268,9 @@ func TestValidateEdgeDataSources(t *testing.T) {
 	t.Run("ValidAncestor", func(t *testing.T) {
 		// Create workflow: A -> B -> C
 		// Edge B->C includes A in include_outputs_from
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
 		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
-		nodeC := createSimpleNode("C", domain.NodeTypeEnd)
+		nodeC := createSimpleNode("C", domain.NodeTypeTransform)
 
 		edge1 := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, nil)
 		edge2 := createSimpleEdge(nodeB.ID(), nodeC.ID(), domain.EdgeTypeDirect, map[string]any{
@@ -291,8 +291,8 @@ func TestValidateEdgeDataSources(t *testing.T) {
 	})
 
 	t.Run("NodeNotFound", func(t *testing.T) {
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
-		nodeB := createSimpleNode("B", domain.NodeTypeEnd)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
+		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
 
 		edge := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, map[string]any{
 			"include_outputs_from": []string{"NonExistent"},
@@ -310,9 +310,9 @@ func TestValidateEdgeDataSources(t *testing.T) {
 	t.Run("ForwardReference", func(t *testing.T) {
 		// Create workflow: A -> B -> C
 		// Try to make edge A->B include C (forward reference)
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
 		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
-		nodeC := createSimpleNode("C", domain.NodeTypeEnd)
+		nodeC := createSimpleNode("C", domain.NodeTypeTransform)
 
 		edge1 := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, map[string]any{
 			"include_outputs_from": []string{"C"}, // C comes after B, invalid!
@@ -331,9 +331,9 @@ func TestValidateEdgeDataSources(t *testing.T) {
 		}
 	})
 
-	t.Run("SelfReference", func(t *testing.T) {
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
-		nodeB := createSimpleNode("B", domain.NodeTypeEnd)
+	t.Run("SelfReferenceEdge", func(t *testing.T) {
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
+		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
 
 		edge := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, map[string]any{
 			"include_outputs_from": []string{"B"}, // B references itself
@@ -350,8 +350,8 @@ func TestValidateEdgeDataSources(t *testing.T) {
 
 	t.Run("NoIncludeOutputsFrom", func(t *testing.T) {
 		// Edge without include_outputs_from should pass validation
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
-		nodeB := createSimpleNode("B", domain.NodeTypeEnd)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
+		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
 
 		edge := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, nil)
 
@@ -365,8 +365,8 @@ func TestValidateEdgeDataSources(t *testing.T) {
 	})
 
 	t.Run("InvalidType_NotArray", func(t *testing.T) {
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
-		nodeB := createSimpleNode("B", domain.NodeTypeEnd)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
+		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
 
 		edge := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, map[string]any{
 			"include_outputs_from": "not_an_array", // Should be []string
@@ -384,10 +384,10 @@ func TestValidateEdgeDataSources(t *testing.T) {
 	t.Run("MultipleValidSources", func(t *testing.T) {
 		// Create workflow: A -> B -> C -> D
 		// Edge C->D includes both A and B
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
 		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
 		nodeC := createSimpleNode("C", domain.NodeTypeTransform)
-		nodeD := createSimpleNode("D", domain.NodeTypeEnd)
+		nodeD := createSimpleNode("D", domain.NodeTypeTransform)
 
 		edge1 := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, nil)
 		edge2 := createSimpleEdge(nodeB.ID(), nodeC.ID(), domain.EdgeTypeDirect, nil)
@@ -411,9 +411,9 @@ func TestValidateEdgeDataSources(t *testing.T) {
 // TestWorkflowValidation_WithEdgeDataSources tests that workflow validation calls edge validation
 func TestWorkflowValidation_WithEdgeDataSources(t *testing.T) {
 	t.Run("ValidWorkflow", func(t *testing.T) {
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
 		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
-		nodeC := createSimpleNode("C", domain.NodeTypeEnd)
+		nodeC := createSimpleNode("C", domain.NodeTypeTransform)
 
 		edge1 := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, nil)
 		edge2 := createSimpleEdge(nodeB.ID(), nodeC.ID(), domain.EdgeTypeDirect, map[string]any{
@@ -433,9 +433,9 @@ func TestWorkflowValidation_WithEdgeDataSources(t *testing.T) {
 	})
 
 	t.Run("InvalidWorkflow_ForwardReference", func(t *testing.T) {
-		nodeA := createSimpleNode("A", domain.NodeTypeStart)
+		nodeA := createSimpleNode("A", domain.NodeTypeTransform)
 		nodeB := createSimpleNode("B", domain.NodeTypeTransform)
-		nodeC := createSimpleNode("C", domain.NodeTypeEnd)
+		nodeC := createSimpleNode("C", domain.NodeTypeTransform)
 
 		edge1 := createSimpleEdge(nodeA.ID(), nodeB.ID(), domain.EdgeTypeDirect, map[string]any{
 			"include_outputs_from": []string{"C"}, // Forward reference!

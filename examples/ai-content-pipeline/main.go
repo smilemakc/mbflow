@@ -198,9 +198,6 @@ Provide the enhanced version:`,
 				"seo_de":     "seo_german.content",
 			},
 		}).
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"aggregate_results_output"},
-		}).
 		// Define edges (workflow flow)
 		AddEdge("generate_content", "analyze_quality", string(mbflow.EdgeTypeDirect), nil).
 		AddEdgeWithDataSources("analyze_quality", "quality_router", string(mbflow.EdgeTypeDirect), []string{"generate_content"}).
@@ -242,7 +239,6 @@ Provide the enhanced version:`,
 		AddEdge("seo_spanish", "aggregate_results", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("seo_russian", "aggregate_results", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("seo_german", "aggregate_results", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("aggregate_results", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Start Content Pipeline",

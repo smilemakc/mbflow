@@ -14,8 +14,6 @@ func main() {
 	// Create a workflow demonstrating error handling strategies
 	workflow, err := mbflow.NewWorkflowBuilder("Error Handling Demo", "1.0").
 		WithDescription("Demonstrates retry, circuit breaker, and error strategies").
-		// Start
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Node with retry enabled
 		AddNode(string(mbflow.NodeTypeHTTP), "api_call_with_retry", map[string]any{
 			"url":    "https://booking-hub.free.beeceptor.com", // This will succeed
@@ -59,12 +57,7 @@ func main() {
 				"message": `"API call failed with status " + string(status)`,
 			},
 		}).
-		// End
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"status", "success", "message", "selected_route"},
-		}).
 		// Edges
-		AddEdge("start", "api_call_with_retry", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("api_call_with_retry", "process_response", string(mbflow.EdgeTypeDirect), nil).
 		AddEdge("process_response", "check_status", string(mbflow.EdgeTypeDirect), nil).
 		// Conditional edges based on routing
@@ -74,8 +67,6 @@ func main() {
 		AddEdge("check_status", "failure_handler", string(mbflow.EdgeTypeConditional), map[string]any{
 			"condition": `selected_route == "failure"`,
 		}).
-		AddEdge("success_handler", "end", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("failure_handler", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name": "Test Error Handling",

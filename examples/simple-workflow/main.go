@@ -15,8 +15,6 @@ func main() {
 	// Create a simple workflow using the builder pattern
 	workflow, err := mbflow.NewWorkflowBuilder("Simple Workflow", "1.0").
 		WithDescription("A simple workflow demonstrating the new architecture").
-		// Add Start node
-		AddNode(string(mbflow.NodeTypeStart), "start", map[string]any{}).
 		// Add Transform node to process data using structured config
 		AddNodeWithConfig(string(mbflow.NodeTypeTransform), "process", &mbflow.TransformConfig{
 			Transformations: map[string]string{
@@ -24,13 +22,6 @@ func main() {
 				"message": `"Processed: " + string(doubled)`,
 			},
 		}).
-		// Add End node
-		AddNode(string(mbflow.NodeTypeEnd), "end", map[string]any{
-			"output_keys": []string{"doubled", "message"},
-		}).
-		// Connect nodes with edges
-		AddEdge("start", "process", string(mbflow.EdgeTypeDirect), nil).
-		AddEdge("process", "end", string(mbflow.EdgeTypeDirect), nil).
 		// Add a manual trigger
 		AddTrigger(string(mbflow.TriggerTypeManual), map[string]any{
 			"name":        "Manual Start",

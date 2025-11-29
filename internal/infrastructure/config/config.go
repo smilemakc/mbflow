@@ -16,7 +16,7 @@ type Config struct {
 // Load creates a new Config instance by reading environment variables.
 func Load() *Config {
 	return &Config{
-		Port:        getEnv("PORT", "8080"),
+		Port:        getEnv("PORT", "8181"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		DatabaseDSN: getEnv("DATABASE_DSN", ""),
 	}

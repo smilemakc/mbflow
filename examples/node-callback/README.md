@@ -43,7 +43,7 @@ The callback is configured in the node config using the `on_success_callback` ke
     Config: map[string]any{
         // ... other config ...
         "on_success_callback": map[string]any{
-            "url":               "http://localhost:8080/callback",
+            "url":               "http://localhost:8181/callback",
             "method":            "POST",              // Optional, default: POST
             "timeout_seconds":   10,                  // Optional, default: 30
             "include_variables": true,                // Optional, default: false
@@ -106,7 +106,7 @@ When you run the example, you should see:
 
 Example output:
 ```
-Callback server listening on :8080
+Callback server listening on :8181
 Starting workflow execution...
 
 === Callback Received ===

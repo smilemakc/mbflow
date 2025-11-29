@@ -11,7 +11,7 @@ Complete REST API for managing workflows and executions in MBFlow.
 go run cmd/server/main.go
 
 # With custom port
-go run cmd/server/main.go -port 8080
+go run cmd/server/main.go -port 8181
 
 # With CORS enabled
 go run cmd/server/main.go -cors=true
@@ -69,7 +69,7 @@ docker-compose down -v
 ### Creating a Workflow
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/workflows \
+curl -X POST http://localhost:8181/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d '{
     "name": "simple-workflow",
@@ -117,19 +117,19 @@ curl -X POST http://localhost:8080/api/v1/workflows \
 ### Listing Workflows
 
 ```bash
-curl http://localhost:8080/api/v1/workflows
+curl http://localhost:8181/api/v1/workflows
 ```
 
 ### Getting a Workflow
 
 ```bash
-curl http://localhost:8080/api/v1/workflows/{workflow-id}
+curl http://localhost:8181/api/v1/workflows/{workflow-id}
 ```
 
 ### Executing a Workflow
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/executions \
+curl -X POST http://localhost:8181/api/v1/executions \
   -H "Content-Type: application/json" \
   -d '{
     "workflow_id": "{workflow-id}",
@@ -143,43 +143,43 @@ curl -X POST http://localhost:8080/api/v1/executions \
 
 ```bash
 # All executions
-curl http://localhost:8080/api/v1/executions
+curl http://localhost:8181/api/v1/executions
 
 # Filter by workflow ID
-curl "http://localhost:8080/api/v1/executions?workflow_id={workflow-id}"
+curl "http://localhost:8181/api/v1/executions?workflow_id={workflow-id}"
 
 # Filter by status
-curl "http://localhost:8080/api/v1/executions?status=completed"
+curl "http://localhost:8181/api/v1/executions?status=completed"
 ```
 
 ### Getting Execution Details
 
 ```bash
-curl http://localhost:8080/api/v1/executions/{execution-id}
+curl http://localhost:8181/api/v1/executions/{execution-id}
 ```
 
 ### Getting Execution Events
 
 ```bash
-curl http://localhost:8080/api/v1/executions/{execution-id}/events
+curl http://localhost:8181/api/v1/executions/{execution-id}/events
 ```
 
 ### Canceling an Execution
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/executions/{execution-id}/cancel
+curl -X POST http://localhost:8181/api/v1/executions/{execution-id}/cancel
 ```
 
 ### Pausing an Execution
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/executions/{execution-id}/pause
+curl -X POST http://localhost:8181/api/v1/executions/{execution-id}/pause
 ```
 
 ### Resuming an Execution
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/executions/{execution-id}/resume
+curl -X POST http://localhost:8181/api/v1/executions/{execution-id}/resume
 ```
 
 ## Authentication
@@ -188,10 +188,10 @@ If API keys are configured, include them in requests:
 
 ```bash
 # Using X-API-Key header
-curl -H "X-API-Key: your-api-key" http://localhost:8080/api/v1/workflows
+curl -H "X-API-Key: your-api-key" http://localhost:8181/api/v1/workflows
 
 # Using Authorization Bearer token
-curl -H "Authorization: Bearer your-api-key" http://localhost:8080/api/v1/workflows
+curl -H "Authorization: Bearer your-api-key" http://localhost:8181/api/v1/workflows
 ```
 
 ## Interactive API Documentation
@@ -417,7 +417,7 @@ HTTP status code: `429 Too Many Requests`
 
 ### Environment Variables
 
-- `PORT` - Server port (default: 8080)
+- `PORT` - Server port (default: 8181)
 - `LOG_LEVEL` - Logging level: debug, info, warn, error (default: info)
 - `CORS_ENABLED` - Enable CORS (default: true)
 - `METRICS_ENABLED` - Enable metrics collection (default: true)

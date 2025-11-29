@@ -195,11 +195,11 @@ Node API тесно интегрирован с:
 
 ```bash
 # Запуск сервера
-go run cmd/server/main.go -port 8080
+go run cmd/server/main.go -port 8181
 
 # Тестирование API
-curl http://localhost:8080/api/v1/node-types
-curl http://localhost:8080/api/v1/workflows/{id}/nodes
+curl http://localhost:8181/api/v1/node-types
+curl http://localhost:8181/api/v1/workflows/{id}/nodes
 
 # Swagger UI (при использовании Docker Compose)
 open http://localhost:8081/docs

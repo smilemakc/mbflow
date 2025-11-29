@@ -41,6 +41,18 @@ type TriggerRequest struct {
 	Config map[string]interface{} `json:"config,omitempty"`
 }
 
+// UpdateWorkflowRequest represents the request body for updating a workflow
+// All fields are optional for partial updates
+type UpdateWorkflowRequest struct {
+	Name        *string                `json:"name,omitempty"`
+	Version     *string                `json:"version,omitempty"`
+	Description *string                `json:"description,omitempty"`
+	Nodes       []NodeRequest          `json:"nodes,omitempty"`
+	Edges       []EdgeRequest          `json:"edges,omitempty"`
+	Triggers    []TriggerRequest       `json:"triggers,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
 // WorkflowResponse represents the response for a workflow
 type WorkflowResponse struct {
 	ID          string                 `json:"id"`
@@ -138,7 +150,7 @@ func (s *Server) handleCreateWorkflow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create workflow using domain factory
-	workflow, err := domain.NewWorkflow(uuid.New(), req.Name, req.Version, req.Description, req.Metadata)
+	workflow, err := domain.NewWorkflow(req.Name, req.Version, req.Description, req.Metadata)
 	if err != nil {
 		s.respondError(w, fmt.Sprintf("Failed to create workflow: %v", err), http.StatusBadRequest)
 		return
@@ -201,6 +213,7 @@ func (s *Server) handleCreateWorkflow(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleUpdateWorkflow handles PUT /api/v1/workflows/{id}
+// Supports partial updates - only provided fields will be updated
 func (s *Server) handleUpdateWorkflow(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -210,55 +223,107 @@ func (s *Server) handleUpdateWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req CreateWorkflowRequest
+	var req UpdateWorkflowRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.respondError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Create new workflow version
-	workflow, err := domain.NewWorkflow(workflowID, req.Name, req.Version, req.Description, req.Metadata)
+	// Get existing workflow
+	existingWorkflow, err := s.store.GetWorkflow(ctx, workflowID)
 	if err != nil {
-		s.respondError(w, fmt.Sprintf("Failed to create workflow: %v", err), http.StatusBadRequest)
+		s.logger.Error("failed to get workflow for update", "error", err, "id", workflowID)
+		s.respondError(w, "Workflow not found", http.StatusNotFound)
 		return
 	}
 
-	// Add nodes
-	nodeNameToID := make(map[string]uuid.UUID)
-	for _, nodeReq := range req.Nodes {
-		nodeID, err := workflow.AddNode(domain.NodeType(nodeReq.Type), nodeReq.Name, nodeReq.Config)
-		if err != nil {
-			s.respondError(w, fmt.Sprintf("Failed to add node %s: %v", nodeReq.Name, err), http.StatusBadRequest)
-			return
-		}
-		nodeNameToID[nodeReq.Name] = nodeID
+	// Prepare updated values - use existing values as defaults
+	name := existingWorkflow.Name()
+	version := existingWorkflow.Version()
+	description := existingWorkflow.Description()
+	spec := existingWorkflow.Spec()
+
+	// Apply partial updates
+	if req.Name != nil {
+		name = *req.Name
+	}
+	if req.Version != nil {
+		version = *req.Version
+	}
+	if req.Description != nil {
+		description = *req.Description
+	}
+	if req.Metadata != nil {
+		spec = req.Metadata
 	}
 
-	// Add edges
-	for _, edgeReq := range req.Edges {
-		fromID, ok := nodeNameToID[edgeReq.From]
-		if !ok {
-			s.respondError(w, fmt.Sprintf("Node not found: %s", edgeReq.From), http.StatusBadRequest)
-			return
-		}
-		toID, ok := nodeNameToID[edgeReq.To]
-		if !ok {
-			s.respondError(w, fmt.Sprintf("Node not found: %s", edgeReq.To), http.StatusBadRequest)
+	// If nodes/edges/triggers are provided, rebuild workflow structure
+	// Otherwise, preserve existing structure
+	hasStructuralChanges := len(req.Nodes) > 0 || len(req.Edges) > 0 || len(req.Triggers) > 0
+
+	var workflow domain.Workflow
+
+	if hasStructuralChanges {
+		// Full structural update - create new workflow with provided structure
+		workflow, err = domain.RestoreWorkflow(workflowID, name, version, description, spec)
+		if err != nil {
+			s.respondError(w, fmt.Sprintf("Failed to create workflow: %v", err), http.StatusBadRequest)
 			return
 		}
 
-		_, err := workflow.AddEdge(fromID, toID, domain.EdgeType(edgeReq.Type), edgeReq.Condition)
-		if err != nil {
-			s.respondError(w, fmt.Sprintf("Failed to add edge: %v", err), http.StatusBadRequest)
-			return
+		// Add nodes
+		nodeNameToID := make(map[string]uuid.UUID)
+		for _, nodeReq := range req.Nodes {
+			nodeID, err := workflow.AddNode(domain.NodeType(nodeReq.Type), nodeReq.Name, nodeReq.Config)
+			if err != nil {
+				s.respondError(w, fmt.Sprintf("Failed to add node %s: %v", nodeReq.Name, err), http.StatusBadRequest)
+				return
+			}
+			nodeNameToID[nodeReq.Name] = nodeID
 		}
-	}
 
-	// Add triggers
-	for _, triggerReq := range req.Triggers {
-		_, err := workflow.AddTrigger(domain.TriggerType(triggerReq.Type), triggerReq.Config)
+		// Add edges
+		for _, edgeReq := range req.Edges {
+			fromID, ok := nodeNameToID[edgeReq.From]
+			if !ok {
+				s.respondError(w, fmt.Sprintf("Node not found: %s", edgeReq.From), http.StatusBadRequest)
+				return
+			}
+			toID, ok := nodeNameToID[edgeReq.To]
+			if !ok {
+				s.respondError(w, fmt.Sprintf("Node not found: %s", edgeReq.To), http.StatusBadRequest)
+				return
+			}
+
+			_, err := workflow.AddEdge(fromID, toID, domain.EdgeType(edgeReq.Type), edgeReq.Condition)
+			if err != nil {
+				s.respondError(w, fmt.Sprintf("Failed to add edge: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+
+		// Add triggers
+		for _, triggerReq := range req.Triggers {
+			_, err := workflow.AddTrigger(domain.TriggerType(triggerReq.Type), triggerReq.Config)
+			if err != nil {
+				s.respondError(w, fmt.Sprintf("Failed to add trigger: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+	} else {
+		// Metadata-only update - preserve existing structure
+		existingNodes := existingWorkflow.GetAllNodes()
+		existingEdges := existingWorkflow.GetAllEdges()
+		existingTriggers := existingWorkflow.GetAllTriggers()
+
+		workflow, err = domain.ReconstructWorkflow(
+			workflowID,
+			name, version, description, spec,
+			existingWorkflow.CreatedAt(), existingWorkflow.UpdatedAt(),
+			existingNodes, existingEdges, existingTriggers,
+		)
 		if err != nil {
-			s.respondError(w, fmt.Sprintf("Failed to add trigger: %v", err), http.StatusBadRequest)
+			s.respondError(w, fmt.Sprintf("Failed to update workflow: %v", err), http.StatusBadRequest)
 			return
 		}
 	}
@@ -269,7 +334,7 @@ func (s *Server) handleUpdateWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update workflow
+	// Save updated workflow
 	if err := s.store.SaveWorkflow(ctx, workflow); err != nil {
 		s.logger.Error("failed to update workflow", "error", err)
 		s.respondError(w, "Failed to update workflow", http.StatusInternalServerError)

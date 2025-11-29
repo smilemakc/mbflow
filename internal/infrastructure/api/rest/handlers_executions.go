@@ -55,13 +55,13 @@ type ExecutionEventsResponse struct {
 
 // EventResponse represents a domain event
 type EventResponse struct {
-	ID             string                 `json:"id"`
-	Type           string                 `json:"type"`
-	ExecutionID    string                 `json:"execution_id"`
-	WorkflowID     string                 `json:"workflow_id"`
-	SequenceNumber int                    `json:"sequence_number"`
-	Timestamp      time.Time              `json:"timestamp"`
-	Data           map[string]interface{} `json:"data,omitempty"`
+	ID          string                 `json:"id"`
+	EventType   string                 `json:"event_type"`
+	ExecutionID string                 `json:"execution_id"`
+	WorkflowID  string                 `json:"workflow_id,omitempty"`
+	Sequence    int                    `json:"sequence"`
+	Timestamp   time.Time              `json:"timestamp"`
+	Data        map[string]interface{} `json:"data,omitempty"`
 }
 
 // handleListExecutions handles GET /api/v1/executions
@@ -197,6 +197,12 @@ func (s *Server) handleExecuteWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Save execution snapshot to store
+	if err := s.store.SaveSnapshot(ctx, execution); err != nil {
+		s.logger.Error("failed to save execution snapshot", "error", err)
+		// Don't fail the request - execution completed successfully
+	}
+
 	s.respondJSON(w, s.executionToResponse(execution), http.StatusCreated)
 }
 
@@ -326,12 +332,12 @@ func (s *Server) executionToResponse(exec domain.Execution) ExecutionResponse {
 // eventToResponse converts a domain event to a response DTO
 func (s *Server) eventToResponse(event mbflow.Event) EventResponse {
 	return EventResponse{
-		ID:             event.EventID().String(),
-		Type:           string(event.EventType()),
-		ExecutionID:    event.ExecutionID().String(),
-		WorkflowID:     event.WorkflowID().String(),
-		SequenceNumber: int(event.SequenceNumber()),
-		Timestamp:      event.Timestamp(),
-		Data:           event.Data(),
+		ID:          event.EventID().String(),
+		EventType:   string(event.EventType()),
+		ExecutionID: event.ExecutionID().String(),
+		WorkflowID:  event.WorkflowID().String(),
+		Sequence:    int(event.SequenceNumber()),
+		Timestamp:   event.Timestamp(),
+		Data:        event.Data(),
 	}
 }

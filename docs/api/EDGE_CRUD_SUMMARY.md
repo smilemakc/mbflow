@@ -391,12 +391,12 @@ curl -X POST /api/v1/workflows/$WF/edges \
 
 ```bash
 # Запуск сервера
-go run cmd/server/main.go -port 8080
+go run cmd/server/main.go -port 8181
 
 # Тестирование API
-curl http://localhost:8080/api/v1/edge-types
-curl http://localhost:8080/api/v1/workflows/{id}/edges
-curl http://localhost:8080/api/v1/workflows/{id}/graph
+curl http://localhost:8181/api/v1/edge-types
+curl http://localhost:8181/api/v1/workflows/{id}/edges
+curl http://localhost:8181/api/v1/workflows/{id}/graph
 
 # Swagger UI (при использовании Docker Compose)
 open http://localhost:8081/docs
