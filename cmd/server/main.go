@@ -44,9 +44,17 @@ func main() {
 		"metrics", *enableMetrics,
 	)
 
-	// Create storage (in-memory for MVP, can be replaced with PostgreSQL)
-	store := storage.NewMemoryStore()
-	log.Info("using in-memory storage")
+	// Create storage (BunStore with PostgreSQL)
+	store := storage.NewBunStore(cfg.DatabaseDSN)
+	log.Info("using BunStore (PostgreSQL)", "dsn", maskDSN(cfg.DatabaseDSN))
+
+	// Initialize database schema
+	ctx := context.Background()
+	if err := store.InitSchema(ctx); err != nil {
+		log.Error("failed to initialize database schema", "error", err)
+		os.Exit(1)
+	}
+	log.Info("database schema initialized")
 
 	// Create executor
 	executorOpts := []mbflow.ExecutorOption{
@@ -122,6 +130,37 @@ func main() {
 	}
 
 	log.Info("server exited gracefully")
+}
+
+// maskDSN masks the password in a DSN string for safe logging
+func maskDSN(dsn string) string {
+	// Simple masking: find password= and replace value with ***
+	// Format: postgres://user:password@host:port/dbname
+	if len(dsn) == 0 {
+		return ""
+	}
+
+	// Find the password part (between : and @)
+	start := -1
+	end := -1
+	for i := 0; i < len(dsn); i++ {
+		if dsn[i] == ':' && start == -1 {
+			// Check if this is the password separator (not port separator)
+			if i+1 < len(dsn) && dsn[i+1] != '/' {
+				start = i + 1
+			}
+		}
+		if dsn[i] == '@' && start != -1 {
+			end = i
+			break
+		}
+	}
+
+	if start != -1 && end != -1 && end > start {
+		return dsn[:start] + "***" + dsn[end:]
+	}
+
+	return dsn
 }
 
 // parseAPIKeys parses comma-separated API keys

@@ -70,7 +70,38 @@ export const useWorkflowStore = defineStore('workflow', () => {
         loading.value = true
         error.value = null
         try {
-            const workflow = await workflowsApi.updateWorkflow(id, data)
+            // Preserve IDs when updating to maintain entity identity
+            const updateData: any = { ...data }
+
+            if (data.nodes) {
+                updateData.nodes = data.nodes.map(n => ({
+                    id: n.id,  // Include ID to preserve node identity
+                    type: n.type,
+                    name: n.name,
+                    config: n.config
+                }))
+            }
+
+            if (data.edges) {
+                updateData.edges = data.edges.map(e => ({
+                    id: e.id,  // Include ID to preserve edge identity
+                    from: e.from,
+                    to: e.to,
+                    type: e.type,
+                    condition: e.condition,
+                    config: e.config
+                }))
+            }
+
+            if (data.triggers) {
+                updateData.triggers = data.triggers.map(t => ({
+                    id: t.id,  // Include ID to preserve trigger identity
+                    type: t.type,
+                    config: t.config
+                }))
+            }
+
+            const workflow = await workflowsApi.updateWorkflow(id, updateData)
             const index = workflows.value.findIndex((w) => w.id === id)
             if (index !== -1) {
                 workflows.value[index] = workflow

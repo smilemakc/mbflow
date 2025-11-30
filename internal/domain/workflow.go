@@ -21,6 +21,12 @@ type Workflow interface {
 	CreatedAt() time.Time
 	UpdatedAt() time.Time
 
+	// State management
+	State() WorkflowState
+	SetState(state WorkflowState) error
+	Publish() error
+	Archive() error
+
 	// Node management
 	UseNode(node Node) error
 	AddNode(nodeType NodeType, name string, config map[string]any) (uuid.UUID, error)
@@ -41,8 +47,14 @@ type Workflow interface {
 	GetAllTriggers() []Trigger
 	RemoveTrigger(id uuid.UUID) error
 
+	// Bulk operations
+	ClearNodes()    // Removes all nodes and associated edges
+	ClearTriggers() // Removes all triggers
+
 	// Validation
-	Validate() error
+	ValidateStructure() error    // Validates structure without requiring triggers (for drafts)
+	ValidateForExecution() error // Validates readiness for execution (requires triggers)
+	Validate() error             // Alias for ValidateForExecution (backward compatibility)
 }
 
 type workflow struct {
@@ -51,6 +63,7 @@ type workflow struct {
 	version     string
 	description string
 	spec        map[string]any
+	state       WorkflowState
 	createdAt   time.Time
 	updatedAt   time.Time
 
@@ -68,6 +81,7 @@ func RestoreWorkflow(id uuid.UUID, name, version, description string, spec map[s
 		version:     version,
 		description: description,
 		spec:        spec,
+		state:       WorkflowStateDraft,
 		createdAt:   now,
 		updatedAt:   now,
 		nodes:       make(map[uuid.UUID]*node),
@@ -87,6 +101,7 @@ func ReconstructWorkflow(
 	id uuid.UUID,
 	name, version, description string,
 	spec map[string]any,
+	state WorkflowState,
 	createdAt, updatedAt time.Time,
 	nodes []Node,
 	edges []Edge,
@@ -98,6 +113,7 @@ func ReconstructWorkflow(
 		version:     version,
 		description: description,
 		spec:        spec,
+		state:       state,
 		createdAt:   createdAt,
 		updatedAt:   updatedAt,
 		nodes:       make(map[uuid.UUID]*node),
@@ -171,6 +187,17 @@ func (w *workflow) UseNode(n Node) error {
 		name:     n.Name(),
 		config:   n.Config(),
 	}
+
+	// Check if node with this ID already exists
+	if _, exists := w.nodes[nn.id]; exists {
+		// Node with same ID exists - allow update even if name changes
+		// This is for updating existing nodes
+		w.nodes[nn.id] = nn
+		w.updatedAt = time.Now()
+		return nil
+	}
+
+	// New node - validate uniqueness
 	if err := w.addNode(nn); err != nil {
 		return err
 	}
@@ -269,6 +296,21 @@ func (w *workflow) RemoveNode(id uuid.UUID) error {
 	w.updatedAt = time.Now()
 
 	return nil
+}
+
+// ClearNodes removes all nodes and associated edges from the workflow.
+// This is useful for atomic workflow structure updates.
+func (w *workflow) ClearNodes() {
+	w.nodes = make(map[uuid.UUID]*node)
+	w.edges = make(map[uuid.UUID]*edge)
+	w.updatedAt = time.Now()
+}
+
+// ClearTriggers removes all triggers from the workflow.
+// This is useful for atomic workflow structure updates.
+func (w *workflow) ClearTriggers() {
+	w.triggers = make(map[uuid.UUID]*trigger)
+	w.updatedAt = time.Now()
 }
 
 func (w *workflow) UseEdge(e Edge) error {
@@ -467,8 +509,9 @@ func checkUniqueNames(nodes []Node) error {
 	return nil
 }
 
-// Validate validates the workflow structure and checks for invariant violations.
-func (w *workflow) Validate() error {
+// ValidateStructure validates the basic workflow structure without requiring triggers.
+// This is suitable for draft workflows that are not yet ready for execution.
+func (w *workflow) ValidateStructure() error {
 	// Check that workflow has at least one node
 	if len(w.nodes) == 0 {
 		return NewDomainError(
@@ -477,19 +520,13 @@ func (w *workflow) Validate() error {
 			nil,
 		)
 	}
+
+	// Check node name uniqueness
 	if err := checkUniqueNames(w.GetAllNodes()); err != nil {
 		return NewDomainError(
 			ErrCodeValidationFailed,
 			"node names must be unique",
 			err,
-		)
-	}
-	// Check that workflow has at least one trigger
-	if len(w.triggers) == 0 {
-		return NewDomainError(
-			ErrCodeValidationFailed,
-			"workflow must have at least one trigger",
-			nil,
 		)
 	}
 
@@ -498,7 +535,7 @@ func (w *workflow) Validate() error {
 		return err
 	}
 
-	// Check that all edges reference existing nodes (should be guaranteed by AddEdge, but double-check)
+	// Check that all edges reference existing nodes
 	for _, e := range w.edges {
 		if _, exists := w.nodes[e.fromNodeID]; !exists {
 			return NewDomainError(
@@ -517,6 +554,32 @@ func (w *workflow) Validate() error {
 	}
 
 	return nil
+}
+
+// ValidateForExecution validates that the workflow is ready for execution.
+// This includes all structural validations plus execution-specific requirements.
+func (w *workflow) ValidateForExecution() error {
+	// First, validate structure
+	if err := w.ValidateStructure(); err != nil {
+		return err
+	}
+
+	// Check that workflow has at least one trigger (required for execution)
+	if len(w.triggers) == 0 {
+		return NewDomainError(
+			ErrCodeValidationFailed,
+			"workflow must have at least one trigger for execution",
+			nil,
+		)
+	}
+
+	return nil
+}
+
+// Validate validates the workflow for execution (backward compatibility).
+// For draft workflows, use ValidateStructure() instead.
+func (w *workflow) Validate() error {
+	return w.ValidateForExecution()
 }
 
 // checkForCycles performs a DFS-based cycle detection.

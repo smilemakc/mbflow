@@ -8,6 +8,7 @@ MBFlow is a sophisticated workflow orchestration engine written in Go that imple
 ## 🌟 Key Features
 
 ### Core Capabilities
+
 - **Event Sourcing Architecture** - Complete audit trail and state reconstruction
 - **Domain-Driven Design** - Clean, maintainable, and testable codebase
 - **Parallel Execution** - Automatic wave-based parallel node execution
@@ -18,6 +19,7 @@ MBFlow is a sophisticated workflow orchestration engine written in Go that imple
 - **Schema Validation** - Type-safe input/output contracts for nodes
 
 ### Advanced Features
+
 - **Multi-Parent Nodes** - Automatic namespace collision resolution
 - **Expression Language** - Dynamic transformations using expr-lang
 - **Template Processing** - Variable substitution in configurations
@@ -187,12 +189,78 @@ State Change                  Observers
 ```
 
 All state changes in `Execution` are captured as immutable events:
+
 - `ExecutionStarted`
 - `NodeStarted`, `NodeCompleted`, `NodeFailed`
 - `VariableSet`
 - `ExecutionCompleted`, `ExecutionFailed`
 
 Events are the source of truth - state can be completely reconstructed by replaying events.
+
+### Storage Layer
+
+MBFlow supports multiple storage backends for persistence:
+
+#### BunStore (PostgreSQL) - Default
+
+BunStore is the default production-ready storage implementation using PostgreSQL with the Bun ORM.
+
+**Setup PostgreSQL:**
+
+```bash
+# Using Docker
+docker run --name mbflow-postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=mbflow \
+  -p 5432:5432 \
+  -d postgres:15
+
+# Or using Homebrew (macOS)
+brew install postgresql@15
+brew services start postgresql@15
+createdb mbflow
+```
+
+**Configuration:**
+
+Set the `DATABASE_DSN` environment variable:
+
+```bash
+export DATABASE_DSN="postgres://postgres:postgres@localhost:5432/mbflow?sslmode=disable"
+```
+
+Default DSN (if not set): `postgres://postgres:postgres@localhost:5432/mbflow?sslmode=disable`
+
+**Features:**
+
+- ✅ Automatic schema initialization
+- ✅ Event sourcing support
+- ✅ Transaction support
+- ✅ Production-ready
+- ✅ Full ACID compliance
+
+**Starting the server:**
+
+```bash
+# With default PostgreSQL connection
+go run cmd/server/main.go
+
+# With custom DSN
+DATABASE_DSN="postgres://user:pass@host:5432/dbname" go run cmd/server/main.go
+```
+
+#### MemoryStore (Development)
+
+For development and testing, you can use the in-memory storage:
+
+```go
+import "github.com/smilemakc/mbflow/internal/infrastructure/storage"
+
+store := storage.NewMemoryStore()
+executor := mbflow.NewExecutor(mbflow.WithEventStore(store))
+```
+
+**Note:** MemoryStore is not suitable for production as data is lost on restart.
 
 ## 🔄 Scoped Variable Handling
 
@@ -455,6 +523,7 @@ Explore comprehensive examples in the `/examples` directory:
 - **data-analysis-reporting** - Data processing pipeline
 
 Run examples:
+
 ```bash
 go run examples/simple-workflow/main.go
 go run examples/parallel-workflow/main.go
@@ -500,7 +569,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 📧 Email: support@mbflow.dev
+- 📧 Email: <support@mbflow.dev>
 - 🐛 Issues: [GitHub Issues](https://github.com/smilemakc/mbflow/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/smilemakc/mbflow/discussions)
 

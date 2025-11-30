@@ -159,6 +159,12 @@ func (s *Server) handleExecuteWorkflow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate workflow is ready for execution
+	if err := workflow.ValidateForExecution(); err != nil {
+		s.respondError(w, fmt.Sprintf("Workflow is not ready for execution: %v", err), http.StatusBadRequest)
+		return
+	}
+
 	// Determine trigger
 	var trigger domain.Trigger
 	if req.TriggerID != "" {

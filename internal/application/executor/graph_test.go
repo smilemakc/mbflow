@@ -87,7 +87,26 @@ func (w *testGraphWorkflow) GetEdge(uuid.UUID) (domain.Edge, error)       { retu
 func (w *testGraphWorkflow) GetTrigger(uuid.UUID) (domain.Trigger, error) { return nil, nil }
 func (w *testGraphWorkflow) RemoveNode(uuid.UUID) error                   { return nil }
 func (w *testGraphWorkflow) RemoveEdge(uuid.UUID) error                   { return nil }
-func (w *testGraphWorkflow) RemoveTrigger(uuid.UUID) error                { return nil }
+func (w *testGraphWorkflow) RemoveTrigger(uuid.UUID) error {
+	return nil
+}
+
+func (w *testGraphWorkflow) ClearNodes() {
+	// No-op for test
+}
+
+func (w *testGraphWorkflow) ClearTriggers() {
+	// No-op for test
+}
+
+func (w *testGraphWorkflow) ValidateStructure() error {
+	return nil
+}
+
+func (w *testGraphWorkflow) ValidateForExecution() error {
+	return nil
+}
+
 func (w *testGraphWorkflow) UseNode(domain.Node) error {
 	return nil
 }

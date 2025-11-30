@@ -227,6 +227,7 @@ curl http://localhost:8181/api/v1/edge-types
 ```
 
 Доступные типы:
+
 - `direct` - простой последовательный переход
 - `conditional` - переход по условию
 - `fork` - начало параллельных веток
@@ -437,6 +438,7 @@ http://localhost:8081/docs
 ```
 
 Swagger UI предоставляет:
+
 - Интерактивный explorer API
 - Примеры запросов/ответов
 - Документацию схем
@@ -453,6 +455,7 @@ Swagger UI предоставляет:
 ```
 
 Стандартные HTTP коды:
+
 - `200 OK` - Успешный запрос
 - `201 Created` - Ресурс создан успешно
 - `204 No Content` - Ресурс удален успешно
@@ -467,6 +470,7 @@ Swagger UI предоставляет:
 
 - `PORT` - Порт сервера (по умолчанию: 8181)
 - `LOG_LEVEL` - Уровень логирования: debug, info, warn, error (по умолчанию: info)
+- `DATABASE_DSN` - DSN для подключения к PostgreSQL (по умолчанию: `postgres://postgres:postgres@localhost:5432/mbflow?sslmode=disable`)
 - `CORS_ENABLED` - Включить CORS (по умолчанию: true)
 - `METRICS_ENABLED` - Включить сбор метрик (по умолчанию: true)
 
@@ -554,7 +558,7 @@ mbflow/
 ## Поддержка
 
 Для вопросов и отчетов об ошибках:
-https://github.com/smilemakc/mbflow/issues
+<https://github.com/smilemakc/mbflow/issues>
 
 ## Лицензия
 

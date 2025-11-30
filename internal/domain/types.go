@@ -4,6 +4,35 @@ import (
 	"fmt"
 )
 
+// WorkflowState defines the lifecycle state of a workflow
+type WorkflowState string
+
+const (
+	// WorkflowStateDraft represents a workflow in draft mode (can be invalid)
+	WorkflowStateDraft WorkflowState = "draft"
+
+	// WorkflowStateActive represents a published, executable workflow
+	WorkflowStateActive WorkflowState = "active"
+
+	// WorkflowStateArchived represents an archived workflow (read-only, no new executions)
+	WorkflowStateArchived WorkflowState = "archived"
+)
+
+// IsValid checks if the WorkflowState is valid
+func (ws WorkflowState) IsValid() bool {
+	switch ws {
+	case WorkflowStateDraft, WorkflowStateActive, WorkflowStateArchived:
+		return true
+	default:
+		return false
+	}
+}
+
+// String returns string representation of WorkflowState
+func (ws WorkflowState) String() string {
+	return string(ws)
+}
+
 // EdgeType defines the type of connection between nodes
 type EdgeType string
 

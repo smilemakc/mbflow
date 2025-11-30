@@ -109,6 +109,7 @@ import HttpNode from '@/components/nodes/HttpNode.vue'
 import CustomNode from '@/components/nodes/CustomNode.vue'
 import { toSnakeCase } from '@/utils/formatting'
 import { generateRandomName } from '@/utils/name-generator'
+import { generateUUID } from '@/utils/uuid'
 
 // Import Vue Flow styles globally for this component
 import '@vue-flow/core/dist/style.css'
@@ -254,7 +255,7 @@ function onConnect(connection: Connection) {
   }
   
   // Create new edge locally for immediate feedback
-  const newEdgeId = `edge-${Date.now()}`
+  const newEdgeId = generateUUID()
   const newFlowEdge: FlowEdge = {
     id: newEdgeId,
     source: connection.source,
@@ -327,7 +328,7 @@ function onDrop(event: DragEvent) {
   })
 
   // Create new node with unique ID and proper naming
-  const timestamp = Date.now()
+  const nodeId = generateUUID()
   
   // Generate smart name
   const baseName = toSnakeCase(nodeType)
@@ -351,7 +352,7 @@ function onDrop(event: DragEvent) {
   }
 
   const newNode: WorkflowNode = {
-    id: `node-${timestamp}`,
+    id: nodeId,
     type: nodeType as any,
     name: name,
     config: {},

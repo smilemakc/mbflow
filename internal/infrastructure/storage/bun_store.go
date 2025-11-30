@@ -47,12 +47,13 @@ func (s *BunStore) InitSchema(ctx context.Context) error {
 type WorkflowModel struct {
 	bun.BaseModel `bun:"table:workflows,alias:w"`
 
-	ID          uuid.UUID      `bun:"id,pk"`
-	Name        string         `bun:"name"`
-	Version     string         `bun:"version"`
-	Description string         `bun:"description"`
-	Spec        map[string]any `bun:"spec,type:jsonb"`
-	CreatedAt   time.Time      `bun:"created_at"`
+	ID          uuid.UUID            `bun:"id,pk"`
+	Name        string               `bun:"name"`
+	Version     string               `bun:"version"`
+	Description string               `bun:"description"`
+	Spec        map[string]any       `bun:"spec,type:jsonb"`
+	State       domain.WorkflowState `bun:"state"`
+	CreatedAt   time.Time            `bun:"created_at"`
 }
 
 func (m *WorkflowModel) ToDomain() domain.Workflow {
@@ -62,6 +63,7 @@ func (m *WorkflowModel) ToDomain() domain.Workflow {
 		m.Version,
 		m.Description,
 		m.Spec,
+		m.State,
 		m.CreatedAt,
 		m.CreatedAt,
 		nil, nil, nil,
@@ -75,15 +77,80 @@ func NewWorkflowModel(w domain.Workflow) *WorkflowModel {
 		Name:        w.Name(),
 		Version:     w.Version(),
 		Spec:        w.Spec(),
+		State:       w.State(),
 		CreatedAt:   w.CreatedAt(),
 		Description: w.Description(),
 	}
 }
 
 func (s *BunStore) SaveWorkflow(ctx context.Context, w domain.Workflow) error {
-	model := NewWorkflowModel(w)
-	_, err := s.db.NewInsert().Model(model).On("CONFLICT (id) DO UPDATE").Exec(ctx)
-	return err
+	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+		// 1. Save Workflow
+		model := NewWorkflowModel(w)
+		_, err := tx.NewInsert().Model(model).On("CONFLICT (id) DO UPDATE").Exec(ctx)
+		if err != nil {
+			return err
+		}
+
+		// 2. Delete existing child entities (to handle removals)
+		_, err = tx.NewDelete().Model((*NodeModel)(nil)).Where("workflow_id = ?", w.ID()).Exec(ctx)
+		if err != nil {
+			return err
+		}
+		_, err = tx.NewDelete().Model((*EdgeModel)(nil)).Where("workflow_id = ?", w.ID()).Exec(ctx)
+		if err != nil {
+			return err
+		}
+		_, err = tx.NewDelete().Model((*TriggerModel)(nil)).Where("workflow_id = ?", w.ID()).Exec(ctx)
+		if err != nil {
+			return err
+		}
+
+		// 3. Save Nodes
+		nodes := w.GetAllNodes()
+		if len(nodes) > 0 {
+			nodeModels := make([]*NodeModel, len(nodes))
+			for i, n := range nodes {
+				nodeModels[i] = NewNodeModel(n)
+				// Ensure WorkflowID is set
+				nodeModels[i].WorkflowID = w.ID()
+			}
+			_, err = tx.NewInsert().Model(&nodeModels).Exec(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		// 4. Save Edges
+		edges := w.GetAllEdges()
+		if len(edges) > 0 {
+			edgeModels := make([]*EdgeModel, len(edges))
+			for i, e := range edges {
+				edgeModels[i] = NewEdgeModel(e)
+				edgeModels[i].WorkflowID = w.ID()
+			}
+			_, err = tx.NewInsert().Model(&edgeModels).Exec(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		// 5. Save Triggers
+		triggers := w.GetAllTriggers()
+		if len(triggers) > 0 {
+			triggerModels := make([]*TriggerModel, len(triggers))
+			for i, t := range triggers {
+				triggerModels[i] = NewTriggerModel(t)
+				triggerModels[i].WorkflowID = w.ID()
+			}
+			_, err = tx.NewInsert().Model(&triggerModels).Exec(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func (s *BunStore) GetWorkflow(ctx context.Context, id uuid.UUID) (domain.Workflow, error) {
@@ -596,4 +663,242 @@ func (s *BunStore) GetExecutionState(ctx context.Context, executionID uuid.UUID)
 func (s *BunStore) DeleteExecutionState(ctx context.Context, executionID uuid.UUID) error {
 	_, err := s.db.NewDelete().Model((*ExecutionStateModel)(nil)).Where("id = ?", executionID).Exec(ctx)
 	return err
+}
+
+// ========== EventStore interface implementation ==========
+
+// AppendEvents appends multiple events atomically
+func (s *BunStore) AppendEvents(ctx context.Context, events []domain.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	models := make([]*EventModel, len(events))
+	for i, ev := range events {
+		models[i] = NewEventModel(ev)
+	}
+
+	_, err := s.db.NewInsert().Model(&models).Exec(ctx)
+	return err
+}
+
+// GetEvents retrieves all events for an execution
+func (s *BunStore) GetEvents(ctx context.Context, executionID uuid.UUID) ([]domain.Event, error) {
+	return s.ListEventsByExecution(ctx, executionID)
+}
+
+// GetEventsSince retrieves events after a specific sequence number
+func (s *BunStore) GetEventsSince(ctx context.Context, executionID uuid.UUID, sequenceNumber int64) ([]domain.Event, error) {
+	var models []EventModel
+	err := s.db.NewSelect().
+		Model(&models).
+		Where("execution_id = ?", executionID).
+		Where("sequence > ?", sequenceNumber).
+		Order("sequence ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]domain.Event, len(models))
+	for i, m := range models {
+		out[i] = m.ToDomain()
+	}
+	return out, nil
+}
+
+// GetEventsByType retrieves events of a specific type
+func (s *BunStore) GetEventsByType(ctx context.Context, executionID uuid.UUID, eventType domain.EventType) ([]domain.Event, error) {
+	var models []EventModel
+	err := s.db.NewSelect().
+		Model(&models).
+		Where("execution_id = ?", executionID).
+		Where("event_type = ?", eventType).
+		Order("sequence ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]domain.Event, len(models))
+	for i, m := range models {
+		out[i] = m.ToDomain()
+	}
+	return out, nil
+}
+
+// GetEventsByWorkflow retrieves all events for a workflow (all executions)
+func (s *BunStore) GetEventsByWorkflow(ctx context.Context, workflowID uuid.UUID) ([]domain.Event, error) {
+	var models []EventModel
+	err := s.db.NewSelect().
+		Model(&models).
+		Where("workflow_id = ?", workflowID).
+		Order("timestamp ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]domain.Event, len(models))
+	for i, m := range models {
+		out[i] = m.ToDomain()
+	}
+	return out, nil
+}
+
+// GetEventCount returns the number of events for an execution
+func (s *BunStore) GetEventCount(ctx context.Context, executionID uuid.UUID) (int64, error) {
+	count, err := s.db.NewSelect().
+		Model((*EventModel)(nil)).
+		Where("execution_id = ?", executionID).
+		Count(ctx)
+	return int64(count), err
+}
+
+// ========== WorkflowRepository interface implementation ==========
+
+// GetWorkflowByName retrieves a workflow by name and version
+func (s *BunStore) GetWorkflowByName(ctx context.Context, name, version string) (domain.Workflow, error) {
+	model := new(WorkflowModel)
+	err := s.db.NewSelect().
+		Model(model).
+		Where("name = ?", name).
+		Where("version = ?", version).
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return model.ToDomain(), nil
+}
+
+// DeleteWorkflow removes a workflow and all its child entities
+func (s *BunStore) DeleteWorkflow(ctx context.Context, id uuid.UUID) error {
+	// Delete workflow (cascade will handle child entities if configured)
+	_, err := s.db.NewDelete().Model((*WorkflowModel)(nil)).Where("id = ?", id).Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Delete associated nodes, edges, and triggers
+	_, _ = s.db.NewDelete().Model((*NodeModel)(nil)).Where("workflow_id = ?", id).Exec(ctx)
+	_, _ = s.db.NewDelete().Model((*EdgeModel)(nil)).Where("workflow_id = ?", id).Exec(ctx)
+	_, _ = s.db.NewDelete().Model((*TriggerModel)(nil)).Where("workflow_id = ?", id).Exec(ctx)
+
+	return nil
+}
+
+// WorkflowExists checks if a workflow exists
+func (s *BunStore) WorkflowExists(ctx context.Context, id uuid.UUID) (bool, error) {
+	count, err := s.db.NewSelect().
+		Model((*WorkflowModel)(nil)).
+		Where("id = ?", id).
+		Count(ctx)
+	return count > 0, err
+}
+
+// ========== ExecutionRepository interface implementation ==========
+
+// ListExecutionsByWorkflow returns all executions for a workflow
+func (s *BunStore) ListExecutionsByWorkflow(ctx context.Context, workflowID uuid.UUID) ([]domain.Execution, error) {
+	var models []ExecutionModel
+	err := s.db.NewSelect().
+		Model(&models).
+		Where("workflow_id = ?", workflowID).
+		Order("started_at DESC").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]domain.Execution, len(models))
+	for i, m := range models {
+		out[i], err = m.ToDomain()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// ListAllExecutions returns all executions (paginated)
+func (s *BunStore) ListAllExecutions(ctx context.Context, limit, offset int) ([]domain.Execution, error) {
+	var models []ExecutionModel
+	query := s.db.NewSelect().
+		Model(&models).
+		Order("started_at DESC")
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	err := query.Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]domain.Execution, len(models))
+	for i, m := range models {
+		out[i], err = m.ToDomain()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// SaveSnapshot saves a snapshot of execution state for performance
+func (s *BunStore) SaveSnapshot(ctx context.Context, execution domain.Execution) error {
+	// For BunStore, snapshots are the same as regular execution saves
+	return s.SaveExecution(ctx, execution)
+}
+
+// GetSnapshot retrieves the latest snapshot if available
+func (s *BunStore) GetSnapshot(ctx context.Context, id uuid.UUID) (domain.Execution, error) {
+	// For BunStore, snapshots are the same as regular executions
+	return s.GetExecution(ctx, id)
+}
+
+// ========== Transaction support ==========
+
+// BeginTransaction begins a new transaction
+func (s *BunStore) BeginTransaction(ctx context.Context) (context.Context, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return ctx, err
+	}
+	// Store transaction in context
+	return context.WithValue(ctx, "tx", tx), nil
+}
+
+// CommitTransaction commits the current transaction
+func (s *BunStore) CommitTransaction(ctx context.Context) error {
+	tx, ok := ctx.Value("tx").(*sql.Tx)
+	if !ok {
+		return nil // No transaction to commit
+	}
+	return tx.Commit()
+}
+
+// RollbackTransaction rolls back the current transaction
+func (s *BunStore) RollbackTransaction(ctx context.Context) error {
+	tx, ok := ctx.Value("tx").(*sql.Tx)
+	if !ok {
+		return nil // No transaction to rollback
+	}
+	return tx.Rollback()
+}
+
+// ========== Health check ==========
+
+// Ping checks if the storage is accessible
+func (s *BunStore) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
+// Close closes the storage connection
+func (s *BunStore) Close() error {
+	return s.db.Close()
 }

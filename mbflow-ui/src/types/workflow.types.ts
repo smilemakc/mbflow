@@ -87,6 +87,7 @@ export interface Node {
 }
 
 export interface NodeRequest {
+    id?: string  // Optional - for preserving node ID during updates
     type: NodeType
     name: string
     config?: NodeConfig
@@ -113,6 +114,7 @@ export interface Edge {
 }
 
 export interface EdgeRequest {
+    id?: string  // Optional - for preserving edge ID during updates
     from: string
     to: string
     type: EdgeType
@@ -138,6 +140,7 @@ export interface Trigger {
 }
 
 export interface TriggerRequest {
+    id?: string  // Optional - for preserving trigger ID during updates
     type: TriggerType
     config?: Record<string, unknown>
 }
@@ -169,6 +172,7 @@ export interface CreateWorkflowRequest {
     edges: EdgeRequest[]
     triggers: TriggerRequest[]
     metadata?: Record<string, unknown>
+    draft?: boolean  // If true, allows saving without full validation (no triggers required)
 }
 
 export interface UpdateWorkflowRequest {
@@ -179,6 +183,7 @@ export interface UpdateWorkflowRequest {
     edges?: EdgeRequest[]
     triggers?: TriggerRequest[]
     metadata?: Record<string, unknown>
+    draft?: boolean  // If true, allows saving without full validation (no triggers required)
 }
 
 export interface WorkflowResponse extends Workflow { }

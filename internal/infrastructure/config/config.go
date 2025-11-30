@@ -18,7 +18,7 @@ func Load() *Config {
 	return &Config{
 		Port:        getEnv("PORT", "8181"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseDSN: getEnv("DATABASE_DSN", ""),
+		DatabaseDSN: getEnv("DATABASE_DSN", "postgres://postgres:postgres@localhost:5566/mbflow?sslmode=disable"),
 	}
 }
 
