@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
+	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
@@ -18,6 +20,7 @@ type ExecutionManager struct {
 	executionRepo   repository.ExecutionRepository
 	eventRepo       repository.EventRepository
 	dagExecutor     *DAGExecutor
+	observerManager *observer.ObserverManager
 }
 
 // NewExecutionManager creates a new execution manager
@@ -26,9 +29,10 @@ func NewExecutionManager(
 	workflowRepo repository.WorkflowRepository,
 	executionRepo repository.ExecutionRepository,
 	eventRepo repository.EventRepository,
+	observerManager *observer.ObserverManager,
 ) *ExecutionManager {
 	nodeExecutor := NewNodeExecutor(executorManager)
-	dagExecutor := NewDAGExecutor(nodeExecutor)
+	dagExecutor := NewDAGExecutor(nodeExecutor, observerManager)
 
 	return &ExecutionManager{
 		executorManager: executorManager,
@@ -36,6 +40,7 @@ func NewExecutionManager(
 		executionRepo:   executionRepo,
 		eventRepo:       eventRepo,
 		dagExecutor:     dagExecutor,
+		observerManager: observerManager,
 	}
 }
 
@@ -82,8 +87,19 @@ func (em *ExecutionManager) Execute(
 		return nil, fmt.Errorf("failed to create execution: %w", err)
 	}
 
-	// Emit execution started event
-	em.emitEvent(ctx, "execution.started", execution)
+	// Notify execution started
+	if em.observerManager != nil {
+		event := observer.Event{
+			Type:        observer.EventTypeExecutionStarted,
+			ExecutionID: execution.ID,
+			WorkflowID:  execution.WorkflowID,
+			Timestamp:   execution.StartedAt,
+			Status:      string(execution.Status),
+			Input:       execution.Input,
+			Variables:   execution.Variables,
+		}
+		em.observerManager.Notify(ctx, event)
+	}
 
 	// 3. Build execution state
 	execState := NewExecutionState(
@@ -111,8 +127,8 @@ func (em *ExecutionManager) Execute(
 		execution.Output = em.getFinalOutput(execState)
 	}
 
-	// Build node executions
-	execution.NodeExecutions = em.buildNodeExecutions(execState, workflow)
+	// Build node executions (need workflow model for UUID mapping)
+	execution.NodeExecutions = em.buildNodeExecutions(execState, workflow, workflowModel)
 
 	// Convert to storage model and update execution
 	executionModel = ExecutionDomainToModel(execution)
@@ -120,11 +136,30 @@ func (em *ExecutionManager) Execute(
 		return nil, fmt.Errorf("failed to update execution: %w", err)
 	}
 
-	// Emit completion event
-	if execErr != nil {
-		em.emitEvent(ctx, "execution.failed", execution)
-	} else {
-		em.emitEvent(ctx, "execution.completed", execution)
+	// Notify execution completion
+	if em.observerManager != nil {
+		duration := execution.Duration
+		eventType := observer.EventTypeExecutionCompleted
+		if execErr != nil {
+			eventType = observer.EventTypeExecutionFailed
+		}
+
+		event := observer.Event{
+			Type:        eventType,
+			ExecutionID: execution.ID,
+			WorkflowID:  execution.WorkflowID,
+			Timestamp:   time.Now(),
+			Status:      string(execution.Status),
+			Output:      execution.Output,
+			DurationMs:  &duration,
+			Variables:   execution.Variables,
+		}
+
+		if execErr != nil {
+			event.Error = execErr
+		}
+
+		em.observerManager.Notify(ctx, event)
 	}
 
 	return execution, execErr
@@ -201,14 +236,28 @@ func (em *ExecutionManager) findLeafNodes(workflow *models.Workflow) []*models.N
 func (em *ExecutionManager) buildNodeExecutions(
 	execState *ExecutionState,
 	workflow *models.Workflow,
+	workflowModel *storagemodels.WorkflowModel,
 ) []*models.NodeExecution {
+	// Build map from logical ID to UUID
+	logicalToUUID := make(map[string]string)
+	for _, nodeModel := range workflowModel.Nodes {
+		logicalToUUID[nodeModel.NodeID] = nodeModel.ID.String()
+	}
+
 	nodeExecs := make([]*models.NodeExecution, 0, len(workflow.Nodes))
 
 	for _, node := range workflow.Nodes {
+		// Get the UUID for this logical node ID
+		nodeUUID, ok := logicalToUUID[node.ID]
+		if !ok {
+			// Skip nodes that don't have a UUID mapping
+			continue
+		}
+
 		nodeExec := &models.NodeExecution{
 			ID:          uuid.New().String(),
 			ExecutionID: execState.ExecutionID,
-			NodeID:      node.ID,
+			NodeID:      nodeUUID, // Use UUID instead of logical ID
 			NodeName:    node.Name,
 			NodeType:    node.Type,
 		}
@@ -230,15 +279,16 @@ func (em *ExecutionManager) buildNodeExecutions(
 			nodeExec.Error = err.Error()
 		}
 
+		// Get timestamps
+		if startTime, ok := execState.GetNodeStartTime(node.ID); ok {
+			nodeExec.StartedAt = startTime
+		}
+		if endTime, ok := execState.GetNodeEndTime(node.ID); ok {
+			nodeExec.CompletedAt = &endTime
+		}
+
 		nodeExecs = append(nodeExecs, nodeExec)
 	}
 
 	return nodeExecs
-}
-
-// emitEvent emits execution event
-func (em *ExecutionManager) emitEvent(ctx context.Context, eventType string, execution *models.Execution) {
-	// TODO: Implement event emission via eventRepo
-	// This is where Event Sourcing integration happens
-	// For now, this is a no-op until eventRepo is fully implemented
 }

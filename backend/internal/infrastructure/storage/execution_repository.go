@@ -40,15 +40,38 @@ func (r *ExecutionRepository) Create(ctx context.Context, execution *models.Exec
 
 // Update updates an existing execution
 func (r *ExecutionRepository) Update(ctx context.Context, execution *models.ExecutionModel) error {
-	_, err := r.db.NewUpdate().
-		Model(execution).
-		Column("status", "output_data", "error", "completed_at", "variables", "updated_at").
-		Where("id = ?", execution.ID).
-		Exec(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to update execution: %w", err)
-	}
-	return nil
+	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		// Update execution record
+		_, err := tx.NewUpdate().
+			Model(execution).
+			Column("status", "output_data", "error", "completed_at", "variables", "updated_at").
+			Where("id = ?", execution.ID).
+			Exec(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to update execution: %w", err)
+		}
+
+		// Delete existing node executions
+		_, err = tx.NewDelete().
+			Model((*models.NodeExecutionModel)(nil)).
+			Where("execution_id = ?", execution.ID).
+			Exec(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to delete old node executions: %w", err)
+		}
+
+		// Insert new node executions if any
+		if len(execution.NodeExecutions) > 0 {
+			_, err = tx.NewInsert().
+				Model(&execution.NodeExecutions).
+				Exec(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to insert node executions: %w", err)
+			}
+		}
+
+		return nil
+	})
 }
 
 // Delete deletes an execution
@@ -98,7 +121,7 @@ func (r *ExecutionRepository) FindByIDWithRelations(ctx context.Context, id uuid
 	err := r.db.NewSelect().
 		Model(execution).
 		Relation("NodeExecutions").
-		Where("execution.id = ?", id).
+		Where("ex.id = ?", id).
 		Scan(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -175,6 +175,17 @@ func ExecutionDomainToModel(exec *models.Execution) *storagemodels.ExecutionMode
 		exm.CompletedAt = exec.CompletedAt
 	}
 
+	// Convert node executions
+	if len(exec.NodeExecutions) > 0 {
+		exm.NodeExecutions = make([]*storagemodels.NodeExecutionModel, 0, len(exec.NodeExecutions))
+		for _, ne := range exec.NodeExecutions {
+			nem := NodeExecutionDomainToModel(ne)
+			if nem != nil {
+				exm.NodeExecutions = append(exm.NodeExecutions, nem)
+			}
+		}
+	}
+
 	return exm
 }
 
@@ -220,4 +231,55 @@ func NodeExecutionModelToDomain(nem *storagemodels.NodeExecutionModel) *models.N
 	}
 
 	return ne
+}
+
+// NodeExecutionDomainToModel converts domain NodeExecution to storage NodeExecutionModel
+func NodeExecutionDomainToModel(ne *models.NodeExecution) *storagemodels.NodeExecutionModel {
+	if ne == nil {
+		return nil
+	}
+
+	nem := &storagemodels.NodeExecutionModel{
+		Status:     string(ne.Status),
+		InputData:  storagemodels.JSONBMap(ne.Input),
+		OutputData: storagemodels.JSONBMap(ne.Output),
+		RetryCount: ne.RetryCount,
+		Error:      ne.Error,
+	}
+
+	// Parse UUIDs
+	if ne.ID != "" {
+		if id, err := uuid.Parse(ne.ID); err == nil {
+			nem.ID = id
+		} else {
+			nem.ID = uuid.New() // Generate new ID if parsing fails
+		}
+	} else {
+		nem.ID = uuid.New() // Generate new ID if empty
+	}
+
+	if ne.ExecutionID != "" {
+		if execID, err := uuid.Parse(ne.ExecutionID); err == nil {
+			nem.ExecutionID = execID
+		}
+	}
+
+	if ne.NodeID != "" {
+		// NodeID in domain is logical ID (string), but we need the UUID from the workflow
+		// This is a bit tricky - we'll need to convert it properly
+		// For now, try to parse it as UUID, if it fails, we'll need workflow context
+		if nodeID, err := uuid.Parse(ne.NodeID); err == nil {
+			nem.NodeID = nodeID
+		}
+	}
+
+	// Copy timestamps
+	if !ne.StartedAt.IsZero() {
+		nem.StartedAt = &ne.StartedAt
+	}
+	if ne.CompletedAt != nil && !ne.CompletedAt.IsZero() {
+		nem.CompletedAt = ne.CompletedAt
+	}
+
+	return nem
 }

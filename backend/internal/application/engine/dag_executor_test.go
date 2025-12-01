@@ -149,7 +149,7 @@ func TestDAGExecutor_Execute_Success(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec)
+	dagExec := NewDAGExecutor(nodeExec, nil) // no observer for tests
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -230,7 +230,7 @@ func TestDAGExecutor_Execute_ParallelExecution(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec)
+	dagExec := NewDAGExecutor(nodeExec, nil) // no observer for tests
 
 	// Create workflow with parallel branches
 	workflow := &models.Workflow{

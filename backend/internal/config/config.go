@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,7 @@ type Config struct {
 	Database DatabaseConfig
 	Redis    RedisConfig
 	Logging  LoggingConfig
+	Observer ObserverConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -50,6 +52,31 @@ type LoggingConfig struct {
 	Format string // "json" or "text"
 }
 
+// ObserverConfig holds observer-related configuration.
+type ObserverConfig struct {
+	// Database observer
+	EnableDatabase bool
+
+	// HTTP callback observer
+	EnableHTTP      bool
+	HTTPCallbackURL string
+	HTTPMethod      string
+	HTTPTimeout     time.Duration
+	HTTPMaxRetries  int
+	HTTPRetryDelay  time.Duration
+	HTTPHeaders     map[string]string
+
+	// Logger observer
+	EnableLogger bool
+
+	// WebSocket observer
+	EnableWebSocket     bool
+	WebSocketBufferSize int
+
+	// General settings
+	BufferSize int
+}
+
 // Load loads the configuration from environment variables.
 func Load() (*Config, error) {
 	cfg := &Config{
@@ -78,6 +105,20 @@ func Load() (*Config, error) {
 		Logging: LoggingConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
 			Format: getEnv("LOG_FORMAT", "json"),
+		},
+		Observer: ObserverConfig{
+			EnableDatabase:      getEnvAsBool("OBSERVER_DB_ENABLED", true),
+			EnableHTTP:          getEnvAsBool("OBSERVER_HTTP_ENABLED", false),
+			HTTPCallbackURL:     getEnv("OBSERVER_HTTP_URL", ""),
+			HTTPMethod:          getEnv("OBSERVER_HTTP_METHOD", "POST"),
+			HTTPTimeout:         getEnvAsDuration("OBSERVER_HTTP_TIMEOUT", 10*time.Second),
+			HTTPMaxRetries:      getEnvAsInt("OBSERVER_HTTP_MAX_RETRIES", 3),
+			HTTPRetryDelay:      getEnvAsDuration("OBSERVER_HTTP_RETRY_DELAY", 1*time.Second),
+			HTTPHeaders:         parseHTTPHeaders(getEnv("OBSERVER_HTTP_HEADERS", "")),
+			EnableLogger:        getEnvAsBool("OBSERVER_LOGGER_ENABLED", true),
+			EnableWebSocket:     getEnvAsBool("OBSERVER_WEBSOCKET_ENABLED", true),
+			WebSocketBufferSize: getEnvAsInt("OBSERVER_WEBSOCKET_BUFFER_SIZE", 256),
+			BufferSize:          getEnvAsInt("OBSERVER_BUFFER_SIZE", 100),
 		},
 	}
 
@@ -205,4 +246,23 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 	}
 
 	return result
+}
+
+// parseHTTPHeaders parses HTTP headers from environment variable
+// Format: "Key1:Value1,Key2:Value2"
+func parseHTTPHeaders(headersStr string) map[string]string {
+	headers := make(map[string]string)
+	if headersStr == "" {
+		return headers
+	}
+
+	pairs := strings.Split(headersStr, ",")
+	for _, pair := range pairs {
+		parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
+		if len(parts) == 2 {
+			headers[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+
+	return headers
 }

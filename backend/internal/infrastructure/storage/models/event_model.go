@@ -39,31 +39,31 @@ func (e *EventModel) BeforeInsert(ctx interface{}) error {
 	return nil
 }
 
-// Common event types
+// Common event types (dot notation)
 const (
-	EventTypeWorkflowStarted    = "workflow_started"
-	EventTypeWorkflowCompleted  = "workflow_completed"
-	EventTypeWorkflowFailed     = "workflow_failed"
-	EventTypeWorkflowCancelled  = "workflow_cancelled"
-	EventTypeWorkflowPaused     = "workflow_paused"
-	EventTypeWorkflowResumed    = "workflow_resumed"
-	EventTypeNodeStarted        = "node_started"
-	EventTypeNodeCompleted      = "node_completed"
-	EventTypeNodeFailed         = "node_failed"
-	EventTypeNodeSkipped        = "node_skipped"
-	EventTypeNodeRetrying       = "node_retrying"
-	EventTypeWaveStarted        = "wave_started"
-	EventTypeWaveCompleted      = "wave_completed"
-	EventTypeConditionEvaluated = "condition_evaluated"
-	EventTypeVariableSet        = "variable_set"
-	EventTypeErrorOccurred      = "error_occurred"
-	EventTypeStateChanged       = "state_changed"
+	EventTypeExecutionStarted   = "execution.started"
+	EventTypeExecutionCompleted = "execution.completed"
+	EventTypeExecutionFailed    = "execution.failed"
+	EventTypeWorkflowCancelled  = "workflow.cancelled"
+	EventTypeWorkflowPaused     = "workflow.paused"
+	EventTypeWorkflowResumed    = "workflow.resumed"
+	EventTypeNodeStarted        = "node.started"
+	EventTypeNodeCompleted      = "node.completed"
+	EventTypeNodeFailed         = "node.failed"
+	EventTypeNodeSkipped        = "node.skipped"
+	EventTypeNodeRetrying       = "node.retrying"
+	EventTypeWaveStarted        = "wave.started"
+	EventTypeWaveCompleted      = "wave.completed"
+	EventTypeConditionEvaluated = "condition.evaluated"
+	EventTypeVariableSet        = "variable.set"
+	EventTypeErrorOccurred      = "error.occurred"
+	EventTypeStateChanged       = "state.changed"
 )
 
 // IsWorkflowEvent returns true if event is a workflow-level event
 func (e *EventModel) IsWorkflowEvent() bool {
 	switch e.EventType {
-	case EventTypeWorkflowStarted, EventTypeWorkflowCompleted, EventTypeWorkflowFailed,
+	case EventTypeExecutionStarted, EventTypeExecutionCompleted, EventTypeExecutionFailed,
 		EventTypeWorkflowCancelled, EventTypeWorkflowPaused, EventTypeWorkflowResumed:
 		return true
 	}

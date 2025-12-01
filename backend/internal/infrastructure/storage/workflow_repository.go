@@ -285,7 +285,7 @@ func (r *WorkflowRepository) FindByIDWithRelations(ctx context.Context, id uuid.
 		Model(workflow).
 		Relation("Nodes").
 		Relation("Edges").
-		Where("workflow.id = ?", id).
+		Where("w.id = ?", id).
 		Scan(ctx)
 	if err != nil {
 		return nil, err

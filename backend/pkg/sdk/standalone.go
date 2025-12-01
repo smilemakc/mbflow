@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -79,7 +80,14 @@ func (c *Client) ExecuteWorkflowStandalone(
 
 	// Create node executor and DAG executor
 	nodeExecutor := engine.NewNodeExecutor(c.executorManager)
-	dagExecutor := engine.NewDAGExecutor(nodeExecutor)
+
+	// Use observer manager from options if provided
+	var observerManager *observer.ObserverManager
+	if opts != nil && opts.ObserverManager != nil {
+		observerManager = opts.ObserverManager
+	}
+
+	dagExecutor := engine.NewDAGExecutor(nodeExecutor, observerManager)
 
 	// Execute DAG
 	execErr := dagExecutor.Execute(ctx, execState, opts)

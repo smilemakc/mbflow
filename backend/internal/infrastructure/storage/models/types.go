@@ -14,7 +14,12 @@ func (j JSONBMap) Value() (driver.Value, error) {
 	if j == nil {
 		return nil, nil
 	}
-	return json.Marshal(j)
+	bytes, err := json.Marshal(j)
+	if err != nil {
+		return nil, err
+	}
+	// Return string for proper JSONB handling in PostgreSQL
+	return string(bytes), nil
 }
 
 // Scan implements the sql.Scanner interface for database deserialization

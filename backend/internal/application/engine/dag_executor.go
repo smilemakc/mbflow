@@ -4,19 +4,23 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
 // DAGExecutor executes workflow nodes in topological order with wave-based parallelism
 type DAGExecutor struct {
-	nodeExecutor *NodeExecutor
+	nodeExecutor    *NodeExecutor
+	observerManager *observer.ObserverManager
 }
 
 // NewDAGExecutor creates a new DAG executor
-func NewDAGExecutor(nodeExecutor *NodeExecutor) *DAGExecutor {
+func NewDAGExecutor(nodeExecutor *NodeExecutor, observerManager *observer.ObserverManager) *DAGExecutor {
 	return &DAGExecutor{
-		nodeExecutor: nodeExecutor,
+		nodeExecutor:    nodeExecutor,
+		observerManager: observerManager,
 	}
 }
 
@@ -53,6 +57,23 @@ func (de *DAGExecutor) executeWave(
 	waveIdx int,
 	opts *ExecutionOptions,
 ) error {
+	waveStartTime := time.Now()
+
+	// Notify wave started
+	if de.observerManager != nil {
+		nodeCount := len(wave)
+		event := observer.Event{
+			Type:        observer.EventTypeWaveStarted,
+			ExecutionID: execState.ExecutionID,
+			WorkflowID:  execState.WorkflowID,
+			Timestamp:   waveStartTime,
+			Status:      "running",
+			WaveIndex:   &waveIdx,
+			NodeCount:   &nodeCount,
+		}
+		de.observerManager.Notify(ctx, event)
+	}
+
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(wave))
 
@@ -89,6 +110,21 @@ func (de *DAGExecutor) executeWave(
 		}
 	}
 
+	// Notify wave completed
+	if de.observerManager != nil {
+		waveDuration := time.Since(waveStartTime).Milliseconds()
+		event := observer.Event{
+			Type:        observer.EventTypeWaveCompleted,
+			ExecutionID: execState.ExecutionID,
+			WorkflowID:  execState.WorkflowID,
+			Timestamp:   time.Now(),
+			Status:      "completed",
+			WaveIndex:   &waveIdx,
+			DurationMs:  &waveDuration,
+		}
+		de.observerManager.Notify(ctx, event)
+	}
+
 	return nil
 }
 
@@ -99,8 +135,26 @@ func (de *DAGExecutor) executeNode(
 	node *models.Node,
 	opts *ExecutionOptions,
 ) error {
-	// Mark as running
+	nodeStartTime := time.Now()
+
+	// Mark as running and record start time
 	execState.SetNodeStatus(node.ID, models.NodeExecutionStatusRunning)
+	execState.SetNodeStartTime(node.ID, nodeStartTime)
+
+	// Notify node started
+	if de.observerManager != nil {
+		event := observer.Event{
+			Type:        observer.EventTypeNodeStarted,
+			ExecutionID: execState.ExecutionID,
+			WorkflowID:  execState.WorkflowID,
+			Timestamp:   nodeStartTime,
+			Status:      "running",
+			NodeID:      &node.ID,
+			NodeName:    &node.Name,
+			NodeType:    &node.Type,
+		}
+		de.observerManager.Notify(ctx, event)
+	}
 
 	// Get parent nodes
 	parentNodes := getParentNodes(execState.Workflow, node)
@@ -112,15 +166,61 @@ func (de *DAGExecutor) executeNode(
 	result, err := de.nodeExecutor.Execute(ctx, nodeCtx)
 
 	if err != nil {
+		nodeEndTime := time.Now()
 		// Store error and mark as failed
 		execState.SetNodeError(node.ID, err)
 		execState.SetNodeStatus(node.ID, models.NodeExecutionStatusFailed)
+		execState.SetNodeEndTime(node.ID, nodeEndTime)
+
+		// Notify node failed
+		if de.observerManager != nil {
+			nodeDuration := time.Since(nodeStartTime).Milliseconds()
+			event := observer.Event{
+				Type:        observer.EventTypeNodeFailed,
+				ExecutionID: execState.ExecutionID,
+				WorkflowID:  execState.WorkflowID,
+				Timestamp:   time.Now(),
+				Status:      "failed",
+				NodeID:      &node.ID,
+				NodeName:    &node.Name,
+				NodeType:    &node.Type,
+				Error:       err,
+				DurationMs:  &nodeDuration,
+			}
+			de.observerManager.Notify(ctx, event)
+		}
+
 		return err
 	}
 
+	nodeEndTime := time.Now()
 	// Store result and mark as completed
 	execState.SetNodeOutput(node.ID, result)
 	execState.SetNodeStatus(node.ID, models.NodeExecutionStatusCompleted)
+	execState.SetNodeEndTime(node.ID, nodeEndTime)
+
+	// Notify node completed
+	if de.observerManager != nil {
+		nodeDuration := time.Since(nodeStartTime).Milliseconds()
+		event := observer.Event{
+			Type:        observer.EventTypeNodeCompleted,
+			ExecutionID: execState.ExecutionID,
+			WorkflowID:  execState.WorkflowID,
+			Timestamp:   time.Now(),
+			Status:      "completed",
+			NodeID:      &node.ID,
+			NodeName:    &node.Name,
+			NodeType:    &node.Type,
+			DurationMs:  &nodeDuration,
+		}
+
+		// Add output if it's a map
+		if outputMap, ok := result.(map[string]interface{}); ok {
+			event.Output = outputMap
+		}
+
+		de.observerManager.Notify(ctx, event)
+	}
 
 	return nil
 }

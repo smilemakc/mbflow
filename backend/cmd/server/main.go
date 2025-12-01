@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/cache"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
@@ -83,8 +84,91 @@ func main() {
 
 	appLogger.Info("Registered executors", "types", executorManager.List())
 
+	// Initialize WebSocket hub (if enabled)
+	var wsHub *observer.WebSocketHub
+	if cfg.Observer.EnableWebSocket {
+		wsHub = observer.NewWebSocketHub(appLogger)
+		appLogger.Info("WebSocket hub initialized")
+	}
+
+	// Initialize observer manager
+	observerManager := observer.NewObserverManager(
+		observer.WithLogger(appLogger),
+		observer.WithBufferSize(cfg.Observer.BufferSize),
+	)
+
+	// Register observers based on configuration
+	if cfg.Observer.EnableDatabase {
+		eventRepo := storage.NewEventRepository(db)
+		dbObserver := observer.NewDatabaseObserver(eventRepo)
+		if err := observerManager.Register(dbObserver); err != nil {
+			appLogger.Error("Failed to register database observer", "error", err)
+		} else {
+			appLogger.Info("Database observer registered")
+		}
+	}
+
+	if cfg.Observer.EnableHTTP && cfg.Observer.HTTPCallbackURL != "" {
+		httpObserver := observer.NewHTTPCallbackObserver(
+			cfg.Observer.HTTPCallbackURL,
+			observer.WithHTTPMethod(cfg.Observer.HTTPMethod),
+			observer.WithHTTPHeaders(cfg.Observer.HTTPHeaders),
+			observer.WithHTTPTimeout(cfg.Observer.HTTPTimeout),
+			observer.WithHTTPRetry(
+				cfg.Observer.HTTPMaxRetries,
+				cfg.Observer.HTTPRetryDelay,
+				2.0, // backoff multiplier
+			),
+		)
+		if err := observerManager.Register(httpObserver); err != nil {
+			appLogger.Error("Failed to register HTTP observer", "error", err)
+		} else {
+			appLogger.Info("HTTP callback observer registered",
+				"url", cfg.Observer.HTTPCallbackURL,
+				"method", cfg.Observer.HTTPMethod,
+			)
+		}
+	}
+
+	if cfg.Observer.EnableLogger {
+		loggerObserver := observer.NewLoggerObserver(
+			observer.WithLoggerInstance(appLogger),
+		)
+		if err := observerManager.Register(loggerObserver); err != nil {
+			appLogger.Error("Failed to register logger observer", "error", err)
+		} else {
+			appLogger.Info("Logger observer registered")
+		}
+	}
+
+	if cfg.Observer.EnableWebSocket && wsHub != nil {
+		wsObserver := observer.NewWebSocketObserver(
+			wsHub,
+			observer.WithWebSocketLogger(appLogger),
+		)
+		if err := observerManager.Register(wsObserver); err != nil {
+			appLogger.Error("Failed to register WebSocket observer", "error", err)
+		} else {
+			appLogger.Info("WebSocket observer registered")
+		}
+	}
+
+	appLogger.Info("Observer system initialized",
+		"observer_count", observerManager.Count(),
+	)
+
 	// Create HTTP server
 	mux := http.NewServeMux()
+
+	// WebSocket endpoints
+	if cfg.Observer.EnableWebSocket && wsHub != nil {
+		wsHandler := observer.NewWebSocketHandler(wsHub, appLogger)
+		mux.HandleFunc("/ws/executions", wsHandler.ServeHTTP)
+		mux.HandleFunc("/ws/health", wsHandler.HandleHealthCheck)
+		appLogger.Info("WebSocket endpoints registered",
+			"endpoints", []string{"/ws/executions", "/ws/health"},
+		)
+	}
 
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

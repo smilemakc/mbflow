@@ -4,16 +4,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
 // ExecutionOptions configures execution behavior
 type ExecutionOptions struct {
-	StrictMode     bool                   // Fail on missing template variables
-	MaxParallelism int                    // Max concurrent nodes per wave (0 = unlimited)
-	Timeout        time.Duration          // Overall execution timeout
-	NodeTimeout    time.Duration          // Per-node execution timeout
-	Variables      map[string]interface{} // Runtime execution variables (override workflow vars)
+	StrictMode      bool                      // Fail on missing template variables
+	MaxParallelism  int                       // Max concurrent nodes per wave (0 = unlimited)
+	Timeout         time.Duration             // Overall execution timeout
+	NodeTimeout     time.Duration             // Per-node execution timeout
+	Variables       map[string]interface{}    // Runtime execution variables (override workflow vars)
+	ObserverManager *observer.ObserverManager // Optional observer manager for execution events
 }
 
 // ExecutionState tracks runtime state of workflow execution
@@ -25,9 +27,11 @@ type ExecutionState struct {
 	Variables   map[string]interface{} // Merged workflow + execution vars
 
 	// Node execution tracking
-	NodeOutputs map[string]interface{}                // nodeID -> output
-	NodeErrors  map[string]error                      // nodeID -> error
-	NodeStatus  map[string]models.NodeExecutionStatus // nodeID -> status
+	NodeOutputs    map[string]interface{}                // nodeID -> output
+	NodeErrors     map[string]error                      // nodeID -> error
+	NodeStatus     map[string]models.NodeExecutionStatus // nodeID -> status
+	NodeStartTimes map[string]time.Time                  // nodeID -> start time
+	NodeEndTimes   map[string]time.Time                  // nodeID -> end time
 
 	// Synchronization
 	mu sync.RWMutex
@@ -58,14 +62,16 @@ func DefaultExecutionOptions() *ExecutionOptions {
 // NewExecutionState creates a new execution state
 func NewExecutionState(executionID, workflowID string, workflow *models.Workflow, input, variables map[string]interface{}) *ExecutionState {
 	return &ExecutionState{
-		ExecutionID: executionID,
-		WorkflowID:  workflowID,
-		Workflow:    workflow,
-		Input:       input,
-		Variables:   variables,
-		NodeOutputs: make(map[string]interface{}),
-		NodeErrors:  make(map[string]error),
-		NodeStatus:  make(map[string]models.NodeExecutionStatus),
+		ExecutionID:    executionID,
+		WorkflowID:     workflowID,
+		Workflow:       workflow,
+		Input:          input,
+		Variables:      variables,
+		NodeOutputs:    make(map[string]interface{}),
+		NodeErrors:     make(map[string]error),
+		NodeStatus:     make(map[string]models.NodeExecutionStatus),
+		NodeStartTimes: make(map[string]time.Time),
+		NodeEndTimes:   make(map[string]time.Time),
 	}
 }
 
@@ -112,4 +118,34 @@ func (es *ExecutionState) GetNodeStatus(nodeID string) (models.NodeExecutionStat
 	defer es.mu.RUnlock()
 	status, ok := es.NodeStatus[nodeID]
 	return status, ok
+}
+
+// SetNodeStartTime safely sets node start time
+func (es *ExecutionState) SetNodeStartTime(nodeID string, startTime time.Time) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.NodeStartTimes[nodeID] = startTime
+}
+
+// SetNodeEndTime safely sets node end time
+func (es *ExecutionState) SetNodeEndTime(nodeID string, endTime time.Time) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.NodeEndTimes[nodeID] = endTime
+}
+
+// GetNodeStartTime safely gets node start time
+func (es *ExecutionState) GetNodeStartTime(nodeID string) (time.Time, bool) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+	startTime, ok := es.NodeStartTimes[nodeID]
+	return startTime, ok
+}
+
+// GetNodeEndTime safely gets node end time
+func (es *ExecutionState) GetNodeEndTime(nodeID string) (time.Time, bool) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+	endTime, ok := es.NodeEndTimes[nodeID]
+	return endTime, ok
 }

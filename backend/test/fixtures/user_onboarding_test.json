@@ -1,0 +1,151 @@
+{
+  "workflow": {
+    "name": "User Onboarding Workflow",
+    "description": "Automated user onboarding when new user is created",
+    "status": "active",
+    "nodes": [
+      {
+        "id": "create_profile",
+        "name": "Create User Profile",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "{{MOCK_EXAMPLE_API}}/profiles",
+          "headers": {
+            "Authorization": "Bearer test-api-token",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "user_id": "{{input.user_id}}",
+            "email": "{{input.email}}",
+            "name": "{{input.name}}",
+            "created_at": "{{input.created_at}}"
+          }
+        }
+      },
+      {
+        "id": "send_welcome_email",
+        "name": "Send Welcome Email",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "{{MOCK_SENDGRID_API}}/v3/mail/send",
+          "headers": {
+            "Authorization": "Bearer test-sendgrid-key",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "personalizations": [
+              {
+                "to": [
+                  {
+                    "email": "{{input.email}}"
+                  }
+                ],
+                "dynamic_template_data": {
+                  "name": "{{input.name}}",
+                  "user_id": "{{input.user_id}}"
+                }
+              }
+            ],
+            "from": {
+              "email": "welcome@example.com"
+            },
+            "template_id": "d-xyz123"
+          }
+        }
+      },
+      {
+        "id": "create_onboarding_tasks",
+        "name": "Create Onboarding Tasks",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "{{MOCK_EXAMPLE_API}}/tasks/bulk",
+          "headers": {
+            "Authorization": "Bearer test-api-token",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "user_id": "{{input.user_id}}",
+            "tasks": [
+              {
+                "title": "Complete profile",
+                "description": "Add your profile picture and bio",
+                "priority": "high"
+              },
+              {
+                "title": "Explore features",
+                "description": "Take a tour of our platform",
+                "priority": "medium"
+              },
+              {
+                "title": "Invite team members",
+                "description": "Collaborate with your team",
+                "priority": "low"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "track_event",
+        "name": "Track Onboarding Event",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "{{MOCK_SEGMENT_API}}/v1/track",
+          "headers": {
+            "Authorization": "Bearer test-segment-key",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "userId": "{{input.user_id}}",
+            "event": "Onboarding Started",
+            "properties": {
+              "email": "{{input.email}}",
+              "source": "{{input.source}}",
+              "timestamp": "{{input.created_at}}"
+            }
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "create_profile",
+        "to": "send_welcome_email"
+      },
+      {
+        "id": "e2",
+        "from": "create_profile",
+        "to": "create_onboarding_tasks"
+      },
+      {
+        "id": "e3",
+        "from": "send_welcome_email",
+        "to": "track_event"
+      }
+    ],
+    "variables": {
+      "api_token": "test-api-token",
+      "sendgrid_key": "test-sendgrid-key",
+      "segment_key": "test-segment-key",
+      "welcome_template_id": "d-xyz123"
+    }
+  },
+  "trigger": {
+    "name": "User Created Event",
+    "description": "Triggers when a new user is created",
+    "type": "event",
+    "config": {
+      "event_type": "user.created",
+      "filter": {
+        "source": "api",
+        "status": "active"
+      }
+    },
+    "enabled": true
+  }
+}
