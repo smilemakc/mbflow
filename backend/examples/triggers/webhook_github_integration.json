@@ -1,0 +1,121 @@
+{
+  "workflow": {
+    "name": "GitHub Push Handler",
+    "description": "Processes GitHub push events and triggers CI/CD pipeline",
+    "status": "active",
+    "nodes": [
+      {
+        "id": "validate_push",
+        "name": "Validate Push Event",
+        "type": "transform",
+        "config": {
+          "template": {
+            "valid": "{{if .ref}}true{{else}}false{{end}}",
+            "branch": "{{.ref | replace \"refs/heads/\" \"\"}}",
+            "commits": "{{.commits | len}}",
+            "repository": "{{.repository.full_name}}",
+            "pusher": "{{.pusher.name}}"
+          }
+        }
+      },
+      {
+        "id": "check_branch",
+        "name": "Check if Main Branch",
+        "type": "conditional",
+        "config": {
+          "condition": "{{eq .validate_push.branch \"main\"}}"
+        }
+      },
+      {
+        "id": "trigger_build",
+        "name": "Trigger CI/CD Build",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "https://ci.example.com/api/builds",
+          "headers": {
+            "Authorization": "Bearer {{.ci_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "repository": "{{.validate_push.repository}}",
+            "branch": "{{.validate_push.branch}}",
+            "commit_count": "{{.validate_push.commits}}",
+            "triggered_by": "{{.validate_push.pusher}}"
+          }
+        }
+      },
+      {
+        "id": "notify_slack",
+        "name": "Notify Team on Slack",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "https://hooks.slack.com/services/{{.slack_webhook}}",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "text": "Build triggered for {{.validate_push.repository}} ({{.validate_push.branch}}) - {{.validate_push.commits}} commits by {{.validate_push.pusher}}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "validate_push",
+        "to": "check_branch"
+      },
+      {
+        "id": "e2",
+        "from": "check_branch",
+        "to": "trigger_build",
+        "condition": {
+          "expression": "{{.check_branch.result}}"
+        }
+      },
+      {
+        "id": "e3",
+        "from": "trigger_build",
+        "to": "notify_slack"
+      }
+    ],
+    "variables": {
+      "ci_token": "your-ci-token",
+      "slack_webhook": "your-slack-webhook-path"
+    }
+  },
+  "trigger": {
+    "name": "GitHub Push Webhook",
+    "description": "Receives GitHub push events",
+    "type": "webhook",
+    "config": {
+      "secret": "your-github-webhook-secret",
+      "ip_whitelist": [
+        "192.30.252.0/22",
+        "185.199.108.0/22",
+        "140.82.112.0/20",
+        "143.55.64.0/20"
+      ]
+    },
+    "enabled": true,
+    "metadata": {
+      "provider": "github",
+      "event_type": "push",
+      "documentation": "https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#push"
+    }
+  },
+  "notes": {
+    "setup": [
+      "1. Create the workflow and trigger via API",
+      "2. Copy the webhook URL: https://your-domain.com/api/v1/webhooks/{trigger_id}",
+      "3. In GitHub repository settings, add webhook with copied URL",
+      "4. Set content type to application/json",
+      "5. Add webhook secret matching trigger config",
+      "6. Select 'Just the push event'",
+      "7. Ensure webhook is active"
+    ],
+    "github_ip_ranges": "https://api.github.com/meta (webhooks key)"
+  }
+}

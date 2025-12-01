@@ -1,0 +1,225 @@
+{
+  "workflow": {
+    "name": "Data Export Workflow",
+    "description": "Exports data on demand with flexible filtering options",
+    "status": "active",
+    "nodes": [
+      {
+        "id": "validate_params",
+        "name": "Validate Export Parameters",
+        "type": "transform",
+        "config": {
+          "template": {
+            "start_date": "{{.start_date | default \"2024-01-01\"}}",
+            "end_date": "{{.end_date | default (now | date \"2006-01-02\")}}",
+            "format": "{{.format | default \"csv\"}}",
+            "include_deleted": "{{.include_deleted | default false}}",
+            "filters": "{{.filters | default (dict)}}"
+          }
+        }
+      },
+      {
+        "id": "fetch_data",
+        "name": "Fetch Data from Database",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "https://api.example.com/data/export/query",
+          "headers": {
+            "Authorization": "Bearer {{.api_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "start_date": "{{.validate_params.start_date}}",
+            "end_date": "{{.validate_params.end_date}}",
+            "include_deleted": "{{.validate_params.include_deleted}}",
+            "filters": "{{.validate_params.filters}}"
+          },
+          "timeout": 300000
+        }
+      },
+      {
+        "id": "transform_format",
+        "name": "Transform to Requested Format",
+        "type": "transform",
+        "config": {
+          "script": "// Convert data to requested format\nif (format === 'csv') {\n  return convertToCSV(data);\n} else if (format === 'json') {\n  return JSON.stringify(data, null, 2);\n} else if (format === 'xlsx') {\n  return convertToExcel(data);\n}\nreturn data;"
+        }
+      },
+      {
+        "id": "upload_to_storage",
+        "name": "Upload to Cloud Storage",
+        "type": "http",
+        "config": {
+          "method": "PUT",
+          "url": "https://storage.example.com/exports/{{.export_id}}.{{.validate_params.format}}",
+          "headers": {
+            "Authorization": "Bearer {{.storage_token}}",
+            "Content-Type": "application/octet-stream"
+          },
+          "body": "{{.transform_format.result}}"
+        }
+      },
+      {
+        "id": "generate_download_link",
+        "name": "Generate Signed Download Link",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "https://storage.example.com/exports/{{.export_id}}.{{.validate_params.format}}/sign",
+          "headers": {
+            "Authorization": "Bearer {{.storage_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "expiry": 3600
+          }
+        }
+      },
+      {
+        "id": "notify_user",
+        "name": "Send Download Link to User",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "https://api.sendgrid.com/v3/mail/send",
+          "headers": {
+            "Authorization": "Bearer {{.sendgrid_key}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "personalizations": [
+              {
+                "to": [
+                  {
+                    "email": "{{.user_email}}"
+                  }
+                ]
+              }
+            ],
+            "from": {
+              "email": "exports@example.com"
+            },
+            "subject": "Your Data Export is Ready",
+            "content": [
+              {
+                "type": "text/html",
+                "value": "<h1>Data Export Complete</h1><p>Your export ({{.validate_params.start_date}} to {{.validate_params.end_date}}) is ready.</p><p><a href='{{.generate_download_link.url}}'>Download Here</a></p><p>This link expires in 1 hour.</p>"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "validate_params",
+        "to": "fetch_data"
+      },
+      {
+        "id": "e2",
+        "from": "fetch_data",
+        "to": "transform_format"
+      },
+      {
+        "id": "e3",
+        "from": "transform_format",
+        "to": "upload_to_storage"
+      },
+      {
+        "id": "e4",
+        "from": "upload_to_storage",
+        "to": "generate_download_link"
+      },
+      {
+        "id": "e5",
+        "from": "generate_download_link",
+        "to": "notify_user"
+      }
+    ],
+    "variables": {
+      "api_token": "your-api-token",
+      "storage_token": "your-storage-token",
+      "sendgrid_key": "your-sendgrid-key"
+    }
+  },
+  "trigger": {
+    "name": "Manual Data Export",
+    "description": "User-initiated data export with custom parameters",
+    "type": "manual",
+    "config": {
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Export start date (YYYY-MM-DD)"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Export end date (YYYY-MM-DD)"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["csv", "json", "xlsx"],
+            "default": "csv",
+            "description": "Export file format"
+          },
+          "include_deleted": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include deleted records"
+          },
+          "filters": {
+            "type": "object",
+            "description": "Additional filters"
+          },
+          "user_email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email to send download link"
+          }
+        },
+        "required": ["user_email"]
+      }
+    },
+    "enabled": true
+  },
+  "notes": {
+    "manual_execution": [
+      "Execute via API:",
+      "",
+      "POST /api/v1/triggers/{trigger_id}/execute",
+      "{",
+      "  \"input\": {",
+      "    \"start_date\": \"2024-01-01\",",
+      "    \"end_date\": \"2024-01-31\",",
+      "    \"format\": \"csv\",",
+      "    \"include_deleted\": false,",
+      "    \"filters\": {",
+      "      \"status\": \"active\",",
+      "      \"category\": \"sales\"",
+      "    },",
+      "    \"user_email\": \"user@example.com\"",
+      "  }",
+      "}"
+    ],
+    "use_cases": [
+      "On-demand reports",
+      "Custom data exports for analysis",
+      "Compliance data requests",
+      "Testing and debugging",
+      "Integration with external tools"
+    ],
+    "best_practices": [
+      "Validate user permissions before triggering",
+      "Set reasonable timeout limits for large exports",
+      "Implement rate limiting per user",
+      "Clean up old export files periodically",
+      "Log all export requests for auditing"
+    ]
+  }
+}

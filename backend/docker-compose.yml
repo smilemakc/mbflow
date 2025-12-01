@@ -1,0 +1,72 @@
+version: '3.8'
+
+name: mbflow
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mbflow-postgres
+    environment:
+      POSTGRES_DB: mbflow
+      POSTGRES_USER: mbflow
+      POSTGRES_PASSWORD: mbflow
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5566:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mbflow -d mbflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mbflow-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mbflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mbflow-network
+
+  mbflow-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mbflow-api
+    environment:
+      DATABASE_URL: postgres://mbflow:mbflow@postgres:5432/mbflow?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      PORT: 8181
+      LOG_LEVEL: info
+      LOG_FORMAT: json
+      CORS_ENABLED: "true"
+    ports:
+      - "8181:8181"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mbflow-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  mbflow-network:
+    driver: bridge

@@ -1,0 +1,327 @@
+package rest
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/internal/domain/repository"
+	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/pkg/models"
+)
+
+// NodeHandlers provides HTTP handlers for node-related endpoints
+type NodeHandlers struct {
+	workflowRepo repository.WorkflowRepository
+}
+
+// NewNodeHandlers creates a new NodeHandlers instance
+func NewNodeHandlers(workflowRepo repository.WorkflowRepository) *NodeHandlers {
+	return &NodeHandlers{
+		workflowRepo: workflowRepo,
+	}
+}
+
+// HandleAddNode handles POST /api/v1/workflows/{workflowId}/nodes
+func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
+	workflowID := c.Param("workflowId")
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	var req struct {
+		ID          string                 `json:"id"`
+		Name        string                 `json:"name"`
+		Type        string                 `json:"type"`
+		Description string                 `json:"description,omitempty"`
+		Config      map[string]interface{} `json:"config"`
+		Position    *models.Position       `json:"position,omitempty"`
+		Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.ID == "" {
+		respondError(c, http.StatusBadRequest, "node ID is required")
+		return
+	}
+
+	if req.Name == "" {
+		respondError(c, http.StatusBadRequest, "node name is required")
+		return
+	}
+
+	if req.Type == "" {
+		respondError(c, http.StatusBadRequest, "node type is required")
+		return
+	}
+
+	// Verify workflow exists
+	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		respondError(c, http.StatusNotFound, "workflow not found")
+		return
+	}
+
+	// Create node model
+	nodeModel := &storagemodels.NodeModel{
+		ID:         uuid.New(),
+		NodeID:     req.ID,
+		WorkflowID: workflowUUID,
+		Name:       req.Name,
+		Type:       req.Type,
+		Config:     storagemodels.JSONBMap(req.Config),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	// Set position if provided
+	if req.Position != nil {
+		nodeModel.Position = storagemodels.JSONBMap{
+			"x": req.Position.X,
+			"y": req.Position.Y,
+		}
+	}
+
+	if err := h.workflowRepo.CreateNode(c.Request.Context(), nodeModel); err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Convert to domain model
+	node := engine.NodeModelToDomain(nodeModel)
+	respondJSON(c, http.StatusCreated, node)
+}
+
+// HandleListNodes handles GET /api/v1/workflows/{workflowId}/nodes
+func (h *NodeHandlers) HandleListNodes(c *gin.Context) {
+	workflowID := c.Param("workflowId")
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	// Verify workflow exists
+	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		respondError(c, http.StatusNotFound, "workflow not found")
+		return
+	}
+
+	nodeModels, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Convert to domain models
+	nodes := make([]*models.Node, len(nodeModels))
+	for i, nm := range nodeModels {
+		nodes[i] = engine.NodeModelToDomain(nm)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"nodes": nodes,
+		"total": len(nodes),
+	})
+}
+
+// HandleGetNode handles GET /api/v1/workflows/{workflowId}/nodes/{nodeId}
+func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
+	workflowID := c.Param("workflowId")
+	nodeID := c.Param("nodeId")
+
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	if nodeID == "" {
+		respondError(c, http.StatusBadRequest, "node ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	// Get all nodes for the workflow
+	nodeModels, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Find the specific node by logical ID
+	var nodeModel *storagemodels.NodeModel
+	for _, nm := range nodeModels {
+		if nm.NodeID == nodeID {
+			nodeModel = nm
+			break
+		}
+	}
+
+	if nodeModel == nil {
+		respondError(c, http.StatusNotFound, "node not found")
+		return
+	}
+
+	node := engine.NodeModelToDomain(nodeModel)
+	respondJSON(c, http.StatusOK, node)
+}
+
+// HandleUpdateNode handles PUT /api/v1/workflows/{workflowId}/nodes/{nodeId}
+func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
+	workflowID := c.Param("workflowId")
+	nodeID := c.Param("nodeId")
+
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	if nodeID == "" {
+		respondError(c, http.StatusBadRequest, "node ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	var req struct {
+		Name        string                 `json:"name,omitempty"`
+		Type        string                 `json:"type,omitempty"`
+		Description string                 `json:"description,omitempty"`
+		Config      map[string]interface{} `json:"config,omitempty"`
+		Position    *models.Position       `json:"position,omitempty"`
+		Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Get all nodes for the workflow
+	nodeModels, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Find the specific node by logical ID
+	var nodeModel *storagemodels.NodeModel
+	for _, nm := range nodeModels {
+		if nm.NodeID == nodeID {
+			nodeModel = nm
+			break
+		}
+	}
+
+	if nodeModel == nil {
+		respondError(c, http.StatusNotFound, "node not found")
+		return
+	}
+
+	// Update fields
+	if req.Name != "" {
+		nodeModel.Name = req.Name
+	}
+	if req.Type != "" {
+		nodeModel.Type = req.Type
+	}
+	if req.Config != nil {
+		nodeModel.Config = storagemodels.JSONBMap(req.Config)
+	}
+	if req.Position != nil {
+		nodeModel.Position = storagemodels.JSONBMap{
+			"x": req.Position.X,
+			"y": req.Position.Y,
+		}
+	}
+
+	if err := h.workflowRepo.UpdateNode(c.Request.Context(), nodeModel); err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	node := engine.NodeModelToDomain(nodeModel)
+	respondJSON(c, http.StatusOK, node)
+}
+
+// HandleDeleteNode handles DELETE /api/v1/workflows/{workflowId}/nodes/{nodeId}
+func (h *NodeHandlers) HandleDeleteNode(c *gin.Context) {
+	workflowID := c.Param("workflowId")
+	nodeID := c.Param("nodeId")
+
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	if nodeID == "" {
+		respondError(c, http.StatusBadRequest, "node ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	// Get all nodes for the workflow
+	nodeModels, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Find the specific node by logical ID
+	var nodeUUID uuid.UUID
+	found := false
+	for _, nm := range nodeModels {
+		if nm.NodeID == nodeID {
+			nodeUUID = nm.ID
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		respondError(c, http.StatusNotFound, "node not found")
+		return
+	}
+
+	if err := h.workflowRepo.DeleteNode(c.Request.Context(), nodeUUID); err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "node deleted successfully",
+	})
+}

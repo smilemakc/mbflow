@@ -1,0 +1,8 @@
+!.gitignore
+!main.go
+!README.md
+!prompts.go
+!schemas.go
+!workflow.mmd
+*
+!*/
