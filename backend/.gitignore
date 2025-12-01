@@ -21,7 +21,7 @@ go.work
 .env
 .env.local
 .env.production
-
+docs/internal/
 # IDE
 .idea/
 .vscode/
@@ -29,6 +29,7 @@ go.work
 *.swo
 *~
 
+CLAUDE.md
 # OS files
 .DS_Store
 Thumbs.db

@@ -389,10 +389,10 @@ This example demonstrates:
 
 ## Documentation
 
-- [MBFlow Architecture](../../docs/README.md)
+- [MBFlow Architecture](../../docs/internal/README.md)
 - [Builder API](../../pkg/builder/README.md)
-- [Template Engine](../../docs/TEMPLATE_ENGINE.md)
-- [Transform Executor](../../docs/TRANSFORM_EXECUTOR.md)
+- [Template Engine](../../docs/internal/TEMPLATE_ENGINE.md)
+- [Transform Executor](../../docs/internal/TRANSFORM_EXECUTOR.md)
 
 ## License
 

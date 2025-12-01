@@ -419,9 +419,9 @@ curl http://localhost:8181/api/v1/health
 
 ## Additional Resources
 
-- [Trigger System Documentation](../../docs/TRIGGERS.md)
+- [Trigger System Documentation](../../docs/internal/TRIGGERS.md)
 - [API Documentation](../../docs/API.md)
-- [Architecture Overview](../../docs/ARCHITECTURE_DIAGRAMS.md)
+- [Architecture Overview](../../docs/internal/ARCHITECTURE_DIAGRAMS.md)
 - [GitHub Repository](https://github.com/smilemakc/mbflow)
 
 ## Contributing

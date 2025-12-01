@@ -333,7 +333,7 @@ redis-cli PUBLISH "mbflow:events:test" '{"type":"test","data":{}}'
 ## Next Steps
 
 1. Explore [complete examples](./README.md)
-2. Read [full documentation](../../docs/TRIGGERS.md)
+2. Read [full documentation](../../docs/internal/TRIGGERS.md)
 3. Set up monitoring and metrics
 4. Configure production security settings
 5. Implement error handling in workflows
@@ -350,13 +350,13 @@ redis-cli PUBLISH "mbflow:events:test" '{"type":"test","data":{}}'
 ## Resources
 
 - [API Documentation](../../docs/API.md)
-- [Trigger Documentation](../../docs/TRIGGERS.md)
+- [Trigger Documentation](../../docs/internal/TRIGGERS.md)
 - [Examples](./README.md)
-- [Architecture](../../docs/ARCHITECTURE_DIAGRAMS.md)
+- [Architecture](../../docs/internal/ARCHITECTURE_DIAGRAMS.md)
 
 ## Getting Help
 
-- Check [troubleshooting guide](../../docs/TRIGGERS.md#troubleshooting)
+- Check [troubleshooting guide](../../docs/internal/TRIGGERS.md#troubleshooting)
 - Review [examples](./README.md)
 - Open GitHub issue
 - Join community Discord/Slack

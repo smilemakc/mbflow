@@ -191,6 +191,6 @@ input := map[string]interface{}{
 
 ## Next Steps
 
-- See [STANDALONE_WITH_OBSERVERS.md](../../docs/STANDALONE_WITH_OBSERVERS.md) for full documentation
+- See [STANDALONE_WITH_OBSERVERS.md](../../docs/internal/STANDALONE_WITH_OBSERVERS.md) for full documentation
 - Explore [other examples](../)
 - Learn about [observer architecture](../../internal/application/observer/README.md)
