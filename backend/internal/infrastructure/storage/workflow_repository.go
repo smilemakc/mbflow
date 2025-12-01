@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
@@ -69,6 +70,7 @@ func (r *WorkflowRepository) Create(ctx context.Context, workflow *models.Workfl
 func (r *WorkflowRepository) Update(ctx context.Context, workflow *models.WorkflowModel) error {
 	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		// 1. Update workflow metadata
+		workflow.UpdatedAt = time.Now()
 		_, err := tx.NewUpdate().
 			Model(workflow).
 			Column("name", "description", "version", "status", "variables", "metadata", "updated_at").
