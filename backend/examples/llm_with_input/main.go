@@ -122,13 +122,12 @@ Provide a clear explanation suitable for junior developers.`,
 	lrOpts := &visualization.RenderOptions{
 		ShowConfig:     true,
 		ShowConditions: true,
-		Direction:      "LR",
+		Direction:      "elk",
 	}
-	mermaidLR, err := visualization.RenderWorkflow(workflow, "ascii", lrOpts)
+	err = visualization.PrintWorkflow(workflow, "mermaid", lrOpts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(mermaidLR)
 	// Display workflow structure
 	fmt.Println("📋 WORKFLOW STRUCTURE:")
 	fmt.Println("─────────────────────────────────────────────────────────")

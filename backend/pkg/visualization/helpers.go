@@ -30,8 +30,8 @@ func RenderWorkflow(workflow *models.Workflow, format string, opts *RenderOption
 
 // PrintWorkflow prints a workflow diagram to stdout in the specified format.
 // Supported formats: "mermaid", "ascii".
-func PrintWorkflow(workflow *models.Workflow, format string) error {
-	diagram, err := RenderWorkflow(workflow, format, nil)
+func PrintWorkflow(workflow *models.Workflow, format string, opts *RenderOptions) error {
+	diagram, err := RenderWorkflow(workflow, format, opts)
 	if err != nil {
 		return err
 	}

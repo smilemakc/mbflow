@@ -92,8 +92,8 @@ func TestMermaidRenderer_Render(t *testing.T) {
 			},
 			opts: DefaultRenderOptions(),
 			want: []string{
-				"check -->|status == 200| success",
-				"check -->|status != 200| failure",
+				`check -- "status == 200" --> success`,
+				`check -- "status != 200" --> failure`,
 			},
 		},
 		{
@@ -273,5 +273,87 @@ func TestMermaidRenderer_ConfigExtraction(t *testing.T) {
 				t.Errorf("Expected config value %q not found in output:\n%s", tt.expectedInOutput, got)
 			}
 		})
+	}
+}
+
+func TestMermaidRenderer_ClassAssignment(t *testing.T) {
+	renderer := NewMermaidRenderer()
+	opts := DefaultRenderOptions()
+
+	workflow := &models.Workflow{
+		Name: "Class Assignment Test",
+		Nodes: []*models.Node{
+			{ID: "http1", Name: "HTTP Node", Type: "http"},
+			{ID: "llm1", Name: "LLM Node", Type: "llm"},
+			{ID: "transform1", Name: "Transform Node", Type: "transform"},
+			{ID: "cond1", Name: "Conditional Node", Type: "conditional"},
+			{ID: "merge1", Name: "Merge Node", Type: "merge"},
+		},
+		Edges: []*models.Edge{},
+	}
+
+	got, err := renderer.Render(workflow, opts)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	// Check that classDef declarations exist
+	expectedClassDefs := []string{
+		"classDef httpNode",
+		"classDef llmNode",
+		"classDef transformNode",
+		"classDef conditionalNode",
+		"classDef mergeNode",
+	}
+
+	for _, classDef := range expectedClassDefs {
+		if !strings.Contains(got, classDef) {
+			t.Errorf("Expected classDef %q not found in output", classDef)
+		}
+	}
+
+	// Check that classes are assigned to nodes
+	expectedAssignments := []string{
+		"class http1 httpNode",
+		"class llm1 llmNode",
+		"class transform1 transformNode",
+		"class cond1 conditionalNode",
+		"class merge1 mergeNode",
+	}
+
+	for _, assignment := range expectedAssignments {
+		if !strings.Contains(got, assignment) {
+			t.Errorf("Expected class assignment %q not found in output:\n%s", assignment, got)
+		}
+	}
+}
+
+func TestMermaidRenderer_ClassAssignment_WithoutConfig(t *testing.T) {
+	renderer := NewMermaidRenderer()
+	opts := &RenderOptions{
+		ShowConfig:     false, // Classes should not be applied when ShowConfig is false
+		ShowConditions: true,
+		Direction:      "TB",
+	}
+
+	workflow := &models.Workflow{
+		Name: "No Classes Test",
+		Nodes: []*models.Node{
+			{ID: "http1", Name: "HTTP Node", Type: "http"},
+		},
+		Edges: []*models.Edge{},
+	}
+
+	got, err := renderer.Render(workflow, opts)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	// When ShowConfig is false, no classes should be defined or assigned
+	if strings.Contains(got, "classDef") {
+		t.Error("classDef should not be present when ShowConfig is false")
+	}
+	if strings.Contains(got, "class http1") {
+		t.Error("class assignment should not be present when ShowConfig is false")
 	}
 }

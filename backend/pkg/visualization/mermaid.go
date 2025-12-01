@@ -32,9 +32,35 @@ func (r *MermaidRenderer) Render(workflow *models.Workflow, opts *RenderOptions)
 
 	var sb strings.Builder
 
+	// Write config block if theme variables are set
+	if len(opts.ThemeVariables) > 0 || opts.Direction == "elk" {
+		sb.WriteString("---\n")
+		sb.WriteString("config:\n")
+
+		// Layout configuration (elk is more adaptive for complex graphs)
+		if opts.Direction == "elk" {
+			sb.WriteString("  layout: elk\n")
+		}
+
+		// Theme configuration
+		if len(opts.ThemeVariables) > 0 {
+			sb.WriteString("  theme: base\n")
+			sb.WriteString("  themeVariables:\n")
+			for key, value := range opts.ThemeVariables {
+				sb.WriteString(fmt.Sprintf("    %s: \"%s\"\n", key, value))
+			}
+		}
+
+		sb.WriteString("---\n")
+	}
+
 	// Write header
 	sb.WriteString("flowchart ")
-	sb.WriteString(opts.Direction)
+	if opts.Direction != "elk" {
+		sb.WriteString(opts.Direction)
+	} else {
+		sb.WriteString("TB") // Default direction for elk layout
+	}
 	sb.WriteString("\n")
 
 	// Write nodes
@@ -44,14 +70,65 @@ func (r *MermaidRenderer) Render(workflow *models.Workflow, opts *RenderOptions)
 		sb.WriteString("\n")
 	}
 
-	// Write edges
+	// Write edges (optimized with & for parallel connections)
 	if len(workflow.Edges) > 0 {
 		sb.WriteString("\n")
+
+		// Group edges by source node for compact syntax
+		edgesBySource := make(map[string][]*models.Edge)
 		for _, edge := range workflow.Edges {
-			sb.WriteString("    ")
-			sb.WriteString(r.renderEdge(edge, opts))
-			sb.WriteString("\n")
+			edgesBySource[edge.From] = append(edgesBySource[edge.From], edge)
 		}
+
+		// Render grouped edges
+		for sourceID, edges := range edgesBySource {
+			if len(edges) == 1 {
+				// Single edge - simple syntax
+				sb.WriteString("    ")
+				sb.WriteString(r.renderEdge(edges[0], opts))
+				sb.WriteString("\n")
+			} else {
+				// Multiple edges from same source
+				// Check if all edges have no conditions
+				allNoConditions := true
+				for _, edge := range edges {
+					if opts.ShowConditions && edge.Condition != "" {
+						allNoConditions = false
+						break
+					}
+				}
+
+				if allNoConditions {
+					// Compact: source --> target1 & target2 & target3
+					sb.WriteString("    ")
+					sb.WriteString(sourceID)
+					sb.WriteString(" --> ")
+					for i, edge := range edges {
+						if i > 0 {
+							sb.WriteString(" & ")
+						}
+						sb.WriteString(edge.To)
+					}
+					sb.WriteString("\n")
+				} else {
+					// With conditions - render separately
+					for _, edge := range edges {
+						sb.WriteString("    ")
+						sb.WriteString(r.renderEdge(edge, opts))
+						sb.WriteString("\n")
+					}
+				}
+			}
+		}
+	}
+
+	// Add styling for node types
+	if opts.ShowConfig {
+		sb.WriteString(r.renderNodeStyles())
+
+		// Apply classes to nodes
+		sb.WriteString("\n")
+		sb.WriteString(r.applyNodeClasses(workflow))
 	}
 
 	return sb.String(), nil
@@ -167,10 +244,84 @@ func (r *MermaidRenderer) extractKeyConfig(node *models.Node) string {
 func (r *MermaidRenderer) renderEdge(edge *models.Edge, opts *RenderOptions) string {
 	// Check if edge has a condition
 	if opts.ShowConditions && edge.Condition != "" {
-		// Labeled arrow: from -->|condition| to
-		return fmt.Sprintf("%s -->|%s| %s", edge.From, edge.Condition, edge.To)
+		// Escape HTML entities in condition
+		condition := r.escapeHTML(edge.Condition)
+		// Labeled arrow with escaped condition
+		return fmt.Sprintf(`%s -- "%s" --> %s`, edge.From, condition, edge.To)
 	}
 
 	// Simple arrow: from --> to
 	return fmt.Sprintf("%s --> %s", edge.From, edge.To)
+}
+
+// escapeHTML escapes HTML special characters for Mermaid labels.
+func (r *MermaidRenderer) escapeHTML(text string) string {
+	text = strings.ReplaceAll(text, "&", "&amp;")
+	text = strings.ReplaceAll(text, "<", "&lt;")
+	text = strings.ReplaceAll(text, ">", "&gt;")
+	text = strings.ReplaceAll(text, `"`, "&quot;")
+	return text
+}
+
+// renderNodeStyles generates CSS styling for different node types.
+func (r *MermaidRenderer) renderNodeStyles() string {
+	var sb strings.Builder
+	sb.WriteString("\n")
+	sb.WriteString("    %% Node type styles\n")
+	sb.WriteString("    classDef httpNode fill:#D0E6FF,stroke:#1A73E8,stroke-width:2px,color:#000\n")
+	sb.WriteString("    classDef llmNode fill:#E8D9FF,stroke:#8E57FF,stroke-width:2px,color:#000\n")
+	sb.WriteString("    classDef transformNode fill:#FFE5C2,stroke:#F7931A,stroke-width:2px,color:#000\n")
+	sb.WriteString("    classDef conditionalNode fill:#DFF7E3,stroke:#34A853,stroke-width:2px,color:#000\n")
+	sb.WriteString("    classDef mergeNode fill:#FFD9E6,stroke:#EA4C89,stroke-width:2px,color:#000\n")
+	return sb.String()
+}
+
+// applyNodeClasses applies CSS classes to nodes based on their type.
+func (r *MermaidRenderer) applyNodeClasses(workflow *models.Workflow) string {
+	var sb strings.Builder
+
+	// Group nodes by type for cleaner output
+	nodesByType := make(map[string][]string)
+	for _, node := range workflow.Nodes {
+		className := r.getNodeClassName(node.Type)
+		if className != "" {
+			nodesByType[className] = append(nodesByType[className], node.ID)
+		}
+	}
+
+	// Apply classes
+	for className, nodeIDs := range nodesByType {
+		if len(nodeIDs) > 0 {
+			sb.WriteString("    class ")
+			for i, nodeID := range nodeIDs {
+				if i > 0 {
+					sb.WriteString(",")
+				}
+				sb.WriteString(nodeID)
+			}
+			sb.WriteString(" ")
+			sb.WriteString(className)
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
+}
+
+// getNodeClassName returns the CSS class name for a node type.
+func (r *MermaidRenderer) getNodeClassName(nodeType string) string {
+	switch nodeType {
+	case "http":
+		return "httpNode"
+	case "llm":
+		return "llmNode"
+	case "transform":
+		return "transformNode"
+	case "conditional":
+		return "conditionalNode"
+	case "merge":
+		return "mergeNode"
+	default:
+		return "" // No custom styling for unknown types
+	}
 }

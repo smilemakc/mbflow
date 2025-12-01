@@ -20,58 +20,49 @@ This example creates a production-ready workflow that:
 ### Workflow Diagram
 
 ```mermaid
-graph TD
-    Generate["Generate Initial Content<br/>OpenAI GPT-4"]
-    Generate --> Analyze["Analyze Content Quality<br/>OpenAI GPT-4"]
-    Analyze --> Router{Route Based<br/>on Quality}
-    Router -->|High ≥80| Merge["Merge Content Versions"]
-    Router -->|Medium 50-79| Enhance["Enhance Content<br/>OpenAI GPT-4"]
-    Router -->|Low <50| Regenerate["Regenerate Content<br/>OpenAI GPT-4"]
-    Enhance --> Merge
-    Regenerate --> CheckAttempts["Check Attempts<br/>Expression Node"]
-    CheckAttempts -->|attempt < 3| Analyze
-    CheckAttempts -->|attempt ≥ 3| Merge
-    Merge --> TransES["Translate to Spanish<br/>OpenAI GPT-4"]
-    Merge --> TransRU["Translate to Russian<br/>OpenAI GPT-4"]
-    Merge --> TransDE["Translate to German<br/>OpenAI GPT-4"]
-    Merge --> SEO["Generate SEO Original<br/>OpenAI GPT-4"]
-    TransES --> SEOES["Generate SEO ES<br/>OpenAI GPT-4"]
-    TransRU --> SEORU["Generate SEO RU<br/>OpenAI GPT-4"]
-    TransDE --> SEODE["Generate SEO DE<br/>OpenAI GPT-4"]
-    SEO --> Aggregate["Aggregate All Results<br/>JQ Transform"]
-    SEOES --> Aggregate
-    SEORU --> Aggregate
-    SEODE --> Aggregate
-    Merge --> Aggregate
-    TransES --> Aggregate
-    TransRU --> Aggregate
-    TransDE --> Aggregate
-    style Router fill:#FFD700,color:#000000
-    style Merge fill:#87CEEB,color:#000000
-    style Aggregate fill:#87CEEB,color:#000000
-    style CheckAttempts fill:#90EE90,color:#000000
-```
-
-```mermaid
 ---
 config:
   layout: elk
 ---
 flowchart TB
-    generate(["openai: Generate Initial Content<br>{{env.model_turbo}}"]) --> analyze(["openai: Analyze Content Quality<br>{{env.model_turbo}}"]) & merge[/"Transform: Merge Content Versions<br>expression"/] & enhance(["openai: Enhance Content<br>{{env.model_turbo}}"]) & regenerate(["openai: Regenerate Content<br>{{env.model_turbo}}"])
-    analyze -- "output.score >= 80" --> merge
-    analyze -- "output.score &gt;= 50 &amp;&amp; output.score &lt; 80" --> enhance
-    analyze -- "output.score &lt; 50" --> regenerate
-    enhance --> merge
+    generate(["openai: Generate Initial Content<br/>{{env.model_turbo}}"])
+    analyze(["openai: Analyze Content Quality<br/>{{env.model_turbo}}"])
+    enhance(["openai: Enhance Content<br/>{{env.model_turbo}}"])
+    regenerate(["openai: Regenerate Content<br/>{{env.model_turbo}}"])
+    merge[/"Transform: Merge Content Versions<br/>expression"/]
+    trans_es(["openai: Translate to Spanish<br/>{{env.model_standard}}"])
+    trans_ru(["openai: Translate to Russian<br/>{{env.model_standard}}"])
+    trans_de(["openai: Translate to German<br/>{{env.model_standard}}"])
+    seo_original(["openai: Generate SEO Metadata (Original)<br/>{{env.model_turbo}}"])
+    seo_es(["openai: Generate SEO Metadata (Spanish)<br/>{{env.model_turbo}}"])
+    seo_ru(["openai: Generate SEO Metadata (Russian)<br/>{{env.model_turbo}}"])
+    seo_de(["openai: Generate SEO Metadata (German)<br/>{{env.model_turbo}}"])
+    aggregate[/"Transform: Aggregate All Results<br/>jq"/]
+
+    trans_es --> seo_es & aggregate
+    trans_ru --> seo_ru & aggregate
+    trans_de --> seo_de & aggregate
+    generate --> analyze & merge & enhance & regenerate
     regenerate --> merge
-    merge --> trans_es(["openai: Translate to Spanish<br>{{env.model_standard}}"]) & trans_ru(["openai: Translate to Russian<br>{{env.model_standard}}"]) & trans_de(["openai: Translate to German<br>{{env.model_standard}}"]) & seo_original(["openai: Generate SEO Metadata (Original)<br>{{env.model_turbo}}"]) & aggregate[/"Transform: Aggregate All Results<br>jq"/]
-    trans_es --> seo_es(["openai: Generate SEO Metadata (Spanish)<br>{{env.model_turbo}}"]) & aggregate
-    trans_ru --> seo_ru(["openai: Generate SEO Metadata (Russian)<br>{{env.model_turbo}}"]) & aggregate
-    trans_de --> seo_de(["openai: Generate SEO Metadata (German)<br>{{env.model_turbo}}"]) & aggregate
+    merge --> trans_es & trans_ru & trans_de & seo_original & aggregate
     seo_original --> aggregate
     seo_es --> aggregate
     seo_ru --> aggregate
     seo_de --> aggregate
+    analyze -- "output.score &gt;= 80" --> merge
+    analyze -- "output.score &gt;= 50 &amp;&amp; output.score &lt; 80" --> enhance
+    analyze -- "output.score &lt; 50" --> regenerate
+    enhance --> merge
+
+%% Node type styles
+    classDef httpNode fill:#D0E6FF,stroke:#1A73E8,stroke-width:2px,color:#000
+    classDef llmNode fill:#E8D9FF,stroke:#8E57FF,stroke-width:2px,color:#000
+    classDef transformNode fill:#FFE5C2,stroke:#F7931A,stroke-width:2px,color:#000
+    classDef conditionalNode fill:#DFF7E3,stroke:#34A853,stroke-width:2px,color:#000
+    classDef mergeNode fill:#FFD9E6,stroke:#EA4C89,stroke-width:2px,color:#000
+
+    class merge,aggregate transformNode
+    class generate,analyze,enhance,regenerate,trans_es,trans_ru,trans_de,seo_original,seo_es,seo_ru,seo_de llmNode
 ```
 
 ### Workflow Statistics

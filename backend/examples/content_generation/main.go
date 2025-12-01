@@ -64,9 +64,11 @@ func main() {
 	fmt.Println()
 
 	lrOpts := &visualization.RenderOptions{
-		ShowConfig:     true,
-		ShowConditions: true,
-		Direction:      "TB",
+		UseColor:        true,
+		ShowDescription: true,
+		ShowConfig:      true,
+		ShowConditions:  true,
+		Direction:       "elk",
 	}
 	mermaidLR, err := visualization.RenderWorkflow(workflow, "mermaid", lrOpts)
 	if err != nil {

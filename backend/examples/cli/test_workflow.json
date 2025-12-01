@@ -1,0 +1,90 @@
+{
+  "id": "content-gen-wf",
+  "name": "Content Generation with Quality Check",
+  "description": "Generates content, analyzes quality, and enhances if needed",
+  "nodes": [
+    {
+      "id": "generate",
+      "name": "Generate Content",
+      "type": "llm",
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4",
+        "prompt": "Generate content based on input"
+      }
+    },
+    {
+      "id": "analyze",
+      "name": "Analyze Quality",
+      "type": "llm",
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4",
+        "prompt": "Analyze content quality"
+      }
+    },
+    {
+      "id": "enhance",
+      "name": "Enhance Content",
+      "type": "llm",
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4",
+        "prompt": "Enhance content"
+      }
+    },
+    {
+      "id": "regenerate",
+      "name": "Regenerate",
+      "type": "llm",
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4",
+        "prompt": "Regenerate content"
+      }
+    },
+    {
+      "id": "merge",
+      "name": "Merge Versions",
+      "type": "transform",
+      "config": {
+        "type": "expression"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "generate",
+      "to": "analyze"
+    },
+    {
+      "id": "e2",
+      "from": "analyze",
+      "to": "merge",
+      "condition": "output.score >= 80"
+    },
+    {
+      "id": "e3",
+      "from": "analyze",
+      "to": "enhance",
+      "condition": "output.score >= 50 && output.score < 80"
+    },
+    {
+      "id": "e4",
+      "from": "analyze",
+      "to": "regenerate",
+      "condition": "output.score < 50"
+    },
+    {
+      "id": "e5",
+      "from": "enhance",
+      "to": "merge"
+    },
+    {
+      "id": "e6",
+      "from": "regenerate",
+      "to": "merge"
+    }
+  ]
+}

@@ -17,7 +17,7 @@ func main() {
 	// Example 1: Print Mermaid diagram
 	fmt.Println("1. Mermaid Flowchart Diagram:")
 	fmt.Println("----------------------------")
-	if err := visualization.PrintWorkflow(workflow, "mermaid"); err != nil {
+	if err := visualization.PrintWorkflow(workflow, "mermaid", nil); err != nil {
 		log.Fatal(err)
 	}
 
@@ -51,19 +51,19 @@ func main() {
 	}
 	fmt.Println(asciiDetailed)
 
-	// Example 4: Generate Mermaid diagram with LR direction
-	fmt.Println("\n4. Mermaid Diagram (Left-to-Right):")
-	fmt.Println("------------------------------------")
-	lrOpts := &visualization.RenderOptions{
+	// Example 4: Generate Mermaid diagram with ELK layout (adaptive for complex graphs)
+	fmt.Println("\n4. Mermaid Diagram (ELK Layout with Colors):")
+	fmt.Println("---------------------------------------------")
+	elkOpts := &visualization.RenderOptions{
 		ShowConfig:     true,
 		ShowConditions: true,
-		Direction:      "LR",
+		Direction:      "elk", // Adaptive layout
 	}
-	mermaidLR, err := visualization.RenderWorkflow(workflow, "mermaid", lrOpts)
+	mermaidELK, err := visualization.RenderWorkflow(workflow, "mermaid", elkOpts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(mermaidLR)
+	fmt.Println(mermaidELK)
 
 	// Example 5: Save Mermaid diagram to file
 	fmt.Println("\n5. Saving Mermaid diagram to file...")
