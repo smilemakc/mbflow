@@ -52,6 +52,28 @@ graph TD
     style CheckAttempts fill:#90EE90,color:#000000
 ```
 
+```mermaid
+---
+config:
+  layout: elk
+---
+flowchart TB
+    generate(["openai: Generate Initial Content<br>{{env.model_turbo}}"]) --> analyze(["openai: Analyze Content Quality<br>{{env.model_turbo}}"]) & merge[/"Transform: Merge Content Versions<br>expression"/] & enhance(["openai: Enhance Content<br>{{env.model_turbo}}"]) & regenerate(["openai: Regenerate Content<br>{{env.model_turbo}}"])
+    analyze -- "output.score >= 80" --> merge
+    analyze -- "output.score &gt;= 50 &amp;&amp; output.score &lt; 80" --> enhance
+    analyze -- "output.score &lt; 50" --> regenerate
+    enhance --> merge
+    regenerate --> merge
+    merge --> trans_es(["openai: Translate to Spanish<br>{{env.model_standard}}"]) & trans_ru(["openai: Translate to Russian<br>{{env.model_standard}}"]) & trans_de(["openai: Translate to German<br>{{env.model_standard}}"]) & seo_original(["openai: Generate SEO Metadata (Original)<br>{{env.model_turbo}}"]) & aggregate[/"Transform: Aggregate All Results<br>jq"/]
+    trans_es --> seo_es(["openai: Generate SEO Metadata (Spanish)<br>{{env.model_turbo}}"]) & aggregate
+    trans_ru --> seo_ru(["openai: Generate SEO Metadata (Russian)<br>{{env.model_turbo}}"]) & aggregate
+    trans_de --> seo_de(["openai: Generate SEO Metadata (German)<br>{{env.model_turbo}}"]) & aggregate
+    seo_original --> aggregate
+    seo_es --> aggregate
+    seo_ru --> aggregate
+    seo_de --> aggregate
+```
+
 ### Workflow Statistics
 
 - **Total Nodes**: 14

@@ -27,6 +27,7 @@ import (
 	"github.com/smilemakc/mbflow/pkg/builder"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
+	"github.com/smilemakc/mbflow/pkg/visualization"
 )
 
 func main() {
@@ -60,6 +61,18 @@ func main() {
 	fmt.Printf("✓ Workflow: %s\n", workflow.Name)
 	fmt.Printf("  Nodes: %d\n", len(workflow.Nodes))
 	fmt.Printf("  Edges: %d\n", len(workflow.Edges))
+	fmt.Println()
+
+	lrOpts := &visualization.RenderOptions{
+		ShowConfig:     true,
+		ShowConditions: true,
+		Direction:      "TB",
+	}
+	mermaidLR, err := visualization.RenderWorkflow(workflow, "mermaid", lrOpts)
+	if err != nil {
+		log.Fatalf("Failed to render workflow: %v", err)
+	}
+	fmt.Println(mermaidLR)
 	fmt.Println()
 
 	// Display workflow structure

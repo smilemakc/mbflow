@@ -15,6 +15,14 @@ import (
 )
 
 func main() {
+	// Uncomment to run simple example (no HTTP calls)
+	// runSimpleExample()
+	// return
+
+	runFullExample()
+}
+
+func runFullExample() {
 	ctx := context.Background()
 
 	// Create a standalone client (no database required)

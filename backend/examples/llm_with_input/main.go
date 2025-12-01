@@ -15,6 +15,7 @@ import (
 	"github.com/smilemakc/mbflow/pkg/builder"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
+	"github.com/smilemakc/mbflow/pkg/visualization"
 )
 
 func main() {
@@ -118,7 +119,16 @@ Provide a clear explanation suitable for junior developers.`,
 		MustBuild()
 
 	fmt.Printf("✓ Workflow defined: %s\n\n", workflow.Name)
-
+	lrOpts := &visualization.RenderOptions{
+		ShowConfig:     true,
+		ShowConditions: true,
+		Direction:      "LR",
+	}
+	mermaidLR, err := visualization.RenderWorkflow(workflow, "ascii", lrOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(mermaidLR)
 	// Display workflow structure
 	fmt.Println("📋 WORKFLOW STRUCTURE:")
 	fmt.Println("─────────────────────────────────────────────────────────")

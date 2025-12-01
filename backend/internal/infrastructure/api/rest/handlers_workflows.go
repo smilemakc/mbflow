@@ -10,6 +10,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
+	"github.com/smilemakc/mbflow/pkg/visualization"
 )
 
 // WorkflowHandlers provides HTTP handlers for workflow-related endpoints
@@ -280,4 +281,58 @@ func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
 
 	workflow := engine.WorkflowModelToDomain(workflowModel)
 	respondJSON(c, http.StatusOK, workflow)
+}
+
+// HandleGetWorkflowDiagram handles GET /api/v1/workflows/{id}/diagram
+// Returns workflow visualization in the specified format (mermaid or ascii).
+func (h *WorkflowHandlers) HandleGetWorkflowDiagram(c *gin.Context) {
+	workflowID := c.Param("id")
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	// Fetch workflow with relations (nodes and edges)
+	workflowModel, err := h.workflowRepo.FindByIDWithRelations(c.Request.Context(), workflowUUID)
+	if err != nil {
+		respondError(c, http.StatusNotFound, "workflow not found")
+		return
+	}
+
+	// Convert to domain model
+	workflow := engine.WorkflowModelToDomain(workflowModel)
+
+	// Parse query parameters
+	format := c.DefaultQuery("format", "mermaid")
+	direction := c.DefaultQuery("direction", "TB")
+	showConfig := c.DefaultQuery("show_config", "true") == "true"
+	showConditions := c.DefaultQuery("show_conditions", "true") == "true"
+	compact := c.DefaultQuery("compact", "false") == "true"
+
+	// Import visualization package
+	// Note: This import is done at file level at the top
+	opts := &visualization.RenderOptions{
+		ShowConfig:     showConfig,
+		ShowConditions: showConditions,
+		CompactMode:    compact,
+		Direction:      direction,
+		UseColor:       false, // No ANSI colors in HTTP response
+	}
+
+	// Render diagram
+	diagram, err := visualization.RenderWorkflow(workflow, format, opts)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Return as plain text
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.String(http.StatusOK, diagram)
 }
