@@ -11,8 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/application/observer"
+	"github.com/smilemakc/mbflow/internal/application/trigger"
 	"github.com/smilemakc/mbflow/internal/config"
+	"github.com/smilemakc/mbflow/internal/infrastructure/api/rest"
 	"github.com/smilemakc/mbflow/internal/infrastructure/cache"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
@@ -157,56 +161,141 @@ func main() {
 		"observer_count", observerManager.Count(),
 	)
 
-	// Create HTTP server
-	mux := http.NewServeMux()
+	// Initialize repositories
+	workflowRepo := storage.NewWorkflowRepository(db)
+	executionRepo := storage.NewExecutionRepository(db)
+	eventRepo := storage.NewEventRepository(db)
+	triggerRepo := storage.NewTriggerRepository(db)
 
-	// WebSocket endpoints
-	if cfg.Observer.EnableWebSocket && wsHub != nil {
-		wsHandler := observer.NewWebSocketHandler(wsHub, appLogger)
-		mux.HandleFunc("/ws/executions", wsHandler.ServeHTTP)
-		mux.HandleFunc("/ws/health", wsHandler.HandleHealthCheck)
-		appLogger.Info("WebSocket endpoints registered",
-			"endpoints", []string{"/ws/executions", "/ws/health"},
-		)
+	appLogger.Info("Repositories initialized")
+
+	// Initialize execution engine
+	executionManager := engine.NewExecutionManager(
+		executorManager,
+		workflowRepo,
+		executionRepo,
+		eventRepo,
+		observerManager,
+	)
+
+	appLogger.Info("Execution engine initialized")
+
+	// Initialize trigger manager (only if Redis is available)
+	var triggerManager *trigger.Manager
+	if redisCache != nil {
+		triggerManager, err = trigger.NewManager(trigger.ManagerConfig{
+			TriggerRepo:  triggerRepo,
+			WorkflowRepo: workflowRepo,
+			ExecutionMgr: executionManager,
+			Cache:        redisCache,
+		})
+		if err != nil {
+			appLogger.Error("Failed to initialize trigger manager", "error", err)
+		} else {
+			appLogger.Info("Trigger manager initialized")
+			// Start trigger manager
+			if err := triggerManager.Start(); err != nil {
+				appLogger.Error("Failed to start trigger manager", "error", err)
+			} else {
+				appLogger.Info("Trigger manager started")
+			}
+		}
+	} else {
+		appLogger.Warn("Trigger manager disabled - Redis cache not available")
 	}
 
-	// Health check endpoint
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	// Set Gin mode based on log level
+	if cfg.Logging.Level == "debug" {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// Create Gin router
+	router := gin.New()
+
+	// Add middleware
+	router.Use(gin.Recovery())
+	router.Use(func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		raw := c.Request.URL.RawQuery
+
+		c.Next()
+
+		latency := time.Since(start)
+		statusCode := c.Writer.Status()
+		method := c.Request.Method
+
+		if raw != "" {
+			path = path + "?" + raw
+		}
+
+		appLogger.Info("HTTP request",
+			"method", method,
+			"path", path,
+			"status", statusCode,
+			"latency", latency,
+			"ip", c.ClientIP(),
+		)
+	})
+
+	// CORS middleware (if enabled)
+	if cfg.Server.CORS {
+		router.Use(func(c *gin.Context) {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+			c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+			c.Writer.Header().Set("Access-Control-Max-Age", "86400")
+
+			if c.Request.Method == "OPTIONS" {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+
+			c.Next()
+		})
+		appLogger.Info("CORS enabled")
+	}
+
+	// Health check endpoints
+	router.GET("/health", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 		defer cancel()
 
 		// Check database health
 		if err := storage.Ping(ctx, db); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			fmt.Fprintf(w, `{"status":"unhealthy","error":"database: %s"}`, err.Error())
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status": "unhealthy",
+				"error":  fmt.Sprintf("database: %s", err.Error()),
+			})
 			return
 		}
 
 		// Check Redis health (if configured)
 		if redisCache != nil {
 			if err := redisCache.Health(ctx); err != nil {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				fmt.Fprintf(w, `{"status":"unhealthy","error":"redis: %s"}`, err.Error())
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"status": "unhealthy",
+					"error":  fmt.Sprintf("redis: %s", err.Error()),
+				})
 				return
 			}
 		}
 
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status":"healthy"}`)
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 	})
 
-	// Readiness check endpoint
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status":"ready"}`)
+	router.GET("/ready", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
 
 	// Metrics endpoint
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+	router.GET("/metrics", func(c *gin.Context) {
 		dbStats := storage.Stats(db)
 
-		metrics := map[string]interface{}{
-			"database": map[string]interface{}{
+		metrics := gin.H{
+			"database": gin.H{
 				"open_connections": dbStats.OpenConnections,
 				"in_use":           dbStats.InUse,
 				"idle":             dbStats.Idle,
@@ -216,7 +305,7 @@ func main() {
 
 		if redisCache != nil {
 			cacheStats := redisCache.Stats()
-			metrics["redis"] = map[string]interface{}{
+			metrics["redis"] = gin.H{
 				"hits":        cacheStats.Hits,
 				"misses":      cacheStats.Misses,
 				"total_conns": cacheStats.TotalConns,
@@ -224,20 +313,101 @@ func main() {
 			}
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"metrics":%v}`, metrics)
+		c.JSON(http.StatusOK, gin.H{"metrics": metrics})
 	})
 
-	// API routes placeholder
-	mux.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"message":"MBFlow API v1","status":"ok"}`)
-	})
+	// WebSocket endpoints
+	if cfg.Observer.EnableWebSocket && wsHub != nil {
+		wsHandler := observer.NewWebSocketHandler(wsHub, appLogger)
+		router.GET("/ws/executions", func(c *gin.Context) {
+			wsHandler.ServeHTTP(c.Writer, c.Request)
+		})
+		router.GET("/ws/health", func(c *gin.Context) {
+			wsHandler.HandleHealthCheck(c.Writer, c.Request)
+		})
+		appLogger.Info("WebSocket endpoints registered",
+			"endpoints", []string{"/ws/executions", "/ws/health"},
+		)
+	}
+
+	// API v1 routes
+	apiV1 := router.Group("/api/v1")
+	{
+		// Initialize handlers
+		workflowHandlers := rest.NewWorkflowHandlers(workflowRepo)
+		nodeHandlers := rest.NewNodeHandlers(workflowRepo)
+		edgeHandlers := rest.NewEdgeHandlers(workflowRepo)
+		executionHandlers := rest.NewExecutionHandlers(executionRepo, workflowRepo, executionManager)
+		triggerHandlers := rest.NewTriggerHandlers(triggerRepo, workflowRepo)
+
+		// Workflow endpoints
+		workflows := apiV1.Group("/workflows")
+		{
+			workflows.POST("", workflowHandlers.HandleCreateWorkflow)
+			workflows.GET("", workflowHandlers.HandleListWorkflows)
+			workflows.GET("/:workflowId", workflowHandlers.HandleGetWorkflow)
+			workflows.PUT("/:workflowId", workflowHandlers.HandleUpdateWorkflow)
+			workflows.DELETE("/:workflowId", workflowHandlers.HandleDeleteWorkflow)
+			workflows.POST("/:workflowId/publish", workflowHandlers.HandlePublishWorkflow)
+			workflows.POST("/:workflowId/unpublish", workflowHandlers.HandleUnpublishWorkflow)
+			workflows.GET("/:workflowId/diagram", workflowHandlers.HandleGetWorkflowDiagram)
+
+			// Node endpoints
+			workflows.POST("/:workflowId/nodes", nodeHandlers.HandleAddNode)
+			workflows.GET("/:workflowId/nodes", nodeHandlers.HandleListNodes)
+			workflows.GET("/:workflowId/nodes/:node_id", nodeHandlers.HandleGetNode)
+			workflows.PUT("/:workflowId/nodes/:node_id", nodeHandlers.HandleUpdateNode)
+			workflows.DELETE("/:workflowId/nodes/:node_id", nodeHandlers.HandleDeleteNode)
+
+			// Edge endpoints
+			workflows.POST("/:workflowId/edges", edgeHandlers.HandleAddEdge)
+			workflows.GET("/:workflowId/edges", edgeHandlers.HandleListEdges)
+			workflows.GET("/:workflowId/edges/:edge_id", edgeHandlers.HandleGetEdge)
+			workflows.PUT("/:workflowId/edges/:edge_id", edgeHandlers.HandleUpdateEdge)
+			workflows.DELETE("/:workflowId/edges/:edge_id", edgeHandlers.HandleDeleteEdge)
+		}
+
+		// Execution endpoints
+		executions := apiV1.Group("/executions")
+		{
+			executions.POST("/run/:workflow_id", executionHandlers.HandleRunExecution)
+			executions.GET("", executionHandlers.HandleListExecutions)
+			executions.GET("/:id", executionHandlers.HandleGetExecution)
+			executions.GET("/:id/logs", executionHandlers.HandleGetLogs)
+			executions.GET("/:id/nodes/:node_id/result", executionHandlers.HandleGetNodeResult)
+			executions.POST("/:id/cancel", executionHandlers.HandleCancelExecution)
+			executions.POST("/:id/retry", executionHandlers.HandleRetryExecution)
+			executions.GET("/:id/watch", executionHandlers.HandleWatchExecution)
+			executions.GET("/:id/stream", executionHandlers.HandleStreamLogs)
+		}
+
+		// Trigger endpoints
+		triggers := apiV1.Group("/triggers")
+		{
+			triggers.POST("", triggerHandlers.HandleCreateTrigger)
+			triggers.GET("", triggerHandlers.HandleListTriggers)
+			triggers.GET("/:id", triggerHandlers.HandleGetTrigger)
+			triggers.PUT("/:id", triggerHandlers.HandleUpdateTrigger)
+			triggers.DELETE("/:id", triggerHandlers.HandleDeleteTrigger)
+			triggers.POST("/:id/enable", triggerHandlers.HandleEnableTrigger)
+			triggers.POST("/:id/disable", triggerHandlers.HandleDisableTrigger)
+			triggers.POST("/:id/execute", triggerHandlers.HandleTriggerManual)
+		}
+
+		// Webhook endpoints
+		if triggerManager != nil {
+			webhookHandlers := rest.NewWebhookHandlers(triggerManager.WebhookRegistry())
+			apiV1.POST("/webhooks/:path", webhookHandlers.HandleWebhook)
+			apiV1.GET("/webhooks/:path", webhookHandlers.HandleWebhookGet)
+		}
+	}
+
+	appLogger.Info("REST API routes registered")
 
 	// Create HTTP server with timeouts
 	server := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
-		Handler:      mux,
+		Handler:      router,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  120 * time.Second,
@@ -269,6 +439,19 @@ func main() {
 		// Create context with timeout for shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 		defer cancel()
+
+		// Stop trigger manager first
+		if triggerManager != nil {
+			appLogger.Info("Stopping trigger manager...")
+			if err := triggerManager.Stop(); err != nil {
+				appLogger.Error("Trigger manager shutdown failed", "error", err)
+			} else {
+				appLogger.Info("Trigger manager stopped")
+			}
+		}
+
+		// Note: WebSocket hub cleanup happens automatically when server stops
+		// as clients will be disconnected when the server shuts down
 
 		// Gracefully shutdown the server
 		if err := server.Shutdown(ctx); err != nil {

@@ -272,3 +272,10 @@ func (m *Manager) updateTriggerState(ctx context.Context, triggerID string) erro
 func (m *Manager) clearTriggerState(ctx context.Context, triggerID string) error {
 	return DeleteTriggerState(ctx, m.cache, triggerID)
 }
+
+// WebhookRegistry returns the webhook registry for HTTP webhook handling
+func (m *Manager) WebhookRegistry() *WebhookRegistry {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.webhookRegistry
+}

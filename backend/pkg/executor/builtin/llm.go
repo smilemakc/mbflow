@@ -113,8 +113,9 @@ func (e *LLMExecutor) Validate(config map[string]interface{}) error {
 
 	provider := models.LLMProvider(providerStr)
 	validProviders := map[models.LLMProvider]bool{
-		models.LLMProviderOpenAI:    true,
-		models.LLMProviderAnthropic: true,
+		models.LLMProviderOpenAI:          true,
+		models.LLMProviderOpenAIResponses: true,
+		models.LLMProviderAnthropic:       true,
 	}
 	if !validProviders[provider] {
 		return fmt.Errorf("unsupported LLM provider: %s", providerStr)
@@ -224,6 +225,42 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 
 	// Extract provider configuration
 	req.ProviderConfig = e.extractProviderConfig(config)
+
+	// Responses API specific fields
+	if input, ok := config["input"]; ok {
+		req.Input = input
+	}
+	if instructions, ok := config["instructions"].(string); ok {
+		req.Instructions = instructions
+	}
+	if background, ok := config["background"].(bool); ok {
+		req.Background = background
+	}
+	if maxToolCalls, ok := config["max_tool_calls"].(int); ok {
+		req.MaxToolCalls = maxToolCalls
+	} else if maxToolCallsFloat, ok := config["max_tool_calls"].(float64); ok {
+		req.MaxToolCalls = int(maxToolCallsFloat)
+	}
+	if store, ok := config["store"].(bool); ok {
+		req.Store = &store
+	}
+
+	// Parse reasoning
+	if reasoning, ok := config["reasoning"].(map[string]interface{}); ok {
+		req.Reasoning = &models.LLMReasoningInfo{}
+		if effort, ok := reasoning["effort"].(string); ok {
+			req.Reasoning.Effort = effort
+		}
+	}
+
+	// Parse hosted tools
+	if hostedTools, ok := config["hosted_tools"].([]interface{}); ok {
+		parsedHostedTools, err := e.parseHostedTools(hostedTools)
+		if err != nil {
+			return nil, err
+		}
+		req.HostedTools = parsedHostedTools
+	}
 
 	return req, nil
 }
@@ -407,6 +444,11 @@ func (e *LLMExecutor) getOrCreateProvider(req *models.LLMRequest) (LLMProvider, 
 		baseURL, _ := req.ProviderConfig["base_url"].(string)
 		orgID, _ := req.ProviderConfig["org_id"].(string)
 		return NewOpenAIProvider(apiKey, baseURL, orgID)
+	case models.LLMProviderOpenAIResponses:
+		apiKey, _ := req.ProviderConfig["api_key"].(string)
+		baseURL, _ := req.ProviderConfig["base_url"].(string)
+		orgID, _ := req.ProviderConfig["org_id"].(string)
+		return NewOpenAIResponsesProvider(apiKey, baseURL, orgID)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", req.Provider)
 	}
@@ -444,6 +486,84 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 
 	if response.Metadata != nil {
 		result["metadata"] = response.Metadata
+	}
+
+	// Responses API specific fields
+	if response.Status != "" {
+		result["status"] = response.Status
+	}
+	if len(response.OutputItems) > 0 {
+		outputItems := make([]map[string]interface{}, len(response.OutputItems))
+		for i, item := range response.OutputItems {
+			itemMap := map[string]interface{}{
+				"id":     item.ID,
+				"type":   item.Type,
+				"status": item.Status,
+			}
+			if item.Role != "" {
+				itemMap["role"] = item.Role
+			}
+			if len(item.Content) > 0 {
+				content := make([]map[string]interface{}, len(item.Content))
+				for j, c := range item.Content {
+					content[j] = map[string]interface{}{
+						"type": c.Type,
+						"text": c.Text,
+					}
+					if len(c.Annotations) > 0 {
+						annotations := make([]map[string]interface{}, len(c.Annotations))
+						for k, ann := range c.Annotations {
+							annotations[k] = map[string]interface{}{
+								"type":        ann.Type,
+								"start_index": ann.StartIndex,
+								"end_index":   ann.EndIndex,
+								"url":         ann.URL,
+								"title":       ann.Title,
+								"index":       ann.Index,
+								"file_id":     ann.FileID,
+								"filename":    ann.Filename,
+							}
+						}
+						content[j]["annotations"] = annotations
+					}
+				}
+				itemMap["content"] = content
+			}
+			if item.CallID != "" {
+				itemMap["call_id"] = item.CallID
+			}
+			if item.Name != "" {
+				itemMap["name"] = item.Name
+			}
+			if item.Arguments != "" {
+				itemMap["arguments"] = item.Arguments
+			}
+			if len(item.Queries) > 0 {
+				itemMap["queries"] = item.Queries
+			}
+			if item.Results != nil {
+				itemMap["results"] = item.Results
+			}
+			outputItems[i] = itemMap
+		}
+		result["output_items"] = outputItems
+	}
+	if response.Error != nil {
+		result["error"] = map[string]interface{}{
+			"provider": response.Error.Provider,
+			"code":     response.Error.Code,
+			"message":  response.Error.Message,
+			"type":     response.Error.Type,
+		}
+	}
+	if response.IncompleteDetails != nil {
+		result["incomplete_details"] = response.IncompleteDetails
+	}
+	if response.Reasoning != nil {
+		result["reasoning"] = map[string]interface{}{
+			"effort":  response.Reasoning.Effort,
+			"summary": response.Reasoning.Summary,
+		}
 	}
 
 	return result
@@ -485,4 +605,55 @@ func (e *LLMExecutor) toJSON(v interface{}) string {
 		return fmt.Sprintf("error: %v", err)
 	}
 	return string(data)
+}
+
+// parseHostedTools parses hosted tools configuration (Responses API).
+func (e *LLMExecutor) parseHostedTools(toolsConfig []interface{}) ([]models.LLMHostedTool, error) {
+	tools := make([]models.LLMHostedTool, 0, len(toolsConfig))
+
+	for i, toolConfig := range toolsConfig {
+		toolMap, ok := toolConfig.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("hosted tool %d is not a valid object", i)
+		}
+
+		toolType, _ := toolMap["type"].(string)
+		if toolType == "" {
+			return nil, fmt.Errorf("hosted tool %d: missing type", i)
+		}
+
+		tool := models.LLMHostedTool{
+			Type: toolType,
+		}
+
+		switch toolType {
+		case "web_search_preview":
+			if domains, ok := toolMap["domains"].([]interface{}); ok {
+				tool.Domains = e.toStringSlice(domains)
+			}
+			if contextSize, ok := toolMap["search_context_size"].(string); ok {
+				tool.SearchContextSize = contextSize
+			}
+		case "file_search":
+			if vectorStoreIDs, ok := toolMap["vector_store_ids"].([]interface{}); ok {
+				tool.VectorStoreIDs = e.toStringSlice(vectorStoreIDs)
+			}
+			if maxResults, ok := toolMap["max_num_results"].(int); ok {
+				tool.MaxNumResults = maxResults
+			} else if maxResultsFloat, ok := toolMap["max_num_results"].(float64); ok {
+				tool.MaxNumResults = int(maxResultsFloat)
+			}
+			if rankingOptions, ok := toolMap["ranking_options"].(map[string]interface{}); ok {
+				tool.RankingOptions = rankingOptions
+			}
+		case "code_interpreter":
+			// No additional config needed
+		default:
+			return nil, fmt.Errorf("hosted tool %d: unsupported type %s", i, toolType)
+		}
+
+		tools = append(tools, tool)
+	}
+
+	return tools, nil
 }

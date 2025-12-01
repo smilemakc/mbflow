@@ -71,7 +71,7 @@ func (r *WorkflowRepository) Update(ctx context.Context, workflow *models.Workfl
 		// 1. Update workflow metadata
 		_, err := tx.NewUpdate().
 			Model(workflow).
-			Column("name", "description", "version", "status", "tags", "variables", "metadata", "updated_at").
+			Column("name", "description", "version", "status", "variables", "metadata", "updated_at").
 			Where("id = ?", workflow.ID).
 			Exec(ctx)
 		if err != nil {

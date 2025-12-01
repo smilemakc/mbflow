@@ -69,7 +69,7 @@ func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 
 // HandleGetWorkflow handles GET /api/v1/workflows/{id}
 func (h *WorkflowHandlers) HandleGetWorkflow(c *gin.Context) {
-	workflowID := c.Param("id")
+	workflowID := c.Param("workflowId")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -138,7 +138,7 @@ func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 
 // HandleUpdateWorkflow handles PUT /api/v1/workflows/{id}
 func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
-	workflowID := c.Param("id")
+	workflowID := c.Param("workflowId")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -194,7 +194,7 @@ func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 
 // HandleDeleteWorkflow handles DELETE /api/v1/workflows/{id}
 func (h *WorkflowHandlers) HandleDeleteWorkflow(c *gin.Context) {
-	workflowID := c.Param("id")
+	workflowID := c.Param("workflowId")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -219,7 +219,7 @@ func (h *WorkflowHandlers) HandleDeleteWorkflow(c *gin.Context) {
 
 // HandlePublishWorkflow handles POST /api/v1/workflows/{id}/publish
 func (h *WorkflowHandlers) HandlePublishWorkflow(c *gin.Context) {
-	workflowID := c.Param("id")
+	workflowID := c.Param("workflowId")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -252,7 +252,7 @@ func (h *WorkflowHandlers) HandlePublishWorkflow(c *gin.Context) {
 
 // HandleUnpublishWorkflow handles POST /api/v1/workflows/{id}/unpublish
 func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
-	workflowID := c.Param("id")
+	workflowID := c.Param("workflowId")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -286,7 +286,7 @@ func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
 // HandleGetWorkflowDiagram handles GET /api/v1/workflows/{id}/diagram
 // Returns workflow visualization in the specified format (mermaid or ascii).
 func (h *WorkflowHandlers) HandleGetWorkflowDiagram(c *gin.Context) {
-	workflowID := c.Param("id")
+	workflowID := c.Param("workflowId")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return

@@ -205,10 +205,19 @@ func (r *MermaidRenderer) getNodeTypePrefix(node *models.Node) string {
 		return "HTTP"
 	case "llm":
 		provider, _ := node.Config["provider"].(string)
-		if provider == "" {
-			provider = "LLM"
+		switch provider {
+		case "openai":
+			return "OpenAI"
+		case "openai-responses":
+			return "OpenAI Responses"
+		case "anthropic":
+			return "Anthropic"
+		default:
+			if provider != "" {
+				return strings.ToUpper(provider)
+			}
+			return "LLM"
 		}
-		return provider
 	case "transform":
 		return "Transform"
 	case "conditional":
@@ -227,10 +236,50 @@ func (r *MermaidRenderer) extractKeyConfig(node *models.Node) string {
 		url, _ := node.Config["url"].(string)
 		return url
 	case "llm":
+		var parts []string
+
+		// Add model
 		model, _ := node.Config["model"].(string)
 		if model != "" {
-			return model
+			parts = append(parts, model)
 		}
+
+		// For Responses API, show special features
+		provider, _ := node.Config["provider"].(string)
+		if provider == "openai-responses" {
+			// Show hosted tools if present
+			if hostedTools, ok := node.Config["hosted_tools"].([]interface{}); ok && len(hostedTools) > 0 {
+				var tools []string
+				for _, tool := range hostedTools {
+					if toolMap, ok := tool.(map[string]interface{}); ok {
+						if toolType, ok := toolMap["type"].(string); ok {
+							switch toolType {
+							case "web_search_preview":
+								tools = append(tools, "🌐 Web Search")
+							case "file_search":
+								tools = append(tools, "📄 File Search")
+							case "code_interpreter":
+								tools = append(tools, "💻 Code")
+							default:
+								tools = append(tools, toolType)
+							}
+						}
+					}
+				}
+				if len(tools) > 0 {
+					parts = append(parts, strings.Join(tools, ", "))
+				}
+			}
+
+			// Show reasoning effort if present
+			if reasoning, ok := node.Config["reasoning"].(map[string]interface{}); ok {
+				if effort, ok := reasoning["effort"].(string); ok && effort != "" {
+					parts = append(parts, "💭 "+effort+" reasoning")
+				}
+			}
+		}
+
+		return strings.Join(parts, "<br/>")
 	case "transform":
 		transformType, _ := node.Config["type"].(string)
 		if transformType != "" {

@@ -1,3 +1,6 @@
 !.gitignore
 !main.go
 !README.md
+!simple_example.go
+*
+!*/
