@@ -140,6 +140,26 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	return client, nil
 }
 
+// NewStandaloneClient creates a new MBFlow SDK client in standalone mode.
+// In standalone mode, workflows are executed in-memory without any database persistence.
+// Only ExecuteWorkflowStandalone() is available - no workflow CRUD operations.
+// Perfect for examples, testing, and simple automation scripts.
+//
+// Example:
+//
+//	client, err := sdk.NewStandaloneClient()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Close()
+//
+//	execution, err := client.ExecuteWorkflowStandalone(ctx, workflow, input, nil)
+func NewStandaloneClient(opts ...ClientOption) (*Client, error) {
+	// Prepend WithStandaloneMode to the options
+	allOpts := append([]ClientOption{WithStandaloneMode()}, opts...)
+	return NewClient(allOpts...)
+}
+
 // Workflows returns the Workflow API for CRUD operations and DAG management.
 func (c *Client) Workflows() *WorkflowAPI {
 	return c.workflows
@@ -295,11 +315,8 @@ func validateConfig(config *ClientConfig) error {
 		}
 	}
 
-	if config.Mode == ModeEmbedded {
-		if config.DatabaseURL == "" {
-			return fmt.Errorf("database URL is required for embedded mode")
-		}
-	}
+	// For embedded mode, DatabaseURL is optional
+	// If not provided, only ExecuteWorkflowStandalone() will be available
 
 	if config.Timeout <= 0 {
 		return fmt.Errorf("timeout must be positive")

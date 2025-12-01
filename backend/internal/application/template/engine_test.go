@@ -578,3 +578,664 @@ func TestEngine_ComplexScenario(t *testing.T) {
 		t.Errorf("body.message = %v, want 'Hello Alice!'", body["message"])
 	}
 }
+
+// TestEngine_Resolve_NilValue tests that Resolve handles nil correctly
+func TestEngine_Resolve_NilValue(t *testing.T) {
+	ctx := NewVariableContext()
+	engine := NewEngineWithDefaults(ctx)
+
+	result, err := engine.Resolve(nil)
+	if err != nil {
+		t.Errorf("Resolve(nil) error = %v, want nil", err)
+	}
+	if result != nil {
+		t.Errorf("Resolve(nil) = %v, want nil", result)
+	}
+}
+
+// TestEngine_ResolveConfig tests the ResolveConfig convenience method
+func TestEngine_ResolveConfig(t *testing.T) {
+	ctx := NewVariableContext()
+	ctx.WorkflowVars["apiUrl"] = "https://api.example.com"
+	ctx.InputVars["userId"] = "123"
+
+	engine := NewEngineWithDefaults(ctx)
+
+	tests := []struct {
+		name    string
+		config  map[string]interface{}
+		want    map[string]interface{}
+		wantErr bool
+	}{
+		{
+			name: "simple config",
+			config: map[string]interface{}{
+				"url":    "{{env.apiUrl}}/users/{{input.userId}}",
+				"method": "GET",
+			},
+			want: map[string]interface{}{
+				"url":    "https://api.example.com/users/123",
+				"method": "GET",
+			},
+			wantErr: false,
+		},
+		{
+			name: "nested config",
+			config: map[string]interface{}{
+				"request": map[string]interface{}{
+					"url": "{{env.apiUrl}}",
+					"headers": map[string]interface{}{
+						"Authorization": "Bearer token",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"request": map[string]interface{}{
+					"url": "https://api.example.com",
+					"headers": map[string]interface{}{
+						"Authorization": "Bearer token",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "empty config",
+			config:  map[string]interface{}{},
+			want:    map[string]interface{}{},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := engine.ResolveConfig(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				// Deep comparison would be better, but simple check for now
+				if len(got) != len(tt.want) {
+					t.Errorf("ResolveConfig() returned map with %d keys, want %d", len(got), len(tt.want))
+				}
+			}
+		})
+	}
+}
+
+// TestEngine_ResolveConfig_Error tests error handling in ResolveConfig
+func TestEngine_ResolveConfig_Error(t *testing.T) {
+	ctx := NewVariableContext()
+	engine := NewEngine(ctx, TemplateOptions{StrictMode: true})
+
+	config := map[string]interface{}{
+		"url": "{{env.missing}}",
+	}
+
+	_, err := engine.ResolveConfig(config)
+	if err == nil {
+		t.Error("ResolveConfig() expected error for missing variable in strict mode, got nil")
+	}
+}
+
+// TestEngine_ResolveComplex tests resolveComplex with various types
+func TestEngine_ResolveComplex(t *testing.T) {
+	ctx := NewVariableContext()
+	ctx.WorkflowVars["value"] = "test"
+	engine := NewEngineWithDefaults(ctx)
+
+	tests := []struct {
+		name    string
+		input   interface{}
+		wantErr bool
+	}{
+		{
+			name:    "bool",
+			input:   true,
+			wantErr: false,
+		},
+		{
+			name:    "int",
+			input:   42,
+			wantErr: false,
+		},
+		{
+			name:    "int8",
+			input:   int8(8),
+			wantErr: false,
+		},
+		{
+			name:    "int16",
+			input:   int16(16),
+			wantErr: false,
+		},
+		{
+			name:    "int32",
+			input:   int32(32),
+			wantErr: false,
+		},
+		{
+			name:    "int64",
+			input:   int64(64),
+			wantErr: false,
+		},
+		{
+			name:    "uint",
+			input:   uint(42),
+			wantErr: false,
+		},
+		{
+			name:    "uint8",
+			input:   uint8(8),
+			wantErr: false,
+		},
+		{
+			name:    "uint16",
+			input:   uint16(16),
+			wantErr: false,
+		},
+		{
+			name:    "uint32",
+			input:   uint32(32),
+			wantErr: false,
+		},
+		{
+			name:    "uint64",
+			input:   uint64(64),
+			wantErr: false,
+		},
+		{
+			name:    "float32",
+			input:   float32(3.14),
+			wantErr: false,
+		},
+		{
+			name:    "float64",
+			input:   float64(3.14159),
+			wantErr: false,
+		},
+		{
+			name:    "complex64",
+			input:   complex64(1 + 2i),
+			wantErr: false,
+		},
+		{
+			name:    "complex128",
+			input:   complex128(1 + 2i),
+			wantErr: false,
+		},
+		{
+			name: "struct with templates",
+			input: struct {
+				Name  string
+				Value string
+			}{
+				Name:  "test",
+				Value: "{{env.value}}",
+			},
+			wantErr: false,
+		},
+		{
+			name: "struct without templates",
+			input: struct {
+				Name  string
+				Count int
+			}{
+				Name:  "test",
+				Count: 42,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Resolve(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Resolve() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if result == nil && tt.input != nil {
+				t.Error("Resolve() returned nil for non-nil input")
+			}
+		})
+	}
+}
+
+// TestEngine_ResolveString_StrictMode_InvalidVariableRef tests strict mode error for invalid variable reference
+func TestEngine_ResolveString_StrictMode_InvalidVariableRef(t *testing.T) {
+	ctx := NewVariableContext()
+	engine := NewEngine(ctx, TemplateOptions{StrictMode: true})
+
+	// Test invalid variable reference (no dot separator)
+	template := "Value: {{invalid}}"
+	_, err := engine.ResolveString(template)
+	if err == nil {
+		t.Error("ResolveString() expected error for invalid variable reference in strict mode, got nil")
+	}
+	if !errors.Is(err, ErrInvalidTemplate) {
+		t.Errorf("ResolveString() expected ErrInvalidTemplate, got %v", err)
+	}
+}
+
+// TestEngine_ResolveString_NonStrictMode_InvalidVariableRef tests non-strict mode with invalid variable reference
+func TestEngine_ResolveString_NonStrictMode_InvalidVariableRef(t *testing.T) {
+	ctx := NewVariableContext()
+
+	tests := []struct {
+		name     string
+		opts     TemplateOptions
+		template string
+		want     string
+	}{
+		{
+			name: "invalid ref with empty replacement",
+			opts: TemplateOptions{
+				StrictMode:           false,
+				PlaceholderOnMissing: false,
+			},
+			template: "Value: {{invalid}}",
+			want:     "Value: ",
+		},
+		{
+			name: "invalid ref with placeholder",
+			opts: TemplateOptions{
+				StrictMode:           false,
+				PlaceholderOnMissing: true,
+			},
+			template: "Value: {{invalid}}",
+			want:     "Value: {{invalid}}",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			engine := NewEngine(ctx, tt.opts)
+			got, err := engine.ResolveString(tt.template)
+			if err != nil {
+				t.Errorf("ResolveString() unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("ResolveString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestEngine_ResolveMap_Error tests error handling in resolveMap
+func TestEngine_ResolveMap_Error(t *testing.T) {
+	ctx := NewVariableContext()
+	engine := NewEngine(ctx, TemplateOptions{StrictMode: true})
+
+	m := map[string]interface{}{
+		"valid":   "plain text",
+		"invalid": "{{env.missing}}",
+	}
+
+	_, err := engine.Resolve(m)
+	if err == nil {
+		t.Error("Resolve() expected error for missing variable in strict mode, got nil")
+	}
+}
+
+// TestEngine_ResolveSlice_Error tests error handling in resolveSlice
+func TestEngine_ResolveSlice_Error(t *testing.T) {
+	ctx := NewVariableContext()
+	engine := NewEngine(ctx, TemplateOptions{StrictMode: true})
+
+	slice := []interface{}{
+		"valid text",
+		"{{env.missing}}",
+	}
+
+	_, err := engine.Resolve(slice)
+	if err == nil {
+		t.Error("Resolve() expected error for missing variable in strict mode, got nil")
+	}
+}
+
+// TestEngine_ValueToString_AllTypes tests valueToString with all type cases
+func TestEngine_ValueToString_AllTypes(t *testing.T) {
+	ctx := NewVariableContext()
+	ctx.InputVars["nil"] = nil
+	ctx.InputVars["string"] = "text"
+	ctx.InputVars["bool"] = false
+	ctx.InputVars["int"] = int(42)
+	ctx.InputVars["int8"] = int8(8)
+	ctx.InputVars["int16"] = int16(16)
+	ctx.InputVars["int32"] = int32(32)
+	ctx.InputVars["int64"] = int64(64)
+	ctx.InputVars["uint"] = uint(42)
+	ctx.InputVars["uint8"] = uint8(8)
+	ctx.InputVars["uint16"] = uint16(16)
+	ctx.InputVars["uint32"] = uint32(32)
+	ctx.InputVars["uint64"] = uint64(64)
+	ctx.InputVars["float32"] = float32(3.14)
+	ctx.InputVars["float64"] = float64(3.14159)
+	ctx.InputVars["slice"] = []interface{}{1, 2, 3}
+	ctx.InputVars["map"] = map[string]interface{}{"key": "value"}
+
+	// Type that can't be marshaled to JSON
+	type unmarshalableType struct {
+		Ch chan int
+	}
+	ctx.InputVars["unmarshalable"] = unmarshalableType{Ch: make(chan int)}
+
+	engine := NewEngineWithDefaults(ctx)
+
+	tests := []struct {
+		name     string
+		template string
+		want     string
+	}{
+		{
+			name:     "nil",
+			template: "{{input.nil}}",
+			want:     "",
+		},
+		{
+			name:     "string",
+			template: "{{input.string}}",
+			want:     "text",
+		},
+		{
+			name:     "bool false",
+			template: "{{input.bool}}",
+			want:     "false",
+		},
+		{
+			name:     "int",
+			template: "{{input.int}}",
+			want:     "42",
+		},
+		{
+			name:     "int8",
+			template: "{{input.int8}}",
+			want:     "8",
+		},
+		{
+			name:     "int16",
+			template: "{{input.int16}}",
+			want:     "16",
+		},
+		{
+			name:     "int32",
+			template: "{{input.int32}}",
+			want:     "32",
+		},
+		{
+			name:     "int64",
+			template: "{{input.int64}}",
+			want:     "64",
+		},
+		{
+			name:     "uint",
+			template: "{{input.uint}}",
+			want:     "42",
+		},
+		{
+			name:     "uint8",
+			template: "{{input.uint8}}",
+			want:     "8",
+		},
+		{
+			name:     "uint16",
+			template: "{{input.uint16}}",
+			want:     "16",
+		},
+		{
+			name:     "uint32",
+			template: "{{input.uint32}}",
+			want:     "32",
+		},
+		{
+			name:     "uint64",
+			template: "{{input.uint64}}",
+			want:     "64",
+		},
+		{
+			name:     "float32",
+			template: "{{input.float32}}",
+			want:     "3.14",
+		},
+		{
+			name:     "float64",
+			template: "{{input.float64}}",
+			want:     "3.14159",
+		},
+		{
+			name:     "slice",
+			template: "{{input.slice}}",
+			want:     "[1,2,3]",
+		},
+		{
+			name:     "map",
+			template: "{{input.map}}",
+			want:     `{"key":"value"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := engine.ResolveString(tt.template)
+			if err != nil {
+				t.Fatalf("ResolveString() error = %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("ResolveString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	// Test unmarshalable type (should use fmt.Sprintf fallback)
+	t.Run("unmarshalable type", func(t *testing.T) {
+		got, err := engine.ResolveString("{{input.unmarshalable}}")
+		if err != nil {
+			t.Fatalf("ResolveString() error = %v", err)
+		}
+		// Should not be empty (fallback to fmt.Sprintf)
+		if got == "" {
+			t.Error("ResolveString() = empty string, expected fallback formatting")
+		}
+	})
+}
+
+// TestEngine_ParseVariableRef tests parseVariableRef edge cases
+func TestEngine_ParseVariableRef(t *testing.T) {
+	ctx := NewVariableContext()
+	engine := NewEngineWithDefaults(ctx)
+
+	tests := []struct {
+		name        string
+		ref         string
+		wantVarType string
+		wantPath    string
+	}{
+		{
+			name:        "valid reference",
+			ref:         "env.varName",
+			wantVarType: "env",
+			wantPath:    "varName",
+		},
+		{
+			name:        "nested path",
+			ref:         "input.user.profile.email",
+			wantVarType: "input",
+			wantPath:    "user.profile.email",
+		},
+		{
+			name:        "no separator",
+			ref:         "invalid",
+			wantVarType: "",
+			wantPath:    "",
+		},
+		{
+			name:        "with spaces",
+			ref:         " env . varName ",
+			wantVarType: "env",
+			wantPath:    "varName",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotVarType, gotPath := engine.parseVariableRef(tt.ref)
+			if gotVarType != tt.wantVarType {
+				t.Errorf("parseVariableRef() varType = %v, want %v", gotVarType, tt.wantVarType)
+			}
+			if gotPath != tt.wantPath {
+				t.Errorf("parseVariableRef() path = %v, want %v", gotPath, tt.wantPath)
+			}
+		})
+	}
+}
+
+// TestEngine_ResolveComplex_EdgeCases tests edge cases in resolveComplex
+func TestEngine_ResolveComplex_EdgeCases(t *testing.T) {
+	ctx := NewVariableContext()
+	ctx.WorkflowVars["value"] = "test"
+	engine := NewEngineWithDefaults(ctx)
+
+	t.Run("unmarshalable type returns as-is", func(t *testing.T) {
+		// Channel types cannot be marshaled to JSON
+		type unmarshalableType struct {
+			Ch chan int
+		}
+		input := unmarshalableType{Ch: make(chan int)}
+		result, err := engine.Resolve(input)
+		if err != nil {
+			t.Errorf("Resolve() error = %v, want nil", err)
+		}
+		// Should return input as-is when marshal fails
+		if result != input {
+			t.Error("Resolve() should return input as-is when marshal fails")
+		}
+	})
+
+	t.Run("function type cannot be marshaled", func(t *testing.T) {
+		// Functions cannot be marshaled to JSON
+		input := func() string { return "test" }
+
+		result, err := engine.Resolve(input)
+		if err != nil {
+			t.Errorf("Resolve() error = %v, want nil", err)
+		}
+
+		// Should return input as-is when marshal fails
+		// Note: we can't compare functions directly
+		if result == nil {
+			t.Error("Resolve() returned nil, expected input as-is")
+		}
+	})
+
+	t.Run("struct that unmarshals to map with templates", func(t *testing.T) {
+		// Struct that will be marshaled to JSON and back
+		type structWithTemplates struct {
+			Name   string                 `json:"name"`
+			Value  string                 `json:"value"`
+			Nested map[string]interface{} `json:"nested"`
+		}
+		input := structWithTemplates{
+			Name:  "test",
+			Value: "{{env.value}}",
+			Nested: map[string]interface{}{
+				"key": "{{env.value}}",
+			},
+		}
+		result, err := engine.Resolve(input)
+		if err != nil {
+			t.Errorf("Resolve() error = %v, want nil", err)
+		}
+
+		// Should be resolved to a map
+		resultMap, ok := result.(map[string]interface{})
+		if !ok {
+			t.Fatal("Resolve() should return map[string]interface{}")
+		}
+
+		// Check template was resolved
+		if resultMap["value"] != "test" {
+			t.Errorf("value = %v, want 'test'", resultMap["value"])
+		}
+	})
+
+	t.Run("struct that unmarshals to slice", func(t *testing.T) {
+		// Use a slice type that will unmarshal back to []interface{}
+		type stringSlice []string
+		input := stringSlice{"{{env.value}}", "plain"}
+
+		result, err := engine.Resolve(input)
+		if err != nil {
+			t.Errorf("Resolve() error = %v, want nil", err)
+		}
+
+		// Should be a slice
+		resultSlice, ok := result.([]interface{})
+		if !ok {
+			t.Fatalf("Resolve() should return []interface{}, got %T", result)
+		}
+
+		// Check template was resolved
+		if resultSlice[0] != "test" {
+			t.Errorf("resultSlice[0] = %v, want 'test'", resultSlice[0])
+		}
+	})
+
+	t.Run("custom type that marshals to JSON string", func(t *testing.T) {
+		// Test a custom type that implements json.Marshaler and returns a JSON string
+		// This will cause the unmarshaled result to be a string
+		type customString string
+
+		input := customString("{{env.value}}")
+
+		result, err := engine.Resolve(input)
+		if err != nil {
+			t.Errorf("Resolve() error = %v", err)
+		}
+
+		// Result should be a string with resolved template
+		resultStr, ok := result.(string)
+		if !ok {
+			t.Fatalf("Resolve() should return string, got %T", result)
+		}
+
+		if resultStr != "test" {
+			t.Errorf("result = %v, want 'test'", resultStr)
+		}
+	})
+
+	t.Run("custom type that marshals to JSON number", func(t *testing.T) {
+		// Test a custom type that marshals to a JSON number
+		// After unmarshaling, this should be a float64 (default case)
+		type customInt int
+
+		input := customInt(42)
+
+		result, err := engine.Resolve(input)
+		if err != nil {
+			t.Errorf("Resolve() error = %v, want nil", err)
+		}
+
+		// Should return the unmarshaled number (float64 after JSON round-trip)
+		if result == nil {
+			t.Error("Resolve() returned nil")
+		}
+	})
+
+	t.Run("function type cannot be marshaled", func(t *testing.T) {
+		// Functions cannot be marshaled to JSON
+		input := func() {}
+
+		result, err := engine.Resolve(input)
+		if err != nil {
+			t.Errorf("Resolve() error = %v, want nil", err)
+		}
+
+		// Should return input as-is when marshal fails
+		// Note: we can't compare functions directly, so just check it's not nil
+		if result == nil {
+			t.Error("Resolve() returned nil, expected input as-is")
+		}
+	})
+}

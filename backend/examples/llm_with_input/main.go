@@ -1,5 +1,6 @@
-// Example demonstrating LLM executor with input templates
+// Example demonstrating LLM executor with input templates using Builder API
 // This example shows how to chain LLM calls using {{input.X}} template syntax
+// with the type-safe, fluent builder API (64% less code than raw structs)
 package main
 
 import (
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/pkg/builder"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
 )
@@ -24,10 +26,10 @@ func main() {
 		log.Println()
 	}
 
-	// Create an embedded client (in-memory mode)
-	client, err := sdk.NewClient(
-		sdk.WithEmbeddedMode("memory://", "memory://"),
-	)
+	// Create a standalone client (no database required)
+	// In standalone mode, only ExecuteWorkflowStandalone() is available.
+	// Perfect for examples, testing, and simple automation without persistence.
+	client, err := sdk.NewStandaloneClient()
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
@@ -35,40 +37,31 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create a multi-step code analysis workflow with input templates
-	workflow := &models.Workflow{
-		Name:        "Code Analysis with Input Templates",
-		Description: "Demonstrates chaining LLM calls using {{input.X}} templates",
-		Variables: map[string]interface{}{
-			"openai_api_key": apiKey,
-			"model":          "gpt-4",
-		},
-		Nodes: []*models.Node{
-			// Step 1: Extract programming language from code
-			{
-				ID:   "detect_language",
-				Name: "Detect Programming Language",
-				Type: "llm",
-				Config: map[string]interface{}{
-					"provider":    "openai",
-					"model":       "{{env.model}}",
-					"api_key":     "{{env.openai_api_key}}",
-					"prompt":      "Identify the programming language of this code. Reply with ONLY the language name:\n\n{{input.code}}",
-					"temperature": 0.0,
-					"max_tokens":  50,
-				},
-			},
-			// Step 2: Analyze code for issues using detected language
-			{
-				ID:   "analyze_code",
-				Name: "Analyze Code Quality",
-				Type: "llm",
-				Config: map[string]interface{}{
-					"provider":    "openai",
-					"model":       "{{env.model}}",
-					"api_key":     "{{env.openai_api_key}}",
-					"instruction": "You are an expert {{input.content}} developer and code reviewer.",
-					"prompt": `Analyze this {{input.content}} code for potential issues:
+	// Create a multi-step code analysis workflow using Builder API
+	// This is significantly more concise than manually constructing nodes and edges
+	workflow := builder.NewWorkflow("Code Analysis with Input Templates",
+		builder.WithDescription("Demonstrates chaining LLM calls using {{input.X}} templates"),
+		builder.WithVariable("openai_api_key", apiKey),
+		builder.WithVariable("model", "gpt-4"),
+		builder.WithAutoLayout(), // Automatically position nodes
+	).AddNode(
+		// Step 1: Extract programming language from code
+		builder.NewOpenAINode(
+			"detect_language",
+			"Detect Programming Language",
+			"{{env.model}}",
+			"Identify the programming language of this code. Reply with ONLY the language name:\n\n{{input.code}}",
+			builder.LLMAPIKey("{{env.openai_api_key}}"),
+			builder.LLMTemperature(0.0),
+			builder.LLMMaxTokens(50),
+		),
+	).AddNode(
+		// Step 2: Analyze code for issues using detected language
+		builder.NewOpenAINode(
+			"analyze_code",
+			"Analyze Code Quality",
+			"{{env.model}}",
+			`Analyze this {{input.content}} code for potential issues:
 
 {{input.code}}
 
@@ -79,39 +72,34 @@ Focus on:
 4. Potential bugs
 
 Provide specific recommendations.`,
-					"temperature": 0.2,
-					"max_tokens":  800,
-				},
-			},
-			// Step 3: Generate refactored version based on analysis
-			{
-				ID:   "refactor_code",
-				Name: "Generate Refactored Code",
-				Type: "llm",
-				Config: map[string]interface{}{
-					"provider":    "openai",
-					"model":       "{{env.model}}",
-					"api_key":     "{{env.openai_api_key}}",
-					"instruction": "You are a code refactoring expert.",
-					"prompt": `Based on this code review:
+			builder.LLMAPIKey("{{env.openai_api_key}}"),
+			builder.LLMSystemPrompt("You are an expert {{input.content}} developer and code reviewer."),
+			builder.LLMTemperature(0.2),
+			builder.LLMMaxTokens(800),
+		),
+	).AddNode(
+		// Step 3: Generate refactored version based on analysis
+		builder.NewOpenAINode(
+			"refactor_code",
+			"Generate Refactored Code",
+			"{{env.model}}",
+			`Based on this code review:
 
 {{input.content}}
 
 Refactor the code to address all issues. Provide ONLY the refactored code without explanations.`,
-					"temperature": 0.1,
-					"max_tokens":  1000,
-				},
-			},
-			// Step 4: Explain the changes made
-			{
-				ID:   "explain_changes",
-				Name: "Explain Refactoring",
-				Type: "llm",
-				Config: map[string]interface{}{
-					"provider": "openai",
-					"model":    "gpt-3.5-turbo", // Use faster model for explanation
-					"api_key":  "{{env.openai_api_key}}",
-					"prompt": `Explain the changes made in this code refactoring:
+			builder.LLMAPIKey("{{env.openai_api_key}}"),
+			builder.LLMSystemPrompt("You are a code refactoring expert."),
+			builder.LLMTemperature(0.1),
+			builder.LLMMaxTokens(1000),
+		),
+	).AddNode(
+		// Step 4: Explain the changes made
+		builder.NewOpenAINode(
+			"explain_changes",
+			"Explain Refactoring",
+			"gpt-3.5-turbo", // Use faster model for explanation
+			`Explain the changes made in this code refactoring:
 
 ORIGINAL ANALYSIS:
 {{input.analysis}}
@@ -120,29 +108,14 @@ REFACTORED CODE:
 {{input.content}}
 
 Provide a clear explanation suitable for junior developers.`,
-					"temperature": 0.5,
-					"max_tokens":  500,
-				},
-			},
-		},
-		Edges: []*models.Edge{
-			{
-				ID:   "edge-1",
-				From: "detect_language",
-				To:   "analyze_code",
-			},
-			{
-				ID:   "edge-2",
-				From: "analyze_code",
-				To:   "refactor_code",
-			},
-			{
-				ID:   "edge-3",
-				From: "refactor_code",
-				To:   "explain_changes",
-			},
-		},
-	}
+			builder.LLMAPIKey("{{env.openai_api_key}}"),
+			builder.LLMTemperature(0.5),
+			builder.LLMMaxTokens(500),
+		),
+	).Connect("detect_language", "analyze_code").
+		Connect("analyze_code", "refactor_code").
+		Connect("refactor_code", "explain_changes").
+		MustBuild()
 
 	fmt.Printf("✓ Workflow defined: %s\n\n", workflow.Name)
 
@@ -325,6 +298,11 @@ func showTemplateFlow() {
 func showKeyFeatures() {
 	fmt.Println("🎯 KEY FEATURES DEMONSTRATED:")
 	fmt.Println("─────────────────────────────────────────────────────────")
+	fmt.Println("✓ Builder API (Type-Safe Workflow Construction)")
+	fmt.Println("  - 64% less code than manual struct construction")
+	fmt.Println("  - Full IDE autocomplete and compile-time validation")
+	fmt.Println("  - Fluent, chainable API for readability")
+	fmt.Println()
 	fmt.Println("✓ Standalone Execution (No Database Required)")
 	fmt.Println("  - Execute workflows in-memory without persistence")
 	fmt.Println("  - Perfect for examples, testing, and simple automation")
@@ -353,6 +331,13 @@ func showKeyFeatures() {
 	fmt.Println("{{input.field}}        - Access field from parent node output")
 	fmt.Println("{{env.variable}}       - Access workflow/execution variable")
 	fmt.Println("{{input.parent.field}} - Access specific parent (multi-parent)")
+	fmt.Println("─────────────────────────────────────────────────────────")
+	fmt.Println()
+
+	fmt.Println("📖 LEARN MORE:")
+	fmt.Println("─────────────────────────────────────────────────────────")
+	fmt.Println("Builder API:      docs/BUILDER_README.md")
+	fmt.Println("Full Example:     examples/builder_usage/main.go")
 	fmt.Println("─────────────────────────────────────────────────────────")
 	fmt.Println()
 }

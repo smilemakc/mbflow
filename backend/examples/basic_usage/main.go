@@ -11,12 +11,11 @@ import (
 )
 
 func main() {
-	// Create an embedded client with in-memory storage
-	// For production, use PostgreSQL and Redis:
-	// sdk.WithEmbeddedMode("postgres://...", "redis://...")
-	client, err := sdk.NewClient(
-		sdk.WithEmbeddedMode("memory://", "memory://"),
-	)
+	// Create a standalone client (no database required)
+	// In standalone mode, only ExecuteWorkflowStandalone() is available (no persistence).
+	// For production with persistence, use:
+	// sdk.NewClient(sdk.WithEmbeddedMode("postgres://...", "redis://..."))
+	client, err := sdk.NewStandaloneClient()
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}

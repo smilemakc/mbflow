@@ -60,12 +60,26 @@ func WithTimeout(timeout time.Duration) ClientOption {
 	}
 }
 
-// WithEmbeddedMode configures the client to run the workflow engine in-process.
-// This requires database and Redis URLs.
+// WithStandaloneMode configures the client for in-memory workflow execution without persistence.
+// In this mode, only ExecuteWorkflowStandalone() is available.
+// No database or Redis connection is required.
+// Perfect for testing, examples, and simple automation scripts.
+func WithStandaloneMode() ClientOption {
+	return func(c *ClientConfig) error {
+		c.Mode = ModeEmbedded
+		c.DatabaseURL = ""
+		c.RedisURL = ""
+		return nil
+	}
+}
+
+// WithEmbeddedMode configures the client to run the workflow engine in-process with persistence.
+// This requires database and optionally Redis URLs.
+// Provides full functionality including workflow CRUD operations and execution history.
 func WithEmbeddedMode(databaseURL, redisURL string) ClientOption {
 	return func(c *ClientConfig) error {
 		if databaseURL == "" {
-			return fmt.Errorf("database URL is required for embedded mode")
+			return fmt.Errorf("database URL is required for embedded mode with persistence (use WithStandaloneMode for in-memory execution)")
 		}
 		c.Mode = ModeEmbedded
 		c.DatabaseURL = databaseURL

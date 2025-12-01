@@ -343,6 +343,49 @@ func (h *TriggerHandlers) HandleDisableTrigger(c *gin.Context) {
 	respondJSON(c, http.StatusOK, trigger)
 }
 
+// HandleTriggerManual handles POST /api/v1/triggers/{id}/execute
+// Manually executes a trigger (primarily for manual trigger types)
+func (h *TriggerHandlers) HandleTriggerManual(c *gin.Context) {
+	triggerID := c.Param("id")
+	if triggerID == "" {
+		respondError(c, http.StatusBadRequest, "trigger ID is required")
+		return
+	}
+
+	triggerUUID, err := uuid.Parse(triggerID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid trigger ID")
+		return
+	}
+
+	// Parse input from request body
+	var req struct {
+		Input map[string]interface{} `json:"input"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// Empty body is acceptable for manual triggers
+		req.Input = make(map[string]interface{})
+	}
+
+	// Fetch trigger
+	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
+	if err != nil {
+		respondError(c, http.StatusNotFound, "trigger not found")
+		return
+	}
+
+	if !triggerModel.Enabled {
+		respondError(c, http.StatusForbidden, "trigger is disabled")
+		return
+	}
+
+	// This endpoint will be called by the trigger manager
+	// For now, return 501 Not Implemented with a message
+	// The actual implementation will be done when integrating with trigger manager
+	respondError(c, http.StatusNotImplemented, "trigger execution requires trigger manager integration")
+}
+
 // triggerModelToDomain converts storage TriggerModel to domain Trigger
 func triggerModelToDomain(tm *storagemodels.TriggerModel, name, description string) *models.Trigger {
 	if tm == nil {

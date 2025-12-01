@@ -10,10 +10,8 @@ import (
 )
 
 func TestExecuteWorkflowStandalone(t *testing.T) {
-	// Create embedded client
-	client, err := NewClient(
-		WithEmbeddedMode("memory://", "memory://"),
-	)
+	// Create standalone client (no database)
+	client, err := NewStandaloneClient()
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -94,9 +92,7 @@ func TestExecuteWorkflowStandalone(t *testing.T) {
 }
 
 func TestExecuteWorkflowStandalone_WithInput(t *testing.T) {
-	client, err := NewClient(
-		WithEmbeddedMode("memory://", "memory://"),
-	)
+	client, err := NewStandaloneClient()
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -139,9 +135,7 @@ func TestExecuteWorkflowStandalone_WithInput(t *testing.T) {
 }
 
 func TestExecuteWorkflowStandalone_WithOptions(t *testing.T) {
-	client, err := NewClient(
-		WithEmbeddedMode("memory://", "memory://"),
-	)
+	client, err := NewStandaloneClient()
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -193,9 +187,7 @@ func TestExecuteWorkflowStandalone_WithOptions(t *testing.T) {
 }
 
 func TestExecuteWorkflowStandalone_FailedExecution(t *testing.T) {
-	client, err := NewClient(
-		WithEmbeddedMode("memory://", "memory://"),
-	)
+	client, err := NewStandaloneClient()
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -238,9 +230,7 @@ func TestExecuteWorkflowStandalone_FailedExecution(t *testing.T) {
 }
 
 func TestExecuteWorkflowStandalone_ClosedClient(t *testing.T) {
-	client, err := NewClient(
-		WithEmbeddedMode("memory://", "memory://"),
-	)
+	client, err := NewStandaloneClient()
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -274,9 +264,7 @@ func TestExecuteWorkflowStandalone_ClosedClient(t *testing.T) {
 }
 
 func TestExecuteWorkflowStandalone_Duration(t *testing.T) {
-	client, err := NewClient(
-		WithEmbeddedMode("memory://", "memory://"),
-	)
+	client, err := NewStandaloneClient()
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

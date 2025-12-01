@@ -1,0 +1,101 @@
+{
+  "workflow": {
+    "name": "Daily Sales Report",
+    "description": "Generates and sends daily sales report every morning at 9 AM EST",
+    "status": "active",
+    "nodes": [
+      {
+        "id": "fetch_sales",
+        "name": "Fetch Sales Data",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://api.example.com/sales/daily",
+          "headers": {
+            "Authorization": "Bearer {{.api_key}}"
+          },
+          "query": {
+            "date": "{{.date}}",
+            "format": "json"
+          }
+        }
+      },
+      {
+        "id": "transform_data",
+        "name": "Transform to Report Format",
+        "type": "transform",
+        "config": {
+          "template": {
+            "report_date": "{{.fetch_sales.date}}",
+            "total_sales": "{{.fetch_sales.total}}",
+            "total_orders": "{{.fetch_sales.count}}",
+            "top_products": "{{.fetch_sales.top_products}}"
+          }
+        }
+      },
+      {
+        "id": "send_email",
+        "name": "Send Report Email",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "https://api.sendgrid.com/v3/mail/send",
+          "headers": {
+            "Authorization": "Bearer {{.sendgrid_key}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "personalizations": [
+              {
+                "to": [
+                  {
+                    "email": "sales@example.com"
+                  }
+                ]
+              }
+            ],
+            "from": {
+              "email": "reports@example.com"
+            },
+            "subject": "Daily Sales Report - {{.transform_data.report_date}}",
+            "content": [
+              {
+                "type": "text/html",
+                "value": "<h1>Daily Sales Report</h1><p>Total Sales: ${{.transform_data.total_sales}}</p><p>Total Orders: {{.transform_data.total_orders}}</p>"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "fetch_sales",
+        "to": "transform_data"
+      },
+      {
+        "id": "e2",
+        "from": "transform_data",
+        "to": "send_email"
+      }
+    ],
+    "variables": {
+      "api_key": "your-api-key",
+      "sendgrid_key": "your-sendgrid-key"
+    }
+  },
+  "trigger": {
+    "name": "Daily at 9 AM EST",
+    "description": "Triggers daily sales report generation",
+    "type": "cron",
+    "config": {
+      "schedule": "0 0 9 * * *",
+      "timezone": "America/New_York",
+      "input": {
+        "date": "{{.now | date \"2006-01-02\"}}"
+      }
+    },
+    "enabled": true
+  }
+}

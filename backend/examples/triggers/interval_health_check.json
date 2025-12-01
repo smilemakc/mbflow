@@ -1,0 +1,199 @@
+{
+  "workflow": {
+    "name": "Service Health Monitor",
+    "description": "Monitors service health every 30 seconds and alerts on failures",
+    "status": "active",
+    "nodes": [
+      {
+        "id": "check_api",
+        "name": "Check API Health",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://api.example.com/health",
+          "timeout": 5000,
+          "retry": {
+            "max_attempts": 2,
+            "delay": "1s"
+          }
+        }
+      },
+      {
+        "id": "check_database",
+        "name": "Check Database Health",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://api.example.com/health/db",
+          "timeout": 5000,
+          "retry": {
+            "max_attempts": 2,
+            "delay": "1s"
+          }
+        }
+      },
+      {
+        "id": "check_redis",
+        "name": "Check Redis Health",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://api.example.com/health/redis",
+          "timeout": 5000,
+          "retry": {
+            "max_attempts": 2,
+            "delay": "1s"
+          }
+        }
+      },
+      {
+        "id": "aggregate_results",
+        "name": "Aggregate Health Results",
+        "type": "transform",
+        "config": {
+          "template": {
+            "timestamp": "{{.now}}",
+            "api_status": "{{.check_api.status}}",
+            "api_healthy": "{{eq .check_api.status \"healthy\"}}",
+            "db_status": "{{.check_database.status}}",
+            "db_healthy": "{{eq .check_database.status \"healthy\"}}",
+            "redis_status": "{{.check_redis.status}}",
+            "redis_healthy": "{{eq .check_redis.status \"healthy\"}}",
+            "overall_healthy": "{{and (eq .check_api.status \"healthy\") (eq .check_database.status \"healthy\") (eq .check_redis.status \"healthy\")}}"
+          }
+        }
+      },
+      {
+        "id": "check_if_unhealthy",
+        "name": "Check if Any Service Unhealthy",
+        "type": "conditional",
+        "config": {
+          "condition": "{{not .aggregate_results.overall_healthy}}"
+        }
+      },
+      {
+        "id": "send_alert",
+        "name": "Send Alert to PagerDuty",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "https://events.pagerduty.com/v2/enqueue",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "routing_key": "{{.pagerduty_key}}",
+            "event_action": "trigger",
+            "payload": {
+              "summary": "Service health check failed",
+              "severity": "critical",
+              "source": "mbflow-health-monitor",
+              "custom_details": {
+                "api_status": "{{.aggregate_results.api_status}}",
+                "db_status": "{{.aggregate_results.db_status}}",
+                "redis_status": "{{.aggregate_results.redis_status}}",
+                "timestamp": "{{.aggregate_results.timestamp}}"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "log_result",
+        "name": "Log Health Check Result",
+        "type": "http",
+        "config": {
+          "method": "POST",
+          "url": "https://api.example.com/logs/health-checks",
+          "headers": {
+            "Authorization": "Bearer {{.api_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "timestamp": "{{.aggregate_results.timestamp}}",
+            "overall_healthy": "{{.aggregate_results.overall_healthy}}",
+            "services": {
+              "api": {
+                "status": "{{.aggregate_results.api_status}}",
+                "healthy": "{{.aggregate_results.api_healthy}}"
+              },
+              "database": {
+                "status": "{{.aggregate_results.db_status}}",
+                "healthy": "{{.aggregate_results.db_healthy}}"
+              },
+              "redis": {
+                "status": "{{.aggregate_results.redis_status}}",
+                "healthy": "{{.aggregate_results.redis_healthy}}"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "check_api",
+        "to": "aggregate_results"
+      },
+      {
+        "id": "e2",
+        "from": "check_database",
+        "to": "aggregate_results"
+      },
+      {
+        "id": "e3",
+        "from": "check_redis",
+        "to": "aggregate_results"
+      },
+      {
+        "id": "e4",
+        "from": "aggregate_results",
+        "to": "check_if_unhealthy"
+      },
+      {
+        "id": "e5",
+        "from": "check_if_unhealthy",
+        "to": "send_alert",
+        "condition": {
+          "expression": "{{.check_if_unhealthy.result}}"
+        }
+      },
+      {
+        "id": "e6",
+        "from": "aggregate_results",
+        "to": "log_result"
+      }
+    ],
+    "variables": {
+      "pagerduty_key": "your-pagerduty-integration-key",
+      "api_token": "your-api-token"
+    }
+  },
+  "trigger": {
+    "name": "Every 30 Seconds",
+    "description": "Runs health check every 30 seconds",
+    "type": "interval",
+    "config": {
+      "interval": "30s"
+    },
+    "enabled": true
+  },
+  "notes": {
+    "interval_formats": [
+      "Duration strings: '30s', '1m', '5m', '1h'",
+      "Integer seconds: 30, 60, 300",
+      "Float seconds: 30.5, 45.25"
+    ],
+    "performance": [
+      "Ensure workflow completes before next interval",
+      "Monitor execution duration over time",
+      "Adjust interval if executions start overlapping"
+    ],
+    "alerting": [
+      "Alert only sent when services become unhealthy",
+      "All health checks logged for historical analysis",
+      "Consider implementing alert deduplication"
+    ]
+  }
+}
