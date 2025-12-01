@@ -75,14 +75,9 @@ func main() {
 	// Initialize executor registry
 	executorManager := executor.NewManager()
 
-	// Register built-in executors
-	if err := executorManager.Register("http", builtin.NewHTTPExecutor()); err != nil {
-		appLogger.Error("Failed to register HTTP executor", "error", err)
-		os.Exit(1)
-	}
-
-	if err := executorManager.Register("transform", builtin.NewTransformExecutor()); err != nil {
-		appLogger.Error("Failed to register transform executor", "error", err)
+	// Register all built-in executors (http, transform, llm, function_call)
+	if err := builtin.RegisterBuiltins(executorManager); err != nil {
+		appLogger.Error("Failed to register built-in executors", "error", err)
 		os.Exit(1)
 	}
 
@@ -334,9 +329,9 @@ func main() {
 	apiV1 := router.Group("/api/v1")
 	{
 		// Initialize handlers
-		workflowHandlers := rest.NewWorkflowHandlers(workflowRepo)
-		nodeHandlers := rest.NewNodeHandlers(workflowRepo)
-		edgeHandlers := rest.NewEdgeHandlers(workflowRepo)
+		workflowHandlers := rest.NewWorkflowHandlers(workflowRepo, appLogger)
+		nodeHandlers := rest.NewNodeHandlers(workflowRepo, appLogger)
+		edgeHandlers := rest.NewEdgeHandlers(workflowRepo, appLogger)
 		executionHandlers := rest.NewExecutionHandlers(executionRepo, workflowRepo, executionManager)
 		triggerHandlers := rest.NewTriggerHandlers(triggerRepo, workflowRepo)
 
@@ -345,26 +340,27 @@ func main() {
 		{
 			workflows.POST("", workflowHandlers.HandleCreateWorkflow)
 			workflows.GET("", workflowHandlers.HandleListWorkflows)
-			workflows.GET("/:workflowId", workflowHandlers.HandleGetWorkflow)
-			workflows.PUT("/:workflowId", workflowHandlers.HandleUpdateWorkflow)
-			workflows.DELETE("/:workflowId", workflowHandlers.HandleDeleteWorkflow)
-			workflows.POST("/:workflowId/publish", workflowHandlers.HandlePublishWorkflow)
-			workflows.POST("/:workflowId/unpublish", workflowHandlers.HandleUnpublishWorkflow)
-			workflows.GET("/:workflowId/diagram", workflowHandlers.HandleGetWorkflowDiagram)
+			workflows.GET("/:workflow_id", workflowHandlers.HandleGetWorkflow)
+			workflows.PUT("/:workflow_id", workflowHandlers.HandleUpdateWorkflow)
+			workflows.POST("/:workflow_id/execute", executionHandlers.HandleRunExecution)
+			workflows.DELETE("/:workflow_id", workflowHandlers.HandleDeleteWorkflow)
+			workflows.POST("/:workflow_id/publish", workflowHandlers.HandlePublishWorkflow)
+			workflows.POST("/:workflow_id/unpublish", workflowHandlers.HandleUnpublishWorkflow)
+			workflows.GET("/:workflow_id/diagram", workflowHandlers.HandleGetWorkflowDiagram)
 
 			// Node endpoints
-			workflows.POST("/:workflowId/nodes", nodeHandlers.HandleAddNode)
-			workflows.GET("/:workflowId/nodes", nodeHandlers.HandleListNodes)
-			workflows.GET("/:workflowId/nodes/:node_id", nodeHandlers.HandleGetNode)
-			workflows.PUT("/:workflowId/nodes/:node_id", nodeHandlers.HandleUpdateNode)
-			workflows.DELETE("/:workflowId/nodes/:node_id", nodeHandlers.HandleDeleteNode)
+			workflows.POST("/:workflow_id/nodes", nodeHandlers.HandleAddNode)
+			workflows.GET("/:workflow_id/nodes", nodeHandlers.HandleListNodes)
+			workflows.GET("/:workflow_id/nodes/:node_id", nodeHandlers.HandleGetNode)
+			workflows.PUT("/:workflow_id/nodes/:node_id", nodeHandlers.HandleUpdateNode)
+			workflows.DELETE("/:workflow_id/nodes/:node_id", nodeHandlers.HandleDeleteNode)
 
 			// Edge endpoints
-			workflows.POST("/:workflowId/edges", edgeHandlers.HandleAddEdge)
-			workflows.GET("/:workflowId/edges", edgeHandlers.HandleListEdges)
-			workflows.GET("/:workflowId/edges/:edge_id", edgeHandlers.HandleGetEdge)
-			workflows.PUT("/:workflowId/edges/:edge_id", edgeHandlers.HandleUpdateEdge)
-			workflows.DELETE("/:workflowId/edges/:edge_id", edgeHandlers.HandleDeleteEdge)
+			workflows.POST("/:workflow_id/edges", edgeHandlers.HandleAddEdge)
+			workflows.GET("/:workflow_id/edges", edgeHandlers.HandleListEdges)
+			workflows.GET("/:workflow_id/edges/:edge_id", edgeHandlers.HandleGetEdge)
+			workflows.PUT("/:workflow_id/edges/:edge_id", edgeHandlers.HandleUpdateEdge)
+			workflows.DELETE("/:workflow_id/edges/:edge_id", edgeHandlers.HandleDeleteEdge)
 		}
 
 		// Execution endpoints

@@ -44,6 +44,10 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 		return
 	}
 
+	if workflowID := c.Param("workflow_id"); workflowID != "" {
+		req.WorkflowID = workflowID
+	}
+
 	if req.WorkflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow_id is required")
 		return

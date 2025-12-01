@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, watch } from "vue";
-import { VueFlow, useVueFlow, type Connection } from "@vue-flow/core";
+import { ref, watch, nextTick } from "vue";
+import { VueFlow, useVueFlow, type Connection, PanOnScrollMode } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
@@ -26,10 +26,11 @@ const emit = defineEmits<{
 
 const workflowStore = useWorkflowStore();
 const { applyLayout } = useAutoLayout();
-const { addEdges: _addEdges, setNodes, setEdges } = useVueFlow();
+const vueFlowInstance = useVueFlow();
+const { addEdges: _addEdges, setNodes, setEdges, fitView } = vueFlowInstance;
 
 // Layout state
-const layoutAlgorithm = ref<LayoutAlgorithm>("elk");
+const layoutAlgorithm = ref<LayoutAlgorithm>("dagre");
 const isLayouting = ref(false);
 
 // Handle node click
@@ -87,11 +88,17 @@ async function triggerAutoLayout() {
       layoutAlgorithm.value,
       {
         direction: "TB",
-        spacing: { node: 50, rank: 100 },
+        spacing: { node: 80, rank: 150 },
       },
     );
 
     workflowStore.updateNodePositions(layoutedNodes);
+
+    // Wait for DOM update and then fit view
+    await nextTick();
+    setTimeout(() => {
+      fitView({ padding: 0.2, duration: 300 });
+    }, 100);
   } catch (error) {
     console.error("Auto-layout failed:", error);
   } finally {
@@ -113,6 +120,7 @@ watch(
 defineExpose({
   triggerAutoLayout,
   layoutAlgorithm,
+  vueFlowInstance,
 });
 </script>
 
@@ -122,6 +130,13 @@ defineExpose({
       :nodes="workflowStore.nodes"
       :edges="workflowStore.edges"
       :class="{ 'pointer-events-none': readonly }"
+      :min-zoom="0.2"
+      :max-zoom="4"
+      :zoom-on-scroll="true"
+      :zoom-on-pinch="true"
+      :pan-on-scroll="true"
+      :pan-on-scroll-mode="PanOnScrollMode.Free"
+      :pan-on-drag="[1, 2]"
       fit-view-on-init
       @node-click="onNodeClick"
       @edge-click="onEdgeClick"
@@ -192,5 +207,11 @@ defineExpose({
 
 .vue-flow__edge:hover .vue-flow__edge-path {
   stroke: #3b82f6;
+}
+
+/* Selection box */
+.vue-flow__selection {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid #3b82f6;
 }
 </style>

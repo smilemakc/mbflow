@@ -176,8 +176,8 @@ COMMENT ON COLUMN executions.strict_mode IS 'Whether to fail execution on first 
 -- ============================================================================
 CREATE TABLE node_executions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    execution_id UUID NOT NULL REFERENCES executions(id) ON DELETE CASCADE,
-    node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE RESTRICT,
+    execution_id UUID REFERENCES executions(id) ON DELETE SET NULL,
+    node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,

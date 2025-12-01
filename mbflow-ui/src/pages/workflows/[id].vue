@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, markRaw } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { VueFlow } from "@vue-flow/core";
 import { useWorkflowStore } from "@/stores/workflow";
@@ -32,13 +32,13 @@ const isSaving = ref(false);
 const isExecuting = ref(false);
 const error = ref<string | null>(null);
 
-// Register custom node types
+// Register custom node types with markRaw to avoid reactivity overhead
 const nodeTypes = {
-  http: HTTPNode,
-  llm: LLMNode,
-  transform: TransformNode,
-  conditional: ConditionalNode,
-  merge: MergeNode,
+  http: markRaw(HTTPNode),
+  llm: markRaw(LLMNode),
+  transform: markRaw(TransformNode),
+  conditional: markRaw(ConditionalNode),
+  merge: markRaw(MergeNode),
 };
 
 // Load workflow on mount
@@ -66,8 +66,10 @@ async function handleSave() {
 
   try {
     const workflowData = workflowStore.toBackendFormat();
+    console.log("Saving workflow:", workflowData);
     await updateWorkflow(workflowId.value, workflowData);
     workflowStore.isDirty = false;
+    console.log("Workflow saved successfully");
   } catch (err: any) {
     console.error("Failed to save workflow:", err);
     alert("Failed to save workflow: " + (err.message || "Unknown error"));
@@ -136,22 +138,25 @@ function onDrop(event: DragEvent) {
   const nodeType = event.dataTransfer.getData("application/reactflow");
   if (!nodeType) return;
 
-  // Get drop position relative to canvas
-  const canvas = event.currentTarget as HTMLElement;
-  const rect = canvas.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
+  // Get Vue Flow instance to convert screen coordinates to flow coordinates
+  const vueFlowInstance = canvasRef.value?.vueFlowInstance;
+  if (!vueFlowInstance) return;
+
+  // Convert screen coordinates to flow coordinates
+  const position = vueFlowInstance.project({
+    x: event.clientX,
+    y: event.clientY,
+  });
 
   // Create new node
   const newNode = {
     id: `node_${Date.now()}`,
     type: nodeType,
-    position: { x, y },
+    position,
     data: {
       label: `${nodeType.toUpperCase()} Node`,
       config: {},
     },
-    dimensions: { width: 200, height: 100 },
   };
 
   workflowStore.addNode(newNode);

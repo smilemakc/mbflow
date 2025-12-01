@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
@@ -15,18 +16,20 @@ import (
 // EdgeHandlers provides HTTP handlers for edge-related endpoints
 type EdgeHandlers struct {
 	workflowRepo repository.WorkflowRepository
+	logger       *logger.Logger
 }
 
 // NewEdgeHandlers creates a new EdgeHandlers instance
-func NewEdgeHandlers(workflowRepo repository.WorkflowRepository) *EdgeHandlers {
+func NewEdgeHandlers(workflowRepo repository.WorkflowRepository, log *logger.Logger) *EdgeHandlers {
 	return &EdgeHandlers{
 		workflowRepo: workflowRepo,
+		logger:       log,
 	}
 }
 
-// HandleAddEdge handles POST /api/v1/workflows/{workflowId}/edges
+// HandleAddEdge handles POST /api/v1/workflows/{workflow_id}/edges
 func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -34,6 +37,7 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in AddEdge", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -47,6 +51,7 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Failed to bind JSON in AddEdge", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -74,6 +79,7 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	// Verify workflow exists
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Workflow not found in AddEdge", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusNotFound, "workflow not found")
 		return
 	}
@@ -81,6 +87,7 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	// Verify source and target nodes exist
 	nodes, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to find nodes in AddEdge", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -125,6 +132,7 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	if err := h.workflowRepo.CreateEdge(c.Request.Context(), edgeModel); err != nil {
+		h.logger.Error("Failed to create edge", "error", err, "workflow_id", workflowUUID, "edge_id", req.ID, "from", req.From, "to", req.To)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -134,9 +142,9 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	respondJSON(c, http.StatusCreated, edge)
 }
 
-// HandleListEdges handles GET /api/v1/workflows/{workflowId}/edges
+// HandleListEdges handles GET /api/v1/workflows/{workflow_id}/edges
 func (h *EdgeHandlers) HandleListEdges(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -144,6 +152,7 @@ func (h *EdgeHandlers) HandleListEdges(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in ListEdges", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -151,12 +160,14 @@ func (h *EdgeHandlers) HandleListEdges(c *gin.Context) {
 	// Verify workflow exists
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Workflow not found in ListEdges", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusNotFound, "workflow not found")
 		return
 	}
 
 	edgeModels, err := h.workflowRepo.FindEdgesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to list edges", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -173,9 +184,9 @@ func (h *EdgeHandlers) HandleListEdges(c *gin.Context) {
 	})
 }
 
-// HandleGetEdge handles GET /api/v1/workflows/{workflowId}/edges/{edgeId}
+// HandleGetEdge handles GET /api/v1/workflows/{workflow_id}/edges/{edgeId}
 func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	edgeID := c.Param("edgeId")
 
 	if workflowID == "" {
@@ -190,6 +201,7 @@ func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in GetEdge", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -197,6 +209,7 @@ func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
 	// Get all edges for the workflow
 	edgeModels, err := h.workflowRepo.FindEdgesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to find edges in GetEdge", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -211,6 +224,7 @@ func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
 	}
 
 	if edgeModel == nil {
+		h.logger.Error("Edge not found", "workflow_id", workflowUUID, "edge_id", edgeID)
 		respondError(c, http.StatusNotFound, "edge not found")
 		return
 	}
@@ -219,9 +233,9 @@ func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
 	respondJSON(c, http.StatusOK, edge)
 }
 
-// HandleUpdateEdge handles PUT /api/v1/workflows/{workflowId}/edges/{edgeId}
+// HandleUpdateEdge handles PUT /api/v1/workflows/{workflow_id}/edges/{edgeId}
 func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	edgeID := c.Param("edgeId")
 
 	if workflowID == "" {
@@ -236,6 +250,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in UpdateEdge", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -248,6 +263,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Failed to bind JSON in UpdateEdge", "error", err, "workflow_id", workflowUUID, "edge_id", edgeID)
 		respondError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -255,6 +271,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	// Get all edges for the workflow
 	edgeModels, err := h.workflowRepo.FindEdgesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to find edges in UpdateEdge", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -269,6 +286,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	}
 
 	if edgeModel == nil {
+		h.logger.Error("Edge not found in UpdateEdge", "workflow_id", workflowUUID, "edge_id", edgeID)
 		respondError(c, http.StatusNotFound, "edge not found")
 		return
 	}
@@ -278,6 +296,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 		// Validate from node exists
 		nodes, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
 		if err != nil {
+			h.logger.Error("Failed to find nodes for from validation in UpdateEdge", "error", err, "workflow_id", workflowUUID, "edge_id", edgeID)
 			respondError(c, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -302,6 +321,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 		// Validate to node exists
 		nodes, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
 		if err != nil {
+			h.logger.Error("Failed to find nodes for to validation in UpdateEdge", "error", err, "workflow_id", workflowUUID, "edge_id", edgeID)
 			respondError(c, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -336,6 +356,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	}
 
 	if err := h.workflowRepo.UpdateEdge(c.Request.Context(), edgeModel); err != nil {
+		h.logger.Error("Failed to update edge", "error", err, "workflow_id", workflowUUID, "edge_id", edgeID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -344,9 +365,9 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	respondJSON(c, http.StatusOK, edge)
 }
 
-// HandleDeleteEdge handles DELETE /api/v1/workflows/{workflowId}/edges/{edgeId}
+// HandleDeleteEdge handles DELETE /api/v1/workflows/{workflow_id}/edges/{edgeId}
 func (h *EdgeHandlers) HandleDeleteEdge(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	edgeID := c.Param("edgeId")
 
 	if workflowID == "" {
@@ -361,6 +382,7 @@ func (h *EdgeHandlers) HandleDeleteEdge(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in DeleteEdge", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -368,6 +390,7 @@ func (h *EdgeHandlers) HandleDeleteEdge(c *gin.Context) {
 	// Get all edges for the workflow
 	edgeModels, err := h.workflowRepo.FindEdgesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to find edges in DeleteEdge", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -384,11 +407,13 @@ func (h *EdgeHandlers) HandleDeleteEdge(c *gin.Context) {
 	}
 
 	if !found {
+		h.logger.Error("Edge not found in DeleteEdge", "workflow_id", workflowUUID, "edge_id", edgeID)
 		respondError(c, http.StatusNotFound, "edge not found")
 		return
 	}
 
 	if err := h.workflowRepo.DeleteEdge(c.Request.Context(), edgeUUID); err != nil {
+		h.logger.Error("Failed to delete edge", "error", err, "workflow_id", workflowUUID, "edge_id", edgeID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}

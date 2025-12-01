@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
@@ -15,18 +16,20 @@ import (
 // NodeHandlers provides HTTP handlers for node-related endpoints
 type NodeHandlers struct {
 	workflowRepo repository.WorkflowRepository
+	logger       *logger.Logger
 }
 
 // NewNodeHandlers creates a new NodeHandlers instance
-func NewNodeHandlers(workflowRepo repository.WorkflowRepository) *NodeHandlers {
+func NewNodeHandlers(workflowRepo repository.WorkflowRepository, log *logger.Logger) *NodeHandlers {
 	return &NodeHandlers{
 		workflowRepo: workflowRepo,
+		logger:       log,
 	}
 }
 
-// HandleAddNode handles POST /api/v1/workflows/{workflowId}/nodes
+// HandleAddNode handles POST /api/v1/workflows/{workflow_id}/nodes
 func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -34,6 +37,7 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in AddNode", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -49,6 +53,7 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Failed to bind JSON in AddNode", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -71,6 +76,7 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	// Verify workflow exists
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Workflow not found in AddNode", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusNotFound, "workflow not found")
 		return
 	}
@@ -96,6 +102,7 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	}
 
 	if err := h.workflowRepo.CreateNode(c.Request.Context(), nodeModel); err != nil {
+		h.logger.Error("Failed to create node", "error", err, "workflow_id", workflowUUID, "node_id", req.ID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -105,9 +112,9 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	respondJSON(c, http.StatusCreated, node)
 }
 
-// HandleListNodes handles GET /api/v1/workflows/{workflowId}/nodes
+// HandleListNodes handles GET /api/v1/workflows/{workflow_id}/nodes
 func (h *NodeHandlers) HandleListNodes(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
 		return
@@ -122,12 +129,14 @@ func (h *NodeHandlers) HandleListNodes(c *gin.Context) {
 	// Verify workflow exists
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Workflow not found in ListNodes", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusNotFound, "workflow not found")
 		return
 	}
 
 	nodeModels, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to list nodes", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -144,9 +153,9 @@ func (h *NodeHandlers) HandleListNodes(c *gin.Context) {
 	})
 }
 
-// HandleGetNode handles GET /api/v1/workflows/{workflowId}/nodes/{nodeId}
+// HandleGetNode handles GET /api/v1/workflows/{workflow_id}/nodes/{nodeId}
 func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	nodeID := c.Param("nodeId")
 
 	if workflowID == "" {
@@ -161,6 +170,7 @@ func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in GetNode", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -168,6 +178,7 @@ func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
 	// Get all nodes for the workflow
 	nodeModels, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to find nodes in GetNode", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -182,6 +193,7 @@ func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
 	}
 
 	if nodeModel == nil {
+		h.logger.Error("Node not found", "workflow_id", workflowUUID, "node_id", nodeID)
 		respondError(c, http.StatusNotFound, "node not found")
 		return
 	}
@@ -190,9 +202,9 @@ func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
 	respondJSON(c, http.StatusOK, node)
 }
 
-// HandleUpdateNode handles PUT /api/v1/workflows/{workflowId}/nodes/{nodeId}
+// HandleUpdateNode handles PUT /api/v1/workflows/{workflow_id}/nodes/{nodeId}
 func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	nodeID := c.Param("nodeId")
 
 	if workflowID == "" {
@@ -207,6 +219,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in UpdateNode", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -221,6 +234,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Failed to bind JSON in UpdateNode", "error", err, "workflow_id", workflowUUID, "node_id", nodeID)
 		respondError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -228,6 +242,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 	// Get all nodes for the workflow
 	nodeModels, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to find nodes in UpdateNode", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -242,6 +257,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 	}
 
 	if nodeModel == nil {
+		h.logger.Error("Node not found in UpdateNode", "workflow_id", workflowUUID, "node_id", nodeID)
 		respondError(c, http.StatusNotFound, "node not found")
 		return
 	}
@@ -264,6 +280,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 	}
 
 	if err := h.workflowRepo.UpdateNode(c.Request.Context(), nodeModel); err != nil {
+		h.logger.Error("Failed to update node", "error", err, "workflow_id", workflowUUID, "node_id", nodeID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -272,9 +289,9 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 	respondJSON(c, http.StatusOK, node)
 }
 
-// HandleDeleteNode handles DELETE /api/v1/workflows/{workflowId}/nodes/{nodeId}
+// HandleDeleteNode handles DELETE /api/v1/workflows/{workflow_id}/nodes/{nodeId}
 func (h *NodeHandlers) HandleDeleteNode(c *gin.Context) {
-	workflowID := c.Param("workflowId")
+	workflowID := c.Param("workflow_id")
 	nodeID := c.Param("nodeId")
 
 	if workflowID == "" {
@@ -289,6 +306,7 @@ func (h *NodeHandlers) HandleDeleteNode(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in DeleteNode", "error", err, "workflow_id", workflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow ID")
 		return
 	}
@@ -296,6 +314,7 @@ func (h *NodeHandlers) HandleDeleteNode(c *gin.Context) {
 	// Get all nodes for the workflow
 	nodeModels, err := h.workflowRepo.FindNodesByWorkflowID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Failed to find nodes in DeleteNode", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -312,11 +331,13 @@ func (h *NodeHandlers) HandleDeleteNode(c *gin.Context) {
 	}
 
 	if !found {
+		h.logger.Error("Node not found in DeleteNode", "workflow_id", workflowUUID, "node_id", nodeID)
 		respondError(c, http.StatusNotFound, "node not found")
 		return
 	}
 
 	if err := h.workflowRepo.DeleteNode(c.Request.Context(), nodeUUID); err != nil {
+		h.logger.Error("Failed to delete node", "error", err, "workflow_id", workflowUUID, "node_id", nodeID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
