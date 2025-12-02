@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -257,4 +258,53 @@ func TestEventListener_StartStop(t *testing.T) {
 	// Stop should complete without error
 	err = el.Stop()
 	assert.NoError(t, err)
+}
+
+func TestEventListener_StopWithoutStart(t *testing.T) {
+	// Test that Stop doesn't hang when listener was never started
+	el, err := NewEventListener(EventListenerConfig{})
+	require.NoError(t, err)
+
+	// Create a timeout to ensure Stop doesn't hang
+	done := make(chan bool)
+	go func() {
+		err := el.Stop()
+		assert.NoError(t, err)
+		done <- true
+	}()
+
+	select {
+	case <-done:
+		// Success - Stop completed
+	case <-time.After(2 * time.Second):
+		t.Fatal("Stop() hung - did not complete within timeout")
+	}
+}
+
+func TestEventListener_StopWithNoTriggersStarted(t *testing.T) {
+	// Test that Stop doesn't hang when Start was called but no triggers were added
+	el, err := NewEventListener(EventListenerConfig{})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Start with empty trigger list (no triggers)
+	// This simulates the case where listener goroutine is NOT started
+	err = el.Start(ctx, []*storagemodels.TriggerModel{})
+	assert.NoError(t, err)
+
+	// Create a timeout to ensure Stop doesn't hang
+	done := make(chan bool)
+	go func() {
+		err := el.Stop()
+		assert.NoError(t, err)
+		done <- true
+	}()
+
+	select {
+	case <-done:
+		// Success - Stop completed
+	case <-time.After(2 * time.Second):
+		t.Fatal("Stop() hung - did not complete within timeout")
+	}
 }

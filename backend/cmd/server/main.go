@@ -332,8 +332,8 @@ func main() {
 		workflowHandlers := rest.NewWorkflowHandlers(workflowRepo, appLogger)
 		nodeHandlers := rest.NewNodeHandlers(workflowRepo, appLogger)
 		edgeHandlers := rest.NewEdgeHandlers(workflowRepo, appLogger)
-		executionHandlers := rest.NewExecutionHandlers(executionRepo, workflowRepo, executionManager)
-		triggerHandlers := rest.NewTriggerHandlers(triggerRepo, workflowRepo)
+		executionHandlers := rest.NewExecutionHandlers(executionRepo, workflowRepo, executionManager, appLogger)
+		triggerHandlers := rest.NewTriggerHandlers(triggerRepo, workflowRepo, appLogger)
 
 		// Workflow endpoints
 		workflows := apiV1.Group("/workflows")
@@ -392,7 +392,7 @@ func main() {
 
 		// Webhook endpoints
 		if triggerManager != nil {
-			webhookHandlers := rest.NewWebhookHandlers(triggerManager.WebhookRegistry())
+			webhookHandlers := rest.NewWebhookHandlers(triggerManager.WebhookRegistry(), appLogger)
 			apiV1.POST("/webhooks/:path", webhookHandlers.HandleWebhook)
 			apiV1.GET("/webhooks/:path", webhookHandlers.HandleWebhookGet)
 		}

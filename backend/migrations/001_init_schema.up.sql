@@ -136,7 +136,7 @@ COMMENT ON COLUMN triggers.config IS 'Trigger-specific configuration (cron expre
 -- ============================================================================
 CREATE TABLE executions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE RESTRICT,
+    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
     trigger_id UUID REFERENCES triggers(id) ON DELETE SET NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     started_at TIMESTAMP WITH TIME ZONE,

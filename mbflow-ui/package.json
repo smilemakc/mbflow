@@ -12,6 +12,7 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@guolao/vue-monaco-editor": "^1.6.0",
     "@headlessui/vue": "^1.7.23",
     "@iconify/vue": "^5.0.0",
     "@tanstack/vue-query": "^5.92.0",
@@ -24,6 +25,7 @@
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
     "elkjs": "^0.11.0",
+    "monaco-editor": "^0.55.1",
     "pinia": "^2.3.1",
     "radix-vue": "^1.9.17",
     "tailwind-merge": "^3.4.0",
@@ -31,6 +33,7 @@
     "vee-validate": "^4.15.1",
     "vue": "^3.5.24",
     "vue-router": "^4.6.3",
+    "vue3-toastify": "^0.2.8",
     "yup": "^1.7.1"
   },
   "devDependencies": {

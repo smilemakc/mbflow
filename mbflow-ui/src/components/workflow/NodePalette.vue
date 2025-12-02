@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { Icon } from "@iconify/vue";
+import { NodeType, NODE_TYPE_METADATA, DEFAULT_NODE_CONFIGS } from "@/types/nodes";
 
 export interface NodeTemplate {
   type: string;
@@ -8,63 +9,61 @@ export interface NodeTemplate {
   icon: string;
   description: string;
   defaultConfig?: Record<string, any>;
+  color: string;
+  disabled?: boolean;
 }
 
+// Create node templates from metadata
 const nodeTemplates: NodeTemplate[] = [
   {
-    type: "http",
-    label: "HTTP Request",
+    type: NodeType.HTTP,
+    label: NODE_TYPE_METADATA[NodeType.HTTP].label,
     icon: "heroicons:globe-alt",
-    description: "Make HTTP requests to external APIs",
-    defaultConfig: {
-      method: "GET",
-      url: "",
-      headers: {},
-    },
+    description: NODE_TYPE_METADATA[NodeType.HTTP].description,
+    color: NODE_TYPE_METADATA[NodeType.HTTP].color,
+    defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.HTTP],
   },
   {
-    type: "llm",
-    label: "LLM",
+    type: NodeType.LLM,
+    label: NODE_TYPE_METADATA[NodeType.LLM].label,
     icon: "heroicons:sparkles",
-    description: "Call Large Language Models (OpenAI, Anthropic)",
-    defaultConfig: {
-      provider: "openai",
-      model: "gpt-4",
-      temperature: 0.7,
-      max_tokens: 1000,
-    },
+    description: NODE_TYPE_METADATA[NodeType.LLM].description,
+    color: NODE_TYPE_METADATA[NodeType.LLM].color,
+    defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.LLM],
   },
   {
-    type: "transform",
-    label: "Transform",
+    type: NodeType.TRANSFORM,
+    label: NODE_TYPE_METADATA[NodeType.TRANSFORM].label,
     icon: "heroicons:arrow-path",
-    description: "Transform data using expressions",
-    defaultConfig: {
-      expression: "",
-      variables: {},
-    },
+    description: NODE_TYPE_METADATA[NodeType.TRANSFORM].description,
+    color: NODE_TYPE_METADATA[NodeType.TRANSFORM].color,
+    defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.TRANSFORM],
   },
   {
-    type: "conditional",
-    label: "Conditional",
-    icon: "heroicons:code-bracket",
-    description: "Branch workflow based on conditions",
-    defaultConfig: {
-      condition: "",
-      true_branch: "",
-      false_branch: "",
-    },
+    type: NodeType.FUNCTION_CALL,
+    label: NODE_TYPE_METADATA[NodeType.FUNCTION_CALL].label,
+    icon: "heroicons:command-line",
+    description: NODE_TYPE_METADATA[NodeType.FUNCTION_CALL].description,
+    color: NODE_TYPE_METADATA[NodeType.FUNCTION_CALL].color,
+    defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.FUNCTION_CALL],
   },
-  {
-    type: "merge",
-    label: "Merge",
-    icon: "heroicons:arrows-pointing-in",
-    description: "Merge results from multiple nodes",
-    defaultConfig: {
-      strategy: "array",
-      merge_key: "",
-    },
-  },
+  // Disabled nodes (kept for future use)
+  // {
+  //   type: "conditional",
+  //   label: "Conditional",
+  //   icon: "heroicons:code-bracket",
+  //   description: "Branch workflow based on conditions (Coming soon)",
+  //   color: "#6B7280",
+  //   disabled: true,
+  // },
+  // {
+  //   type: "merge",
+  //   label: "Merge",
+  //   icon: "heroicons:arrows-pointing-in",
+  //   description: "Merge results from multiple nodes (Coming soon)",
+  //   color: "#6B7280",
+  //   disabled: true,
+  // },
 ];
 
 const draggedType = ref<string | null>(null);

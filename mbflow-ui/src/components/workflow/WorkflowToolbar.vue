@@ -22,6 +22,7 @@ const emit = defineEmits<{
   autoLayout: [];
   validate: [];
   back: [];
+  openVariables: [];
 }>();
 
 const workflowStore = useWorkflowStore();
@@ -59,6 +60,16 @@ const edgeCount = computed(() => workflowStore.edgeCount);
 
       <!-- Right side - Actions -->
       <div class="flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          @click="emit('openVariables')"
+          title="Manage workflow variables"
+        >
+          <Icon icon="heroicons:variable" class="mr-1 size-4" />
+          Variables
+        </Button>
+
         <Button
           v-if="!readonly"
           variant="secondary"

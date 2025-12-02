@@ -3,12 +3,14 @@
 import { ref, onMounted, computed, markRaw } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { VueFlow } from "@vue-flow/core";
+import { toast } from "vue3-toastify";
 import { useWorkflowStore } from "@/stores/workflow";
 import {
   getWorkflow,
   updateWorkflow,
   validateWorkflow,
   executeWorkflow,
+  type ExecuteWorkflowOptions,
 } from "@/api/workflows";
 import WorkflowToolbar from "@/components/workflow/WorkflowToolbar.vue";
 import WorkflowCanvas from "@/components/workflow/WorkflowCanvas.vue";
@@ -19,6 +21,9 @@ import LLMNode from "@/components/workflow/nodes/LLMNode.vue";
 import TransformNode from "@/components/workflow/nodes/TransformNode.vue";
 import ConditionalNode from "@/components/workflow/nodes/ConditionalNode.vue";
 import MergeNode from "@/components/workflow/nodes/MergeNode.vue";
+import ExecuteWorkflowDialog from "@/components/workflow/ExecuteWorkflowDialog.vue";
+import WorkflowVariablesPanel from "@/components/workflow/WorkflowVariablesPanel.vue";
+import { generateNodeId } from "@/utils/nodeId";
 
 const route = useRoute();
 const router = useRouter();
@@ -26,11 +31,14 @@ const workflowStore = useWorkflowStore();
 
 const workflowId = computed(() => route.params.id as string);
 const canvasRef = ref<InstanceType<typeof WorkflowCanvas> | null>(null);
+const executeDialogRef = ref<InstanceType<typeof ExecuteWorkflowDialog> | null>(null);
 
 const isLoading = ref(true);
 const isSaving = ref(false);
 const isExecuting = ref(false);
 const error = ref<string | null>(null);
+const showExecuteDialog = ref(false);
+const showVariablesPanel = ref(false);
 
 // Register custom node types with markRaw to avoid reactivity overhead
 const nodeTypes = {
@@ -70,40 +78,50 @@ async function handleSave() {
     await updateWorkflow(workflowId.value, workflowData);
     workflowStore.isDirty = false;
     console.log("Workflow saved successfully");
+    toast.success("Workflow saved successfully");
   } catch (err: any) {
     console.error("Failed to save workflow:", err);
-    alert("Failed to save workflow: " + (err.message || "Unknown error"));
+    toast.error("Failed to save workflow: " + (err.message || "Unknown error"));
   } finally {
     isSaving.value = false;
   }
 }
 
-async function handleExecute() {
-  isExecuting.value = true;
+function handleExecute() {
+  // Show execute dialog instead of executing directly
+  showExecuteDialog.value = true;
+}
 
+async function handleExecuteWithOptions(options: ExecuteWorkflowOptions) {
   try {
-    const result = await executeWorkflow(workflowId.value);
-    alert(`Workflow execution started! Execution ID: ${result.execution_id}`);
-    router.push(`/executions/${result.execution_id}`);
+    const result = await executeWorkflow(workflowId.value, options);
+    showExecuteDialog.value = false;
+    toast.success(`Workflow execution started! Execution ID: ${result.id}`);
+    router.push(`/executions/${result.id}`);
   } catch (err: any) {
     console.error("Failed to execute workflow:", err);
-    alert("Failed to execute workflow: " + (err.message || "Unknown error"));
-  } finally {
-    isExecuting.value = false;
+    toast.error("Failed to execute workflow: " + (err.message || "Unknown error"));
+    // Reset executing state in dialog so user can retry
+    executeDialogRef.value?.resetExecuting();
   }
+}
+
+function handleOpenVariablesPanel() {
+  showExecuteDialog.value = false;
+  showVariablesPanel.value = true;
 }
 
 async function handleValidate() {
   try {
     const result = await validateWorkflow(workflowId.value);
     if (result.valid) {
-      alert("Workflow is valid!");
+      toast.success("Workflow is valid!");
     } else {
-      alert("Workflow validation failed:\n" + result.errors?.join("\n"));
+      toast.error("Workflow validation failed:\n" + result.errors?.join("\n"));
     }
   } catch (err: any) {
     console.error("Failed to validate workflow:", err);
-    alert("Failed to validate workflow: " + (err.message || "Unknown error"));
+    toast.error("Failed to validate workflow: " + (err.message || "Unknown error"));
   }
 }
 
@@ -148,9 +166,13 @@ function onDrop(event: DragEvent) {
     y: event.clientY,
   });
 
+  // Generate unique node ID
+  const existingIds = workflowStore.nodes.map((n) => n.id);
+  const nodeId = generateNodeId(nodeType, existingIds);
+
   // Create new node
   const newNode = {
-    id: `node_${Date.now()}`,
+    id: nodeId,
     type: nodeType,
     position,
     data: {
@@ -181,6 +203,7 @@ function onDragOver(event: DragEvent) {
       @auto-layout="handleAutoLayout"
       @validate="handleValidate"
       @back="handleBack"
+      @open-variables="showVariablesPanel = true"
     />
 
     <!-- Main content -->
@@ -228,6 +251,21 @@ function onDragOver(event: DragEvent) {
         <NodeConfigPanel />
       </template>
     </div>
+
+    <!-- Execute Workflow Dialog -->
+    <ExecuteWorkflowDialog
+      ref="executeDialogRef"
+      :is-open="showExecuteDialog"
+      @close="showExecuteDialog = false"
+      @execute="handleExecuteWithOptions"
+      @open-variables-panel="handleOpenVariablesPanel"
+    />
+
+    <!-- Workflow Variables Panel -->
+    <WorkflowVariablesPanel
+      :is-open="showVariablesPanel"
+      @close="showVariablesPanel = false"
+    />
   </div>
 </template>
 

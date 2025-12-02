@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
+import { toast } from "vue3-toastify";
 import AppShell from "@/components/layout/AppShell.vue";
 import Button from "@/components/ui/Button.vue";
 import { deleteWorkflow, getWorkflows } from "@/api/workflows";
@@ -41,9 +42,10 @@ async function handleDelete(workflowId: string) {
   try {
     await deleteWorkflow(workflowId);
     workflows.value = workflows.value.filter((w) => w.id !== workflowId);
+    toast.success("Workflow deleted successfully");
   } catch (err: any) {
     console.error("Failed to delete workflow:", err);
-    alert("Failed to delete workflow: " + (err.message || "Unknown error"));
+    toast.error("Failed to delete workflow: " + (err.message || "Unknown error"));
   }
 }
 

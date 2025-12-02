@@ -101,14 +101,20 @@ export async function getWorkflowExecutions(
   return apiClient.get(`/workflows/${id}/executions`, { params });
 }
 
+export interface ExecuteWorkflowOptions {
+  input?: Record<string, any>;
+  variables?: Record<string, any>; // Execution variables that override workflow variables
+  strict_mode?: boolean; // If true, missing template variables cause execution to fail
+}
+
 /**
  * Execute workflow manually
  */
 export async function executeWorkflow(
   id: string,
-  input?: Record<string, any>,
+  options?: ExecuteWorkflowOptions,
 ): Promise<{ execution_id: string }> {
-  const data = await apiClient.post(`/workflows/${id}/execute`, { input });
+  const data = await apiClient.post(`/workflows/${id}/execute`, options || {});
   return data as unknown as {
     execution_id: string;
   };

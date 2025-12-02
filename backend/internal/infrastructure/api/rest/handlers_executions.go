@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
@@ -16,6 +17,7 @@ type ExecutionHandlers struct {
 	executionRepo    repository.ExecutionRepository
 	workflowRepo     repository.WorkflowRepository
 	executionManager *engine.ExecutionManager
+	logger           *logger.Logger
 }
 
 // NewExecutionHandlers creates a new ExecutionHandlers instance
@@ -23,11 +25,13 @@ func NewExecutionHandlers(
 	executionRepo repository.ExecutionRepository,
 	workflowRepo repository.WorkflowRepository,
 	executionManager *engine.ExecutionManager,
+	log *logger.Logger,
 ) *ExecutionHandlers {
 	return &ExecutionHandlers{
 		executionRepo:    executionRepo,
 		workflowRepo:     workflowRepo,
 		executionManager: executionManager,
+		logger:           log,
 	}
 }
 
@@ -40,6 +44,7 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Failed to bind JSON in RunExecution", "error", err)
 		respondError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -57,6 +62,7 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	opts := engine.DefaultExecutionOptions()
 	execution, err := h.executionManager.Execute(c.Request.Context(), req.WorkflowID, req.Input, opts)
 	if err != nil {
+		h.logger.Error("Failed to execute workflow", "error", err, "workflow_id", req.WorkflowID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -74,12 +80,14 @@ func (h *ExecutionHandlers) HandleGetExecution(c *gin.Context) {
 
 	execUUID, err := uuid.Parse(executionID)
 	if err != nil {
+		h.logger.Error("Invalid execution ID in GetExecution", "error", err, "execution_id", executionID)
 		respondError(c, http.StatusBadRequest, "invalid execution ID")
 		return
 	}
 
 	execModel, err := h.executionRepo.FindByIDWithRelations(c.Request.Context(), execUUID)
 	if err != nil {
+		h.logger.Error("Failed to find execution", "error", err, "execution_id", execUUID)
 		respondError(c, http.StatusNotFound, "execution not found")
 		return
 	}
@@ -101,6 +109,7 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 	if workflowID != "" {
 		wfUUID, parseErr := uuid.Parse(workflowID)
 		if parseErr != nil {
+			h.logger.Error("Invalid workflow ID in ListExecutions", "error", parseErr, "workflow_id", workflowID)
 			respondError(c, http.StatusBadRequest, "invalid workflow_id")
 			return
 		}
@@ -112,6 +121,7 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 	}
 
 	if err != nil {
+		h.logger.Error("Failed to list executions", "error", err, "workflow_id", workflowID, "status", status, "limit", limit, "offset", offset)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -158,18 +168,21 @@ func (h *ExecutionHandlers) HandleGetNodeResult(c *gin.Context) {
 
 	execUUID, err := uuid.Parse(executionID)
 	if err != nil {
+		h.logger.Error("Invalid execution ID in GetNodeResult", "error", err, "execution_id", executionID)
 		respondError(c, http.StatusBadRequest, "invalid execution ID")
 		return
 	}
 
 	execModel, err := h.executionRepo.FindByIDWithRelations(c.Request.Context(), execUUID)
 	if err != nil {
+		h.logger.Error("Failed to find execution in GetNodeResult", "error", err, "execution_id", execUUID)
 		respondError(c, http.StatusNotFound, "execution not found")
 		return
 	}
 
 	workflowModel, err := h.workflowRepo.FindByIDWithRelations(c.Request.Context(), execModel.WorkflowID)
 	if err != nil {
+		h.logger.Error("Failed to find workflow in GetNodeResult", "error", err, "workflow_id", execModel.WorkflowID, "execution_id", execUUID)
 		respondError(c, http.StatusNotFound, "workflow not found")
 		return
 	}

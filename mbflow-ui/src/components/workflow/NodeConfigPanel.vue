@@ -1,144 +1,3 @@
-<script setup lang="ts">
-import { computed, watch, ref } from "vue";
-import { Icon } from "@iconify/vue";
-import { useWorkflowStore } from "@/stores/workflow";
-import Button from "@/components/ui/Button.vue";
-import Input from "@/components/ui/Input.vue";
-
-const workflowStore = useWorkflowStore();
-
-const selectedNode = computed(() => workflowStore.selectedNode);
-const isOpen = computed(() => !!selectedNode.value);
-
-// Local form state
-const formData = ref<Record<string, any>>({});
-
-// Watch for node selection changes
-watch(
-  selectedNode,
-  (node) => {
-    if (node) {
-      formData.value = {
-        label: node.data?.label || "",
-        ...node.data?.config,
-      };
-    } else {
-      formData.value = {};
-    }
-  },
-  { immediate: true },
-);
-
-function closePanel() {
-  workflowStore.selectNode(null);
-}
-
-function saveConfig() {
-  if (!selectedNode.value) return;
-
-  const { label, ...config } = formData.value;
-
-  workflowStore.updateNode(selectedNode.value.id, {
-    data: {
-      ...selectedNode.value.data,
-      label,
-      config,
-    },
-  });
-
-  closePanel();
-}
-
-function deleteNode() {
-  if (!selectedNode.value) return;
-
-  if (confirm("Are you sure you want to delete this node?")) {
-    workflowStore.removeNode(selectedNode.value.id);
-  }
-}
-
-// Get configuration fields based on node type
-const configFields = computed(() => {
-  if (!selectedNode.value) return [];
-
-  const nodeType = selectedNode.value.type;
-
-  switch (nodeType) {
-    case "http":
-      return [
-        {
-          key: "method",
-          label: "Method",
-          type: "select",
-          options: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-        },
-        { key: "url", label: "URL", type: "text", required: true },
-        { key: "headers", label: "Headers (JSON)", type: "textarea" },
-        { key: "body", label: "Body (JSON)", type: "textarea" },
-      ];
-    case "llm":
-      return [
-        {
-          key: "provider",
-          label: "Provider",
-          type: "select",
-          options: ["openai", "anthropic"],
-        },
-        { key: "model", label: "Model", type: "text", required: true },
-        {
-          key: "temperature",
-          label: "Temperature",
-          type: "number",
-          min: 0,
-          max: 2,
-          step: 0.1,
-        },
-        {
-          key: "max_tokens",
-          label: "Max Tokens",
-          type: "number",
-          min: 1,
-          max: 100000,
-        },
-        { key: "system_prompt", label: "System Prompt", type: "textarea" },
-      ];
-    case "transform":
-      return [
-        {
-          key: "expression",
-          label: "Expression",
-          type: "textarea",
-          required: true,
-        },
-        { key: "variables", label: "Variables (JSON)", type: "textarea" },
-      ];
-    case "conditional":
-      return [
-        {
-          key: "condition",
-          label: "Condition",
-          type: "textarea",
-          required: true,
-        },
-        { key: "true_branch", label: "True Branch", type: "text" },
-        { key: "false_branch", label: "False Branch", type: "text" },
-      ];
-    case "merge":
-      return [
-        {
-          key: "strategy",
-          label: "Strategy",
-          type: "select",
-          options: ["array", "object", "first", "last"],
-        },
-        { key: "merge_key", label: "Merge Key", type: "text" },
-      ];
-    default:
-      return [];
-  }
-});
-</script>
-
 <template>
   <div
     :class="[
@@ -147,7 +6,7 @@ const configFields = computed(() => {
       'z-50 transition-transform duration-300 ease-in-out',
       isOpen ? 'translate-x-0' : 'translate-x-full',
     ]"
-    style="width: 400px"
+    style="width: 450px"
   >
     <div v-if="selectedNode" class="flex h-full flex-col">
       <!-- Header -->
@@ -173,76 +32,52 @@ const configFields = computed(() => {
         <!-- Node type badge -->
         <div class="flex items-center gap-2">
           <span
-            class="rounded bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700"
+            :class="[
+              'rounded px-2 py-1 text-xs font-semibold',
+              nodeTypeBadgeClass
+            ]"
           >
-            {{ selectedNode.type?.toUpperCase() }}
+            {{ nodeTypeLabel }}
           </span>
+        </div>
+
+        <!-- Node ID -->
+        <div class="space-y-1">
+          <Input
+            v-model="nodeId"
+            label="Node ID"
+            type="text"
+            required
+            placeholder="e.g., http, llm_2"
+          />
+          <p v-if="nodeIdError" class="text-xs text-red-600">
+            {{ nodeIdError }}
+          </p>
+          <p v-else class="text-xs text-gray-500">
+            Only letters (a-Z) and underscores (_) allowed
+          </p>
         </div>
 
         <!-- Node name -->
         <Input
-          v-model="formData.label"
+          v-model="nodeName"
           label="Node Name"
           type="text"
           required
           placeholder="Enter node name"
         />
 
-        <!-- Dynamic fields based on node type -->
-        <div v-for="field in configFields" :key="field.key" class="space-y-1">
-          <!-- Text input -->
-          <Input
-            v-if="field.type === 'text'"
-            v-model="formData[field.key]"
-            :label="field.label"
-            :required="field.required"
-            type="text"
+        <!-- Node-specific configuration -->
+        <div class="config-section">
+          <component
+            :is="currentConfigComponent"
+            v-if="currentConfigComponent"
+            :config="nodeConfig"
+            :node-id="selectedNode.id"
+            @update:config="updateNodeConfig"
           />
-
-          <!-- Number input -->
-          <Input
-            v-else-if="field.type === 'number'"
-            v-model.number="formData[field.key]"
-            :label="field.label"
-            :required="field.required"
-            type="number"
-            :min="field.min"
-            :max="field.max"
-            :step="field.step"
-          />
-
-          <!-- Select -->
-          <div v-else-if="field.type === 'select'">
-            <label class="mb-1 block text-sm font-medium text-gray-700">
-              {{ field.label }}
-              <span v-if="field.required" class="text-red-500">*</span>
-            </label>
-            <select
-              v-model="formData[field.key]"
-              class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option
-                v-for="option in field.options"
-                :key="option"
-                :value="option"
-              >
-                {{ option }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Textarea -->
-          <div v-else-if="field.type === 'textarea'">
-            <label class="mb-1 block text-sm font-medium text-gray-700">
-              {{ field.label }}
-              <span v-if="field.required" class="text-red-500">*</span>
-            </label>
-            <textarea
-              v-model="formData[field.key]"
-              rows="4"
-              class="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              :placeholder="field.label"
-            />
+          <div v-else class="text-sm text-gray-500">
+            No configuration available for this node type
           </div>
         </div>
       </div>
@@ -270,8 +105,166 @@ const configFields = computed(() => {
   />
 </template>
 
+<script setup lang="ts">
+import { computed, watch, ref, markRaw } from "vue";
+import { Icon } from "@iconify/vue";
+import { toast } from "vue3-toastify";
+import { useWorkflowStore } from "@/stores/workflow";
+import Button from "@/components/ui/Button.vue";
+import Input from "@/components/ui/Input.vue";
+import { validateNodeId, isNodeIdUnique } from "@/utils/nodeId";
+import { NodeType, NODE_TYPE_METADATA, DEFAULT_NODE_CONFIGS } from "@/types/nodes";
+import type { NodeConfig } from "@/types/nodes";
+
+// Import node config components
+import HTTPNodeConfig from "@/components/nodes/config/HTTPNodeConfig.vue";
+import LLMNodeConfig from "@/components/nodes/config/LLMNodeConfig.vue";
+import TransformNodeConfig from "@/components/nodes/config/TransformNodeConfig.vue";
+import FunctionCallNodeConfig from "@/components/nodes/config/FunctionCallNodeConfig.vue";
+
+const workflowStore = useWorkflowStore();
+
+const selectedNode = computed(() => workflowStore.selectedNode);
+const isOpen = computed(() => !!selectedNode.value);
+
+// Local form state
+const nodeId = ref<string>("");
+const nodeName = ref<string>("");
+const nodeConfig = ref<NodeConfig>({} as NodeConfig);
+const nodeIdError = ref<string>("");
+
+// Node type metadata
+const nodeTypeLabel = computed(() => {
+  const type = selectedNode.value?.type as NodeType;
+  return NODE_TYPE_METADATA[type]?.label || type?.toUpperCase() || "UNKNOWN";
+});
+
+const nodeTypeBadgeClass = computed(() => {
+  const type = selectedNode.value?.type as NodeType;
+  const color = NODE_TYPE_METADATA[type]?.color || "#6B7280";
+
+  // Map hex colors to Tailwind classes
+  const colorMap: Record<string, string> = {
+    "#10B981": "bg-green-100 text-green-700",
+    "#8B5CF6": "bg-purple-100 text-purple-700",
+    "#F59E0B": "bg-amber-100 text-amber-700",
+    "#3B82F6": "bg-blue-100 text-blue-700",
+  };
+
+  return colorMap[color] || "bg-gray-100 text-gray-700";
+});
+
+// Map node types to config components
+const configComponentMap: Record<NodeType, Component> = {
+  [NodeType.HTTP]: markRaw(HTTPNodeConfig),
+  [NodeType.LLM]: markRaw(LLMNodeConfig),
+  [NodeType.TRANSFORM]: markRaw(TransformNodeConfig),
+  [NodeType.FUNCTION_CALL]: markRaw(FunctionCallNodeConfig),
+};
+
+const currentConfigComponent = computed(() => {
+  const type = selectedNode.value?.type as NodeType;
+  return configComponentMap[type] || null;
+});
+
+// Watch for node selection changes
+watch(
+  selectedNode,
+  (node) => {
+    if (node) {
+      nodeId.value = node.id;
+      nodeName.value = node.data?.label || "";
+
+      // Load config with defaults
+      const type = node.type as NodeType;
+      const defaults = DEFAULT_NODE_CONFIGS[type] || {};
+      nodeConfig.value = { ...defaults, ...(node.data?.config || {}) };
+
+      nodeIdError.value = "";
+    } else {
+      nodeId.value = "";
+      nodeName.value = "";
+      nodeConfig.value = {} as NodeConfig;
+      nodeIdError.value = "";
+    }
+  },
+  { immediate: true }
+);
+
+// Validate node ID on change
+watch(nodeId, (newId) => {
+  if (!newId) {
+    nodeIdError.value = "Node ID is required";
+    return;
+  }
+
+  if (!validateNodeId(newId)) {
+    nodeIdError.value = "Only letters (a-Z) and underscores (_) are allowed";
+    return;
+  }
+
+  const existingIds = workflowStore.nodes.map((n) => n.id);
+  if (!isNodeIdUnique(newId, existingIds, selectedNode.value?.id)) {
+    nodeIdError.value = "This ID is already in use";
+    return;
+  }
+
+  nodeIdError.value = "";
+});
+
+function updateNodeConfig(updatedConfig: NodeConfig) {
+  nodeConfig.value = updatedConfig;
+}
+
+function closePanel() {
+  workflowStore.selectNode(null);
+}
+
+function saveConfig() {
+  if (!selectedNode.value) return;
+
+  // Check if node ID has validation errors
+  if (nodeIdError.value) {
+    toast.error("Please fix the node ID error before saving");
+    return;
+  }
+
+  const oldNodeId = selectedNode.value.id;
+  const newNodeId = nodeId.value;
+
+  // Update node with new ID if changed
+  if (oldNodeId !== newNodeId) {
+    workflowStore.updateNodeId(oldNodeId, newNodeId);
+  }
+
+  // Update node data
+  workflowStore.updateNode(newNodeId, {
+    data: {
+      ...selectedNode.value.data,
+      label: nodeName.value,
+      config: nodeConfig.value,
+    },
+  });
+
+  toast.success("Node configuration saved successfully");
+  closePanel();
+}
+
+function deleteNode() {
+  if (!selectedNode.value) return;
+
+  if (confirm("Are you sure you want to delete this node?")) {
+    workflowStore.removeNode(selectedNode.value.id);
+  }
+}
+</script>
+
 <style scoped>
 .node-config-panel {
   max-width: 100vw;
+}
+
+.config-section {
+  padding-top: 8px;
 }
 </style>

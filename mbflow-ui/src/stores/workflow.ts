@@ -11,6 +11,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     const edges = ref<VueFlowEdge[]>([]);
     const selectedNodeId = ref<string | null>(null);
     const isDirty = ref(false);
+    const workflowVariables = ref<Record<string, any>>({});
 
     // Computed
     const selectedNode = computed(() => {
@@ -28,6 +29,9 @@ export const useWorkflowStore = defineStore("workflow", () => {
      */
     function loadWorkflow(workflow: Workflow) {
         currentWorkflow.value = workflow;
+
+        // Load workflow variables
+        workflowVariables.value = workflow.variables || {};
 
         // Convert backend nodes to Vue Flow nodes
         nodes.value = (workflow.nodes || []).map((node: Node) => ({
@@ -66,6 +70,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
         nodes.value = [];
         edges.value = [];
         selectedNodeId.value = null;
+        workflowVariables.value = {};
         isDirty.value = false;
     }
 
@@ -86,6 +91,40 @@ export const useWorkflowStore = defineStore("workflow", () => {
             nodes.value[index] = {...nodes.value[index], ...updates};
             isDirty.value = true;
         }
+    }
+
+    /**
+     * Update node ID and all related edges
+     */
+    function updateNodeId(oldId: string, newId: string) {
+        // Update node ID
+        const nodeIndex = nodes.value.findIndex((n) => n.id === oldId);
+        if (nodeIndex !== -1) {
+            nodes.value[nodeIndex] = {...nodes.value[nodeIndex], id: newId};
+        }
+
+        // Update edges that reference this node
+        edges.value = edges.value.map((edge) => {
+            const updatedEdge = {...edge};
+            if (edge.source === oldId) {
+                updatedEdge.source = newId;
+                // Update edge ID if it contains the old node ID
+                updatedEdge.id = updatedEdge.id.replace(oldId, newId);
+            }
+            if (edge.target === oldId) {
+                updatedEdge.target = newId;
+                // Update edge ID if it contains the old node ID
+                updatedEdge.id = updatedEdge.id.replace(oldId, newId);
+            }
+            return updatedEdge;
+        });
+
+        // Update selected node ID if needed
+        if (selectedNodeId.value === oldId) {
+            selectedNodeId.value = newId;
+        }
+
+        isDirty.value = true;
     }
 
     /**
@@ -146,6 +185,30 @@ export const useWorkflowStore = defineStore("workflow", () => {
     }
 
     /**
+     * Update workflow variables
+     */
+    function updateWorkflowVariables(variables: Record<string, any>) {
+        workflowVariables.value = variables;
+        isDirty.value = true;
+    }
+
+    /**
+     * Set a single workflow variable
+     */
+    function setWorkflowVariable(key: string, value: any) {
+        workflowVariables.value[key] = value;
+        isDirty.value = true;
+    }
+
+    /**
+     * Delete a workflow variable
+     */
+    function deleteWorkflowVariable(key: string) {
+        delete workflowVariables.value[key];
+        isDirty.value = true;
+    }
+
+    /**
      * Convert store state to backend format
      */
     function toBackendFormat(): Partial<Workflow> {
@@ -177,6 +240,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
             description: currentWorkflow.value.description,
             nodes: nodes1,
             edges: edges1,
+            variables: workflowVariables.value,
             status: currentWorkflow.value.status,
             metadata: currentWorkflow.value.metadata,
         };
@@ -189,6 +253,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
         edges,
         selectedNodeId,
         isDirty,
+        workflowVariables,
 
         // Computed
         selectedNode,
@@ -200,11 +265,15 @@ export const useWorkflowStore = defineStore("workflow", () => {
         clearWorkflow,
         addNode,
         updateNode,
+        updateNodeId,
         removeNode,
         addEdge,
         removeEdge,
         selectNode,
         updateNodePositions,
+        updateWorkflowVariables,
+        setWorkflowVariable,
+        deleteWorkflowVariable,
         toBackendFormat,
     };
 });

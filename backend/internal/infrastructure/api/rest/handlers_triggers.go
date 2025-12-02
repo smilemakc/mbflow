@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
@@ -15,16 +16,19 @@ import (
 type TriggerHandlers struct {
 	triggerRepo  repository.TriggerRepository
 	workflowRepo repository.WorkflowRepository
+	logger       *logger.Logger
 }
 
 // NewTriggerHandlers creates a new TriggerHandlers instance
 func NewTriggerHandlers(
 	triggerRepo repository.TriggerRepository,
 	workflowRepo repository.WorkflowRepository,
+	log *logger.Logger,
 ) *TriggerHandlers {
 	return &TriggerHandlers{
 		triggerRepo:  triggerRepo,
 		workflowRepo: workflowRepo,
+		logger:       log,
 	}
 }
 
@@ -41,6 +45,7 @@ func (h *TriggerHandlers) HandleCreateTrigger(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Failed to bind JSON in CreateTrigger", "error", err)
 		respondError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -62,6 +67,7 @@ func (h *TriggerHandlers) HandleCreateTrigger(c *gin.Context) {
 
 	workflowUUID, err := uuid.Parse(req.WorkflowID)
 	if err != nil {
+		h.logger.Error("Invalid workflow ID in CreateTrigger", "error", err, "workflow_id", req.WorkflowID)
 		respondError(c, http.StatusBadRequest, "invalid workflow_id")
 		return
 	}
@@ -69,6 +75,7 @@ func (h *TriggerHandlers) HandleCreateTrigger(c *gin.Context) {
 	// Verify workflow exists
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
+		h.logger.Error("Workflow not found in CreateTrigger", "error", err, "workflow_id", workflowUUID)
 		respondError(c, http.StatusNotFound, "workflow not found")
 		return
 	}
@@ -99,6 +106,7 @@ func (h *TriggerHandlers) HandleCreateTrigger(c *gin.Context) {
 	}
 
 	if err := h.triggerRepo.Create(c.Request.Context(), triggerModel); err != nil {
+		h.logger.Error("Failed to create trigger", "error", err, "workflow_id", workflowUUID, "trigger_type", req.Type)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -118,12 +126,14 @@ func (h *TriggerHandlers) HandleGetTrigger(c *gin.Context) {
 
 	triggerUUID, err := uuid.Parse(triggerID)
 	if err != nil {
+		h.logger.Error("Invalid trigger ID format in GetTrigger", "error", err, "trigger_id", triggerID)
 		respondError(c, http.StatusBadRequest, "invalid trigger ID")
 		return
 	}
 
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
 	if err != nil {
+		h.logger.Error("Failed to find trigger", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
 	}
@@ -145,6 +155,7 @@ func (h *TriggerHandlers) HandleListTriggers(c *gin.Context) {
 	if workflowID != "" {
 		wfUUID, parseErr := uuid.Parse(workflowID)
 		if parseErr != nil {
+			h.logger.Error("Invalid workflow ID in ListTriggers", "error", parseErr, "workflow_id", workflowID)
 			respondError(c, http.StatusBadRequest, "invalid workflow_id")
 			return
 		}
@@ -156,6 +167,7 @@ func (h *TriggerHandlers) HandleListTriggers(c *gin.Context) {
 	}
 
 	if err != nil {
+		h.logger.Error("Failed to list triggers", "error", err, "workflow_id", workflowID, "type", triggerType, "limit", limit, "offset", offset)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -198,6 +210,7 @@ func (h *TriggerHandlers) HandleUpdateTrigger(c *gin.Context) {
 
 	triggerUUID, err := uuid.Parse(triggerID)
 	if err != nil {
+		h.logger.Error("Invalid trigger ID format in UpdateTrigger", "error", err, "trigger_id", triggerID)
 		respondError(c, http.StatusBadRequest, "invalid trigger ID")
 		return
 	}
@@ -212,6 +225,7 @@ func (h *TriggerHandlers) HandleUpdateTrigger(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Failed to bind JSON in UpdateTrigger", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -219,6 +233,7 @@ func (h *TriggerHandlers) HandleUpdateTrigger(c *gin.Context) {
 	// Fetch existing trigger
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
 	if err != nil {
+		h.logger.Error("Failed to find trigger for update", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
 	}
@@ -251,6 +266,7 @@ func (h *TriggerHandlers) HandleUpdateTrigger(c *gin.Context) {
 	}
 
 	if err := h.triggerRepo.Update(c.Request.Context(), triggerModel); err != nil {
+		h.logger.Error("Failed to update trigger", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -269,11 +285,13 @@ func (h *TriggerHandlers) HandleDeleteTrigger(c *gin.Context) {
 
 	triggerUUID, err := uuid.Parse(triggerID)
 	if err != nil {
+		h.logger.Error("Invalid trigger ID format in DeleteTrigger", "error", err, "trigger_id", triggerID)
 		respondError(c, http.StatusBadRequest, "invalid trigger ID")
 		return
 	}
 
 	if err := h.triggerRepo.Delete(c.Request.Context(), triggerUUID); err != nil {
+		h.logger.Error("Failed to delete trigger", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -293,11 +311,13 @@ func (h *TriggerHandlers) HandleEnableTrigger(c *gin.Context) {
 
 	triggerUUID, err := uuid.Parse(triggerID)
 	if err != nil {
+		h.logger.Error("Invalid trigger ID format in EnableTrigger", "error", err, "trigger_id", triggerID)
 		respondError(c, http.StatusBadRequest, "invalid trigger ID")
 		return
 	}
 
 	if err := h.triggerRepo.Enable(c.Request.Context(), triggerUUID); err != nil {
+		h.logger.Error("Failed to enable trigger", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -305,6 +325,7 @@ func (h *TriggerHandlers) HandleEnableTrigger(c *gin.Context) {
 	// Fetch updated trigger
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
 	if err != nil {
+		h.logger.Error("Failed to find trigger after enable", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
 	}
@@ -323,11 +344,13 @@ func (h *TriggerHandlers) HandleDisableTrigger(c *gin.Context) {
 
 	triggerUUID, err := uuid.Parse(triggerID)
 	if err != nil {
+		h.logger.Error("Invalid trigger ID format in DisableTrigger", "error", err, "trigger_id", triggerID)
 		respondError(c, http.StatusBadRequest, "invalid trigger ID")
 		return
 	}
 
 	if err := h.triggerRepo.Disable(c.Request.Context(), triggerUUID); err != nil {
+		h.logger.Error("Failed to disable trigger", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -335,6 +358,7 @@ func (h *TriggerHandlers) HandleDisableTrigger(c *gin.Context) {
 	// Fetch updated trigger
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
 	if err != nil {
+		h.logger.Error("Failed to find trigger after disable", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
 	}
@@ -354,6 +378,7 @@ func (h *TriggerHandlers) HandleTriggerManual(c *gin.Context) {
 
 	triggerUUID, err := uuid.Parse(triggerID)
 	if err != nil {
+		h.logger.Error("Invalid trigger ID format in TriggerManual", "error", err, "trigger_id", triggerID)
 		respondError(c, http.StatusBadRequest, "invalid trigger ID")
 		return
 	}
@@ -371,6 +396,7 @@ func (h *TriggerHandlers) HandleTriggerManual(c *gin.Context) {
 	// Fetch trigger
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
 	if err != nil {
+		h.logger.Error("Failed to find trigger for manual execution", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
 	}

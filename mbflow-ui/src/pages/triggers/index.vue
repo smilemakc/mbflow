@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
+import { toast } from "vue3-toastify";
 import AppShell from "@/components/layout/AppShell.vue";
 import Button from "@/components/ui/Button.vue";
 import {
@@ -52,9 +53,10 @@ async function handleDelete(triggerId: string) {
   try {
     await deleteTrigger(triggerId);
     triggers.value = triggers.value.filter((t) => t.id !== triggerId);
+    toast.success("Trigger deleted successfully");
   } catch (err: any) {
     console.error("Failed to delete trigger:", err);
-    alert("Failed to delete trigger: " + (err.message || "Unknown error"));
+    toast.error("Failed to delete trigger: " + (err.message || "Unknown error"));
   }
 }
 
@@ -63,24 +65,26 @@ async function handleToggle(trigger: Trigger) {
     if (trigger.status === "enabled") {
       await disableTrigger(trigger.id);
       trigger.status = "disabled";
+      toast.success("Trigger disabled successfully");
     } else {
       await enableTrigger(trigger.id);
       trigger.status = "enabled";
+      toast.success("Trigger enabled successfully");
     }
   } catch (err: any) {
     console.error("Failed to toggle trigger:", err);
-    alert("Failed to toggle trigger: " + (err.message || "Unknown error"));
+    toast.error("Failed to toggle trigger: " + (err.message || "Unknown error"));
   }
 }
 
 async function handleExecute(trigger: Trigger) {
   try {
     const result = await executeTrigger(trigger.id);
-    alert(`Trigger executed! Execution ID: ${result.execution_id}`);
+    toast.success(`Trigger executed! Execution ID: ${result.execution_id}`);
     router.push(`/executions/${result.execution_id}`);
   } catch (err: any) {
     console.error("Failed to execute trigger:", err);
-    alert("Failed to execute trigger: " + (err.message || "Unknown error"));
+    toast.error("Failed to execute trigger: " + (err.message || "Unknown error"));
   }
 }
 

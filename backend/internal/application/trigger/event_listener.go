@@ -28,6 +28,7 @@ type EventListener struct {
 	mu          sync.RWMutex
 	stopChan    chan struct{}
 	stoppedChan chan struct{}
+	isRunning   bool
 }
 
 // EventListenerConfig holds configuration for event listener
@@ -73,7 +74,11 @@ func (el *EventListener) Start(ctx context.Context, triggers []*storagemodels.Tr
 		el.pubsub = el.cache.Client().Subscribe(ctx, channels...)
 
 		// Start listening in background
+		el.isRunning = true
 		go el.listen(ctx)
+	} else {
+		// No triggers, close stoppedChan immediately so Stop() doesn't hang
+		close(el.stoppedChan)
 	}
 
 	return nil
@@ -81,7 +86,14 @@ func (el *EventListener) Start(ctx context.Context, triggers []*storagemodels.Tr
 
 // Stop stops the event listener
 func (el *EventListener) Stop() error {
-	close(el.stopChan)
+	el.mu.Lock()
+	isRunning := el.isRunning
+	el.mu.Unlock()
+
+	// Only close stopChan if listener is running
+	if isRunning {
+		close(el.stopChan)
+	}
 
 	// Close pub/sub connection
 	if el.pubsub != nil {
@@ -90,8 +102,10 @@ func (el *EventListener) Stop() error {
 		}
 	}
 
-	// Wait for listener to stop
-	<-el.stoppedChan
+	// Wait for listener to stop (only if it was started)
+	if isRunning {
+		<-el.stoppedChan
+	}
 
 	return nil
 }

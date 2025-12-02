@@ -6,17 +6,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/smilemakc/mbflow/internal/application/trigger"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 )
 
 // WebhookHandlers provides HTTP handlers for webhook trigger endpoints
 type WebhookHandlers struct {
 	webhookRegistry *trigger.WebhookRegistry
+	logger          *logger.Logger
 }
 
 // NewWebhookHandlers creates a new WebhookHandlers instance
-func NewWebhookHandlers(webhookRegistry *trigger.WebhookRegistry) *WebhookHandlers {
+func NewWebhookHandlers(webhookRegistry *trigger.WebhookRegistry, log *logger.Logger) *WebhookHandlers {
 	return &WebhookHandlers{
 		webhookRegistry: webhookRegistry,
+		logger:          log,
 	}
 }
 
@@ -31,6 +34,7 @@ func (h *WebhookHandlers) HandleWebhook(c *gin.Context) {
 	// Parse request body as JSON
 	var payload map[string]interface{}
 	if err := c.ShouldBindJSON(&payload); err != nil {
+		h.logger.Error("Failed to bind JSON in HandleWebhook", "error", err, "trigger_id", triggerID)
 		respondError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -71,6 +75,7 @@ func (h *WebhookHandlers) HandleWebhook(c *gin.Context) {
 			statusCode = http.StatusTooManyRequests
 		}
 
+		h.logger.Error("Failed to execute webhook", "error", err, "trigger_id", triggerID, "source_ip", sourceIP, "status_code", statusCode)
 		respondError(c, statusCode, errorMsg)
 		return
 	}
@@ -93,6 +98,7 @@ func (h *WebhookHandlers) HandleWebhookGet(c *gin.Context) {
 
 	trigger, exists := h.webhookRegistry.GetWebhook(triggerID)
 	if !exists {
+		h.logger.Error("Webhook trigger not found", "trigger_id", triggerID)
 		respondError(c, http.StatusNotFound, "webhook trigger not found")
 		return
 	}
