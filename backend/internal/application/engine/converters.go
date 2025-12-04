@@ -196,13 +196,15 @@ func NodeExecutionModelToDomain(nem *storagemodels.NodeExecutionModel) *models.N
 	}
 
 	ne := &models.NodeExecution{
-		ID:          nem.ID.String(),
-		ExecutionID: nem.ExecutionID.String(),
-		NodeID:      nem.NodeID.String(), // Will be replaced with logical ID by caller
-		Status:      models.NodeExecutionStatus(nem.Status),
-		Input:       make(map[string]interface{}),
-		Output:      make(map[string]interface{}),
-		RetryCount:  nem.RetryCount,
+		ID:             nem.ID.String(),
+		ExecutionID:    nem.ExecutionID.String(),
+		NodeID:         nem.NodeID.String(), // Will be replaced with logical ID by caller
+		Status:         models.NodeExecutionStatus(nem.Status),
+		Input:          make(map[string]interface{}),
+		Output:         make(map[string]interface{}),
+		Config:         make(map[string]interface{}),
+		ResolvedConfig: make(map[string]interface{}),
+		RetryCount:     nem.RetryCount,
 	}
 
 	// Copy input data
@@ -213,6 +215,16 @@ func NodeExecutionModelToDomain(nem *storagemodels.NodeExecutionModel) *models.N
 	// Copy output data
 	if nem.OutputData != nil {
 		ne.Output = nem.OutputData
+	}
+
+	// Copy config (original)
+	if nem.Config != nil {
+		ne.Config = nem.Config
+	}
+
+	// Copy resolved config
+	if nem.ResolvedConfig != nil {
+		ne.ResolvedConfig = nem.ResolvedConfig
 	}
 
 	// Copy started time
@@ -240,11 +252,13 @@ func NodeExecutionDomainToModel(ne *models.NodeExecution) *storagemodels.NodeExe
 	}
 
 	nem := &storagemodels.NodeExecutionModel{
-		Status:     string(ne.Status),
-		InputData:  storagemodels.JSONBMap(ne.Input),
-		OutputData: storagemodels.JSONBMap(ne.Output),
-		RetryCount: ne.RetryCount,
-		Error:      ne.Error,
+		Status:         string(ne.Status),
+		InputData:      storagemodels.JSONBMap(ne.Input),
+		OutputData:     storagemodels.JSONBMap(ne.Output),
+		Config:         storagemodels.JSONBMap(ne.Config),
+		ResolvedConfig: storagemodels.JSONBMap(ne.ResolvedConfig),
+		RetryCount:     ne.RetryCount,
+		Error:          ne.Error,
 	}
 
 	// Parse UUIDs

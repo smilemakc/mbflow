@@ -163,7 +163,7 @@ func (de *DAGExecutor) executeNode(
 	nodeCtx := PrepareNodeContext(execState, node, parentNodes, opts)
 
 	// Execute node with template resolution via NodeExecutor
-	result, err := de.nodeExecutor.Execute(ctx, nodeCtx)
+	execResult, err := de.nodeExecutor.Execute(ctx, nodeCtx)
 
 	if err != nil {
 		nodeEndTime := time.Now()
@@ -194,8 +194,11 @@ func (de *DAGExecutor) executeNode(
 	}
 
 	nodeEndTime := time.Now()
-	// Store result and mark as completed
-	execState.SetNodeOutput(node.ID, result)
+	// Store execution result with metadata
+	execState.SetNodeOutput(node.ID, execResult.Output)
+	execState.SetNodeInput(node.ID, execResult.Input)
+	execState.SetNodeConfig(node.ID, execResult.Config)
+	execState.SetNodeResolvedConfig(node.ID, execResult.ResolvedConfig)
 	execState.SetNodeStatus(node.ID, models.NodeExecutionStatusCompleted)
 	execState.SetNodeEndTime(node.ID, nodeEndTime)
 
@@ -215,7 +218,7 @@ func (de *DAGExecutor) executeNode(
 		}
 
 		// Add output if it's a map
-		if outputMap, ok := result.(map[string]interface{}); ok {
+		if outputMap, ok := execResult.Output.(map[string]interface{}); ok {
 			event.Output = outputMap
 		}
 

@@ -87,19 +87,34 @@ func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
 	}
 
 	// Execute
-	result, err := nodeExec.Execute(context.Background(), nodeCtx)
+	execResult, err := nodeExec.Execute(context.Background(), nodeCtx)
 	if err != nil {
 		t.Fatalf("execution failed: %v", err)
 	}
 
 	// Verify result
-	resultMap, ok := result.(map[string]interface{})
+	if execResult == nil {
+		t.Fatalf("expected NodeExecutionResult, got nil")
+	}
+
+	resultMap, ok := execResult.Output.(map[string]interface{})
 	if !ok {
-		t.Fatalf("expected map result, got %T", result)
+		t.Fatalf("expected map result, got %T", execResult.Output)
 	}
 
 	if resultMap["result"] != "success" {
-		t.Errorf("unexpected result: %v", result)
+		t.Errorf("unexpected result: %v", execResult.Output)
+	}
+
+	// Verify metadata
+	if execResult.Config == nil {
+		t.Error("expected Config to be set")
+	}
+	if execResult.ResolvedConfig == nil {
+		t.Error("expected ResolvedConfig to be set")
+	}
+	if execResult.Input == nil {
+		t.Error("expected Input to be set")
 	}
 }
 

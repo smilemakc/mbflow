@@ -37,20 +37,22 @@ const (
 
 // NodeExecution represents the execution of a single node within a workflow execution.
 type NodeExecution struct {
-	ID          string                 `json:"id"`
-	ExecutionID string                 `json:"execution_id"`
-	NodeID      string                 `json:"node_id"`
-	NodeName    string                 `json:"node_name,omitempty"`
-	NodeType    string                 `json:"node_type,omitempty"`
-	Status      NodeExecutionStatus    `json:"status"`
-	Input       map[string]interface{} `json:"input,omitempty"`
-	Output      map[string]interface{} `json:"output,omitempty"`
-	Error       string                 `json:"error,omitempty"`
-	StartedAt   time.Time              `json:"started_at"`
-	CompletedAt *time.Time             `json:"completed_at,omitempty"`
-	Duration    int64                  `json:"duration,omitempty"` // milliseconds
-	RetryCount  int                    `json:"retry_count,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID             string                 `json:"id"`
+	ExecutionID    string                 `json:"execution_id"`
+	NodeID         string                 `json:"node_id"`
+	NodeName       string                 `json:"node_name,omitempty"`
+	NodeType       string                 `json:"node_type,omitempty"`
+	Status         NodeExecutionStatus    `json:"status"`
+	Input          map[string]interface{} `json:"input,omitempty"`           // Input data passed to the node executor
+	Output         map[string]interface{} `json:"output,omitempty"`          // Output data from node execution
+	Config         map[string]interface{} `json:"config,omitempty"`          // Original node configuration (before template resolution)
+	ResolvedConfig map[string]interface{} `json:"resolved_config,omitempty"` // Configuration after template resolution (final config used by executor)
+	Error          string                 `json:"error,omitempty"`
+	StartedAt      time.Time              `json:"started_at"`
+	CompletedAt    *time.Time             `json:"completed_at,omitempty"`
+	Duration       int64                  `json:"duration,omitempty"` // milliseconds
+	RetryCount     int                    `json:"retry_count,omitempty"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // NodeExecutionStatus represents the status of a node execution.

@@ -10,6 +10,7 @@ func RegisterBuiltins(manager executor.Manager) error {
 		"transform":     NewTransformExecutor(),
 		"llm":           NewLLMExecutor(),
 		"function_call": NewFunctionCallExecutor(),
+		"telegram":      NewTelegramExecutor(),
 	}
 
 	for name, exec := range executors {

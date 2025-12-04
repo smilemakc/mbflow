@@ -80,6 +80,7 @@ func (m *ObserverManager) Unregister(name string) error {
 
 // Notify sends an event to all registered observers (NON-BLOCKING)
 // Each observer runs in its own goroutine, errors are logged but don't propagate
+// IMPORTANT: Uses context.WithoutCancel to ensure notifications complete even if caller context is canceled
 func (m *ObserverManager) Notify(ctx context.Context, event Event) {
 	m.mu.RLock()
 	// Copy observers slice to avoid holding lock during notification
@@ -87,9 +88,15 @@ func (m *ObserverManager) Notify(ctx context.Context, event Event) {
 	copy(observersCopy, m.observers)
 	m.mu.RUnlock()
 
+	// Decouple observer notifications from caller's context lifecycle using WithoutCancel.
+	// This ensures that even if workflow execution context is canceled, observers can complete their work
+	// (e.g., saving execution.completed events to database).
+	// WithoutCancel preserves all context values (trace IDs, request IDs, etc.) but removes cancelation.
+	observerCtx := context.WithoutCancel(ctx)
+
 	// Notify each observer in parallel (non-blocking)
 	for _, obs := range observersCopy {
-		go m.notifyObserver(ctx, obs, event)
+		go m.notifyObserver(observerCtx, obs, event)
 	}
 }
 

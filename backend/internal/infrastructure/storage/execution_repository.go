@@ -244,7 +244,7 @@ func (r *ExecutionRepository) CreateNodeExecution(ctx context.Context, nodeExecu
 func (r *ExecutionRepository) UpdateNodeExecution(ctx context.Context, nodeExecution *models.NodeExecutionModel) error {
 	_, err := r.db.NewUpdate().
 		Model(nodeExecution).
-		Column("status", "output_data", "error", "retry_count", "completed_at", "updated_at").
+		Column("status", "input_data", "output_data", "config", "resolved_config", "error", "retry_count", "completed_at", "updated_at").
 		Where("id = ?", nodeExecution.ID).
 		Exec(ctx)
 	if err != nil {

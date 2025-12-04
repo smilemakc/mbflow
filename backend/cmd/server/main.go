@@ -395,6 +395,14 @@ func main() {
 			webhookHandlers := rest.NewWebhookHandlers(triggerManager.WebhookRegistry(), appLogger)
 			apiV1.POST("/webhooks/:path", webhookHandlers.HandleWebhook)
 			apiV1.GET("/webhooks/:path", webhookHandlers.HandleWebhookGet)
+
+			// Telegram webhook endpoints
+			telegramWebhookHandlers := rest.NewTelegramWebhookHandlers(triggerManager.WebhookRegistry(), appLogger)
+			apiV1.POST("/webhooks/telegram/:trigger_id", telegramWebhookHandlers.HandleTelegramWebhook)
+
+			appLogger.Info("Webhook endpoints registered",
+				"endpoints", []string{"/api/v1/webhooks/:path", "/api/v1/webhooks/telegram/:trigger_id"},
+			)
 		}
 	}
 

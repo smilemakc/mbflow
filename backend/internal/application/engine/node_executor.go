@@ -20,6 +20,14 @@ func NewNodeExecutor(manager executor.Manager) *NodeExecutor {
 	}
 }
 
+// NodeExecutionResult contains the result of node execution along with metadata
+type NodeExecutionResult struct {
+	Output         interface{}            // Execution result
+	Input          interface{}            // Input passed to executor
+	Config         map[string]interface{} // Original config (before template resolution)
+	ResolvedConfig map[string]interface{} // Resolved config (after template resolution)
+}
+
 // Execute executes a single node with automatic template resolution.
 //
 // This is the CRITICAL integration point where TemplateExecutorWrapper is applied.
@@ -28,9 +36,10 @@ func NewNodeExecutor(manager executor.Manager) *NodeExecutor {
 //  1. Get base executor from registry
 //  2. Build ExecutionContextData from node context
 //  3. Create template engine from ExecutionContextData
-//  4. Wrap base executor with TemplateExecutorWrapper
-//  5. Execute wrapped executor (templates auto-resolved)
-func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (interface{}, error) {
+//  4. Resolve templates in config to get ResolvedConfig
+//  5. Execute with resolved config
+//  6. Return NodeExecutionResult with metadata
+func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (*NodeExecutionResult, error) {
 	// 1. Get base executor from registry
 	baseExecutor, err := ne.executorManager.Get(nodeCtx.Node.Type)
 	if err != nil {
@@ -48,19 +57,27 @@ func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (inte
 	// 3. Create template engine from execution context
 	templateEngine := executor.NewTemplateEngine(execCtxData)
 
-	// 4. Wrap executor with template engine ⭐ THIS IS THE MAGIC
-	wrappedExecutor := executor.NewTemplateExecutorWrapper(baseExecutor, templateEngine)
+	// 4. Resolve templates in config ⭐ THIS IS WHERE WE GET RESOLVED CONFIG
+	resolvedConfig, err := templateEngine.ResolveConfig(nodeCtx.Node.Config)
+	if err != nil {
+		return nil, fmt.Errorf("template resolution failed: %w", err)
+	}
 
-	// 5. Execute wrapped executor
-	// TemplateExecutorWrapper will automatically resolve templates in config:
-	//   - {{input.field}} → resolved from ParentNodeOutput
-	//   - {{env.var}} → resolved from WorkflowVariables/ExecutionVariables
-	result, err := wrappedExecutor.Execute(ctx, nodeCtx.Node.Config, nodeCtx.DirectParentOutput)
+	// 5. Execute with resolved config
+	//   - {{input.field}} → already resolved in resolvedConfig
+	//   - {{env.var}} → already resolved in resolvedConfig
+	output, err := baseExecutor.Execute(ctx, resolvedConfig, nodeCtx.DirectParentOutput)
 	if err != nil {
 		return nil, fmt.Errorf("node execution failed: %w", err)
 	}
 
-	return result, nil
+	// 6. Return result with metadata
+	return &NodeExecutionResult{
+		Output:         output,
+		Input:          nodeCtx.DirectParentOutput,
+		Config:         nodeCtx.Node.Config, // Original config
+		ResolvedConfig: resolvedConfig,      // Resolved config
+	}, nil
 }
 
 // PrepareNodeContext builds NodeContext from execution state and node.

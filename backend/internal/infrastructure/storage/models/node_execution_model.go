@@ -11,19 +11,21 @@ import (
 type NodeExecutionModel struct {
 	bun.BaseModel `bun:"table:node_executions,alias:ne"`
 
-	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
-	ExecutionID uuid.UUID  `bun:"execution_id,notnull,type:uuid" json:"execution_id" validate:"required"`
-	NodeID      uuid.UUID  `bun:"node_id,notnull,type:uuid" json:"node_id" validate:"required"`
-	Status      string     `bun:"status,notnull,default:'pending'" json:"status" validate:"required,oneof=pending running completed failed skipped retrying"`
-	StartedAt   *time.Time `bun:"started_at" json:"started_at,omitempty"`
-	CompletedAt *time.Time `bun:"completed_at" json:"completed_at,omitempty"`
-	InputData   JSONBMap   `bun:"input_data,type:jsonb,default:'{}'" json:"input_data,omitempty"`
-	OutputData  JSONBMap   `bun:"output_data,type:jsonb" json:"output_data,omitempty"`
-	Error       string     `bun:"error" json:"error,omitempty"`
-	RetryCount  int        `bun:"retry_count,notnull,default:0" json:"retry_count" validate:"gte=0"`
-	Wave        int        `bun:"wave,notnull,default:0" json:"wave" validate:"gte=0"`
-	CreatedAt   time.Time  `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt   time.Time  `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
+	ID             uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
+	ExecutionID    uuid.UUID  `bun:"execution_id,notnull,type:uuid" json:"execution_id" validate:"required"`
+	NodeID         uuid.UUID  `bun:"node_id,notnull,type:uuid" json:"node_id" validate:"required"`
+	Status         string     `bun:"status,notnull,default:'pending'" json:"status" validate:"required,oneof=pending running completed failed skipped retrying"`
+	StartedAt      *time.Time `bun:"started_at" json:"started_at,omitempty"`
+	CompletedAt    *time.Time `bun:"completed_at" json:"completed_at,omitempty"`
+	InputData      JSONBMap   `bun:"input_data,type:jsonb,default:'{}'" json:"input_data,omitempty"`
+	OutputData     JSONBMap   `bun:"output_data,type:jsonb" json:"output_data,omitempty"`
+	Config         JSONBMap   `bun:"config,type:jsonb,default:'{}'" json:"config,omitempty"`                   // Original node configuration before template resolution
+	ResolvedConfig JSONBMap   `bun:"resolved_config,type:jsonb,default:'{}'" json:"resolved_config,omitempty"` // Configuration after template resolution (used by executor)
+	Error          string     `bun:"error" json:"error,omitempty"`
+	RetryCount     int        `bun:"retry_count,notnull,default:0" json:"retry_count" validate:"gte=0"`
+	Wave           int        `bun:"wave,notnull,default:0" json:"wave" validate:"gte=0"`
+	CreatedAt      time.Time  `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt      time.Time  `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 
 	// Relationships
 	Execution *ExecutionModel `bun:"rel:belongs-to,join:execution_id=id" json:"execution,omitempty"`

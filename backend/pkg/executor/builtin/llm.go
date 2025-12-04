@@ -71,15 +71,30 @@ func (e *LLMExecutor) RegisterProvider(providerType models.LLMProvider, provider
 //	  "prompt": "Analyze this code: func main() {...}"
 //	}
 //
-// The 'input' parameter contains raw parent node output but is typically not used
-// directly. Instead, use templates to extract specific fields from parent output.
+// Input Parameter Usage:
+// The 'input' parameter contains the complete output from parent nodes and can be used in several ways:
+//  1. Enriching the prompt with structured data (when templates aren't sufficient)
+//  2. Providing input for Responses API (OpenAI Responses requires structured input)
+//  3. Dynamic prompt augmentation based on parent node results
 //
-// See: backend/internal/application/engine/node_executor.go for implementation details.
+// The input parameter is available both through template resolution ({{input.field}}) and
+// directly in the request when use_input_directly is enabled in config.
+//
+// See: executor.Executor for implementation details.
 func (e *LLMExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 	// Parse config into LLMRequest
 	req, err := e.parseConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse LLM config: %w", err)
+	}
+
+	// If config doesn't explicitly set Input field and input parameter is provided,
+	// check if we should use it directly (useful for Responses API or structured inputs)
+	if req.Input == nil && input != nil {
+		// Check if config specifies to use input directly
+		if useInputDirectly, ok := config["use_input_directly"].(bool); ok && useInputDirectly {
+			req.Input = input
+		}
 	}
 
 	// Create provider with config

@@ -267,11 +267,28 @@ func (em *ExecutionManager) buildNodeExecutions(
 			nodeExec.Status = status
 		}
 
+		// Get input
+		if input, ok := execState.GetNodeInput(node.ID); ok {
+			if inputMap, ok := input.(map[string]interface{}); ok {
+				nodeExec.Input = inputMap
+			}
+		}
+
 		// Get output
 		if output, ok := execState.GetNodeOutput(node.ID); ok {
 			if outputMap, ok := output.(map[string]interface{}); ok {
 				nodeExec.Output = outputMap
 			}
+		}
+
+		// Get config (original)
+		if config, ok := execState.GetNodeConfig(node.ID); ok {
+			nodeExec.Config = config
+		}
+
+		// Get resolved config
+		if resolvedConfig, ok := execState.GetNodeResolvedConfig(node.ID); ok {
+			nodeExec.ResolvedConfig = resolvedConfig
 		}
 
 		// Get error

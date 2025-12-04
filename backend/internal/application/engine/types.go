@@ -27,11 +27,14 @@ type ExecutionState struct {
 	Variables   map[string]interface{} // Merged workflow + execution vars
 
 	// Node execution tracking
-	NodeOutputs    map[string]interface{}                // nodeID -> output
-	NodeErrors     map[string]error                      // nodeID -> error
-	NodeStatus     map[string]models.NodeExecutionStatus // nodeID -> status
-	NodeStartTimes map[string]time.Time                  // nodeID -> start time
-	NodeEndTimes   map[string]time.Time                  // nodeID -> end time
+	NodeOutputs         map[string]interface{}                // nodeID -> output
+	NodeInputs          map[string]interface{}                // nodeID -> input (passed to executor)
+	NodeErrors          map[string]error                      // nodeID -> error
+	NodeStatus          map[string]models.NodeExecutionStatus // nodeID -> status
+	NodeStartTimes      map[string]time.Time                  // nodeID -> start time
+	NodeEndTimes        map[string]time.Time                  // nodeID -> end time
+	NodeConfigs         map[string]map[string]interface{}     // nodeID -> original config (before template resolution)
+	NodeResolvedConfigs map[string]map[string]interface{}     // nodeID -> resolved config (after template resolution)
 
 	// Synchronization
 	mu sync.RWMutex
@@ -62,16 +65,19 @@ func DefaultExecutionOptions() *ExecutionOptions {
 // NewExecutionState creates a new execution state
 func NewExecutionState(executionID, workflowID string, workflow *models.Workflow, input, variables map[string]interface{}) *ExecutionState {
 	return &ExecutionState{
-		ExecutionID:    executionID,
-		WorkflowID:     workflowID,
-		Workflow:       workflow,
-		Input:          input,
-		Variables:      variables,
-		NodeOutputs:    make(map[string]interface{}),
-		NodeErrors:     make(map[string]error),
-		NodeStatus:     make(map[string]models.NodeExecutionStatus),
-		NodeStartTimes: make(map[string]time.Time),
-		NodeEndTimes:   make(map[string]time.Time),
+		ExecutionID:         executionID,
+		WorkflowID:          workflowID,
+		Workflow:            workflow,
+		Input:               input,
+		Variables:           variables,
+		NodeOutputs:         make(map[string]interface{}),
+		NodeInputs:          make(map[string]interface{}),
+		NodeErrors:          make(map[string]error),
+		NodeStatus:          make(map[string]models.NodeExecutionStatus),
+		NodeStartTimes:      make(map[string]time.Time),
+		NodeEndTimes:        make(map[string]time.Time),
+		NodeConfigs:         make(map[string]map[string]interface{}),
+		NodeResolvedConfigs: make(map[string]map[string]interface{}),
 	}
 }
 
@@ -148,4 +154,49 @@ func (es *ExecutionState) GetNodeEndTime(nodeID string) (time.Time, bool) {
 	defer es.mu.RUnlock()
 	endTime, ok := es.NodeEndTimes[nodeID]
 	return endTime, ok
+}
+
+// SetNodeInput safely sets node input
+func (es *ExecutionState) SetNodeInput(nodeID string, input interface{}) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.NodeInputs[nodeID] = input
+}
+
+// GetNodeInput safely gets node input
+func (es *ExecutionState) GetNodeInput(nodeID string) (interface{}, bool) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+	input, ok := es.NodeInputs[nodeID]
+	return input, ok
+}
+
+// SetNodeConfig safely sets node original config
+func (es *ExecutionState) SetNodeConfig(nodeID string, config map[string]interface{}) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.NodeConfigs[nodeID] = config
+}
+
+// GetNodeConfig safely gets node original config
+func (es *ExecutionState) GetNodeConfig(nodeID string) (map[string]interface{}, bool) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+	config, ok := es.NodeConfigs[nodeID]
+	return config, ok
+}
+
+// SetNodeResolvedConfig safely sets node resolved config
+func (es *ExecutionState) SetNodeResolvedConfig(nodeID string, config map[string]interface{}) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.NodeResolvedConfigs[nodeID] = config
+}
+
+// GetNodeResolvedConfig safely gets node resolved config
+func (es *ExecutionState) GetNodeResolvedConfig(nodeID string) (map[string]interface{}, bool) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+	config, ok := es.NodeResolvedConfigs[nodeID]
+	return config, ok
 }

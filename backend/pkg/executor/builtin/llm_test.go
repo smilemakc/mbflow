@@ -625,3 +625,236 @@ func TestLLMExecutor_WithInputTemplates(t *testing.T) {
 	assert.Equal(t, 20, usage["completion_tokens"])
 	assert.Equal(t, 70, usage["total_tokens"])
 }
+
+func TestLLMExecutor_WithInputDirectly(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	// Expected structured input for Responses API
+	expectedInput := map[string]interface{}{
+		"messages": []interface{}{
+			map[string]interface{}{"role": "user", "content": "Hello"},
+			map[string]interface{}{"role": "assistant", "content": "Hi there!"},
+			map[string]interface{}{"role": "user", "content": "How are you?"},
+		},
+	}
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			// Verify that input was passed directly to the request
+			require.NotNil(t, req.Input, "Input should be passed to LLM request")
+
+			inputMap, ok := req.Input.(map[string]interface{})
+			require.True(t, ok, "Input should be a map")
+
+			messages, ok := inputMap["messages"].([]interface{})
+			require.True(t, ok, "Input should contain messages array")
+			require.Len(t, messages, 3, "Should have 3 messages")
+
+			return &models.LLMResponse{
+				Content:      "I'm doing great, thanks!",
+				ResponseID:   "resp-input-test",
+				Model:        "gpt-4",
+				FinishReason: "stop",
+				Usage: models.LLMUsage{
+					PromptTokens:     25,
+					CompletionTokens: 10,
+					TotalTokens:      35,
+				},
+				CreatedAt: time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	// Config with use_input_directly flag
+	config := map[string]interface{}{
+		"provider":           "mock",
+		"model":              "gpt-4",
+		"prompt":             "Continue the conversation",
+		"use_input_directly": true,
+	}
+
+	// Execute with structured input
+	result, err := exec.Execute(context.Background(), config, expectedInput)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "I'm doing great, thanks!", resultMap["content"])
+	assert.Equal(t, "resp-input-test", resultMap["response_id"])
+}
+
+func TestLLMExecutor_WithoutInputDirectly(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			// When use_input_directly is false (default), Input should be nil
+			assert.Nil(t, req.Input, "Input should not be passed when use_input_directly is false")
+
+			return &models.LLMResponse{
+				Content:      "Response without direct input",
+				ResponseID:   "resp-no-input",
+				Model:        "gpt-4",
+				FinishReason: "stop",
+				Usage: models.LLMUsage{
+					PromptTokens:     10,
+					CompletionTokens: 5,
+					TotalTokens:      15,
+				},
+				CreatedAt: time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	// Config WITHOUT use_input_directly flag (default behavior)
+	config := map[string]interface{}{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "Simple prompt",
+	}
+
+	inputData := map[string]interface{}{
+		"some_data": "This should not be passed directly",
+	}
+
+	// Execute
+	result, err := exec.Execute(context.Background(), config, inputData)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "Response without direct input", resultMap["content"])
+}
+
+func TestLLMExecutor_WithExplicitInputInConfig(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	explicitInput := "Explicit input from config"
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			// When config has explicit "input" field, it should take precedence
+			require.NotNil(t, req.Input, "Input should be set from config")
+			assert.Equal(t, explicitInput, req.Input, "Input should match config value")
+
+			return &models.LLMResponse{
+				Content:      "Response with explicit config input",
+				ResponseID:   "resp-explicit",
+				Model:        "gpt-4",
+				FinishReason: "stop",
+				Usage: models.LLMUsage{
+					PromptTokens:     15,
+					CompletionTokens: 8,
+					TotalTokens:      23,
+				},
+				CreatedAt: time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	// Config with explicit "input" field
+	config := map[string]interface{}{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "Process this",
+		"input":    explicitInput, // Explicit input in config
+	}
+
+	paramInput := map[string]interface{}{
+		"this": "should be ignored",
+	}
+
+	// Execute - explicit config input should take precedence
+	result, err := exec.Execute(context.Background(), config, paramInput)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "Response with explicit config input", resultMap["content"])
+}
+
+func TestLLMExecutor_InputPriorityOrder(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	tests := []struct {
+		name           string
+		configInput    interface{}
+		useInputDirect bool
+		paramInput     interface{}
+		expectedInput  interface{}
+	}{
+		{
+			name:           "explicit config input takes precedence over use_input_directly",
+			configInput:    "config value",
+			useInputDirect: true,
+			paramInput:     "param value",
+			expectedInput:  "config value",
+		},
+		{
+			name:           "use_input_directly when no config input",
+			configInput:    nil,
+			useInputDirect: true,
+			paramInput:     "param value",
+			expectedInput:  "param value",
+		},
+		{
+			name:           "no input when use_input_directly is false",
+			configInput:    nil,
+			useInputDirect: false,
+			paramInput:     "param value",
+			expectedInput:  nil,
+		},
+		{
+			name:           "explicit config input even when use_input_directly is false",
+			configInput:    "config value",
+			useInputDirect: false,
+			paramInput:     "param value",
+			expectedInput:  "config value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockProvider := &MockLLMProvider{
+				ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+					assert.Equal(t, tt.expectedInput, req.Input, "Input should match expected value")
+					return &models.LLMResponse{
+						Content:      "test response",
+						Model:        "gpt-4",
+						FinishReason: "stop",
+						Usage:        models.LLMUsage{TotalTokens: 10},
+						CreatedAt:    time.Now(),
+					}, nil
+				},
+			}
+
+			exec.RegisterProvider("mock", mockProvider)
+
+			config := map[string]interface{}{
+				"provider": "mock",
+				"model":    "gpt-4",
+				"prompt":   "test",
+			}
+
+			if tt.configInput != nil {
+				config["input"] = tt.configInput
+			}
+
+			if tt.useInputDirect {
+				config["use_input_directly"] = true
+			}
+
+			_, err := exec.Execute(context.Background(), config, tt.paramInput)
+			require.NoError(t, err)
+		})
+	}
+}
