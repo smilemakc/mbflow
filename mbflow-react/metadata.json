@@ -1,0 +1,5 @@
+{
+  "name": "Workflow Architect",
+  "description": "A professional DAG (Directed Acyclic Graph) builder and workflow automation platform featuring a visual editor, node configuration, and real-time state management.",
+  "requestFramePermissions": []
+}

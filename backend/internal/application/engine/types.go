@@ -10,12 +10,17 @@ import (
 
 // ExecutionOptions configures execution behavior
 type ExecutionOptions struct {
-	StrictMode      bool                      // Fail on missing template variables
-	MaxParallelism  int                       // Max concurrent nodes per wave (0 = unlimited)
-	Timeout         time.Duration             // Overall execution timeout
-	NodeTimeout     time.Duration             // Per-node execution timeout
-	Variables       map[string]interface{}    // Runtime execution variables (override workflow vars)
-	ObserverManager *observer.ObserverManager // Optional observer manager for execution events
+	StrictMode       bool                      // Fail on missing template variables
+	MaxParallelism   int                       // Max concurrent nodes per wave (0 = unlimited)
+	Timeout          time.Duration             // Overall execution timeout
+	NodeTimeout      time.Duration             // Per-node execution timeout
+	Variables        map[string]interface{}    // Runtime execution variables (override workflow vars)
+	ObserverManager  *observer.ObserverManager // Optional observer manager for execution events
+	RetryPolicy      *RetryPolicy              // Retry policy for node execution failures
+	ContinueOnError  bool                      // Continue executing other nodes even if some fail
+	MaxOutputSize    int64                     // Maximum size of node output in bytes (0 = unlimited)
+	MaxTotalMemory   int64                     // Maximum total memory for all node outputs (0 = unlimited)
+	EnableMemoryOpts bool                      // Enable automatic memory optimization
 }
 
 // ExecutionState tracks runtime state of workflow execution
@@ -54,11 +59,16 @@ type NodeContext struct {
 // DefaultExecutionOptions returns default execution options
 func DefaultExecutionOptions() *ExecutionOptions {
 	return &ExecutionOptions{
-		StrictMode:     false,
-		MaxParallelism: 10,
-		Timeout:        5 * time.Minute,
-		NodeTimeout:    1 * time.Minute,
-		Variables:      make(map[string]interface{}),
+		StrictMode:       false,
+		MaxParallelism:   10,
+		Timeout:          5 * time.Minute,
+		NodeTimeout:      1 * time.Minute,
+		Variables:        make(map[string]interface{}),
+		RetryPolicy:      NoRetryPolicy(), // No retries by default
+		ContinueOnError:  false,           // Fail fast by default
+		MaxOutputSize:    0,               // Unlimited by default
+		MaxTotalMemory:   0,               // Unlimited by default
+		EnableMemoryOpts: false,
 	}
 }
 
@@ -199,4 +209,48 @@ func (es *ExecutionState) GetNodeResolvedConfig(nodeID string) (map[string]inter
 	defer es.mu.RUnlock()
 	config, ok := es.NodeResolvedConfigs[nodeID]
 	return config, ok
+}
+
+// ClearNodeOutput removes output for a specific node (for memory optimization)
+func (es *ExecutionState) ClearNodeOutput(nodeID string) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	delete(es.NodeOutputs, nodeID)
+}
+
+// GetTotalMemoryUsage estimates total memory used by node outputs (rough estimate)
+func (es *ExecutionState) GetTotalMemoryUsage() int64 {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+
+	var total int64
+	for _, output := range es.NodeOutputs {
+		total += estimateSize(output)
+	}
+	return total
+}
+
+// estimateSize provides a rough estimate of memory size for an interface{}
+func estimateSize(v interface{}) int64 {
+	switch val := v.(type) {
+	case string:
+		return int64(len(val))
+	case []byte:
+		return int64(len(val))
+	case map[string]interface{}:
+		var size int64
+		for k, v := range val {
+			size += int64(len(k)) + estimateSize(v)
+		}
+		return size
+	case []interface{}:
+		var size int64
+		for _, item := range val {
+			size += estimateSize(item)
+		}
+		return size
+	default:
+		// Rough estimate for other types
+		return 64
+	}
 }

@@ -101,16 +101,18 @@ func (m *StorageManager) GetStorage(storageID string) (Storage, error) {
 // CreateStorage creates a new storage instance
 func (m *StorageManager) CreateStorage(storageID string, config *models.StorageConfig) (Storage, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	// Check if already exists
 	if _, exists := m.storages[storageID]; exists {
-		return m.wrapStorage(m.storages[storageID]), nil
+		wrapped := m.wrapStorage(m.storages[storageID])
+		m.mu.Unlock()
+		return wrapped, nil
 	}
 
 	// Get factory for storage type
 	factory, ok := m.factories[config.Type]
 	if !ok {
+		m.mu.Unlock()
 		return nil, fmt.Errorf("no factory registered for storage type: %s", config.Type)
 	}
 
@@ -120,6 +122,7 @@ func (m *StorageManager) CreateStorage(storageID string, config *models.StorageC
 	// Create provider
 	provider, err := factory.Create(config)
 	if err != nil {
+		m.mu.Unlock()
 		return nil, fmt.Errorf("failed to create provider: %w", err)
 	}
 
@@ -129,11 +132,15 @@ func (m *StorageManager) CreateStorage(storageID string, config *models.StorageC
 		storageID: storageID,
 	}
 	m.storages[storageID] = managed
+	wrapped := m.wrapStorage(managed)
+
+	// Unlock before notifying observers to avoid deadlock
+	m.mu.Unlock()
 
 	// Notify observers
 	m.notifyObservers(context.Background(), NewFileEvent(EventStorageCreated, storageID, nil))
 
-	return m.wrapStorage(managed), nil
+	return wrapped, nil
 }
 
 // wrapStorage creates a Storage wrapper with observer notifications
@@ -148,19 +155,23 @@ func (m *StorageManager) wrapStorage(managed *managedStorage) Storage {
 // DeleteStorage deletes a storage and all its files
 func (m *StorageManager) DeleteStorage(storageID string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	storage, exists := m.storages[storageID]
 	if !exists {
+		m.mu.Unlock()
 		return fmt.Errorf("storage not found: %s", storageID)
 	}
 
 	// Close provider
 	if err := storage.provider.Close(); err != nil {
+		m.mu.Unlock()
 		return fmt.Errorf("failed to close provider: %w", err)
 	}
 
 	delete(m.storages, storageID)
+
+	// Unlock before notifying observers to avoid deadlock
+	m.mu.Unlock()
 
 	// Notify observers
 	m.notifyObservers(context.Background(), NewFileEvent(EventStorageDeleted, storageID, nil))

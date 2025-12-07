@@ -132,7 +132,7 @@ func (h *TriggerHandlers) HandleGetTrigger(c *gin.Context) {
 	}
 
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
-	if err != nil {
+	if err != nil || triggerModel == nil {
 		h.logger.Error("Failed to find trigger", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
@@ -232,7 +232,7 @@ func (h *TriggerHandlers) HandleUpdateTrigger(c *gin.Context) {
 
 	// Fetch existing trigger
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
-	if err != nil {
+	if err != nil || triggerModel == nil {
 		h.logger.Error("Failed to find trigger for update", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
@@ -324,7 +324,7 @@ func (h *TriggerHandlers) HandleEnableTrigger(c *gin.Context) {
 
 	// Fetch updated trigger
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
-	if err != nil {
+	if err != nil || triggerModel == nil {
 		h.logger.Error("Failed to find trigger after enable", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
@@ -357,7 +357,7 @@ func (h *TriggerHandlers) HandleDisableTrigger(c *gin.Context) {
 
 	// Fetch updated trigger
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
-	if err != nil {
+	if err != nil || triggerModel == nil {
 		h.logger.Error("Failed to find trigger after disable", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return
@@ -395,7 +395,7 @@ func (h *TriggerHandlers) HandleTriggerManual(c *gin.Context) {
 
 	// Fetch trigger
 	triggerModel, err := h.triggerRepo.FindByID(c.Request.Context(), triggerUUID)
-	if err != nil {
+	if err != nil || triggerModel == nil {
 		h.logger.Error("Failed to find trigger for manual execution", "error", err, "trigger_id", triggerUUID)
 		respondError(c, http.StatusNotFound, "trigger not found")
 		return

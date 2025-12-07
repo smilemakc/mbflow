@@ -464,6 +464,36 @@ func (h *FileHandlers) HandleGetStorageUsage(c *gin.Context) {
 		storageID = "default"
 	}
 
+	accessScope := c.Query("access_scope")
+
+	// If access_scope is provided, use filtered query
+	if accessScope != "" {
+		query := &storage.FileQuery{
+			StorageID:   storageID,
+			AccessScope: accessScope,
+		}
+		files, err := h.fileRepo.FindByQuery(c.Request.Context(), query)
+		if err != nil {
+			h.logger.Error("Failed to get storage usage", "error", err, "storage_id", storageID, "access_scope", accessScope)
+			respondError(c, http.StatusInternalServerError, "failed to get storage usage")
+			return
+		}
+
+		var totalSize int64
+		for _, file := range files {
+			totalSize += file.Size
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"storage_id":   storageID,
+			"access_scope": accessScope,
+			"total_size":   totalSize,
+			"file_count":   int64(len(files)),
+		})
+		return
+	}
+
+	// Otherwise use the optimized GetStorageUsage method
 	totalSize, fileCount, err := h.fileRepo.GetStorageUsage(c.Request.Context(), storageID)
 	if err != nil {
 		h.logger.Error("Failed to get storage usage", "error", err, "storage_id", storageID)

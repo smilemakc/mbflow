@@ -21,6 +21,8 @@ func RegisterBuiltins(manager executor.Manager) error {
 		"telegram_callback": NewTelegramCallbackExecutor(),
 		"conditional":       NewConditionalExecutor(),
 		"merge":             NewMergeExecutor(),
+		"html_clean":        NewHTMLCleanExecutor(),
+		"rss_parser":        NewRSSParserExecutor(),
 	}
 
 	for name, exec := range executors {
@@ -62,6 +64,7 @@ func RegisterAdapters(manager executor.Manager) error {
 		"string_to_json":  NewStringToJsonExecutor(),
 		"json_to_string":  NewJsonToStringExecutor(),
 		"bytes_to_json":   NewBytesToJsonExecutor(),
+		"csv_to_json":     NewCSVToJSONExecutor(),
 	}
 
 	for name, exec := range adapters {

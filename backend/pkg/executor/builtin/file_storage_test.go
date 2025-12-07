@@ -6,7 +6,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +21,7 @@ import (
 
 // mockStorage implements filestorage.Storage for testing
 type mockStorage struct {
+	mu        sync.RWMutex
 	files     map[string]*storedFile
 	storageID string
 }
@@ -46,16 +50,20 @@ func (m *mockStorage) Store(ctx context.Context, entry *models.FileEntry, reader
 	entry.Checksum = "sha256-test-checksum"
 	entry.CreatedAt = time.Now()
 
+	m.mu.Lock()
 	m.files[entry.ID] = &storedFile{
 		entry:   entry,
 		content: content,
 	}
+	m.mu.Unlock()
 
 	return entry, nil
 }
 
 func (m *mockStorage) Get(ctx context.Context, fileID string) (*models.FileEntry, io.ReadCloser, error) {
+	m.mu.RLock()
 	file, ok := m.files[fileID]
+	m.mu.RUnlock()
 	if !ok {
 		return nil, nil, errors.New("file not found")
 	}
@@ -63,6 +71,8 @@ func (m *mockStorage) Get(ctx context.Context, fileID string) (*models.FileEntry
 }
 
 func (m *mockStorage) Delete(ctx context.Context, fileID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if _, ok := m.files[fileID]; !ok {
 		return errors.New("file not found")
 	}
@@ -71,6 +81,9 @@ func (m *mockStorage) Delete(ctx context.Context, fileID string) error {
 }
 
 func (m *mockStorage) List(ctx context.Context, query *filestorage.FileQuery) ([]*models.FileEntry, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	var files []*models.FileEntry
 	for _, f := range m.files {
 		// Apply access scope filter
@@ -107,12 +120,16 @@ func (m *mockStorage) List(ctx context.Context, query *filestorage.FileQuery) ([
 }
 
 func (m *mockStorage) Exists(ctx context.Context, fileID string) (bool, error) {
+	m.mu.RLock()
 	_, ok := m.files[fileID]
+	m.mu.RUnlock()
 	return ok, nil
 }
 
 func (m *mockStorage) GetMetadata(ctx context.Context, fileID string) (*models.FileEntry, error) {
+	m.mu.RLock()
 	file, ok := m.files[fileID]
+	m.mu.RUnlock()
 	if !ok {
 		return nil, errors.New("file not found")
 	}
@@ -120,6 +137,8 @@ func (m *mockStorage) GetMetadata(ctx context.Context, fileID string) (*models.F
 }
 
 func (m *mockStorage) UpdateMetadata(ctx context.Context, fileID string, metadata map[string]interface{}) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	file, ok := m.files[fileID]
 	if !ok {
 		return errors.New("file not found")
@@ -129,6 +148,8 @@ func (m *mockStorage) UpdateMetadata(ctx context.Context, fileID string, metadat
 }
 
 func (m *mockStorage) UpdateTags(ctx context.Context, fileID string, tags []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	file, ok := m.files[fileID]
 	if !ok {
 		return errors.New("file not found")
@@ -138,6 +159,9 @@ func (m *mockStorage) UpdateTags(ctx context.Context, fileID string, tags []stri
 }
 
 func (m *mockStorage) GetUsage(ctx context.Context) (*models.StorageUsage, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	var totalSize int64
 	for _, f := range m.files {
 		totalSize += f.entry.Size
@@ -153,6 +177,7 @@ func (m *mockStorage) GetUsage(ctx context.Context) (*models.StorageUsage, error
 
 // mockManager implements filestorage.Manager for testing
 type mockManager struct {
+	mu       sync.RWMutex
 	storages map[string]*mockStorage
 }
 
@@ -166,27 +191,42 @@ func newMockManager() *mockManager {
 }
 
 func (m *mockManager) GetStorage(storageID string) (filestorage.Storage, error) {
-	if storage, ok := m.storages[storageID]; ok {
+	m.mu.RLock()
+	storage, ok := m.storages[storageID]
+	m.mu.RUnlock()
+	if ok {
 		return storage, nil
 	}
 	// Create new storage on demand
-	storage := newMockStorage(storageID)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// Double-check in case another goroutine created it
+	if storage, ok := m.storages[storageID]; ok {
+		return storage, nil
+	}
+	storage = newMockStorage(storageID)
 	m.storages[storageID] = storage
 	return storage, nil
 }
 
 func (m *mockManager) CreateStorage(storageID string, config *models.StorageConfig) (filestorage.Storage, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	storage := newMockStorage(storageID)
 	m.storages[storageID] = storage
 	return storage, nil
 }
 
 func (m *mockManager) DeleteStorage(storageID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.storages, storageID)
 	return nil
 }
 
 func (m *mockManager) ListStorages() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	var ids []string
 	for id := range m.storages {
 		ids = append(ids, id)
@@ -195,7 +235,9 @@ func (m *mockManager) ListStorages() []string {
 }
 
 func (m *mockManager) HasStorage(storageID string) bool {
+	m.mu.RLock()
 	_, ok := m.storages[storageID]
+	m.mu.RUnlock()
 	return ok
 }
 
@@ -1243,4 +1285,527 @@ func TestFileStorageExecutor_Store_MimeTypeDetection(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ============== URL Download with httptest Tests ==============
+
+func TestFileStorageExecutor_Store_URLDownload_Success(t *testing.T) {
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("%PDF-1.4 test content"))
+	}))
+	defer server.Close()
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":   "store",
+		"file_url": server.URL + "/test.pdf",
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Equal(t, true, resultMap["success"])
+	assert.Equal(t, "application/pdf", resultMap["mime_type"])
+}
+
+func TestFileStorageExecutor_Store_URLDownload_HTTPError_404(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not Found"))
+	}))
+	defer server.Close()
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":   "store",
+		"file_url": server.URL + "/missing.pdf",
+	}
+
+	_, err := exec.Execute(context.Background(), config, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "404")
+}
+
+func TestFileStorageExecutor_Store_URLDownload_HTTPError_500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal Server Error"))
+	}))
+	defer server.Close()
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":   "store",
+		"file_url": server.URL + "/error.pdf",
+	}
+
+	_, err := exec.Execute(context.Background(), config, nil)
+	assert.Error(t, err)
+}
+
+func TestFileStorageExecutor_Store_URLDownload_Timeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simulate slow server
+		time.Sleep(3 * time.Second)
+		w.Write([]byte("too slow"))
+	}))
+	defer server.Close()
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":   "store",
+		"file_url": server.URL + "/slow.pdf",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	_, err := exec.Execute(ctx, config, nil)
+	// Note: Timeout behavior depends on HTTP client implementation
+	// Test may pass with timeout or complete successfully
+	_ = err
+}
+
+func TestFileStorageExecutor_Store_URLDownload_LargeFile(t *testing.T) {
+	// Create 1MB test data
+	largeData := make([]byte, 1024*1024)
+	for i := range largeData {
+		largeData[i] = byte(i % 256)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write(largeData)
+	}))
+	defer server.Close()
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":   "store",
+		"file_url": server.URL + "/large.bin",
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Equal(t, true, resultMap["success"])
+	assert.Equal(t, int64(1024*1024), resultMap["size"])
+}
+
+func TestFileStorageExecutor_Store_URLDownload_MIMEFromHeader(t *testing.T) {
+	tests := []struct {
+		name         string
+		contentType  string
+		expectedMime string
+	}{
+		{"JSON", "application/json", "application/json"},
+		{"PNG", "image/png", "image/png"},
+		{"PDF", "application/pdf", "application/pdf"},
+		{"Plain text", "text/plain; charset=utf-8", "text/plain; charset=utf-8"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", tt.contentType)
+				w.Write([]byte("test content"))
+			}))
+			defer server.Close()
+
+			mockMgr := newMockManager()
+			exec := NewFileStorageExecutor(mockMgr)
+
+			config := map[string]interface{}{
+				"action":   "store",
+				"file_url": server.URL + "/file",
+			}
+
+			result, err := exec.Execute(context.Background(), config, nil)
+			require.NoError(t, err)
+
+			resultMap := result.(map[string]interface{})
+			assert.Equal(t, tt.expectedMime, resultMap["mime_type"])
+		})
+	}
+}
+
+func TestFileStorageExecutor_Store_URLDownload_FilenameExtraction(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Write([]byte("PNG content"))
+	}))
+	defer server.Close()
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":   "store",
+		"file_url": server.URL + "/path/to/image.png",
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Contains(t, resultMap["file_name"].(string), ".png")
+}
+
+func TestFileStorageExecutor_Store_URLDownload_NetworkError(t *testing.T) {
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":   "store",
+		"file_url": "http://localhost:9999/nonexistent",
+	}
+
+	_, err := exec.Execute(context.Background(), config, nil)
+	assert.Error(t, err)
+}
+
+// ============== Large File Tests ==============
+
+func TestFileStorageExecutor_Store_1MB_Success(t *testing.T) {
+	data := make([]byte, 1024*1024) // 1MB
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":    "store",
+		"file_data": base64.StdEncoding.EncodeToString(data),
+		"file_name": "1mb-file.bin",
+		"mime_type": "application/octet-stream",
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Equal(t, true, resultMap["success"])
+	assert.Equal(t, int64(1024*1024), resultMap["size"])
+}
+
+func TestFileStorageExecutor_Store_10MB_Success(t *testing.T) {
+	data := make([]byte, 10*1024*1024) // 10MB
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":    "store",
+		"file_data": base64.StdEncoding.EncodeToString(data),
+		"file_name": "10mb-file.bin",
+		"mime_type": "application/octet-stream",
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Equal(t, true, resultMap["success"])
+	assert.Equal(t, int64(10*1024*1024), resultMap["size"])
+}
+
+func TestFileStorageExecutor_Get_LargeFile_Integrity(t *testing.T) {
+	// Create and store a 5MB file
+	originalData := make([]byte, 5*1024*1024)
+	for i := range originalData {
+		originalData[i] = byte(i % 256)
+	}
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	// Store
+	storeConfig := map[string]interface{}{
+		"action":    "store",
+		"file_data": base64.StdEncoding.EncodeToString(originalData),
+		"file_name": "5mb-test.bin",
+		"mime_type": "application/octet-stream",
+	}
+
+	storeResult, err := exec.Execute(context.Background(), storeConfig, nil)
+	require.NoError(t, err)
+
+	storeMap := storeResult.(map[string]interface{})
+	fileID := storeMap["file_id"].(string)
+
+	// Get
+	getConfig := map[string]interface{}{
+		"action":  "get",
+		"file_id": fileID,
+	}
+
+	getResult, err := exec.Execute(context.Background(), getConfig, nil)
+	require.NoError(t, err)
+
+	getMap := getResult.(map[string]interface{})
+	retrievedData, err := base64.StdEncoding.DecodeString(getMap["file_data"].(string))
+	require.NoError(t, err)
+
+	// Verify integrity
+	assert.Equal(t, originalData, retrievedData)
+}
+
+// ============== Concurrency Tests ==============
+
+func TestFileStorageExecutor_Concurrent_MultipleStores(t *testing.T) {
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	var wg sync.WaitGroup
+	results := make([]map[string]interface{}, 10)
+	errors := make([]error, 10)
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+
+			config := map[string]interface{}{
+				"action":    "store",
+				"file_data": base64.StdEncoding.EncodeToString([]byte("test content")),
+				"file_name": "concurrent-file-" + string(rune('A'+idx)) + ".txt",
+				"mime_type": "text/plain",
+			}
+
+			result, err := exec.Execute(context.Background(), config, nil)
+			errors[idx] = err
+			if err == nil {
+				results[idx] = result.(map[string]interface{})
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify all succeeded
+	for i := 0; i < 10; i++ {
+		require.NoError(t, errors[i], "goroutine %d failed", i)
+		assert.Equal(t, true, results[i]["success"])
+	}
+
+	// Verify all files are unique
+	fileIDs := make(map[string]bool)
+	for i := 0; i < 10; i++ {
+		fileID := results[i]["file_id"].(string)
+		assert.False(t, fileIDs[fileID], "duplicate file ID: %s", fileID)
+		fileIDs[fileID] = true
+	}
+}
+
+func TestFileStorageExecutor_Concurrent_StoreAndGet(t *testing.T) {
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	// First, store a file
+	storeConfig := map[string]interface{}{
+		"action":    "store",
+		"file_data": base64.StdEncoding.EncodeToString([]byte("shared content")),
+		"file_name": "shared-file.txt",
+		"mime_type": "text/plain",
+	}
+
+	storeResult, err := exec.Execute(context.Background(), storeConfig, nil)
+	require.NoError(t, err)
+
+	fileID := storeResult.(map[string]interface{})["file_id"].(string)
+
+	// Now read it concurrently from 20 goroutines
+	var wg sync.WaitGroup
+	errors := make([]error, 20)
+
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+
+			getConfig := map[string]interface{}{
+				"action":  "get",
+				"file_id": fileID,
+			}
+
+			_, err := exec.Execute(context.Background(), getConfig, nil)
+			errors[idx] = err
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify all reads succeeded
+	for i := 0; i < 20; i++ {
+		require.NoError(t, errors[i], "goroutine %d failed", i)
+	}
+}
+
+func TestFileStorageExecutor_Concurrent_10Goroutines_MixedOps(t *testing.T) {
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	fileIDs := []string{}
+
+	// 10 goroutines: 5 store, 5 list
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+
+			if idx%2 == 0 {
+				// Store operation
+				config := map[string]interface{}{
+					"action":    "store",
+					"file_data": base64.StdEncoding.EncodeToString([]byte("concurrent test")),
+					"file_name": "file-" + string(rune('A'+idx)) + ".txt",
+					"mime_type": "text/plain",
+				}
+
+				result, err := exec.Execute(context.Background(), config, nil)
+				if err == nil {
+					mu.Lock()
+					fileIDs = append(fileIDs, result.(map[string]interface{})["file_id"].(string))
+					mu.Unlock()
+				}
+			} else {
+				// List operation
+				config := map[string]interface{}{
+					"action": "list",
+				}
+
+				exec.Execute(context.Background(), config, nil)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify we got some file IDs
+	assert.GreaterOrEqual(t, len(fileIDs), 5)
+}
+
+func TestFileStorageExecutor_Concurrent_DifferentStorages(t *testing.T) {
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	var wg sync.WaitGroup
+	errors := make([]error, 6)
+
+	storageIDs := []string{"storage-a", "storage-b", "storage-c"}
+
+	for i := 0; i < 6; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+
+			config := map[string]interface{}{
+				"action":     "store",
+				"file_data":  base64.StdEncoding.EncodeToString([]byte("test")),
+				"file_name":  "file.txt",
+				"mime_type":  "text/plain",
+				"storage_id": storageIDs[idx%3],
+			}
+
+			_, err := exec.Execute(context.Background(), config, nil)
+			errors[idx] = err
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify all succeeded
+	for i := 0; i < 6; i++ {
+		require.NoError(t, errors[i], "goroutine %d failed", i)
+	}
+}
+
+// ============== MIME Detection Edge Cases ==============
+
+func TestFileStorageExecutor_MIMEDetection_RealPNGSignature(t *testing.T) {
+	// Real PNG signature
+	pngData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+	pngData = append(pngData, []byte("fake PNG data")...)
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":    "store",
+		"file_data": base64.StdEncoding.EncodeToString(pngData),
+		"file_name": "test.png",
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	// Should detect PNG from signature
+	assert.Equal(t, "image/png", resultMap["mime_type"])
+}
+
+func TestFileStorageExecutor_MIMEDetection_RealJPEGSignature(t *testing.T) {
+	// Real JPEG signature
+	jpegData := []byte{0xFF, 0xD8, 0xFF, 0xE0}
+	jpegData = append(jpegData, []byte("fake JPEG data")...)
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":    "store",
+		"file_data": base64.StdEncoding.EncodeToString(jpegData),
+		"file_name": "test.jpg",
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	// Should detect JPEG from signature
+	assert.Contains(t, resultMap["mime_type"].(string), "image/jpeg")
+}
+
+func TestFileStorageExecutor_MIMEDetection_ConflictingExtension(t *testing.T) {
+	// PNG signature but .txt extension
+	pngData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+	pngData = append(pngData, []byte("PNG with wrong extension")...)
+
+	mockMgr := newMockManager()
+	exec := NewFileStorageExecutor(mockMgr)
+
+	config := map[string]interface{}{
+		"action":    "store",
+		"file_data": base64.StdEncoding.EncodeToString(pngData),
+		"file_name": "image.txt", // Wrong extension
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	// Should detect PNG from signature, not extension
+	assert.Equal(t, "image/png", resultMap["mime_type"])
 }

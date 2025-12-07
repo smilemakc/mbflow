@@ -28,6 +28,7 @@ func (r *TriggerRepository) Create(ctx context.Context, trigger *models.TriggerM
 
 	_, err := r.db.NewInsert().
 		Model(trigger).
+		Value("enabled", "?", trigger.Enabled).
 		Exec(ctx)
 
 	return err

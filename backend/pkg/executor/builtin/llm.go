@@ -239,6 +239,15 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 		req.StopSequences = e.toStringSlice(stopSeqs)
 	}
 
+	// Parse file attachments
+	if files, ok := config["files"].([]interface{}); ok {
+		parsedFiles, err := e.parseFiles(files)
+		if err != nil {
+			return nil, err
+		}
+		req.Files = parsedFiles
+	}
+
 	// Tools
 	if tools, ok := config["tools"].([]interface{}); ok {
 		parsedTools, err := e.parseTools(tools)
@@ -723,6 +732,45 @@ func (e *LLMExecutor) toStringSlice(items []interface{}) []string {
 		}
 	}
 	return result
+}
+
+// parseFiles parses file attachments configuration.
+func (e *LLMExecutor) parseFiles(filesConfig []interface{}) ([]models.LLMFileAttachment, error) {
+	files := make([]models.LLMFileAttachment, 0, len(filesConfig))
+
+	for i, fileConfig := range filesConfig {
+		fileMap, ok := fileConfig.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("file %d is not a valid object", i)
+		}
+
+		data, _ := fileMap["data"].(string)
+		mimeType, _ := fileMap["mime_type"].(string)
+		name, _ := fileMap["name"].(string)
+		detail, _ := fileMap["detail"].(string)
+
+		if data == "" {
+			return nil, fmt.Errorf("file %d: data is required", i)
+		}
+		if mimeType == "" {
+			return nil, fmt.Errorf("file %d: mime_type is required", i)
+		}
+
+		file := models.LLMFileAttachment{
+			Data:     data,
+			MimeType: mimeType,
+			Name:     name,
+			Detail:   detail,
+		}
+
+		if !file.IsSupported() {
+			return nil, fmt.Errorf("file %d: unsupported mime_type %s (supported: image/jpeg, image/png, image/gif, image/webp, application/pdf)", i, mimeType)
+		}
+
+		files = append(files, file)
+	}
+
+	return files, nil
 }
 
 // Helper function to convert response to JSON for debugging

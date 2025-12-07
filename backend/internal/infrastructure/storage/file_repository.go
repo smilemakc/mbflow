@@ -39,7 +39,7 @@ func (r *FileRepository) Update(ctx context.Context, file *models.FileModel) err
 	file.UpdatedAt = time.Now()
 	_, err := r.db.NewUpdate().
 		Model(file).
-		Column("name", "mime_type", "tags", "metadata", "ttl_seconds", "expires_at", "updated_at").
+		Column("name", "mime_type", "size", "tags", "metadata", "ttl_seconds", "expires_at", "updated_at").
 		Where("id = ?", file.ID).
 		Exec(ctx)
 	if err != nil {
@@ -85,7 +85,7 @@ func (r *FileRepository) FindByStorageAndPath(ctx context.Context, storageID, pa
 		Scan(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, fmt.Errorf("file not found: storage_id=%s path=%s", storageID, path)
 		}
 		return nil, fmt.Errorf("failed to find file: %w", err)
 	}
@@ -129,7 +129,7 @@ func (r *FileRepository) FindByQuery(ctx context.Context, query *FileQuery) ([]*
 		q = q.Where("access_scope = ?", query.AccessScope)
 	}
 	if len(query.Tags) > 0 {
-		q = q.Where("tags && ?", query.Tags)
+		q = q.Where("tags && ?", models.StringArray(query.Tags))
 	}
 	if query.Expired != nil {
 		now := time.Now()

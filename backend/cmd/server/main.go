@@ -94,6 +94,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := builtin.RegisterAdapters(executorManager); err != nil {
+		appLogger.Error("Failed to register adapter executors", "error", err)
+		os.Exit(1)
+	}
+
+	if err := builtin.RegisterFileAdapters(executorManager, fileStorageManager); err != nil {
+		appLogger.Error("Failed to register file adapter executors", "error", err)
+		os.Exit(1)
+	}
+
 	appLogger.Info("Registered executors", "types", executorManager.List())
 
 	// Initialize WebSocket hub (if enabled)
@@ -342,7 +352,7 @@ func main() {
 	apiV1 := router.Group("/api/v1")
 	{
 		// Initialize handlers
-		workflowHandlers := rest.NewWorkflowHandlers(workflowRepo, appLogger)
+		workflowHandlers := rest.NewWorkflowHandlers(workflowRepo, appLogger, executorManager)
 		nodeHandlers := rest.NewNodeHandlers(workflowRepo, appLogger)
 		edgeHandlers := rest.NewEdgeHandlers(workflowRepo, appLogger)
 		executionHandlers := rest.NewExecutionHandlers(executionRepo, workflowRepo, executionManager, appLogger)

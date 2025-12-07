@@ -27,6 +27,7 @@ type LLMRequest struct {
 	ImageURLs          []string               `json:"image_url,omitempty"`            // Image URLs for vision models
 	ImageIDs           []string               `json:"image_id,omitempty"`             // OpenAI file IDs for images
 	FileIDs            []string               `json:"file_id,omitempty"`              // OpenAI file IDs for documents
+	Files              []LLMFileAttachment    `json:"files,omitempty"`                // Base64 encoded file attachments
 	Tools              []LLMTool              `json:"tools,omitempty"`                // Function definitions
 	ResponseFormat     *LLMResponseFormat     `json:"response_format,omitempty"`      // Structured output format
 	PreviousResponseID string                 `json:"previous_response_id,omitempty"` // For conversation chaining
@@ -48,7 +49,34 @@ type LLMRequest struct {
 	Functions      []FunctionDefinition `json:"functions,omitempty"`        // Extended function definitions (built-in, sub-workflow, custom code, OpenAPI)
 }
 
-// LLMTool represents a function tool available to the LLM.
+// LLMFileAttachment represents a base64-encoded file attachment for multimodal LLM requests.
+// Supports images (JPEG, PNG, GIF, WebP) and PDFs.
+type LLMFileAttachment struct {
+	Data     string `json:"data"`             // Base64 encoded file content
+	MimeType string `json:"mime_type"`        // MIME type (e.g., "image/png", "application/pdf")
+	Name     string `json:"name,omitempty"`   // Optional file name for context
+	Detail   string `json:"detail,omitempty"` // Image detail level: "auto", "low", "high" (for images only)
+}
+
+// IsImage checks if the attachment is an image type
+func (f *LLMFileAttachment) IsImage() bool {
+	switch f.MimeType {
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
+		return true
+	}
+	return false
+}
+
+// IsPDF checks if the attachment is a PDF
+func (f *LLMFileAttachment) IsPDF() bool {
+	return f.MimeType == "application/pdf"
+}
+
+// IsSupported checks if the MIME type is supported for LLM attachments
+func (f *LLMFileAttachment) IsSupported() bool {
+	return f.IsImage() || f.IsPDF()
+}
+
 type LLMTool struct {
 	Type     string          `json:"type"` // "function"
 	Function LLMFunctionTool `json:"function"`

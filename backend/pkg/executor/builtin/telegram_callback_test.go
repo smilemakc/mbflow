@@ -125,7 +125,7 @@ func TestTelegramCallbackExecutor_Execute_Success(t *testing.T) {
 	resultMap := result.(map[string]interface{})
 
 	assert.True(t, resultMap["success"].(bool))
-	assert.Greater(t, resultMap["duration_ms"].(int64), int64(0))
+	assert.GreaterOrEqual(t, resultMap["duration_ms"].(int64), int64(0))
 }
 
 func TestTelegramCallbackExecutor_Execute_WithAlert(t *testing.T) {

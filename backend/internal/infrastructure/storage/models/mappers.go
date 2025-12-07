@@ -102,7 +102,10 @@ func WorkflowFromStorage(sw *WorkflowModel) *models.Workflow {
 	// Extract tags from metadata if present
 	var tags []string
 	if metadata != nil {
-		if tagsVal, ok := metadata["tags"].([]interface{}); ok {
+		// Try both []string and []interface{} for compatibility
+		if tagsVal, ok := metadata["tags"].([]string); ok {
+			tags = tagsVal
+		} else if tagsVal, ok := metadata["tags"].([]interface{}); ok {
 			tags = make([]string, len(tagsVal))
 			for i, t := range tagsVal {
 				if tagStr, ok := t.(string); ok {

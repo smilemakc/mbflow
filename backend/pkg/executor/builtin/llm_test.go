@@ -1372,3 +1372,131 @@ func TestLLMExecutor_AutoMode_WithoutRegistry(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "tool calling registry not configured")
 }
+
+// TestLLMExecutor_getOrCreateProvider_OpenAI tests provider creation for OpenAI
+func TestLLMExecutor_getOrCreateProvider_OpenAI(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: models.LLMProviderOpenAI,
+		Model:    "gpt-4",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key":  "sk-test-key",
+			"base_url": "https://api.openai.com/v1",
+			"org_id":   "org-test",
+		},
+	}
+
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	// Verify it's an OpenAI provider by checking the type
+	_, ok := provider.(*OpenAIProvider)
+	assert.True(t, ok, "Expected OpenAI provider")
+}
+
+// TestLLMExecutor_getOrCreateProvider_OpenAIResponses tests provider creation for OpenAI Responses
+func TestLLMExecutor_getOrCreateProvider_OpenAIResponses(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: models.LLMProviderOpenAIResponses,
+		Model:    "gpt-4",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key":  "sk-test-key",
+			"base_url": "https://api.openai.com/v1",
+			"org_id":   "org-test",
+		},
+	}
+
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	// Verify it's an OpenAI Responses provider
+	_, ok := provider.(*OpenAIResponsesProvider)
+	assert.True(t, ok, "Expected OpenAI Responses provider")
+}
+
+// TestLLMExecutor_getOrCreateProvider_UnsupportedProvider tests error for unsupported provider
+func TestLLMExecutor_getOrCreateProvider_UnsupportedProvider(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: "unsupported-provider",
+		Model:    "gpt-4",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key": "sk-test",
+		},
+	}
+
+	_, err := exec.getOrCreateProvider(req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported provider")
+}
+
+// TestLLMExecutor_getOrCreateProvider_RegisteredProvider tests using pre-registered provider
+func TestLLMExecutor_getOrCreateProvider_RegisteredProvider(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			return &models.LLMResponse{
+				Content:    "mock response",
+				ResponseID: "mock-id",
+				Model:      req.Model,
+			}, nil
+		},
+	}
+
+	// Register a provider
+	exec.RegisterProvider("custom", mockProvider)
+
+	req := &models.LLMRequest{
+		Provider: "custom",
+		Model:    "custom-model",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+	}
+
+	// Should return the registered provider, not create a new one
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+	assert.Equal(t, mockProvider, provider)
+}
+
+// TestLLMExecutor_getOrCreateProvider_OpenAIMinimalConfig tests OpenAI with minimal config
+func TestLLMExecutor_getOrCreateProvider_OpenAIMinimalConfig(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: models.LLMProviderOpenAI,
+		Model:    "gpt-4",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key": "sk-test",
+			// No base_url or org_id - should use defaults
+		},
+	}
+
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	_, ok := provider.(*OpenAIProvider)
+	assert.True(t, ok)
+}

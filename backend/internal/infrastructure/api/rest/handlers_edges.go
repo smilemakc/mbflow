@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,44 @@ func NewEdgeHandlers(workflowRepo repository.WorkflowRepository, log *logger.Log
 		workflowRepo: workflowRepo,
 		logger:       log,
 	}
+}
+
+// detectCycle checks if adding a new edge would create a cycle using DFS
+func detectCycle(edges []*storagemodels.EdgeModel, newFrom, newTo string) bool {
+	// Build adjacency list including the new edge
+	adj := make(map[string][]string)
+	for _, e := range edges {
+		adj[e.FromNodeID] = append(adj[e.FromNodeID], e.ToNodeID)
+	}
+	// Add the new edge
+	adj[newFrom] = append(adj[newFrom], newTo)
+
+	// Use DFS to detect cycle starting from newTo node
+	// If we can reach newFrom from newTo, there's a cycle
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
+
+	var hasCycle func(node string) bool
+	hasCycle = func(node string) bool {
+		visited[node] = true
+		recStack[node] = true
+
+		for _, neighbor := range adj[node] {
+			if !visited[neighbor] {
+				if hasCycle(neighbor) {
+					return true
+				}
+			} else if recStack[neighbor] {
+				return true
+			}
+		}
+
+		recStack[node] = false
+		return false
+	}
+
+	// Check from newTo if we can reach newFrom (would create cycle)
+	return hasCycle(newTo)
 }
 
 // HandleAddEdge handles POST /api/v1/workflows/{workflow_id}/edges
@@ -113,6 +152,20 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 		return
 	}
 
+	// Get existing edges to check for cycles
+	existingEdges, err := h.workflowRepo.FindEdgesByWorkflowID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		h.logger.Error("Failed to find edges for cycle detection", "error", err, "workflow_id", workflowUUID)
+		respondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Check if adding this edge would create a cycle
+	if detectCycle(existingEdges, req.From, req.To) {
+		respondError(c, http.StatusBadRequest, "adding this edge creates a cycle in the workflow")
+		return
+	}
+
 	// Create edge model
 	edgeModel := &storagemodels.EdgeModel{
 		ID:         uuid.New(),
@@ -133,6 +186,24 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 
 	if err := h.workflowRepo.CreateEdge(c.Request.Context(), edgeModel); err != nil {
 		h.logger.Error("Failed to create edge", "error", err, "workflow_id", workflowUUID, "edge_id", req.ID, "from", req.From, "to", req.To)
+
+		errMsg := err.Error()
+		// Check for duplicate edge ID constraint violation
+		if strings.Contains(errMsg, "uq_edges_workflow_edge_id") {
+			respondError(c, http.StatusBadRequest, "edge with this ID already exists")
+			return
+		}
+		// Check for cycle detection errors
+		if strings.Contains(errMsg, "cycle") || strings.Contains(errMsg, "creates a cycle") {
+			respondError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		// Check for node not found errors
+		if strings.Contains(errMsg, "node not found") || strings.Contains(errMsg, "node does not exist") {
+			respondError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}

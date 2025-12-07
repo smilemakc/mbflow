@@ -140,6 +140,14 @@ func ExecutionModelToDomain(exm *storagemodels.ExecutionModel) *models.Execution
 		exec.Error = exm.Error
 	}
 
+	// Convert NodeExecutions
+	if len(exm.NodeExecutions) > 0 {
+		exec.NodeExecutions = make([]*models.NodeExecution, len(exm.NodeExecutions))
+		for i, ne := range exm.NodeExecutions {
+			exec.NodeExecutions[i] = NodeExecutionModelToDomain(ne)
+		}
+	}
+
 	return exec
 }
 

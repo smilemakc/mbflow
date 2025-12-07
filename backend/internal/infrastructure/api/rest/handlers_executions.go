@@ -100,6 +100,43 @@ func (h *ExecutionHandlers) HandleGetExecution(c *gin.Context) {
 	}
 
 	execution := engine.ExecutionModelToDomain(execModel)
+
+	// Map node UUIDs to logical IDs for frontend compatibility
+	workflowModel, err := h.workflowRepo.FindByIDWithRelations(c.Request.Context(), execModel.WorkflowID)
+	if err == nil && workflowModel != nil {
+		// Build node UUID -> logical ID mapping
+		nodeIDMap := make(map[string]string)
+		nodeNameMap := make(map[string]string)
+		nodeTypeMap := make(map[string]string)
+		for _, node := range workflowModel.Nodes {
+			nodeIDMap[node.ID.String()] = node.NodeID
+			nodeNameMap[node.ID.String()] = node.Name
+			nodeTypeMap[node.ID.String()] = node.Type
+		}
+
+		// Replace UUIDs with logical IDs in node executions
+		for _, ne := range execution.NodeExecutions {
+			if logicalID, ok := nodeIDMap[ne.NodeID]; ok {
+				ne.NodeID = logicalID
+			}
+			if nodeName, ok := nodeNameMap[ne.NodeID]; ok {
+				ne.NodeName = nodeName
+			} else if ne.NodeID != "" {
+				// If we already have logical ID, try to find name by it
+				for _, node := range workflowModel.Nodes {
+					if node.NodeID == ne.NodeID {
+						ne.NodeName = node.Name
+						ne.NodeType = node.Type
+						break
+					}
+				}
+			}
+			if nodeType, ok := nodeTypeMap[ne.NodeID]; ok {
+				ne.NodeType = nodeType
+			}
+		}
+	}
+
 	respondJSON(c, http.StatusOK, execution)
 }
 

@@ -272,6 +272,11 @@ func (cs *CronScheduler) executeTrigger(ctx context.Context, trigger *models.Tri
 
 // updateNextExecution updates the next execution time in trigger state
 func (cs *CronScheduler) updateNextExecution(ctx context.Context, triggerID string, nextTime time.Time) error {
+	// Skip state persistence if cache is not available (e.g., in unit tests)
+	if cs.cache == nil {
+		return nil
+	}
+
 	state, err := LoadTriggerState(ctx, cs.cache, triggerID)
 	if err != nil {
 		state = NewTriggerState(triggerID)

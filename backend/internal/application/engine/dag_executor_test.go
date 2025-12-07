@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
@@ -427,5 +428,756 @@ func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
 	falseBranchStatus, _ := execState.GetNodeStatus("false-branch")
 	if falseBranchStatus != models.NodeExecutionStatusCompleted {
 		t.Errorf("expected false-branch to be completed, got %v", falseBranchStatus)
+	}
+}
+
+// TestDAGExecutor_MultiParentWithConditionalEdges tests OR semantics for multi-parent nodes
+// A node with multiple incoming edges should execute if at least one edge passes its condition
+func TestDAGExecutor_MultiParentWithConditionalEdges(t *testing.T) {
+	var executedNodes []string
+	var mu sync.Mutex
+
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			nodeID := config["nodeID"].(string)
+			mu.Lock()
+			executedNodes = append(executedNodes, nodeID)
+			mu.Unlock()
+
+			// Analyze node returns score=50
+			if nodeID == "analyze" {
+				return map[string]interface{}{"score": 50}, nil
+			}
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	// Workflow simulating content_generation pattern:
+	// generate -> analyze -> merge (conditional: score >= 80)
+	// generate -> merge (unconditional)
+	// Since score=50, analyze->merge condition fails, but generate->merge succeeds
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Multi-Parent Test",
+		Nodes: []*models.Node{
+			{ID: "generate", Name: "Generate", Type: "test", Config: map[string]interface{}{"nodeID": "generate"}},
+			{ID: "analyze", Name: "Analyze", Type: "test", Config: map[string]interface{}{"nodeID": "analyze"}},
+			{ID: "merge", Name: "Merge", Type: "test", Config: map[string]interface{}{"nodeID": "merge"}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "generate", To: "analyze"},
+			{ID: "e2", From: "analyze", To: "merge", Condition: "output.score >= 80"}, // Will fail (score=50)
+			{ID: "e3", From: "generate", To: "merge"},                                 // No condition - should succeed
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Verify all nodes executed (none skipped)
+	for _, node := range workflow.Nodes {
+		status, _ := execState.GetNodeStatus(node.ID)
+		if status != models.NodeExecutionStatusCompleted {
+			t.Errorf("node %s should be completed, got %v", node.ID, status)
+		}
+	}
+
+	// Verify execution order and count
+	if len(executedNodes) != 3 {
+		t.Errorf("expected 3 nodes executed, got %d", len(executedNodes))
+	}
+}
+
+// TestDAGExecutor_MultiParentAllConditionsFail tests that node is skipped when all incoming edges fail
+func TestDAGExecutor_MultiParentAllConditionsFail(t *testing.T) {
+	var executedNodes []string
+	var mu sync.Mutex
+
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			nodeID := config["nodeID"].(string)
+			mu.Lock()
+			executedNodes = append(executedNodes, nodeID)
+			mu.Unlock()
+
+			// Both parent nodes return score that fails merge conditions
+			if nodeID == "parent1" || nodeID == "parent2" {
+				return map[string]interface{}{"score": 10}, nil
+			}
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	// Workflow where merge has two incoming edges, both with failing conditions
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "All Conditions Fail Test",
+		Nodes: []*models.Node{
+			{ID: "parent1", Name: "Parent1", Type: "test", Config: map[string]interface{}{"nodeID": "parent1"}},
+			{ID: "parent2", Name: "Parent2", Type: "test", Config: map[string]interface{}{"nodeID": "parent2"}},
+			{ID: "merge", Name: "Merge", Type: "test", Config: map[string]interface{}{"nodeID": "merge"}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "parent1", To: "merge", Condition: "output.score >= 80"}, // Will fail (score=10)
+			{ID: "e2", From: "parent2", To: "merge", Condition: "output.score >= 80"}, // Will fail (score=10)
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Verify parent nodes executed
+	parent1Status, _ := execState.GetNodeStatus("parent1")
+	if parent1Status != models.NodeExecutionStatusCompleted {
+		t.Errorf("parent1 should be completed, got %v", parent1Status)
+	}
+
+	parent2Status, _ := execState.GetNodeStatus("parent2")
+	if parent2Status != models.NodeExecutionStatusCompleted {
+		t.Errorf("parent2 should be completed, got %v", parent2Status)
+	}
+
+	// Verify merge was skipped (all conditions failed)
+	mergeStatus, _ := execState.GetNodeStatus("merge")
+	if mergeStatus != models.NodeExecutionStatusSkipped {
+		t.Errorf("merge should be skipped, got %v", mergeStatus)
+	}
+
+	// Verify only 2 nodes executed (not merge)
+	if len(executedNodes) != 2 {
+		t.Errorf("expected 2 nodes executed, got %d", len(executedNodes))
+	}
+}
+
+// TestDAGExecutor_ConditionalEdge_MapOutputWithResult tests conditional with map output containing "result" key
+func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
+	tests := []struct {
+		name          string
+		result        bool
+		sourceHandle  string
+		shouldExecute bool
+		targetBranch  string
+	}{
+		{
+			name:          "map output result=true with sourceHandle=true",
+			result:        true,
+			sourceHandle:  "true",
+			shouldExecute: true,
+			targetBranch:  "true-branch",
+		},
+		{
+			name:          "map output result=true with sourceHandle=false",
+			result:        true,
+			sourceHandle:  "false",
+			shouldExecute: false,
+			targetBranch:  "false-branch",
+		},
+		{
+			name:          "map output result=false with sourceHandle=true",
+			result:        false,
+			sourceHandle:  "true",
+			shouldExecute: false,
+			targetBranch:  "true-branch",
+		},
+		{
+			name:          "map output result=false with sourceHandle=false",
+			result:        false,
+			sourceHandle:  "false",
+			shouldExecute: true,
+			targetBranch:  "false-branch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockExec := &mockExecutor{
+				executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+					nodeID := config["nodeID"].(string)
+					// Conditional node returns map with "result" key
+					if nodeID == "conditional" {
+						return map[string]interface{}{
+							"result":  tt.result,
+							"message": "some metadata",
+						}, nil
+					}
+					return map[string]interface{}{"result": "ok"}, nil
+				},
+			}
+
+			registry := executor.NewManager()
+			registry.Register("conditional", mockExec)
+			registry.Register("test", mockExec)
+
+			nodeExec := NewNodeExecutor(registry)
+			dagExec := NewDAGExecutor(nodeExec, nil)
+
+			workflow := &models.Workflow{
+				ID:   "wf-1",
+				Name: "Conditional Map Output Test",
+				Nodes: []*models.Node{
+					{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
+					{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
+					{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]interface{}{"nodeID": "true-branch"}},
+					{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]interface{}{"nodeID": "false-branch"}},
+				},
+				Edges: []*models.Edge{
+					{ID: "e1", From: "start", To: "conditional"},
+					{ID: "e2", From: "conditional", To: "true-branch", SourceHandle: "true"},
+					{ID: "e3", From: "conditional", To: "false-branch", SourceHandle: "false"},
+				},
+			}
+
+			execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+			opts := DefaultExecutionOptions()
+
+			err := dagExec.Execute(context.Background(), execState, opts)
+			if err != nil {
+				t.Fatalf("DAG execution failed: %v", err)
+			}
+
+			// Check target branch status
+			targetStatus, _ := execState.GetNodeStatus(tt.targetBranch)
+			if tt.shouldExecute {
+				if targetStatus != models.NodeExecutionStatusCompleted {
+					t.Errorf("expected %s to be completed, got %v", tt.targetBranch, targetStatus)
+				}
+			} else {
+				if targetStatus != models.NodeExecutionStatusSkipped {
+					t.Errorf("expected %s to be skipped, got %v", tt.targetBranch, targetStatus)
+				}
+			}
+		})
+	}
+}
+
+// TestDAGExecutor_ConditionalEdge_UnknownSourceHandle tests conditional with unknown sourceHandle
+func TestDAGExecutor_ConditionalEdge_UnknownSourceHandle(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			nodeID := config["nodeID"].(string)
+			if nodeID == "conditional" {
+				return false, nil // Returns false but sourceHandle is unknown
+			}
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("conditional", mockExec)
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Unknown SourceHandle Test",
+		Nodes: []*models.Node{
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
+			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]interface{}{"nodeID": "branch"}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "start", To: "conditional"},
+			{ID: "e2", From: "conditional", To: "branch", SourceHandle: "unknown-handle"}, // Unknown handle
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Unknown handle should default to pass (line 721)
+	branchStatus, _ := execState.GetNodeStatus("branch")
+	if branchStatus != models.NodeExecutionStatusCompleted {
+		t.Errorf("expected branch to be completed (unknown handle defaults to pass), got %v", branchStatus)
+	}
+}
+
+// TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult tests map output without "result" key
+func TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			nodeID := config["nodeID"].(string)
+			if nodeID == "conditional" {
+				// Returns map without "result" key
+				return map[string]interface{}{
+					"data":   "some data",
+					"status": "ok",
+				}, nil
+			}
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("conditional", mockExec)
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Map Without Result Test",
+		Nodes: []*models.Node{
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
+			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]interface{}{"nodeID": "branch"}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "start", To: "conditional"},
+			{ID: "e2", From: "conditional", To: "branch", SourceHandle: "true"},
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Map without "result" key defaults to pass (line 739)
+	branchStatus, _ := execState.GetNodeStatus("branch")
+	if branchStatus != models.NodeExecutionStatusCompleted {
+		t.Errorf("expected branch to be completed (map without result defaults to pass), got %v", branchStatus)
+	}
+}
+
+// TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult tests map with non-boolean "result"
+func TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			nodeID := config["nodeID"].(string)
+			if nodeID == "conditional" {
+				// Returns map with non-boolean "result"
+				return map[string]interface{}{
+					"result": "success", // String instead of bool
+				}, nil
+			}
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("conditional", mockExec)
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Non-Boolean Result Test",
+		Nodes: []*models.Node{
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
+			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]interface{}{"nodeID": "branch"}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "start", To: "conditional"},
+			{ID: "e2", From: "conditional", To: "branch", SourceHandle: "true"},
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Non-boolean result defaults to pass (line 739)
+	branchStatus, _ := execState.GetNodeStatus("branch")
+	if branchStatus != models.NodeExecutionStatusCompleted {
+		t.Errorf("expected branch to be completed (non-boolean result defaults to pass), got %v", branchStatus)
+	}
+}
+
+// TestDAGExecutor_EdgeCondition_CompilationError tests edge with invalid condition syntax
+func TestDAGExecutor_EdgeCondition_CompilationError(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			return map[string]interface{}{"score": 50}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Invalid Condition Syntax Test",
+		Nodes: []*models.Node{
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "source", To: "target", Condition: "output.score >= && 80"}, // Invalid syntax
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Target should be skipped due to condition compilation error
+	targetStatus, _ := execState.GetNodeStatus("target")
+	if targetStatus != models.NodeExecutionStatusSkipped {
+		t.Errorf("expected target to be skipped (invalid condition syntax), got %v", targetStatus)
+	}
+}
+
+// TestDAGExecutor_EdgeCondition_RuntimeError tests edge condition with runtime error
+func TestDAGExecutor_EdgeCondition_RuntimeError(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			return map[string]interface{}{"data": "value"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Condition Runtime Error Test",
+		Nodes: []*models.Node{
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "source", To: "target", Condition: "output.score >= 80"}, // score doesn't exist
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Target should be skipped due to runtime error (missing field)
+	targetStatus, _ := execState.GetNodeStatus("target")
+	if targetStatus != models.NodeExecutionStatusSkipped {
+		t.Errorf("expected target to be skipped (condition runtime error), got %v", targetStatus)
+	}
+}
+
+// TestDAGExecutor_EdgeCondition_NonBooleanResult tests condition returning non-boolean
+func TestDAGExecutor_EdgeCondition_NonBooleanResult(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			return map[string]interface{}{"score": 50}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Non-Boolean Condition Result Test",
+		Nodes: []*models.Node{
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "source", To: "target", Condition: "output.score"}, // Returns number, not bool
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Target should be skipped because condition returns non-boolean (number)
+	targetStatus, _ := execState.GetNodeStatus("target")
+	if targetStatus != models.NodeExecutionStatusSkipped {
+		t.Errorf("expected target to be skipped (condition returns non-boolean), got %v", targetStatus)
+	}
+}
+
+// TestDAGExecutor_EdgeCondition_EmptyCondition tests edge with empty condition string
+func TestDAGExecutor_EdgeCondition_EmptyCondition(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Empty Condition Test",
+		Nodes: []*models.Node{
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "source", To: "target", Condition: ""}, // Empty condition = always pass
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Target should be executed (empty condition = always pass)
+	targetStatus, _ := execState.GetNodeStatus("target")
+	if targetStatus != models.NodeExecutionStatusCompleted {
+		t.Errorf("expected target to be completed (empty condition always passes), got %v", targetStatus)
+	}
+}
+
+// TestDAGExecutor_shouldExecuteNode_InvalidEdge tests behavior when edge references non-existent source node
+func TestDAGExecutor_shouldExecuteNode_InvalidEdge(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Invalid Edge Test",
+		Nodes: []*models.Node{
+			{ID: "node1", Name: "Node 1", Type: "test", Config: map[string]interface{}{}},
+			{ID: "node2", Name: "Node 2", Type: "test", Config: map[string]interface{}{}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "nonexistent", To: "node2"}, // Invalid source node
+			{ID: "e2", From: "node1", To: "node2"},       // Also connect node1 to node2
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+
+	// Mark node1 as completed
+	execState.SetNodeStatus("node1", models.NodeExecutionStatusCompleted)
+	execState.SetNodeOutput("node1", map[string]interface{}{"result": "ok"})
+
+	// Check if node2 should execute (it should, because node1 edge is valid even though nonexistent edge is invalid)
+	shouldExecute, _ := dagExec.shouldExecuteNode(execState, workflow.Nodes[1])
+
+	if !shouldExecute {
+		t.Error("expected node2 to execute because it has one valid incoming edge from node1")
+	}
+
+	// Now test with only invalid edge by marking node1 as skipped
+	execState.SetNodeStatus("node1", models.NodeExecutionStatusSkipped)
+
+	// Now node2 should not execute because the only valid source (node1) is skipped
+	shouldExecute2, skipReason := dagExec.shouldExecuteNode(execState, workflow.Nodes[1])
+
+	if shouldExecute2 {
+		t.Error("expected node2 to not execute when only valid source is skipped")
+	}
+
+	if skipReason == "" {
+		t.Error("expected skip reason to be set")
+	}
+}
+
+// TestDAGExecutor_shouldExecuteNode_SourceNotCompleted tests when source node is in pending/running state
+func TestDAGExecutor_shouldExecuteNode_SourceNotCompleted(t *testing.T) {
+	// This tests the edge case where shouldExecuteNode encounters a source node that's not completed yet
+	// In normal wave execution this shouldn't happen, but we test the defensive check
+
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Source Not Completed Test",
+		Nodes: []*models.Node{
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "source", To: "target"},
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+
+	// Manually set source node to "running" status to simulate the edge case
+	execState.SetNodeStatus("source", models.NodeExecutionStatusRunning)
+
+	// Now check if target should execute
+	shouldExecute, skipReason := dagExec.shouldExecuteNode(execState, workflow.Nodes[1])
+
+	if shouldExecute {
+		t.Error("expected target to not execute when source is running")
+	}
+
+	if skipReason == "" {
+		t.Error("expected skip reason to be set")
+	}
+
+	if !stringContains(skipReason, "not completed") {
+		t.Errorf("expected skip reason to mention 'not completed', got: %s", skipReason)
+	}
+}
+
+// TestDAGExecutor_shouldExecuteNode_SourceFailed tests when source node failed
+func TestDAGExecutor_shouldExecuteNode_SourceFailed(t *testing.T) {
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Source Failed Test",
+		Nodes: []*models.Node{
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "source", To: "target"},
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+
+	// Manually set source node to "failed" status
+	execState.SetNodeStatus("source", models.NodeExecutionStatusFailed)
+
+	// Check if target should execute
+	shouldExecute, skipReason := dagExec.shouldExecuteNode(execState, workflow.Nodes[1])
+
+	if shouldExecute {
+		t.Error("expected target to not execute when source failed")
+	}
+
+	if !stringContains(skipReason, "not completed") {
+		t.Errorf("expected skip reason to mention 'not completed', got: %s", skipReason)
+	}
+}
+
+// Helper function to check if string contains substring
+func stringContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+func TestPtrString(t *testing.T) {
+	str := "test string"
+	ptr := ptrString(str)
+
+	if ptr == nil {
+		t.Fatal("ptrString returned nil")
+	}
+
+	if *ptr != str {
+		t.Errorf("expected %s, got %s", str, *ptr)
+	}
+}
+
+func TestContainsError(t *testing.T) {
+	err1 := errors.New("error 1")
+	err2 := errors.New("error 2")
+	err3 := errors.New("error 3")
+
+	errors := []error{err1, err2}
+
+	// Test found
+	if !containsError(errors, err1) {
+		t.Error("should find err1")
+	}
+
+	// Test not found
+	if containsError(errors, err3) {
+		t.Error("should not find err3")
+	}
+
+	// Test empty slice
+	emptyErrors := []error{}
+	if containsError(emptyErrors, err1) {
+		t.Error("empty slice should not contain any error")
 	}
 }
