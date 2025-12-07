@@ -13,7 +13,9 @@
       <label class="label">
         Expression
         <span class="hint">
-          {{ localConfig.language === "jq" ? "jq filter" : "JavaScript function" }}
+          {{
+            localConfig.language === "jq" ? "jq filter" : "JavaScript function"
+          }}
         </span>
       </label>
       <MonacoEditor
@@ -32,7 +34,10 @@
         </template>
         <template v-else>
           <strong>JavaScript Example:</strong><br />
-          <code>return {"{"} name: input.user.name, count: input.items.length {"}"};</code>
+          <code
+            >return {"{"} name: input.user.name, count: input.items.length
+            {"}"};</code
+          >
         </template>
       </div>
     </div>
@@ -74,12 +79,15 @@ const editorLanguage = computed(() => {
 });
 
 // Watch for external config changes
+// Watch for external config changes
 watch(
   () => props.config,
   (newConfig) => {
-    localConfig.value = { ...newConfig };
+    if (JSON.stringify(newConfig) !== JSON.stringify(localConfig.value)) {
+      localConfig.value = { ...newConfig };
+    }
   },
-  { deep: true }
+  { deep: true },
 );
 
 // Emit changes
@@ -88,7 +96,7 @@ watch(
   (newConfig) => {
     emit("update:config", newConfig);
   },
-  { deep: true }
+  { deep: true },
 );
 </script>
 

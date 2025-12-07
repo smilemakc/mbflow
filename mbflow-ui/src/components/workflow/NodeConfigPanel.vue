@@ -34,7 +34,7 @@
           <span
             :class="[
               'rounded px-2 py-1 text-xs font-semibold',
-              nodeTypeBadgeClass
+              nodeTypeBadgeClass,
             ]"
           >
             {{ nodeTypeLabel }}
@@ -106,14 +106,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref, markRaw } from "vue";
+import { computed, watch, ref, markRaw, type Component } from "vue";
 import { Icon } from "@iconify/vue";
 import { toast } from "vue3-toastify";
 import { useWorkflowStore } from "@/stores/workflow";
 import Button from "@/components/ui/Button.vue";
 import Input from "@/components/ui/Input.vue";
 import { validateNodeId, isNodeIdUnique } from "@/utils/nodeId";
-import { NodeType, NODE_TYPE_METADATA, DEFAULT_NODE_CONFIGS } from "@/types/nodes";
+import {
+  NodeType,
+  NODE_TYPE_METADATA,
+  DEFAULT_NODE_CONFIGS,
+} from "@/types/nodes";
 import type { NodeConfig } from "@/types/nodes";
 
 // Import node config components
@@ -121,8 +125,10 @@ import HTTPNodeConfig from "@/components/nodes/config/HTTPNodeConfig.vue";
 import LLMNodeConfig from "@/components/nodes/config/LLMNodeConfig.vue";
 import TransformNodeConfig from "@/components/nodes/config/TransformNodeConfig.vue";
 import FunctionCallNodeConfig from "@/components/nodes/config/FunctionCallNodeConfig.vue";
+import TelegramNodeConfig from "@/components/nodes/config/TelegramNodeConfig.vue";
 
 const workflowStore = useWorkflowStore();
+const emit = defineEmits(["save"]);
 
 const selectedNode = computed(() => workflowStore.selectedNode);
 const isOpen = computed(() => !!selectedNode.value);
@@ -149,6 +155,7 @@ const nodeTypeBadgeClass = computed(() => {
     "#8B5CF6": "bg-purple-100 text-purple-700",
     "#F59E0B": "bg-amber-100 text-amber-700",
     "#3B82F6": "bg-blue-100 text-blue-700",
+    "#0EA5E9": "bg-sky-100 text-sky-700",
   };
 
   return colorMap[color] || "bg-gray-100 text-gray-700";
@@ -160,6 +167,7 @@ const configComponentMap: Record<NodeType, Component> = {
   [NodeType.LLM]: markRaw(LLMNodeConfig),
   [NodeType.TRANSFORM]: markRaw(TransformNodeConfig),
   [NodeType.FUNCTION_CALL]: markRaw(FunctionCallNodeConfig),
+  [NodeType.TELEGRAM]: markRaw(TelegramNodeConfig),
 };
 
 const currentConfigComponent = computed(() => {
@@ -188,7 +196,7 @@ watch(
       nodeIdError.value = "";
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // Validate node ID on change
@@ -245,6 +253,9 @@ function saveConfig() {
       config: nodeConfig.value,
     },
   });
+
+  // Emit save event to trigger workflow persistence
+  emit("save");
 
   toast.success("Node configuration saved successfully");
   closePanel();

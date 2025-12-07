@@ -45,7 +45,9 @@ async function handleDelete(workflowId: string) {
     toast.success("Workflow deleted successfully");
   } catch (err: any) {
     console.error("Failed to delete workflow:", err);
-    toast.error("Failed to delete workflow: " + (err.message || "Unknown error"));
+    toast.error(
+      "Failed to delete workflow: " + (err.message || "Unknown error"),
+    );
   }
 }
 

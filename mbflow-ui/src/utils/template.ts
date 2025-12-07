@@ -1,7 +1,7 @@
 import type {
-  VariableContext,
-  TemplateOptions,
   ParsedVariable,
+  TemplateOptions,
+  VariableContext,
   VariableType,
 } from "@/types/template";
 
@@ -17,9 +17,9 @@ export function parseTemplate(template: string): ParsedVariable[] {
 
   for (const match of matches) {
     const fullMatch = match[0];
-    const content = match[1].trim();
-    const parts = content.split(".");
-
+    const content = match[1]?.trim();
+    const parts = content?.split(".");
+    if (!parts) continue;
     if (parts.length < 2) {
       continue; // Invalid format
     }
@@ -52,9 +52,9 @@ export function validateTemplateSyntax(template: string): {
   const matches = template.matchAll(TEMPLATE_PATTERN);
 
   for (const match of matches) {
-    const content = match[1].trim();
-    const parts = content.split(".");
-
+    const content = match[1]?.trim();
+    const parts = content?.split(".");
+    if (!parts) continue;
     if (parts.length < 2) {
       return {
         valid: false,
@@ -96,8 +96,10 @@ export function resolvePath(obj: any, path: string): any {
     const arrayMatch = part.match(/^(\w+)\[(\d+)\]$/);
     if (arrayMatch) {
       const [, key, index] = arrayMatch;
+      if (!key) continue;
       current = current[key];
       if (Array.isArray(current)) {
+        if (!index) continue;
         current = current[parseInt(index)];
       } else {
         return undefined;
@@ -132,7 +134,7 @@ function valueToString(value: any): string {
 function resolveVariable(
   varRef: ParsedVariable,
   context: VariableContext,
-  options: TemplateOptions
+  options: TemplateOptions,
 ): string {
   const { type, path } = varRef;
 
@@ -166,7 +168,7 @@ function resolveVariable(
 export function resolveTemplate(
   template: string,
   context: VariableContext,
-  options: TemplateOptions = {}
+  options: TemplateOptions = {},
 ): string {
   const variables = parseTemplate(template);
 
@@ -186,7 +188,7 @@ export function resolveTemplate(
 export function resolveTemplateObject(
   obj: any,
   context: VariableContext,
-  options: TemplateOptions = {}
+  options: TemplateOptions = {},
 ): any {
   if (typeof obj === "string") {
     return resolveTemplate(obj, context, options);

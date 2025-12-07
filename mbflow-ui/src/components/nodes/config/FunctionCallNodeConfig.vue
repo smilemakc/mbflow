@@ -19,8 +19,8 @@
       />
       <div class="help-text">
         Enter function arguments as JSON object. You can use template variables
-        like <code>{"{{"}env.api_key{"}}"}</code> or
-        <code>{"{{"}input.user_id{"}}"}</code>
+        like <code>{"{{ "}env.api_key{" }}"}</code> or
+        <code>{"{{ "}input.user_id{" }}"}</code>
       </div>
     </div>
 
@@ -75,12 +75,15 @@ const argumentsJson = computed({
 });
 
 // Watch for external config changes
+// Watch for external config changes
 watch(
   () => props.config,
   (newConfig) => {
-    localConfig.value = { ...newConfig };
+    if (JSON.stringify(newConfig) !== JSON.stringify(localConfig.value)) {
+      localConfig.value = { ...newConfig };
+    }
   },
-  { deep: true }
+  { deep: true },
 );
 
 // Emit changes
@@ -89,7 +92,7 @@ watch(
   (newConfig) => {
     emit("update:config", newConfig);
   },
-  { deep: true }
+  { deep: true },
 );
 </script>
 

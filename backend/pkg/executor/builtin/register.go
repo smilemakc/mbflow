@@ -11,6 +11,8 @@ func RegisterBuiltins(manager executor.Manager) error {
 		"llm":           NewLLMExecutor(),
 		"function_call": NewFunctionCallExecutor(),
 		"telegram":      NewTelegramExecutor(),
+		"conditional":   NewConditionalExecutor(),
+		"merge":         NewMergeExecutor(),
 	}
 
 	for name, exec := range executors {

@@ -25,9 +25,15 @@ export async function getExecutions(
 /**
  * Get execution by ID
  */
-export async function getExecution(id: string): Promise<ExecutionResponse> {
-  const data = await apiClient.get<ExecutionResponse>(`/executions/${id}`);
-  return data as unknown as ExecutionResponse;
+export async function getExecution(id: string): Promise<Execution> {
+  const data = await apiClient.get<ExecutionResponse | Execution>(
+    `/executions/${id}`,
+  );
+  // Backend may return { execution: Execution } or Execution directly
+  if (data && typeof data === "object" && "execution" in data) {
+    return (data as ExecutionResponse).execution;
+  }
+  return data as unknown as Execution;
 }
 
 /**
@@ -42,6 +48,16 @@ export async function cancelExecution(id: string): Promise<void> {
  */
 export async function getExecutionLogs(id: string): Promise<any> {
   return apiClient.get(`/executions/${id}/logs`);
+}
+
+/**
+ * Get node execution result
+ */
+export async function getNodeResult(
+  executionId: string,
+  nodeId: string,
+): Promise<any> {
+  return apiClient.get(`/executions/${executionId}/nodes/${nodeId}`);
 }
 
 /**

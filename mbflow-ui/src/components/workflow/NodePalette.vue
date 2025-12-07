@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { Icon } from "@iconify/vue";
-import { NodeType, NODE_TYPE_METADATA, DEFAULT_NODE_CONFIGS } from "@/types/nodes";
+import {
+  NodeType,
+  NODE_TYPE_METADATA,
+  DEFAULT_NODE_CONFIGS,
+} from "@/types/nodes";
 
 export interface NodeTemplate {
   type: string;
@@ -46,6 +50,14 @@ const nodeTemplates: NodeTemplate[] = [
     description: NODE_TYPE_METADATA[NodeType.FUNCTION_CALL].description,
     color: NODE_TYPE_METADATA[NodeType.FUNCTION_CALL].color,
     defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.FUNCTION_CALL],
+  },
+  {
+    type: NodeType.TELEGRAM,
+    label: NODE_TYPE_METADATA[NodeType.TELEGRAM].label,
+    icon: NODE_TYPE_METADATA[NodeType.TELEGRAM].icon,
+    description: NODE_TYPE_METADATA[NodeType.TELEGRAM].description,
+    color: NODE_TYPE_METADATA[NodeType.TELEGRAM].color,
+    defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.TELEGRAM],
   },
   // Disabled nodes (kept for future use)
   // {

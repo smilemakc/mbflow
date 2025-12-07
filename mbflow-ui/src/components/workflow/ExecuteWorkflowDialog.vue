@@ -13,7 +13,9 @@
       @click.stop
     >
       <!-- Header -->
-      <div class="flex items-center justify-between border-b border-gray-200 p-6">
+      <div
+        class="flex items-center justify-between border-b border-gray-200 p-6"
+      >
         <div>
           <h2 class="text-xl font-semibold text-gray-900">Execute Workflow</h2>
           <p class="mt-1 text-sm text-gray-500">
@@ -41,9 +43,9 @@
               <p class="font-medium">Variable Resolution Order</p>
               <p class="mt-1 text-blue-800">
                 Execution Variables (below) override Workflow Variables. Use
-                <code class="rounded bg-blue-100 px-1 font-mono text-xs"
-                  >{{templatePlaceholderExample}}</code
-                >
+                <code class="rounded bg-blue-100 px-1 font-mono text-xs">{{
+                  templatePlaceholderExample
+                }}</code>
                 in node configurations.
               </p>
             </div>
@@ -107,7 +109,7 @@
                     v-model="item.key"
                     type="text"
                     placeholder="variable_name"
-                    class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    class="w-full rounded border border-gray-300 px-2 py-1.5 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -129,9 +131,13 @@
             </div>
           </div>
 
-          <div v-else class="rounded-lg border border-dashed border-gray-300 p-4 text-center">
+          <div
+            v-else
+            class="rounded-lg border border-dashed border-gray-300 p-4 text-center"
+          >
             <p class="text-sm text-gray-500">
-              No execution variables defined. Execution will use workflow variables.
+              No execution variables defined. Execution will use workflow
+              variables.
             </p>
           </div>
         </div>
@@ -164,11 +170,15 @@
             class="mt-0.5 size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
           <div class="flex-1">
-            <label for="strictMode" class="text-sm font-medium text-gray-700 cursor-pointer">
+            <label
+              for="strictMode"
+              class="cursor-pointer text-sm font-medium text-gray-700"
+            >
               Strict Mode
             </label>
             <p class="mt-0.5 text-xs text-gray-500">
-              Fail execution if any template variable is undefined. Recommended for production.
+              Fail execution if any template variable is undefined. Recommended
+              for production.
             </p>
           </div>
         </div>
@@ -184,7 +194,7 @@
         </button>
         <button
           :disabled="isExecuting"
-          class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           @click="handleExecute"
         >
           <Icon
@@ -219,7 +229,7 @@ const emit = defineEmits<{
 }>();
 
 const workflowStore = useWorkflowStore();
-const templatePlaceholderExample = "{{env.variable_name}}"
+const templatePlaceholderExample = "{{env.variable_name}}";
 interface VariableItem {
   key: string;
   value: string;
@@ -248,7 +258,7 @@ watch(
       strictMode.value = false;
       isExecuting.value = false;
     }
-  }
+  },
 );
 
 function formatValue(value: any): string {

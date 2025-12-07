@@ -6,7 +6,10 @@
  * @param existingIds - Array of existing node IDs to check for duplicates
  * @returns Generated node ID
  */
-export function generateNodeId(nodeType: string, existingIds: string[]): string {
+export function generateNodeId(
+  nodeType: string,
+  existingIds: string[],
+): string {
   // Check if base nodeType is available
   if (!existingIds.includes(nodeType)) {
     return nodeType;
@@ -29,12 +32,12 @@ export function generateNodeId(nodeType: string, existingIds: string[]): string 
  * @returns true if valid, false otherwise
  */
 export function validateNodeId(id: string): boolean {
-  if (!id || id.trim() === '') {
+  if (!id || id.trim() === "") {
     return false;
   }
 
   // Only allow a-Z and _
-  const validPattern = /^[a-zA-Z_]+$/;
+  const validPattern = /^[a-zA-Z_1-9\-]+$/;
   return validPattern.test(id);
 }
 
@@ -49,7 +52,7 @@ export function validateNodeId(id: string): boolean {
 export function isNodeIdUnique(
   id: string,
   existingIds: string[],
-  currentId?: string
+  currentId?: string,
 ): boolean {
   // If editing, allow the current ID
   if (currentId && id === currentId) {

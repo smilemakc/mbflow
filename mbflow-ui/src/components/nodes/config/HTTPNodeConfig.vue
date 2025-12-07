@@ -21,7 +21,8 @@
     <div class="form-group">
       <label class="label">Headers</label>
       <KeyValueEditor
-        v-model="localConfig.headers"
+        :model-value="localConfig.headers || {}"
+        @update:model-value="localConfig.headers = $event"
         :node-id="nodeId"
         placeholder-key="Content-Type"
         placeholder-value="application/json"
@@ -34,7 +35,8 @@
     >
       <label class="label">Body</label>
       <MonacoEditor
-        v-model="localConfig.body"
+        :model-value="localConfig.body || ''"
+        @update:model-value="localConfig.body = $event"
         language="json"
         height="150px"
         :node-id="nodeId"
@@ -95,15 +97,28 @@ const emit = defineEmits<{
   (e: "update:config", config: HTTPNodeConfig): void;
 }>();
 
-const localConfig = ref<HTTPNodeConfig>({ ...props.config });
+const localConfig = ref<HTTPNodeConfig>({
+  ...props.config,
+  headers: props.config.headers ?? {},
+  body: props.config.body ?? "",
+});
 
 // Watch for external config changes
 watch(
   () => props.config,
   (newConfig) => {
-    localConfig.value = { ...newConfig };
+    const newVal = {
+      headers: {},
+      body: "",
+      ...newConfig
+    };
+    
+    // Prevent infinite loop by checking if value actually changed
+    if (JSON.stringify(newVal) !== JSON.stringify(localConfig.value)) {
+      localConfig.value = newVal;
+    }
   },
-  { deep: true }
+  { deep: true },
 );
 
 // Emit changes
@@ -112,7 +127,7 @@ watch(
   (newConfig) => {
     emit("update:config", newConfig);
   },
-  { deep: true }
+  { deep: true },
 );
 </script>
 

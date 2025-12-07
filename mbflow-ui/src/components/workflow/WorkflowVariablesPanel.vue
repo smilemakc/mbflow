@@ -40,9 +40,9 @@
               <p class="font-medium">Workflow Variables</p>
               <p class="mt-1 text-blue-800">
                 Define default values for variables. Use
-                <code class="rounded bg-blue-100 px-1 font-mono text-xs"
-                  >{{variablePlaceholderExample}}</code
-                >
+                <code class="rounded bg-blue-100 px-1 font-mono text-xs">{{
+                  variablePlaceholderExample
+                }}</code>
                 in any node configuration field.
               </p>
               <p class="mt-2 text-xs text-blue-700">
@@ -60,7 +60,10 @@
               <span class="font-semibold text-gray-600">1.</span>
               <div>
                 <p class="text-gray-700">
-                  Define: <code class="rounded bg-gray-200 px-1 font-mono">api_key = sk_123</code>
+                  Define:
+                  <code class="rounded bg-gray-200 px-1 font-mono"
+                    >api_key = sk_123</code
+                  >
                 </p>
               </div>
             </div>
@@ -68,7 +71,10 @@
               <span class="font-semibold text-gray-600">2.</span>
               <div>
                 <p class="text-gray-700">
-                  Use: <code class="rounded bg-gray-200 px-1 font-mono">{{variablePlaceholderExample}}</code>
+                  Use:
+                  <code class="rounded bg-gray-200 px-1 font-mono">{{
+                    variablePlaceholderExample
+                  }}</code>
                 </p>
               </div>
             </div>
@@ -76,7 +82,8 @@
               <span class="font-semibold text-gray-600">3.</span>
               <div>
                 <p class="text-gray-700">
-                  Result: <code class="rounded bg-gray-200 px-1 font-mono">sk_123</code>
+                  Result:
+                  <code class="rounded bg-gray-200 px-1 font-mono">sk_123</code>
                 </p>
               </div>
             </div>
@@ -161,7 +168,7 @@ const emit = defineEmits<{
   (e: "close"): void;
 }>();
 
-const variablePlaceholderExample = "{{env.api_key}}"
+const variablePlaceholderExample = "{{env.api_key}}";
 const workflowStore = useWorkflowStore();
 
 interface VariableItem {
@@ -179,7 +186,7 @@ watch(
       loadVariables();
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 function loadVariables() {

@@ -17,6 +17,11 @@ const route = useRoute();
 const menuItems = [
   { title: "Dashboard", icon: "heroicons:home", to: "/" },
   { title: "Workflows", icon: "heroicons:squares-2x2", to: "/workflows" },
+  {
+    title: "Templates",
+    icon: "heroicons:document-duplicate",
+    to: "/templates",
+  },
   { title: "Executions", icon: "heroicons:play-circle", to: "/executions" },
   { title: "Triggers", icon: "heroicons:bell-alert", to: "/triggers" },
   { title: "Settings", icon: "heroicons:cog-6-tooth", to: "/settings" },

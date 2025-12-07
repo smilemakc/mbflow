@@ -1,10 +1,6 @@
 <template>
   <div class="key-value-editor">
-    <div
-      v-for="(item, index) in items"
-      :key="index"
-      class="key-value-row"
-    >
+    <div v-for="(item, index) in items" :key="index" class="key-value-row">
       <TemplateInput
         :model-value="item.key"
         @update:model-value="updateKey(index, $event)"
@@ -25,9 +21,7 @@
       </button>
     </div>
 
-    <button @click="addItem" class="add-button">
-      + Add {{ itemLabel }}
-    </button>
+    <button @click="addItem" class="add-button">+ Add {{ itemLabel }}</button>
   </div>
 </template>
 
@@ -85,17 +79,23 @@ watch(
       items.value.push({ key: "", value: "" });
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 function updateKey(index: number, newKey: string) {
-  items.value[index].key = newKey;
-  emitChanges();
+  const item = items.value[index];
+  if (item) {
+    item.key = newKey;
+    emitChanges();
+  }
 }
 
 function updateValue(index: number, newValue: string) {
-  items.value[index].value = newValue;
-  emitChanges();
+  const item = items.value[index];
+  if (item) {
+    item.value = newValue;
+    emitChanges();
+  }
 }
 
 function addItem() {

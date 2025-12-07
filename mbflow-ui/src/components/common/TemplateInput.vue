@@ -1,35 +1,44 @@
 <template>
   <div class="template-input">
-    <div class="input-wrapper">
+    <div class="input-wrapper" :class="{ 'is-multiline': multiline }">
+      <textarea
+        v-if="multiline"
+        ref="inputRef"
+        :value="modelValue"
+        @input="handleInput"
+        @keydown="handleKeydown"
+        @blur="hideAutocomplete"
+        :placeholder="placeholder"
+        :rows="rows"
+        class="input-field textarea-field"
+      ></textarea>
       <input
-          ref="inputRef"
-          :value="modelValue"
-          @input="handleInput"
-          @keydown="handleKeydown"
-          @blur="hideAutocomplete"
-          :placeholder="placeholder"
-          class="input-field"
+        v-else
+        ref="inputRef"
+        :value="modelValue"
+        @input="handleInput"
+        @keydown="handleKeydown"
+        @blur="hideAutocomplete"
+        :placeholder="placeholder"
+        class="input-field"
       />
       <span v-if="showVariableHint" class="hint-text">
-        Use {{ "{{"}}env.variable }} or {{ "{{"}}input.field }}
+        Use {{ "{{" }}env.variable }} or {{ "{{" }}input.field }}
       </span>
     </div>
 
     <!-- Autocomplete dropdown -->
     <div
-        v-if="showAutocomplete && suggestions.length > 0"
-        class="autocomplete-dropdown"
-        :style="{ top: dropdownTop + 'px', left: dropdownLeft + 'px' }"
+      v-if="showAutocomplete && suggestions.length > 0"
+      class="autocomplete-dropdown"
+      :style="{ top: dropdownTop + 'px', left: dropdownLeft + 'px' }"
     >
       <div
-          v-for="(suggestion, index) in suggestions"
-          :key="suggestion.value"
-          :class="[
-          'suggestion-item',
-          { active: index === selectedIndex }
-        ]"
-          @mousedown.prevent="selectSuggestion(suggestion)"
-          @mouseenter="selectedIndex = index"
+        v-for="(suggestion, index) in suggestions"
+        :key="suggestion.value"
+        :class="['suggestion-item', { active: index === selectedIndex }]"
+        @mousedown.prevent="selectSuggestion(suggestion)"
+        @mouseenter="selectedIndex = index"
       >
         <span class="suggestion-type" :class="suggestion.type">
           {{ suggestion.type }}
@@ -44,14 +53,16 @@
 </template>
 
 <script setup lang="ts">
-import {nextTick, ref} from "vue";
-import {useVariableContext} from "@/composables/useVariableContext";
+import { nextTick, ref } from "vue";
+import { useVariableContext } from "@/composables/useVariableContext";
 
 interface Props {
-  modelValue: string;
+  modelValue?: string;
   placeholder?: string;
   showVariableHint?: boolean;
   nodeId?: string;
+  multiline?: boolean;
+  rows?: number;
 }
 
 interface Suggestion {
@@ -64,15 +75,17 @@ interface Suggestion {
 const props = withDefaults(defineProps<Props>(), {
   placeholder: "",
   showVariableHint: true,
+  multiline: false,
+  rows: 3,
 });
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
 }>();
 
-const {getAvailableVariables} = useVariableContext();
+const { getAvailableVariables } = useVariableContext();
 
-const inputRef = ref<HTMLInputElement | null>(null);
+const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 const showAutocomplete = ref(false);
 const suggestions = ref<Suggestion[]>([]);
 const selectedIndex = ref(0);
@@ -83,65 +96,88 @@ const cursorPosition = ref(0);
 
 // Build suggestions based on available variables
 const buildSuggestions = (prefix: string): Suggestion[] => {
-  const available = getAvailableVariables();
+  const available = getAvailableVariables(props.nodeId);
   const results: Suggestion[] = [];
-
-  // Determine what we're autocompleting
+  
   const parts = prefix.split(".");
-  const type = parts[0] as "env" | "input";
+  const firstPart = parts[0] || "";
 
-  if (parts.length === 1) {
-    // Suggest types: env or input
-    if ("env".startsWith(prefix)) {
-      results.push({
-        type: "env",
-        label: "env",
-        value: "{{env.",
-        description: "Workflow/execution variables",
-      });
-    }
-    if ("input".startsWith(prefix)) {
-      results.push({
-        type: "input",
-        label: "input",
-        value: "{{input.",
-        description: "Parent node output",
-      });
-    }
-  } else if (parts.length === 2) {
-    // Suggest variable keys
-    const search = parts[1].toLowerCase();
-
-    if (type === "env") {
-      available.workflow.forEach(({key, value}) => {
-        if (key.toLowerCase().includes(search)) {
-          results.push({
+  // 1. Env variables type suggestion
+  if ("env".startsWith(firstPart)) {
+      if (prefix === "" || ["e", "en", "env"].includes(prefix)) {
+         results.push({
             type: "env",
-            label: key,
-            value: `{{env.${key}}}`,
-            description: typeof value === "string" ? value : JSON.stringify(value),
+            label: "env",
+            value: "{{env.",
+            description: "Workflow/execution variables",
           });
-        }
-      });
-    } else if (type === "input") {
-      available.input.forEach(({key, description}) => {
-        if (key.toLowerCase().includes(search)) {
-          results.push({
-            type: "input",
-            label: key,
-            value: `{{input.${key}}}`,
-            description,
-          });
-        }
-      });
-    }
+      }
   }
 
-  return results.slice(0, 10); // Limit to 10 suggestions
+  // 2. Input variables type suggestion
+  if ("input".startsWith(firstPart)) {
+       if (prefix === "" || ["i", "in", "inp", "input"].includes(prefix)) {
+         results.push({
+            type: "input",
+            label: "input",
+            value: "{{input.",
+            description: "Parent node output",
+          });
+       }
+  }
+
+  // If prefix implies we are deeper
+  if (prefix.includes(".")) {
+    const searchPrefix = prefix;
+    
+    // Check Env
+    available.workflow.forEach(({ key, value }) => {
+       const fullPath = `env.${key}`;
+       if (fullPath.startsWith(searchPrefix) && fullPath !== searchPrefix) {
+           results.push({
+            type: "env",
+            label: key,
+            value: `{{${fullPath}}}`,
+            description: typeof value === "string" ? value : JSON.stringify(value),
+          });
+       }
+    });
+
+    // Check Input
+    available.input.forEach(({ key, description, type }) => {
+        const fullPath = `input.${key}`;
+        
+        if (fullPath.startsWith(searchPrefix)) {
+            const remaining = fullPath.slice(searchPrefix.length);
+            const nextSegment = remaining.split(".")[0];
+            
+            if (nextSegment) {
+                // Deduplicate
+                if (!results.some(r => r.label === nextSegment && r.type === "input")) {
+                     const isComplete = fullPath === searchPrefix + nextSegment;
+                     // We suggest if it's a direct child
+                     const segmentEndParams = fullPath.indexOf(".", searchPrefix.length);
+                     const isDirectChild = segmentEndParams === -1 || segmentEndParams >= (searchPrefix.length + nextSegment.length);
+                     
+                    if (isDirectChild) {
+                         results.push({
+                            type: "input",
+                            label: nextSegment,
+                            value: `{{${searchPrefix}${nextSegment}${type === 'object' && isComplete ? '.' : ''}}}`, 
+                            description: description,
+                        });
+                    }
+                }
+            }
+        }
+    });
+  }
+
+  return results.slice(0, 10);
 };
 
 const handleInput = (event: Event) => {
-  const target = event.target as HTMLInputElement;
+  const target = event.target as HTMLInputElement | HTMLTextAreaElement;
   const value = target.value;
   cursorPosition.value = target.selectionStart || 0;
 
@@ -177,8 +213,8 @@ const handleKeydown = (event: KeyboardEvent) => {
     case "ArrowDown":
       event.preventDefault();
       selectedIndex.value = Math.min(
-          selectedIndex.value + 1,
-          suggestions.value.length - 1
+        selectedIndex.value + 1,
+        suggestions.value.length - 1,
       );
       break;
     case "ArrowUp":
@@ -188,8 +224,9 @@ const handleKeydown = (event: KeyboardEvent) => {
     case "Enter":
     case "Tab":
       event.preventDefault();
-      if (suggestions.value[selectedIndex.value]) {
-        selectSuggestion(suggestions.value[selectedIndex.value]);
+      const suggestion = suggestions.value[selectedIndex.value];
+      if (suggestion) {
+        selectSuggestion(suggestion);
       }
       break;
     case "Escape":
@@ -200,7 +237,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 };
 
 const selectSuggestion = (suggestion: Suggestion) => {
-  const value = props.modelValue;
+  const value = props.modelValue || "";
   const beforeCursor = value.slice(0, cursorPosition.value);
   const afterCursor = value.slice(cursorPosition.value);
 
@@ -208,7 +245,7 @@ const selectSuggestion = (suggestion: Suggestion) => {
 
   // Replace from {{ to cursor with the suggestion
   const newValue =
-      value.slice(0, lastOpenBrace) + suggestion.value + afterCursor;
+    value.slice(0, lastOpenBrace) + suggestion.value + afterCursor;
 
   emit("update:modelValue", newValue);
   hideAutocomplete();
@@ -251,6 +288,13 @@ const updateDropdownPosition = () => {
   position: relative;
 }
 
+/* Adjust hint text for multiline */
+.input-wrapper.is-multiline .hint-text {
+  top: auto;
+  bottom: 8px;
+  transform: none;
+}
+
 .input-field {
   width: 100%;
   padding: 8px 12px;
@@ -259,6 +303,11 @@ const updateDropdownPosition = () => {
   font-size: 14px;
   font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
   transition: border-color 0.2s;
+}
+
+.textarea-field {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .input-field:focus {

@@ -44,9 +44,23 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/templates/': RouteRecordInfo<
+      '/templates/',
+      '/templates',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/triggers/': RouteRecordInfo<
       '/triggers/',
       '/triggers',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/triggers/new': RouteRecordInfo<
+      '/triggers/new',
+      '/triggers/new',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -103,9 +117,21 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
+    'src/pages/templates/index.vue': {
+      routes:
+        | '/templates/'
+      views:
+        | never
+    }
     'src/pages/triggers/index.vue': {
       routes:
         | '/triggers/'
+      views:
+        | never
+    }
+    'src/pages/triggers/new.vue': {
+      routes:
+        | '/triggers/new'
       views:
         | never
     }

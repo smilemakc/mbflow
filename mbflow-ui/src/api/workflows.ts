@@ -36,11 +36,10 @@ export async function getWorkflows(
 /**
  * Get workflow by ID
  */
-export async function getWorkflow(id: string): Promise<WorkflowResponse> {
-  const data = await apiClient.get<WorkflowResponse>(
-    `/workflows/${id}`,
-  );
-  return data as unknown as WorkflowResponse;
+export async function getWorkflow(id: string): Promise<Workflow> {
+  const data = await apiClient.get<WorkflowResponse>(`/workflows/${id}`);
+  const response = data as unknown as WorkflowResponse;
+  return response.workflow || (response as unknown as Workflow);
 }
 
 /**
@@ -48,12 +47,10 @@ export async function getWorkflow(id: string): Promise<WorkflowResponse> {
  */
 export async function createWorkflow(
   workflow: WorkflowCreateRequest,
-): Promise<WorkflowResponse> {
-  const data = await apiClient.post<WorkflowResponse>(
-    "/workflows",
-    workflow,
-  );
-  return data as unknown as WorkflowResponse;
+): Promise<Workflow> {
+  const data = await apiClient.post<WorkflowResponse>("/workflows", workflow);
+  const response = data as unknown as WorkflowResponse;
+  return response.workflow || (data as unknown as Workflow);
 }
 
 /**

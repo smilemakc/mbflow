@@ -1,8 +1,10 @@
+```
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, computed, markRaw } from "vue";
+import { ref, onMounted, computed, markRaw, provide } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { VueFlow } from "@vue-flow/core";
+import { Icon } from "@iconify/vue";
 import { toast } from "vue3-toastify";
 import { useWorkflowStore } from "@/stores/workflow";
 import {
@@ -21,9 +23,14 @@ import LLMNode from "@/components/workflow/nodes/LLMNode.vue";
 import TransformNode from "@/components/workflow/nodes/TransformNode.vue";
 import ConditionalNode from "@/components/workflow/nodes/ConditionalNode.vue";
 import MergeNode from "@/components/workflow/nodes/MergeNode.vue";
+import TelegramNode from "@/components/workflow/nodes/TelegramNode.vue";
 import ExecuteWorkflowDialog from "@/components/workflow/ExecuteWorkflowDialog.vue";
 import WorkflowVariablesPanel from "@/components/workflow/WorkflowVariablesPanel.vue";
+import ExecutionStatusPanel from "@/components/workflow/ExecutionStatusPanel.vue";
 import { generateNodeId } from "@/utils/nodeId";
+import { getTemplateById } from "@/data/templates";
+import { executionObserver } from "@/services/executionObserver";
+import { useWorkflowExecutionAnimation } from "@/composables/useWorkflowExecutionAnimation";
 
 const route = useRoute();
 const router = useRouter();
@@ -31,7 +38,9 @@ const workflowStore = useWorkflowStore();
 
 const workflowId = computed(() => route.params.id as string);
 const canvasRef = ref<InstanceType<typeof WorkflowCanvas> | null>(null);
-const executeDialogRef = ref<InstanceType<typeof ExecuteWorkflowDialog> | null>(null);
+const executeDialogRef = ref<InstanceType<typeof ExecuteWorkflowDialog> | null>(
+  null,
+);
 
 const isLoading = ref(true);
 const isSaving = ref(false);
@@ -39,6 +48,19 @@ const isExecuting = ref(false);
 const error = ref<string | null>(null);
 const showExecuteDialog = ref(false);
 const showVariablesPanel = ref(false);
+const showExecutionStatus = ref(false);
+const currentExecutionId = ref<string | null>(null);
+
+// Execution animation
+const { handleExecutionEvent, resetAnimations } =
+  useWorkflowExecutionAnimation();
+
+// Provide function to open node config from nodes
+function openNodeConfig(nodeId: string) {
+  workflowStore.selectNode(nodeId);
+}
+
+provide("openNodeConfig", openNodeConfig);
 
 // Register custom node types with markRaw to avoid reactivity overhead
 const nodeTypes = {
@@ -47,11 +69,15 @@ const nodeTypes = {
   transform: markRaw(TransformNode),
   conditional: markRaw(ConditionalNode),
   merge: markRaw(MergeNode),
+  telegram: markRaw(TelegramNode),
 };
 
 // Load workflow on mount
 onMounted(async () => {
   await loadWorkflow();
+
+  // Subscribe to execution observer events for animation
+  watchExecutionEvents();
 });
 
 async function loadWorkflow() {
@@ -61,12 +87,63 @@ async function loadWorkflow() {
   try {
     const response = await getWorkflow(workflowId.value);
     workflowStore.loadWorkflow(response);
+
+    // Check if we should load a template
+    const templateId = route.query.template as string;
+    if (templateId && (!response.nodes || response.nodes.length === 0)) {
+      const template = getTemplateById(templateId);
+      if (template) {
+        console.log("Loading template:", template.name);
+        // Load template nodes and edges into the workflow
+        workflowStore.nodes = template.nodes;
+        workflowStore.edges = template.edges;
+        workflowStore.isDirty = true; // Mark as dirty so user can save
+        toast.success(
+          `Template "${template.name}" loaded! Click Save to persist changes.`,
+        );
+      }
+    }
   } catch (err: any) {
     console.error("Failed to load workflow:", err);
     error.value = err.message || "Failed to load workflow";
   } finally {
     isLoading.value = false;
   }
+}
+
+/**
+ * Watch execution events from observer and animate
+ */
+let lastProcessedEventIndex = -1;
+
+function watchExecutionEvents() {
+  // Check for new events periodically
+  setInterval(() => {
+    if (!currentExecutionId.value) return;
+
+    const events = executionObserver.events.get(currentExecutionId.value);
+    if (!events || events.length === 0) return;
+
+    // Process all new events since last check
+    for (let i = lastProcessedEventIndex + 1; i < events.length; i++) {
+      const event = events[i];
+      console.log(
+        "[WorkflowEditor] Processing event:",
+        event.event?.event_type,
+        event.event?.node_id,
+      );
+      handleExecutionEvent(event);
+    }
+
+    // Update last processed index
+    lastProcessedEventIndex = events.length - 1;
+  }, 100); // Check every 100ms
+}
+
+// Reset event tracking when starting new execution
+function resetEventTracking() {
+  lastProcessedEventIndex = -1;
+  resetAnimations();
 }
 
 async function handleSave() {
@@ -96,11 +173,23 @@ async function handleExecuteWithOptions(options: ExecuteWorkflowOptions) {
   try {
     const result = await executeWorkflow(workflowId.value, options);
     showExecuteDialog.value = false;
+
+    // Reset event tracking and animations for new execution
+    resetEventTracking();
+
+    // Store current execution ID for status tracking
+    currentExecutionId.value = result.id;
+    showExecutionStatus.value = true;
+
     toast.success(`Workflow execution started! Execution ID: ${result.id}`);
-    router.push(`/executions/${result.id}`);
+
+    // Don't navigate immediately - let user watch the execution
+    // They can click on the execution ID to go to details page
   } catch (err: any) {
     console.error("Failed to execute workflow:", err);
-    toast.error("Failed to execute workflow: " + (err.message || "Unknown error"));
+    toast.error(
+      "Failed to execute workflow: " + (err.message || "Unknown error"),
+    );
     // Reset executing state in dialog so user can retry
     executeDialogRef.value?.resetExecuting();
   }
@@ -109,6 +198,24 @@ async function handleExecuteWithOptions(options: ExecuteWorkflowOptions) {
 function handleOpenVariablesPanel() {
   showExecuteDialog.value = false;
   showVariablesPanel.value = true;
+}
+
+function handleExecutionComplete() {
+  toast.success("Workflow execution completed successfully!");
+}
+
+function handleExecutionError(error: string) {
+  toast.error(`Workflow execution failed: ${error}`);
+}
+
+function handleExecutionStatusChange(status: string) {
+  console.log("Execution status changed:", status);
+}
+
+function handleViewExecutionDetails() {
+  if (currentExecutionId.value) {
+    router.push(`/executions/${currentExecutionId.value}`);
+  }
 }
 
 async function handleValidate() {
@@ -121,7 +228,9 @@ async function handleValidate() {
     }
   } catch (err: any) {
     console.error("Failed to validate workflow:", err);
-    toast.error("Failed to validate workflow: " + (err.message || "Unknown error"));
+    toast.error(
+      "Failed to validate workflow: " + (err.message || "Unknown error"),
+    );
   }
 }
 
@@ -248,7 +357,34 @@ function onDragOver(event: DragEvent) {
         <NodePalette />
 
         <!-- Node Config Panel -->
-        <NodeConfigPanel />
+        <NodeConfigPanel @save="handleSave" />
+
+        <!-- Execution Status Panel (floating) -->
+        <div
+          v-if="showExecutionStatus && currentExecutionId"
+          class="absolute bottom-4 right-4 z-50 w-96"
+        >
+          <div class="relative">
+            <button
+              class="absolute -right-2 -top-2 rounded-full bg-white p-1 shadow-md hover:bg-gray-100"
+              @click="showExecutionStatus = false"
+            >
+              <Icon icon="heroicons:x-mark" class="size-4 text-gray-600" />
+            </button>
+            <ExecutionStatusPanel
+              :execution-id="currentExecutionId"
+              @complete="handleExecutionComplete"
+              @error="handleExecutionError"
+              @status-change="handleExecutionStatusChange"
+            />
+            <button
+              class="mt-2 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              @click="handleViewExecutionDetails"
+            >
+              View Full Details
+            </button>
+          </div>
+        </div>
       </template>
     </div>
 

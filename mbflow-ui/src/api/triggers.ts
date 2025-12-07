@@ -30,9 +30,10 @@ export async function getTriggers(
 /**
  * Get trigger by ID
  */
-export async function getTrigger(id: string): Promise<TriggerResponse> {
+export async function getTrigger(id: string): Promise<Trigger> {
   const data = await apiClient.get<TriggerResponse>(`/triggers/${id}`);
-  return data as unknown as TriggerResponse;
+  const response = data as unknown as TriggerResponse;
+  return response.trigger || (data as unknown as Trigger);
 }
 
 /**
@@ -40,9 +41,10 @@ export async function getTrigger(id: string): Promise<TriggerResponse> {
  */
 export async function createTrigger(
   trigger: TriggerCreateRequest,
-): Promise<TriggerResponse> {
+): Promise<Trigger> {
   const data = await apiClient.post<TriggerResponse>("/triggers", trigger);
-  return data as unknown as TriggerResponse;
+  const response = data as unknown as TriggerResponse;
+  return response.trigger || (data as unknown as Trigger);
 }
 
 /**

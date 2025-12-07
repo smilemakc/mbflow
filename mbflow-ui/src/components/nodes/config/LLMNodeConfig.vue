@@ -15,11 +15,7 @@
     <div class="form-group">
       <label class="label">Model</label>
       <select v-model="localConfig.model" class="select-field">
-        <option
-            v-for="model in availableModels"
-            :key="model"
-            :value="model"
-        >
+        <option v-for="model in availableModels" :key="model" :value="model">
           {{ model }}
         </option>
       </select>
@@ -28,39 +24,45 @@
     <div class="form-group">
       <label class="label">API Key</label>
       <TemplateInput
-          v-model="localConfig.api_key"
-          placeholder="{{env.openai_api_key}}"
-          :node-id="nodeId"
+        v-model="localConfig.api_key"
+        placeholder="{{env.openai_api_key}}"
+        :node-id="nodeId"
       />
-      <p class="text-xs text-gray-500 mt-1">
-        Use templates like <code class="bg-gray-100 px-1 rounded">{{ variablePlaceholderExample }}</code> to reference
-        workflow variables
+      <p class="mt-1 text-xs text-gray-500">
+        Use templates like
+        <code class="rounded bg-gray-100 px-1">{{
+          variablePlaceholderExample
+        }}</code>
+        to reference workflow variables
       </p>
     </div>
 
     <div class="form-group">
       <label class="label">System Prompt (Optional)</label>
       <TemplateInput
-          v-model="localConfig.instruction!!"
-          height="100px"
-          :node-id="nodeId"
+        :model-value="localConfig.instruction || ''"
+        @update:model-value="localConfig.instruction = $event"
+        height="100px"
+        :node-id="nodeId"
+        multiline
       />
     </div>
 
     <div class="form-group">
       <label class="label">User Prompt</label>
       <TemplateInput
-          v-model="localConfig.prompt"
-          height="150px"
-          :node-id="nodeId"
+        v-model="localConfig.prompt"
+        height="150px"
+        :node-id="nodeId"
+        multiline
       />
     </div>
 
     <!-- Advanced Settings (Progressive Disclosure) -->
     <button
-        @click="showAdvanced = !showAdvanced"
-        class="toggle-button"
-        type="button"
+      @click="showAdvanced = !showAdvanced"
+      class="toggle-button"
+      type="button"
     >
       {{ showAdvanced ? "▼" : "▶" }} Advanced Settings
     </button>
@@ -72,12 +74,12 @@
           <span class="hint">(0.0 - 2.0, default: 0.7)</span>
         </label>
         <input
-            v-model.number="localConfig.temperature"
-            type="number"
-            min="0"
-            max="2"
-            step="0.1"
-            class="input-field"
+          v-model.number="localConfig.temperature"
+          type="number"
+          min="0"
+          max="2"
+          step="0.1"
+          class="input-field"
         />
       </div>
 
@@ -87,11 +89,11 @@
           <span class="hint">(Maximum response length)</span>
         </label>
         <input
-            v-model.number="localConfig.max_tokens"
-            type="number"
-            min="1"
-            max="100000"
-            class="input-field"
+          v-model.number="localConfig.max_tokens"
+          type="number"
+          min="1"
+          max="100000"
+          class="input-field"
         />
       </div>
 
@@ -101,12 +103,12 @@
           <span class="hint">(0.0 - 1.0, nucleus sampling)</span>
         </label>
         <input
-            v-model.number="localConfig.top_p"
-            type="number"
-            min="0"
-            max="1"
-            step="0.1"
-            class="input-field"
+          v-model.number="localConfig.top_p"
+          type="number"
+          min="0"
+          max="1"
+          step="0.1"
+          class="input-field"
         />
       </div>
 
@@ -116,12 +118,12 @@
           <span class="hint">(-2.0 - 2.0)</span>
         </label>
         <input
-            v-model.number="localConfig.frequency_penalty"
-            type="number"
-            min="-2"
-            max="2"
-            step="0.1"
-            class="input-field"
+          v-model.number="localConfig.frequency_penalty"
+          type="number"
+          min="-2"
+          max="2"
+          step="0.1"
+          class="input-field"
         />
       </div>
 
@@ -131,22 +133,22 @@
           <span class="hint">(-2.0 - 2.0)</span>
         </label>
         <input
-            v-model.number="localConfig.presence_penalty"
-            type="number"
-            min="-2"
-            max="2"
-            step="0.1"
-            class="input-field"
+          v-model.number="localConfig.presence_penalty"
+          type="number"
+          min="-2"
+          max="2"
+          step="0.1"
+          class="input-field"
         />
       </div>
 
       <div class="form-group">
         <label class="label">Stop Sequences (one per line)</label>
         <textarea
-            v-model="stopSequencesText"
-            placeholder="Enter stop sequences, one per line"
-            rows="3"
-            class="textarea-field"
+          v-model="stopSequencesText"
+          placeholder="Enter stop sequences, one per line"
+          rows="3"
+          class="textarea-field"
         />
       </div>
 
@@ -161,22 +163,22 @@
       <div class="form-group">
         <label class="label">Timeout (seconds)</label>
         <input
-            v-model.number="localConfig.timeout_seconds"
-            type="number"
-            min="1"
-            max="300"
-            class="input-field"
+          v-model.number="localConfig.timeout_seconds"
+          type="number"
+          min="1"
+          max="300"
+          class="input-field"
         />
       </div>
 
       <div class="form-group">
         <label class="label">Retry Count</label>
         <input
-            v-model.number="localConfig.retry_count"
-            type="number"
-            min="0"
-            max="5"
-            class="input-field"
+          v-model.number="localConfig.retry_count"
+          type="number"
+          min="0"
+          max="5"
+          class="input-field"
         />
       </div>
     </div>
@@ -184,9 +186,9 @@
 </template>
 
 <script setup lang="ts">
-import {computed, ref, watch} from "vue";
-import type {LLMNodeConfig} from "@/types/nodes";
-import {LLM_PROVIDER_MODELS} from "@/types/nodes";
+import { computed, ref, watch } from "vue";
+import type { LLMNodeConfig } from "@/types/nodes";
+import { LLM_PROVIDER_MODELS } from "@/types/nodes";
 import TemplateInput from "@/components/common/TemplateInput.vue";
 
 interface Props {
@@ -200,7 +202,7 @@ const emit = defineEmits<{
   (e: "update:config", config: LLMNodeConfig): void;
 }>();
 
-const localConfig = ref<LLMNodeConfig>({...props.config});
+const localConfig = ref<LLMNodeConfig>({ ...props.config });
 const showAdvanced = ref(false);
 const variablePlaceholderExample = "{{env.openai_api_key}}";
 
@@ -216,39 +218,51 @@ const stopSequencesText = computed({
   },
   set: (value: string) => {
     localConfig.value.stop_sequences = value
-        .split("\n")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+      .split("\n")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
   },
 });
 
 // Watch for provider changes to update model
 watch(
-    () => localConfig.value.provider,
-    (newProvider) => {
-      const models = LLM_PROVIDER_MODELS[newProvider];
-      if (models && models.length > 0 && !models.includes(localConfig.value.model)) {
-        localConfig.value.model = models[0];
+  () => localConfig.value.provider,
+  (newProvider) => {
+    const models = LLM_PROVIDER_MODELS[newProvider];
+    if (
+      models &&
+      models.length > 0 &&
+      !models.includes(localConfig.value.model)
+    ) {
+      const firstModel = models[0];
+      if (firstModel) {
+        localConfig.value.model = firstModel;
       }
     }
+  },
 );
 
 // Watch for external config changes
+// Watch for external config changes
 watch(
-    () => props.config,
-    (newConfig) => {
-      localConfig.value = {...newConfig};
-    },
-    {deep: true}
+  () => props.config,
+  (newConfig) => {
+    // Prevent infinite loop by checking if value actually changed
+    // Simple JSON serialization check is sufficient for config objects
+    if (JSON.stringify(newConfig) !== JSON.stringify(localConfig.value)) {
+      localConfig.value = { ...newConfig };
+    }
+  },
+  { deep: true },
 );
 
 // Emit changes
 watch(
-    localConfig,
-    (newConfig) => {
-      emit("update:config", newConfig);
-    },
-    {deep: true}
+  localConfig,
+  (newConfig) => {
+    emit("update:config", newConfig);
+  },
+  { deep: true },
 );
 </script>
 

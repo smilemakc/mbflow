@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { Icon } from "@iconify/vue";
+import { toast } from "vue3-toastify";
 import AppShell from "@/components/layout/AppShell.vue";
 import Button from "@/components/ui/Button.vue";
 import { getExecutions } from "@/api/executions";
@@ -30,6 +31,7 @@ async function loadExecutions() {
   } catch (err: any) {
     console.error("Failed to load executions:", err);
     error.value = err.message || "Failed to load executions";
+    toast.error(error.value);
   } finally {
     isLoading.value = false;
   }
@@ -42,6 +44,7 @@ function getStatusColor(status: ExecutionStatus) {
     completed: "bg-green-100 text-green-700",
     failed: "bg-red-100 text-red-700",
     cancelled: "bg-orange-100 text-orange-700",
+    timeout: "bg-yellow-100 text-yellow-700",
   };
   return colors[status] || colors.pending;
 }
@@ -53,6 +56,7 @@ function getStatusIcon(status: ExecutionStatus) {
     completed: "heroicons:check-circle",
     failed: "heroicons:x-circle",
     cancelled: "heroicons:stop-circle",
+    timeout: "heroicons:exclamation-triangle",
   };
   return icons[status] || icons.pending;
 }

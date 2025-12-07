@@ -1,7 +1,12 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, watch, nextTick } from "vue";
-import { VueFlow, useVueFlow, type Connection, PanOnScrollMode } from "@vue-flow/core";
+import {
+  VueFlow,
+  useVueFlow,
+  type Connection,
+  PanOnScrollMode,
+} from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
@@ -37,7 +42,8 @@ const isLayouting = ref(false);
 function onNodeClick(event: any) {
   const nodeId = event.node?.id;
   if (nodeId) {
-    workflowStore.selectNode(nodeId);
+    // Don't automatically open config panel
+    // Config panel now opens via settings button in node
     emit("nodeClick", nodeId);
   }
 }

@@ -298,6 +298,7 @@ func (h *WorkflowHandlers) validateNodes(nodes []NodeRequest) error {
 		"split":       true,
 		"delay":       true,
 		"webhook":     true,
+		"telegram":    true,
 	}
 
 	for i, node := range nodes {

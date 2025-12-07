@@ -60,20 +60,43 @@ export interface FunctionCallNodeConfig extends BaseNodeConfig {
   timeout_seconds?: number;
 }
 
+// Telegram Node Configuration
+export interface TelegramNodeConfig extends BaseNodeConfig {
+  bot_token: string;
+  chat_id: string;
+  message_type: "text" | "photo" | "document" | "audio" | "video";
+  text?: string;
+  parse_mode?: "Markdown" | "MarkdownV2" | "HTML";
+  disable_web_page_preview?: boolean;
+  disable_notification?: boolean;
+  protect_content?: boolean;
+
+  // Media fields
+  file_source?: "base64" | "url" | "file_id";
+  file_data?: string;
+  file_name?: string;
+
+  timeout_seconds?: number;
+}
+
 // Union type for all node configs
 export type NodeConfig =
   | HTTPNodeConfig
   | LLMNodeConfig
   | TransformNodeConfig
-  | FunctionCallNodeConfig;
+  | FunctionCallNodeConfig
+  | TelegramNodeConfig;
 
 // Node type enum
-export enum NodeType {
-  HTTP = "http",
-  LLM = "llm",
-  TRANSFORM = "transform",
-  FUNCTION_CALL = "function_call",
-}
+export const NodeType = {
+  HTTP: "http",
+  LLM: "llm",
+  TRANSFORM: "transform",
+  FUNCTION_CALL: "function_call",
+  TELEGRAM: "telegram",
+} as const;
+
+export type NodeType = (typeof NodeType)[keyof typeof NodeType];
 
 // Default configurations for each node type
 export const DEFAULT_NODE_CONFIGS: Record<NodeType, NodeConfig> = {
@@ -101,6 +124,14 @@ export const DEFAULT_NODE_CONFIGS: Record<NodeType, NodeConfig> = {
   [NodeType.FUNCTION_CALL]: {
     function_name: "",
     arguments: {},
+    timeout_seconds: 30,
+  },
+  [NodeType.TELEGRAM]: {
+    bot_token: "",
+    chat_id: "",
+    message_type: "text",
+    text: "",
+    parse_mode: "HTML",
     timeout_seconds: 30,
   },
 };
@@ -140,6 +171,17 @@ export const HTTP_METHODS = [
 // Transform languages for dropdown
 export const TRANSFORM_LANGUAGES = ["jq", "javascript"] as const;
 
+// Telegram message types
+export const TELEGRAM_MESSAGE_TYPES = [
+  "text",
+  "photo",
+  "document",
+  "audio",
+  "video",
+] as const;
+export const TELEGRAM_PARSE_MODES = ["Markdown", "MarkdownV2", "HTML"] as const;
+export const TELEGRAM_FILE_SOURCES = ["base64", "url", "file_id"] as const;
+
 // Node type metadata
 export interface NodeTypeMetadata {
   type: NodeType;
@@ -177,5 +219,12 @@ export const NODE_TYPE_METADATA: Record<NodeType, NodeTypeMetadata> = {
     description: "Call custom functions or tools",
     icon: "🔧",
     color: "#3B82F6",
+  },
+  [NodeType.TELEGRAM]: {
+    type: NodeType.TELEGRAM,
+    label: "Telegram",
+    description: "Send messages via Telegram Bot API",
+    icon: "heroicons:paper-airplane",
+    color: "#0EA5E9", // Sky blue for Telegram
   },
 };

@@ -56,7 +56,9 @@ async function handleDelete(triggerId: string) {
     toast.success("Trigger deleted successfully");
   } catch (err: any) {
     console.error("Failed to delete trigger:", err);
-    toast.error("Failed to delete trigger: " + (err.message || "Unknown error"));
+    toast.error(
+      "Failed to delete trigger: " + (err.message || "Unknown error"),
+    );
   }
 }
 
@@ -73,7 +75,9 @@ async function handleToggle(trigger: Trigger) {
     }
   } catch (err: any) {
     console.error("Failed to toggle trigger:", err);
-    toast.error("Failed to toggle trigger: " + (err.message || "Unknown error"));
+    toast.error(
+      "Failed to toggle trigger: " + (err.message || "Unknown error"),
+    );
   }
 }
 
@@ -84,7 +88,9 @@ async function handleExecute(trigger: Trigger) {
     router.push(`/executions/${result.execution_id}`);
   } catch (err: any) {
     console.error("Failed to execute trigger:", err);
-    toast.error("Failed to execute trigger: " + (err.message || "Unknown error"));
+    toast.error(
+      "Failed to execute trigger: " + (err.message || "Unknown error"),
+    );
   }
 }
 
@@ -131,6 +137,7 @@ async function handleFilterChange() {
         <h1 class="text-3xl font-bold text-gray-900">Triggers</h1>
 
         <div class="flex items-center gap-4">
+          <Button @click="router.push('/triggers/new')"> New Trigger </Button>
           <!-- Filters -->
           <div class="flex items-center gap-2">
             <label class="text-sm text-gray-600">Type:</label>

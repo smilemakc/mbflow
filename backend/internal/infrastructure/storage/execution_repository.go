@@ -410,3 +410,17 @@ func (r *ExecutionRepository) GetStatistics(ctx context.Context, workflowID *uui
 
 	return stats, nil
 }
+
+// GetEvents retrieves all events for an execution
+func (r *ExecutionRepository) GetEvents(ctx context.Context, executionID uuid.UUID) ([]*models.EventModel, error) {
+	var events []*models.EventModel
+	err := r.db.NewSelect().
+		Model(&events).
+		Where("execution_id = ?", executionID).
+		Order("created_at ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get execution events: %w", err)
+	}
+	return events, nil
+}
