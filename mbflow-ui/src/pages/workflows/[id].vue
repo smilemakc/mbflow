@@ -25,6 +25,9 @@ import TransformNode from "@/components/workflow/nodes/TransformNode.vue";
 import ConditionalNode from "@/components/workflow/nodes/ConditionalNode.vue";
 import MergeNode from "@/components/workflow/nodes/MergeNode.vue";
 import TelegramNode from "@/components/workflow/nodes/TelegramNode.vue";
+import TelegramDownloadNode from "@/components/workflow/nodes/TelegramDownloadNode.vue";
+import TelegramParseNode from "@/components/workflow/nodes/TelegramParseNode.vue";
+import TelegramCallbackNode from "@/components/workflow/nodes/TelegramCallbackNode.vue";
 import FileStorageNode from "@/components/workflow/nodes/FileStorageNode.vue";
 import FunctionCallNode from "@/components/workflow/nodes/FunctionCallNode.vue";
 import ExecuteWorkflowDialog from "@/components/workflow/ExecuteWorkflowDialog.vue";
@@ -73,6 +76,9 @@ const nodeTypes = {
   conditional: markRaw(ConditionalNode),
   merge: markRaw(MergeNode),
   telegram: markRaw(TelegramNode),
+  telegram_download: markRaw(TelegramDownloadNode),
+  telegram_parse: markRaw(TelegramParseNode),
+  telegram_callback: markRaw(TelegramCallbackNode),
   file_storage: markRaw(FileStorageNode),
   function_call: markRaw(FunctionCallNode),
 };

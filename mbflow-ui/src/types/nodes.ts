@@ -142,6 +142,32 @@ export interface FileStorageNodeConfig extends BaseNodeConfig {
   offset?: number;
 }
 
+// Telegram Download Node Configuration
+export interface TelegramDownloadNodeConfig extends BaseNodeConfig {
+  bot_token: string;
+  file_id: string;
+  output_format?: "base64" | "url";
+  timeout?: number;
+}
+
+// Telegram Parse Node Configuration
+export interface TelegramParseNodeConfig extends BaseNodeConfig {
+  extract_files?: boolean;
+  extract_commands?: boolean;
+  extract_entities?: boolean;
+}
+
+// Telegram Callback Node Configuration
+export interface TelegramCallbackNodeConfig extends BaseNodeConfig {
+  bot_token: string;
+  callback_query_id: string;
+  text?: string;
+  show_alert?: boolean;
+  url?: string;
+  cache_time?: number;
+  timeout?: number;
+}
+
 // Conditional Node Configuration
 export interface ConditionalNodeConfig extends BaseNodeConfig {
   condition: string; // Expression to evaluate (supports expr-lang)
@@ -178,19 +204,45 @@ export interface JsonToStringNodeConfig extends BaseNodeConfig {
   sort_keys?: boolean;
 }
 
+export interface BytesToJsonNodeConfig extends BaseNodeConfig {
+  encoding: "utf-8" | "utf-16" | "latin1";
+  validate_json?: boolean;
+}
+
+export interface FileToBytesNodeConfig extends BaseNodeConfig {
+  storage_id?: string;
+  file_id: string;
+  output_format: "raw" | "base64";
+}
+
+export interface BytesToFileNodeConfig extends BaseNodeConfig {
+  storage_id?: string;
+  file_name: string;
+  mime_type?: string;
+  access_scope?: "workflow" | "edge" | "result";
+  ttl?: number;
+  tags?: string[];
+}
+
 export type NodeConfig =
   | HTTPNodeConfig
   | LLMNodeConfig
   | TransformNodeConfig
   | FunctionCallNodeConfig
   | TelegramNodeConfig
+  | TelegramDownloadNodeConfig
+  | TelegramParseNodeConfig
+  | TelegramCallbackNodeConfig
   | FileStorageNodeConfig
   | ConditionalNodeConfig
   | MergeNodeConfig
   | Base64ToBytesNodeConfig
   | BytesToBase64NodeConfig
   | StringToJsonNodeConfig
-  | JsonToStringNodeConfig;
+  | JsonToStringNodeConfig
+  | BytesToJsonNodeConfig
+  | FileToBytesNodeConfig
+  | BytesToFileNodeConfig;
 
 export const NodeType = {
   HTTP: "http",
@@ -198,6 +250,9 @@ export const NodeType = {
   TRANSFORM: "transform",
   FUNCTION_CALL: "function_call",
   TELEGRAM: "telegram",
+  TELEGRAM_DOWNLOAD: "telegram_download",
+  TELEGRAM_PARSE: "telegram_parse",
+  TELEGRAM_CALLBACK: "telegram_callback",
   FILE_STORAGE: "file_storage",
   CONDITIONAL: "conditional",
   MERGE: "merge",
@@ -206,6 +261,9 @@ export const NodeType = {
   BYTES_TO_BASE64: "bytes_to_base64",
   STRING_TO_JSON: "string_to_json",
   JSON_TO_STRING: "json_to_string",
+  BYTES_TO_JSON: "bytes_to_json",
+  FILE_TO_BYTES: "file_to_bytes",
+  BYTES_TO_FILE: "bytes_to_file",
 } as const;
 
 export type NodeType = (typeof NodeType)[keyof typeof NodeType];
@@ -246,6 +304,24 @@ export const DEFAULT_NODE_CONFIGS: Record<NodeType, NodeConfig> = {
     parse_mode: "HTML",
     timeout_seconds: 30,
   },
+  [NodeType.TELEGRAM_DOWNLOAD]: {
+    bot_token: "",
+    file_id: "",
+    output_format: "base64",
+    timeout: 60,
+  },
+  [NodeType.TELEGRAM_PARSE]: {
+    extract_files: true,
+    extract_commands: true,
+    extract_entities: false,
+  },
+  [NodeType.TELEGRAM_CALLBACK]: {
+    bot_token: "",
+    callback_query_id: "",
+    text: "",
+    show_alert: false,
+    cache_time: 0,
+  },
   [NodeType.FILE_STORAGE]: {
     action: "store",
     storage_id: "",
@@ -275,6 +351,22 @@ export const DEFAULT_NODE_CONFIGS: Record<NodeType, NodeConfig> = {
     indent: "  ",
     escape_html: true,
     sort_keys: false,
+  },
+  [NodeType.BYTES_TO_JSON]: {
+    encoding: "utf-8",
+    validate_json: true,
+  },
+  [NodeType.FILE_TO_BYTES]: {
+    storage_id: "default",
+    file_id: "",
+    output_format: "base64",
+  },
+  [NodeType.BYTES_TO_FILE]: {
+    storage_id: "default",
+    file_name: "",
+    access_scope: "workflow",
+    ttl: 0,
+    tags: [],
   },
 };
 
@@ -393,6 +485,27 @@ export const NODE_TYPE_METADATA: Record<NodeType, NodeTypeMetadata> = {
     icon: "heroicons:paper-airplane",
     color: "#0EA5E9", // Sky blue for Telegram
   },
+  [NodeType.TELEGRAM_DOWNLOAD]: {
+    type: NodeType.TELEGRAM_DOWNLOAD,
+    label: "TG Download",
+    description: "Download files from Telegram by file_id",
+    icon: "heroicons:arrow-down-tray",
+    color: "#0EA5E9",
+  },
+  [NodeType.TELEGRAM_PARSE]: {
+    type: NodeType.TELEGRAM_PARSE,
+    label: "TG Parse",
+    description: "Parse Telegram updates and extract data",
+    icon: "heroicons:document-magnifying-glass",
+    color: "#0EA5E9",
+  },
+  [NodeType.TELEGRAM_CALLBACK]: {
+    type: NodeType.TELEGRAM_CALLBACK,
+    label: "TG Callback",
+    description: "Answer Telegram callback queries",
+    icon: "heroicons:check-circle",
+    color: "#0EA5E9",
+  },
   [NodeType.FILE_STORAGE]: {
     type: NodeType.FILE_STORAGE,
     label: "File Storage",
@@ -441,5 +554,26 @@ export const NODE_TYPE_METADATA: Record<NodeType, NodeTypeMetadata> = {
     description: "Serialize JSON to string",
     icon: "heroicons:document-duplicate",
     color: "#EC4899", // Pink
+  },
+  [NodeType.BYTES_TO_JSON]: {
+    type: NodeType.BYTES_TO_JSON,
+    label: "Bytes → JSON",
+    description: "Decode bytes to JSON with encoding detection",
+    icon: "heroicons:cube-transparent",
+    color: "#06B6D4", // Cyan
+  },
+  [NodeType.FILE_TO_BYTES]: {
+    type: NodeType.FILE_TO_BYTES,
+    label: "File → Bytes",
+    description: "Read file from storage as bytes",
+    icon: "heroicons:arrow-down-tray",
+    color: "#10B981", // Green
+  },
+  [NodeType.BYTES_TO_FILE]: {
+    type: NodeType.BYTES_TO_FILE,
+    label: "Bytes → File",
+    description: "Save bytes to file storage",
+    icon: "heroicons:arrow-up-tray",
+    color: "#14B8A6", // Teal
   },
 };

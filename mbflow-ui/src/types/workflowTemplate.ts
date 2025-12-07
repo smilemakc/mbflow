@@ -34,6 +34,7 @@ export type TemplateCategory =
   | "monitoring"
   | "automation"
   | "maintenance"
+  | "telegram-bots"
   | "etl"
   | "other";
 

@@ -911,6 +911,401 @@ export const workflowTemplates: WorkflowTemplate[] = [
     author: "MBFlow Team",
     version: "1.0.0",
   },
+  // NEW: Telegram Integration Templates
+  {
+    id: "telegram-bot-photo-saver",
+    name: "Telegram Photo Saver Bot",
+    description: "Receive photos from Telegram, download, and save to file storage",
+    category: "telegram-bots",
+    tags: ["telegram", "telegram_download", "telegram_parse", "file_storage", "bot"],
+    difficulty: "intermediate",
+    icon: "heroicons:photo",
+    nodes: [
+      {
+        id: "parse-1",
+        type: "telegram_parse",
+        position: { x: 100, y: 150 },
+        data: {
+          label: "Parse Update",
+          config: {
+            extract_files: true,
+            extract_commands: false,
+            extract_entities: false,
+          },
+        },
+      },
+      {
+        id: "conditional-1",
+        type: "conditional",
+        position: { x: 400, y: 150 },
+        data: {
+          label: "Has Photo?",
+          config: { condition: "len({{parse-1.files}}) > 0" },
+        },
+      },
+      {
+        id: "download-1",
+        type: "telegram_download",
+        position: { x: 700, y: 100 },
+        data: {
+          label: "Download Photo",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            file_id: "{{parse-1.files[0].file_id}}",
+            output_format: "base64",
+          },
+        },
+      },
+      {
+        id: "storage-1",
+        type: "file_storage",
+        position: { x: 1000, y: 100 },
+        data: {
+          label: "Save Photo",
+          config: {
+            action: "store",
+            file_source: "base64",
+            file_data: "{{download-1.file_data}}",
+            file_name: "photo_{{parse-1.message_id}}.jpg",
+            access_scope: "result",
+          },
+        },
+      },
+      {
+        id: "telegram-1",
+        type: "telegram",
+        position: { x: 1300, y: 100 },
+        data: {
+          label: "Confirm Saved",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            chat_id: "{{parse-1.chat.id}}",
+            message_type: "text",
+            text: "✅ Photo saved! ID: {{storage-1.file_id}}",
+          },
+        },
+      },
+      {
+        id: "telegram-2",
+        type: "telegram",
+        position: { x: 700, y: 250 },
+        data: {
+          label: "No Photo Reply",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            chat_id: "{{parse-1.chat.id}}",
+            message_type: "text",
+            text: "📷 Please send me a photo to save!",
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: "e1", source: "parse-1", target: "conditional-1" },
+      { id: "e2", source: "conditional-1", target: "download-1", sourceHandle: "true" },
+      { id: "e3", source: "download-1", target: "storage-1" },
+      { id: "e4", source: "storage-1", target: "telegram-1" },
+      { id: "e5", source: "conditional-1", target: "telegram-2", sourceHandle: "false" },
+    ],
+    author: "MBFlow Team",
+    version: "1.0.0",
+  },
+  {
+    id: "telegram-callback-handler",
+    name: "Telegram Inline Button Handler",
+    description: "Handle callback queries from inline keyboard buttons",
+    category: "telegram-bots",
+    tags: ["telegram", "telegram_parse", "telegram_callback", "bot", "buttons"],
+    difficulty: "intermediate",
+    icon: "heroicons:cursor-arrow-rays",
+    nodes: [
+      {
+        id: "parse-1",
+        type: "telegram_parse",
+        position: { x: 100, y: 150 },
+        data: {
+          label: "Parse Callback",
+          config: {
+            extract_files: false,
+            extract_commands: false,
+          },
+        },
+      },
+      {
+        id: "callback-1",
+        type: "telegram_callback",
+        position: { x: 400, y: 100 },
+        data: {
+          label: "Answer Callback",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            callback_query_id: "{{parse-1.callback_query_id}}",
+            text: "Processing...",
+            show_alert: false,
+          },
+        },
+      },
+      {
+        id: "conditional-1",
+        type: "conditional",
+        position: { x: 400, y: 250 },
+        data: {
+          label: "Check Action",
+          config: { condition: "{{parse-1.callback_data}} == \"like\"" },
+        },
+      },
+      {
+        id: "http-1",
+        type: "http",
+        position: { x: 700, y: 150 },
+        data: {
+          label: "Process Like",
+          config: {
+            url: "{{env.API_URL}}/like",
+            method: "POST",
+            body: JSON.stringify({ user_id: "{{parse-1.user.id}}" }),
+          },
+        },
+      },
+      {
+        id: "http-2",
+        type: "http",
+        position: { x: 700, y: 300 },
+        data: {
+          label: "Process Other",
+          config: {
+            url: "{{env.API_URL}}/action",
+            method: "POST",
+            body: JSON.stringify({ action: "{{parse-1.callback_data}}" }),
+          },
+        },
+      },
+      {
+        id: "telegram-1",
+        type: "telegram",
+        position: { x: 1000, y: 200 },
+        data: {
+          label: "Send Result",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            chat_id: "{{parse-1.chat.id}}",
+            message_type: "text",
+            text: "✅ Action completed!",
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: "e1", source: "parse-1", target: "callback-1" },
+      { id: "e2", source: "parse-1", target: "conditional-1" },
+      { id: "e3", source: "conditional-1", target: "http-1", sourceHandle: "true" },
+      { id: "e4", source: "conditional-1", target: "http-2", sourceHandle: "false" },
+      { id: "e5", source: "http-1", target: "telegram-1" },
+      { id: "e6", source: "http-2", target: "telegram-1" },
+    ],
+    author: "MBFlow Team",
+    version: "1.0.0",
+  },
+  {
+    id: "telegram-command-bot",
+    name: "Telegram Command Router Bot",
+    description: "Parse commands and route to different handlers",
+    category: "telegram-bots",
+    tags: ["telegram", "telegram_parse", "commands", "bot", "routing"],
+    difficulty: "beginner",
+    icon: "heroicons:command-line",
+    nodes: [
+      {
+        id: "parse-1",
+        type: "telegram_parse",
+        position: { x: 100, y: 200 },
+        data: {
+          label: "Parse Message",
+          config: {
+            extract_files: false,
+            extract_commands: true,
+            extract_entities: false,
+          },
+        },
+      },
+      {
+        id: "conditional-start",
+        type: "conditional",
+        position: { x: 400, y: 150 },
+        data: {
+          label: "Is /start?",
+          config: { condition: "{{parse-1.command}} == \"/start\"" },
+        },
+      },
+      {
+        id: "telegram-start",
+        type: "telegram",
+        position: { x: 700, y: 80 },
+        data: {
+          label: "Welcome Message",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            chat_id: "{{parse-1.chat.id}}",
+            message_type: "text",
+            text: "👋 Welcome! Commands:\\n/start - This message\\n/help - Get help\\n/status - Check status",
+            parse_mode: "HTML",
+          },
+        },
+      },
+      {
+        id: "conditional-help",
+        type: "conditional",
+        position: { x: 700, y: 250 },
+        data: {
+          label: "Is /help?",
+          config: { condition: "{{parse-1.command}} == \"/help\"" },
+        },
+      },
+      {
+        id: "telegram-help",
+        type: "telegram",
+        position: { x: 1000, y: 180 },
+        data: {
+          label: "Help Message",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            chat_id: "{{parse-1.chat.id}}",
+            message_type: "text",
+            text: "📖 Help:\\nSend me a photo to save it.\\nUse /status to check your files.",
+          },
+        },
+      },
+      {
+        id: "telegram-unknown",
+        type: "telegram",
+        position: { x: 1000, y: 320 },
+        data: {
+          label: "Unknown Command",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            chat_id: "{{parse-1.chat.id}}",
+            message_type: "text",
+            text: "❓ Unknown command. Try /help",
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: "e1", source: "parse-1", target: "conditional-start" },
+      { id: "e2", source: "conditional-start", target: "telegram-start", sourceHandle: "true" },
+      { id: "e3", source: "conditional-start", target: "conditional-help", sourceHandle: "false" },
+      { id: "e4", source: "conditional-help", target: "telegram-help", sourceHandle: "true" },
+      { id: "e5", source: "conditional-help", target: "telegram-unknown", sourceHandle: "false" },
+    ],
+    author: "MBFlow Team",
+    version: "1.0.0",
+  },
+  {
+    id: "telegram-ai-assistant",
+    name: "Telegram AI Assistant",
+    description: "AI chatbot that processes messages with LLM and downloads documents",
+    category: "telegram-bots",
+    tags: ["telegram", "telegram_parse", "telegram_download", "llm", "ai", "bot"],
+    difficulty: "advanced",
+    icon: "heroicons:chat-bubble-left-right",
+    nodes: [
+      {
+        id: "parse-1",
+        type: "telegram_parse",
+        position: { x: 100, y: 200 },
+        data: {
+          label: "Parse Update",
+          config: {
+            extract_files: true,
+            extract_commands: true,
+          },
+        },
+      },
+      {
+        id: "conditional-doc",
+        type: "conditional",
+        position: { x: 400, y: 150 },
+        data: {
+          label: "Has Document?",
+          config: { condition: "{{parse-1.message_type}} == \"document\"" },
+        },
+      },
+      {
+        id: "download-1",
+        type: "telegram_download",
+        position: { x: 700, y: 80 },
+        data: {
+          label: "Download Doc",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            file_id: "{{parse-1.files[0].file_id}}",
+            output_format: "base64",
+          },
+        },
+      },
+      {
+        id: "llm-doc",
+        type: "llm",
+        position: { x: 1000, y: 80 },
+        data: {
+          label: "Analyze Document",
+          config: {
+            provider: "openai",
+            model: "gpt-4",
+            prompt: "Summarize this document:\\n\\n{{download-1.file_data}}",
+          },
+        },
+      },
+      {
+        id: "llm-text",
+        type: "llm",
+        position: { x: 700, y: 280 },
+        data: {
+          label: "Chat Response",
+          config: {
+            provider: "openai",
+            model: "gpt-4",
+            prompt: "You are a helpful assistant. User says: {{parse-1.text}}",
+          },
+        },
+      },
+      {
+        id: "merge-1",
+        type: "merge",
+        position: { x: 1300, y: 180 },
+        data: {
+          label: "Merge Responses",
+          config: { merge_strategy: "first" },
+        },
+      },
+      {
+        id: "telegram-1",
+        type: "telegram",
+        position: { x: 1600, y: 180 },
+        data: {
+          label: "Send Reply",
+          config: {
+            bot_token: "{{env.TELEGRAM_BOT_TOKEN}}",
+            chat_id: "{{parse-1.chat.id}}",
+            message_type: "text",
+            text: "{{merge-1.content}}",
+            parse_mode: "Markdown",
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: "e1", source: "parse-1", target: "conditional-doc" },
+      { id: "e2", source: "conditional-doc", target: "download-1", sourceHandle: "true" },
+      { id: "e3", source: "download-1", target: "llm-doc" },
+      { id: "e4", source: "conditional-doc", target: "llm-text", sourceHandle: "false" },
+      { id: "e5", source: "llm-doc", target: "merge-1" },
+      { id: "e6", source: "llm-text", target: "merge-1" },
+      { id: "e7", source: "merge-1", target: "telegram-1" },
+    ],
+    author: "MBFlow Team",
+    version: "1.0.0",
+  },
 ];
 
 // Helper functions

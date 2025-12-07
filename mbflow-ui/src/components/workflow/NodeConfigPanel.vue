@@ -126,6 +126,9 @@ import LLMNodeConfig from "@/components/nodes/config/LLMNodeConfig.vue";
 import TransformNodeConfig from "@/components/nodes/config/TransformNodeConfig.vue";
 import FunctionCallNodeConfig from "@/components/nodes/config/FunctionCallNodeConfig.vue";
 import TelegramNodeConfig from "@/components/nodes/config/TelegramNodeConfig.vue";
+import TelegramDownloadNodeConfig from "@/components/nodes/config/TelegramDownloadNodeConfig.vue";
+import TelegramParseNodeConfig from "@/components/nodes/config/TelegramParseNodeConfig.vue";
+import TelegramCallbackNodeConfig from "@/components/nodes/config/TelegramCallbackNodeConfig.vue";
 import FileStorageNodeConfig from "@/components/nodes/config/FileStorageNodeConfig.vue";
 import ConditionalNodeConfig from "@/components/nodes/config/ConditionalNodeConfig.vue";
 import MergeNodeConfig from "@/components/nodes/config/MergeNodeConfig.vue";
@@ -134,6 +137,9 @@ import Base64ToBytesNodeConfig from "@/components/nodes/config/Base64ToBytesNode
 import BytesToBase64NodeConfig from "@/components/nodes/config/BytesToBase64NodeConfig.vue";
 import StringToJsonNodeConfig from "@/components/nodes/config/StringToJsonNodeConfig.vue";
 import JsonToStringNodeConfig from "@/components/nodes/config/JsonToStringNodeConfig.vue";
+import BytesToJsonNodeConfig from "@/components/nodes/config/BytesToJsonNodeConfig.vue";
+import FileToBytesNodeConfig from "@/components/nodes/config/FileToBytesNodeConfig.vue";
+import BytesToFileNodeConfig from "@/components/nodes/config/BytesToFileNodeConfig.vue";
 
 const workflowStore = useWorkflowStore();
 const emit = defineEmits(["save"]);
@@ -168,6 +174,7 @@ const nodeTypeBadgeClass = computed(() => {
     "#EC4899": "bg-pink-100 text-pink-700",
     "#A855F7": "bg-violet-100 text-violet-700",
     "#EF4444": "bg-red-100 text-red-700",
+    "#06B6D4": "bg-cyan-100 text-cyan-700",
   };
 
   return colorMap[color] || "bg-gray-100 text-gray-700";
@@ -180,6 +187,9 @@ const configComponentMap: Record<NodeType, Component> = {
   [NodeType.TRANSFORM]: markRaw(TransformNodeConfig),
   [NodeType.FUNCTION_CALL]: markRaw(FunctionCallNodeConfig),
   [NodeType.TELEGRAM]: markRaw(TelegramNodeConfig),
+  [NodeType.TELEGRAM_DOWNLOAD]: markRaw(TelegramDownloadNodeConfig),
+  [NodeType.TELEGRAM_PARSE]: markRaw(TelegramParseNodeConfig),
+  [NodeType.TELEGRAM_CALLBACK]: markRaw(TelegramCallbackNodeConfig),
   [NodeType.FILE_STORAGE]: markRaw(FileStorageNodeConfig),
   [NodeType.CONDITIONAL]: markRaw(ConditionalNodeConfig),
   [NodeType.MERGE]: markRaw(MergeNodeConfig),
@@ -188,6 +198,9 @@ const configComponentMap: Record<NodeType, Component> = {
   [NodeType.BYTES_TO_BASE64]: markRaw(BytesToBase64NodeConfig),
   [NodeType.STRING_TO_JSON]: markRaw(StringToJsonNodeConfig),
   [NodeType.JSON_TO_STRING]: markRaw(JsonToStringNodeConfig),
+  [NodeType.BYTES_TO_JSON]: markRaw(BytesToJsonNodeConfig),
+  [NodeType.FILE_TO_BYTES]: markRaw(FileToBytesNodeConfig),
+  [NodeType.BYTES_TO_FILE]: markRaw(BytesToFileNodeConfig),
 };
 
 const currentConfigComponent = computed(() => {
