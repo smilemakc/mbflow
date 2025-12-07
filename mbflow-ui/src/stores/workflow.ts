@@ -10,6 +10,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
   const nodes = ref<VueFlowNode[]>([]);
   const edges = ref<VueFlowEdge[]>([]);
   const selectedNodeId = ref<string | null>(null);
+  const selectedEdgeId = ref<string | null>(null);
   const isDirty = ref(false);
   const workflowVariables = ref<Record<string, any>>({});
 
@@ -17,6 +18,11 @@ export const useWorkflowStore = defineStore("workflow", () => {
   const selectedNode = computed(() => {
     if (!selectedNodeId.value) return null;
     return nodes.value.find((n) => n.id === selectedNodeId.value);
+  });
+
+  const selectedEdge = computed(() => {
+    if (!selectedEdgeId.value) return null;
+    return edges.value.find((e) => e.id === selectedEdgeId.value);
   });
 
   const nodeCount = computed(() => nodes.value.length);
@@ -70,6 +76,7 @@ export const useWorkflowStore = defineStore("workflow", () => {
     nodes.value = [];
     edges.value = [];
     selectedNodeId.value = null;
+    selectedEdgeId.value = null;
     workflowVariables.value = {};
     isDirty.value = false;
   }
@@ -169,6 +176,32 @@ export const useWorkflowStore = defineStore("workflow", () => {
    */
   function selectNode(nodeId: string | null) {
     selectedNodeId.value = nodeId;
+    // Clear edge selection when selecting a node
+    if (nodeId) {
+      selectedEdgeId.value = null;
+    }
+  }
+
+  /**
+   * Select edge
+   */
+  function selectEdge(edgeId: string | null) {
+    selectedEdgeId.value = edgeId;
+    // Clear node selection when selecting an edge
+    if (edgeId) {
+      selectedNodeId.value = null;
+    }
+  }
+
+  /**
+   * Update edge in workflow
+   */
+  function updateEdge(edgeId: string, updates: Partial<VueFlowEdge>) {
+    const index = edges.value.findIndex((e) => e.id === edgeId);
+    if (index !== -1) {
+      edges.value[index] = { ...edges.value[index], ...updates };
+      isDirty.value = true;
+    }
   }
 
   /**
@@ -252,11 +285,13 @@ export const useWorkflowStore = defineStore("workflow", () => {
     nodes,
     edges,
     selectedNodeId,
+    selectedEdgeId,
     isDirty,
     workflowVariables,
 
     // Computed
     selectedNode,
+    selectedEdge,
     nodeCount,
     edgeCount,
 
@@ -268,8 +303,10 @@ export const useWorkflowStore = defineStore("workflow", () => {
     updateNodeId,
     removeNode,
     addEdge,
+    updateEdge,
     removeEdge,
     selectNode,
+    selectEdge,
     updateNodePositions,
     updateWorkflowVariables,
     setWorkflowVariable,

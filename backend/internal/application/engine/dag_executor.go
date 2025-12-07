@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/expr-lang/expr"
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
@@ -92,6 +93,32 @@ func (de *DAGExecutor) executeWave(
 			// Acquire semaphore
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
+
+			// Check if node should be executed based on incoming edge conditions
+			shouldExec, skipReason := de.shouldExecuteNode(execState, n)
+			if !shouldExec {
+				// Skip this node - mark as skipped
+				execState.SetNodeStatus(n.ID, models.NodeExecutionStatusSkipped)
+
+				// Notify node skipped
+				if de.observerManager != nil {
+					event := observer.Event{
+						Type:        observer.EventTypeNodeSkipped,
+						ExecutionID: execState.ExecutionID,
+						WorkflowID:  execState.WorkflowID,
+						Timestamp:   time.Now(),
+						Status:      "skipped",
+						NodeID:      &n.ID,
+						NodeName:    &n.Name,
+						NodeType:    &n.Type,
+					}
+					if skipReason != "" {
+						event.Message = &skipReason
+					}
+					de.observerManager.Notify(ctx, event)
+				}
+				return
+			}
 
 			// Execute node
 			if err := de.executeNode(ctx, execState, n, opts); err != nil {
@@ -322,4 +349,149 @@ func getParentNodes(workflow *models.Workflow, node *models.Node) []*models.Node
 	}
 
 	return parents
+}
+
+// shouldExecuteNode checks if a node should be executed based on incoming edge conditions.
+// Returns (shouldExecute, skipReason).
+// A node is skipped if ANY incoming edge has a condition that evaluates to false.
+func (de *DAGExecutor) shouldExecuteNode(
+	execState *ExecutionState,
+	node *models.Node,
+) (bool, string) {
+	workflow := execState.Workflow
+
+	// Find all incoming edges to this node
+	for _, edge := range workflow.Edges {
+		if edge.To != node.ID {
+			continue
+		}
+
+		// Find source node
+		var sourceNode *models.Node
+		for _, n := range workflow.Nodes {
+			if n.ID == edge.From {
+				sourceNode = n
+				break
+			}
+		}
+
+		if sourceNode == nil {
+			continue
+		}
+
+		// Check if source node was skipped - if so, skip downstream nodes too
+		sourceStatus, _ := execState.GetNodeStatus(sourceNode.ID)
+		if sourceStatus == models.NodeExecutionStatusSkipped {
+			return false, fmt.Sprintf("parent node %s was skipped", sourceNode.ID)
+		}
+
+		// Evaluate edge condition if present
+		if edge.Condition != "" {
+			passed, err := evaluateEdgeCondition(edge, execState, sourceNode)
+			if err != nil {
+				// On error, skip with message
+				return false, fmt.Sprintf("edge condition error: %v", err)
+			}
+			if !passed {
+				return false, fmt.Sprintf("edge condition '%s' is false", edge.Condition)
+			}
+		}
+
+		// Check for sourceHandle-based routing from conditional nodes
+		if sourceNode.Type == "conditional" && edge.SourceHandle != "" {
+			passed, err := evaluateSourceHandleCondition(edge, execState, sourceNode)
+			if err != nil {
+				return false, fmt.Sprintf("sourceHandle evaluation error: %v", err)
+			}
+			if !passed {
+				return false, fmt.Sprintf("conditional branch '%s' not active", edge.SourceHandle)
+			}
+		}
+	}
+
+	return true, ""
+}
+
+// evaluateEdgeCondition evaluates the condition expression on an edge.
+// Returns true if the condition passes, false otherwise.
+func evaluateEdgeCondition(
+	edge *models.Edge,
+	execState *ExecutionState,
+	sourceNode *models.Node,
+) (bool, error) {
+	condition := edge.Condition
+	if condition == "" {
+		return true, nil // No condition = always pass
+	}
+
+	// Get output from source node
+	output, _ := execState.GetNodeOutput(sourceNode.ID)
+
+	// Prepare environment for expression evaluation
+	env := map[string]interface{}{
+		"output": output,
+		"node":   sourceNode.ID,
+	}
+
+	// Compile and execute expression
+	program, err := expr.Compile(condition, expr.Env(env), expr.AsBool())
+	if err != nil {
+		return false, fmt.Errorf("failed to compile edge condition: %w", err)
+	}
+
+	result, err := expr.Run(program, env)
+	if err != nil {
+		return false, fmt.Errorf("failed to evaluate edge condition: %w", err)
+	}
+
+	if boolResult, ok := result.(bool); ok {
+		return boolResult, nil
+	}
+
+	return false, fmt.Errorf("edge condition must return boolean, got: %T", result)
+}
+
+// evaluateSourceHandleCondition checks if the edge's sourceHandle matches
+// the output of a conditional node.
+// For conditional nodes, output is typically a boolean (true/false).
+func evaluateSourceHandleCondition(
+	edge *models.Edge,
+	execState *ExecutionState,
+	sourceNode *models.Node,
+) (bool, error) {
+	// Get output from conditional node
+	output, ok := execState.GetNodeOutput(sourceNode.ID)
+	if !ok {
+		return false, fmt.Errorf("conditional node %s has no output", sourceNode.ID)
+	}
+
+	// Conditional nodes return boolean
+	if boolOutput, ok := output.(bool); ok {
+		switch edge.SourceHandle {
+		case "true":
+			return boolOutput, nil
+		case "false":
+			return !boolOutput, nil
+		default:
+			// Unknown handle - let it pass
+			return true, nil
+		}
+	}
+
+	// If output is a map, check for "result" key
+	if mapOutput, ok := output.(map[string]interface{}); ok {
+		if result, exists := mapOutput["result"]; exists {
+			if boolResult, ok := result.(bool); ok {
+				switch edge.SourceHandle {
+				case "true":
+					return boolResult, nil
+				case "false":
+					return !boolResult, nil
+				}
+			}
+		}
+	}
+
+	// Can't determine - default to pass
+	return true, nil
 }

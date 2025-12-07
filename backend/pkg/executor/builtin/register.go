@@ -49,3 +49,30 @@ func MustRegisterFileStorage(manager executor.Manager, storageManager filestorag
 		panic("failed to register file_storage executor: " + err.Error())
 	}
 }
+
+// RegisterAdapters registers all adapter executors with the given manager.
+// These are simple data transformation adapters that don't require external dependencies.
+func RegisterAdapters(manager executor.Manager) error {
+	adapters := map[string]executor.Executor{
+		"base64_to_bytes": NewBase64ToBytesExecutor(),
+		"bytes_to_base64": NewBytesToBase64Executor(),
+		"string_to_json":  NewStringToJsonExecutor(),
+		"json_to_string":  NewJsonToStringExecutor(),
+	}
+
+	for name, exec := range adapters {
+		if err := manager.Register(name, exec); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// MustRegisterAdapters registers all adapter executors and panics on error.
+// This is a convenience function for initialization code.
+func MustRegisterAdapters(manager executor.Manager) {
+	if err := RegisterAdapters(manager); err != nil {
+		panic("failed to register adapter executors: " + err.Error())
+	}
+}

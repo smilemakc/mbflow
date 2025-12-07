@@ -20,10 +20,12 @@ interface Props {
   };
   selected?: boolean;
   type?: string;
+  hideSourceHandle?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   selected: false,
+  hideSourceHandle: false,
 });
 
 // Inject openNodeConfig function from parent
@@ -193,8 +195,8 @@ const nodeIcon = computed(() => {
       <slot />
     </div>
 
-    <!-- Output handle -->
-    <Handle :position="Position.Bottom" type="source" class="handle-source" />
+    <!-- Output handle (hidden if hideSourceHandle is true) -->
+    <Handle v-if="!hideSourceHandle" :position="Position.Bottom" type="source" class="handle-source" />
 
     <!-- Execution Data Tooltip (Click-based, interactive) -->
     <div v-if="showTooltip" class="node-tooltip">

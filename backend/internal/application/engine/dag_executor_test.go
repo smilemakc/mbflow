@@ -297,3 +297,135 @@ func TestGetParentNodes(t *testing.T) {
 		t.Error("expected parents to be node-1 and node-2")
 	}
 }
+
+// TestDAGExecutor_ConditionalEdge_TrueBranch tests that true branch is executed when conditional node returns true
+func TestDAGExecutor_ConditionalEdge_TrueBranch(t *testing.T) {
+	var executedNodes []string
+	var mu sync.Mutex
+
+	// Mock executor that returns true for conditional node
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			nodeID := config["nodeID"].(string)
+			mu.Lock()
+			executedNodes = append(executedNodes, nodeID)
+			mu.Unlock()
+
+			// Conditional node returns true
+			if nodeID == "conditional" {
+				return true, nil
+			}
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("conditional", mockExec)
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	// Workflow: start -> conditional -> true-branch, false-branch
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Conditional Test",
+		Nodes: []*models.Node{
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
+			{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]interface{}{"nodeID": "true-branch"}},
+			{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]interface{}{"nodeID": "false-branch"}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "start", To: "conditional"},
+			{ID: "e2", From: "conditional", To: "true-branch", SourceHandle: "true"},
+			{ID: "e3", From: "conditional", To: "false-branch", SourceHandle: "false"},
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Verify true-branch was executed (conditional returned true)
+	trueBranchStatus, _ := execState.GetNodeStatus("true-branch")
+	if trueBranchStatus != models.NodeExecutionStatusCompleted {
+		t.Errorf("expected true-branch to be completed, got %v", trueBranchStatus)
+	}
+
+	// Verify false-branch was skipped
+	falseBranchStatus, _ := execState.GetNodeStatus("false-branch")
+	if falseBranchStatus != models.NodeExecutionStatusSkipped {
+		t.Errorf("expected false-branch to be skipped, got %v", falseBranchStatus)
+	}
+}
+
+// TestDAGExecutor_ConditionalEdge_FalseBranch tests that false branch is executed when conditional node returns false
+func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
+	var executedNodes []string
+	var mu sync.Mutex
+
+	// Mock executor that returns false for conditional node
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			nodeID := config["nodeID"].(string)
+			mu.Lock()
+			executedNodes = append(executedNodes, nodeID)
+			mu.Unlock()
+
+			// Conditional node returns false
+			if nodeID == "conditional" {
+				return false, nil
+			}
+			return map[string]interface{}{"result": "ok"}, nil
+		},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("conditional", mockExec)
+	registry.Register("test", mockExec)
+
+	nodeExec := NewNodeExecutor(registry)
+	dagExec := NewDAGExecutor(nodeExec, nil)
+
+	// Workflow: start -> conditional -> true-branch, false-branch
+	workflow := &models.Workflow{
+		ID:   "wf-1",
+		Name: "Conditional Test",
+		Nodes: []*models.Node{
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
+			{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]interface{}{"nodeID": "true-branch"}},
+			{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]interface{}{"nodeID": "false-branch"}},
+		},
+		Edges: []*models.Edge{
+			{ID: "e1", From: "start", To: "conditional"},
+			{ID: "e2", From: "conditional", To: "true-branch", SourceHandle: "true"},
+			{ID: "e3", From: "conditional", To: "false-branch", SourceHandle: "false"},
+		},
+	}
+
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	opts := DefaultExecutionOptions()
+
+	err := dagExec.Execute(context.Background(), execState, opts)
+	if err != nil {
+		t.Fatalf("DAG execution failed: %v", err)
+	}
+
+	// Verify true-branch was skipped (conditional returned false)
+	trueBranchStatus, _ := execState.GetNodeStatus("true-branch")
+	if trueBranchStatus != models.NodeExecutionStatusSkipped {
+		t.Errorf("expected true-branch to be skipped, got %v", trueBranchStatus)
+	}
+
+	// Verify false-branch was executed
+	falseBranchStatus, _ := execState.GetNodeStatus("false-branch")
+	if falseBranchStatus != models.NodeExecutionStatusCompleted {
+		t.Errorf("expected false-branch to be completed, got %v", falseBranchStatus)
+	}
+}

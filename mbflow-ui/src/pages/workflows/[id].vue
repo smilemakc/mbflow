@@ -18,6 +18,7 @@ import WorkflowToolbar from "@/components/workflow/WorkflowToolbar.vue";
 import WorkflowCanvas from "@/components/workflow/WorkflowCanvas.vue";
 import NodePalette from "@/components/workflow/NodePalette.vue";
 import NodeConfigPanel from "@/components/workflow/NodeConfigPanel.vue";
+import EdgeConfigPanel from "@/components/workflow/EdgeConfigPanel.vue";
 import HTTPNode from "@/components/workflow/nodes/HTTPNode.vue";
 import LLMNode from "@/components/workflow/nodes/LLMNode.vue";
 import TransformNode from "@/components/workflow/nodes/TransformNode.vue";
@@ -258,6 +259,7 @@ function handleNodeClick(nodeId: string) {
 
 function handleEdgeClick(edgeId: string) {
   console.log("Edge clicked:", edgeId);
+  workflowStore.selectEdge(edgeId);
 }
 
 // Handle drop from palette
@@ -362,6 +364,9 @@ function onDragOver(event: DragEvent) {
 
         <!-- Node Config Panel -->
         <NodeConfigPanel @save="handleSave" />
+
+        <!-- Edge Config Panel -->
+        <EdgeConfigPanel @save="handleSave" />
 
         <!-- Execution Status Panel (floating) -->
         <div

@@ -155,6 +155,29 @@ export interface MergeNodeConfig extends BaseNodeConfig {
   custom_expression?: string; // Custom merge expression (expr-lang)
 }
 
+// Adapter Node Configurations
+export interface Base64ToBytesNodeConfig extends BaseNodeConfig {
+  encoding: "standard" | "url" | "raw_standard" | "raw_url";
+  output_format: "raw" | "hex";
+}
+
+export interface BytesToBase64NodeConfig extends BaseNodeConfig {
+  encoding: "standard" | "url" | "raw_standard" | "raw_url";
+  line_length?: number;
+}
+
+export interface StringToJsonNodeConfig extends BaseNodeConfig {
+  strict_mode?: boolean;
+  trim_whitespace?: boolean;
+}
+
+export interface JsonToStringNodeConfig extends BaseNodeConfig {
+  pretty?: boolean;
+  indent?: string;
+  escape_html?: boolean;
+  sort_keys?: boolean;
+}
+
 export type NodeConfig =
   | HTTPNodeConfig
   | LLMNodeConfig
@@ -163,7 +186,11 @@ export type NodeConfig =
   | TelegramNodeConfig
   | FileStorageNodeConfig
   | ConditionalNodeConfig
-  | MergeNodeConfig;
+  | MergeNodeConfig
+  | Base64ToBytesNodeConfig
+  | BytesToBase64NodeConfig
+  | StringToJsonNodeConfig
+  | JsonToStringNodeConfig;
 
 export const NodeType = {
   HTTP: "http",
@@ -174,6 +201,11 @@ export const NodeType = {
   FILE_STORAGE: "file_storage",
   CONDITIONAL: "conditional",
   MERGE: "merge",
+  // Adapter nodes
+  BASE64_TO_BYTES: "base64_to_bytes",
+  BYTES_TO_BASE64: "bytes_to_base64",
+  STRING_TO_JSON: "string_to_json",
+  JSON_TO_STRING: "json_to_string",
 } as const;
 
 export type NodeType = (typeof NodeType)[keyof typeof NodeType];
@@ -225,6 +257,24 @@ export const DEFAULT_NODE_CONFIGS: Record<NodeType, NodeConfig> = {
   },
   [NodeType.MERGE]: {
     merge_strategy: "all",
+  },
+  [NodeType.BASE64_TO_BYTES]: {
+    encoding: "standard",
+    output_format: "raw",
+  },
+  [NodeType.BYTES_TO_BASE64]: {
+    encoding: "standard",
+    line_length: 0,
+  },
+  [NodeType.STRING_TO_JSON]: {
+    strict_mode: true,
+    trim_whitespace: true,
+  },
+  [NodeType.JSON_TO_STRING]: {
+    pretty: false,
+    indent: "  ",
+    escape_html: true,
+    sort_keys: false,
   },
 };
 
@@ -363,5 +413,33 @@ export const NODE_TYPE_METADATA: Record<NodeType, NodeTypeMetadata> = {
     description: "Merge results from multiple nodes",
     icon: "heroicons:arrows-pointing-in",
     color: "#A855F7", // Purple for Merge
+  },
+  [NodeType.BASE64_TO_BYTES]: {
+    type: NodeType.BASE64_TO_BYTES,
+    label: "Base64 → Bytes",
+    description: "Decode base64 string to bytes",
+    icon: "heroicons:lock-open",
+    color: "#EF4444", // Red
+  },
+  [NodeType.BYTES_TO_BASE64]: {
+    type: NodeType.BYTES_TO_BASE64,
+    label: "Bytes → Base64",
+    description: "Encode bytes to base64 string",
+    icon: "heroicons:key",
+    color: "#F59E0B", // Amber
+  },
+  [NodeType.STRING_TO_JSON]: {
+    type: NodeType.STRING_TO_JSON,
+    label: "String → JSON",
+    description: "Parse JSON string to object",
+    icon: "heroicons:code-bracket",
+    color: "#8B5CF6", // Violet
+  },
+  [NodeType.JSON_TO_STRING]: {
+    type: NodeType.JSON_TO_STRING,
+    label: "JSON → String",
+    description: "Serialize JSON to string",
+    icon: "heroicons:document-duplicate",
+    color: "#EC4899", // Pink
   },
 };

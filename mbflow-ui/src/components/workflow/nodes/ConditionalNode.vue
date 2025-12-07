@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { Handle, Position } from "@vue-flow/core";
 import BaseNode from "./BaseNode.vue";
 
 interface Props {
@@ -24,7 +25,7 @@ const hasCondition = computed(() => condition.value.length > 0);
 </script>
 
 <template>
-  <BaseNode :data="data" :selected="selected" type="conditional">
+  <BaseNode :data="data" :selected="selected" type="conditional" :hide-source-handle="true">
     <div class="mt-2 space-y-1">
       <div
         v-if="hasCondition"
@@ -43,5 +44,45 @@ const hasCondition = computed(() => condition.value.length > 0);
         </span>
       </div>
     </div>
+
+    <!-- Custom source handles for true/false branches -->
+    <Handle
+      id="true"
+      type="source"
+      :position="Position.Bottom"
+      class="conditional-handle conditional-handle-true"
+    />
+    <Handle
+      id="false"
+      type="source"
+      :position="Position.Bottom"
+      class="conditional-handle conditional-handle-false"
+    />
   </BaseNode>
 </template>
+
+<style scoped>
+.conditional-handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  transition: all 0.2s;
+}
+
+.conditional-handle:hover {
+  width: 16px;
+  height: 16px;
+}
+
+.conditional-handle-true {
+  left: 30%;
+  bottom: -6px;
+  background: #22c55e;
+}
+
+.conditional-handle-false {
+  left: 70%;
+  bottom: -6px;
+  background: #ef4444;
+}
+</style>

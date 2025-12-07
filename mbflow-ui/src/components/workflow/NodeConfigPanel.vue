@@ -129,6 +129,11 @@ import TelegramNodeConfig from "@/components/nodes/config/TelegramNodeConfig.vue
 import FileStorageNodeConfig from "@/components/nodes/config/FileStorageNodeConfig.vue";
 import ConditionalNodeConfig from "@/components/nodes/config/ConditionalNodeConfig.vue";
 import MergeNodeConfig from "@/components/nodes/config/MergeNodeConfig.vue";
+// Adapter node config components
+import Base64ToBytesNodeConfig from "@/components/nodes/config/Base64ToBytesNodeConfig.vue";
+import BytesToBase64NodeConfig from "@/components/nodes/config/BytesToBase64NodeConfig.vue";
+import StringToJsonNodeConfig from "@/components/nodes/config/StringToJsonNodeConfig.vue";
+import JsonToStringNodeConfig from "@/components/nodes/config/JsonToStringNodeConfig.vue";
 
 const workflowStore = useWorkflowStore();
 const emit = defineEmits(["save"]);
@@ -162,6 +167,7 @@ const nodeTypeBadgeClass = computed(() => {
     "#14B8A6": "bg-teal-100 text-teal-700",
     "#EC4899": "bg-pink-100 text-pink-700",
     "#A855F7": "bg-violet-100 text-violet-700",
+    "#EF4444": "bg-red-100 text-red-700",
   };
 
   return colorMap[color] || "bg-gray-100 text-gray-700";
@@ -177,6 +183,11 @@ const configComponentMap: Record<NodeType, Component> = {
   [NodeType.FILE_STORAGE]: markRaw(FileStorageNodeConfig),
   [NodeType.CONDITIONAL]: markRaw(ConditionalNodeConfig),
   [NodeType.MERGE]: markRaw(MergeNodeConfig),
+  // Adapter nodes
+  [NodeType.BASE64_TO_BYTES]: markRaw(Base64ToBytesNodeConfig),
+  [NodeType.BYTES_TO_BASE64]: markRaw(BytesToBase64NodeConfig),
+  [NodeType.STRING_TO_JSON]: markRaw(StringToJsonNodeConfig),
+  [NodeType.JSON_TO_STRING]: markRaw(JsonToStringNodeConfig),
 };
 
 const currentConfigComponent = computed(() => {

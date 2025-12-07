@@ -47,6 +47,7 @@ type Event struct {
 
 	// Additional metadata
 	Metadata map[string]interface{} // Additional context
+	Message  *string                // Optional message (for skipped nodes, etc)
 }
 
 // EventType represents the type of execution event (dot notation)
@@ -61,6 +62,7 @@ const (
 	EventTypeNodeStarted        EventType = "node.started"
 	EventTypeNodeCompleted      EventType = "node.completed"
 	EventTypeNodeFailed         EventType = "node.failed"
+	EventTypeNodeSkipped        EventType = "node.skipped"
 	EventTypeNodeRetrying       EventType = "node.retrying"
 )
 

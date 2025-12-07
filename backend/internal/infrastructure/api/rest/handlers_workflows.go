@@ -290,15 +290,16 @@ func (h *WorkflowHandlers) validateNodes(nodes []NodeRequest) error {
 
 	nodeIDs := make(map[string]bool)
 	validTypes := map[string]bool{
-		"http":        true,
-		"transform":   true,
-		"llm":         true,
-		"conditional": true,
-		"merge":       true,
-		"split":       true,
-		"delay":       true,
-		"webhook":     true,
-		"telegram":    true,
+		"http":         true,
+		"transform":    true,
+		"llm":          true,
+		"conditional":  true,
+		"merge":        true,
+		"split":        true,
+		"delay":        true,
+		"webhook":      true,
+		"telegram":     true,
+		"file_storage": true,
 	}
 
 	for i, node := range nodes {
