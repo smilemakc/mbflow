@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/application/trigger"
 	"github.com/smilemakc/mbflow/internal/config"
@@ -75,9 +76,21 @@ func main() {
 	// Initialize executor registry
 	executorManager := executor.NewManager()
 
-	// Register all built-in executors (http, transform, llm, function_call)
+	// Register all built-in executors (http, transform, llm, function_call, telegram, conditional, merge)
 	if err := builtin.RegisterBuiltins(executorManager); err != nil {
 		appLogger.Error("Failed to register built-in executors", "error", err)
+		os.Exit(1)
+	}
+
+	// Initialize file storage manager
+	fileStorageManager := filestorage.NewStorageManager(filestorage.DefaultManagerConfig())
+	appLogger.Info("File storage manager initialized",
+		"base_path", "./file_storage",
+	)
+
+	// Register file_storage executor
+	if err := builtin.RegisterFileStorage(executorManager, fileStorageManager); err != nil {
+		appLogger.Error("Failed to register file_storage executor", "error", err)
 		os.Exit(1)
 	}
 
@@ -452,6 +465,14 @@ func main() {
 			} else {
 				appLogger.Info("Trigger manager stopped")
 			}
+		}
+
+		// Close file storage manager
+		appLogger.Info("Closing file storage manager...")
+		if err := fileStorageManager.Close(); err != nil {
+			appLogger.Error("File storage manager shutdown failed", "error", err)
+		} else {
+			appLogger.Info("File storage manager closed")
 		}
 
 		// Note: WebSocket hub cleanup happens automatically when server stops

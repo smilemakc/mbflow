@@ -28,7 +28,7 @@ func (e *ConditionalExecutor) Execute(ctx context.Context, config map[string]int
 	switch conditionType {
 	case "expression":
 		// Get expression string
-		exprStr, err := e.GetString(config, "expression")
+		exprStr, err := e.GetString(config, "condition")
 		if err != nil {
 			return nil, err
 		}

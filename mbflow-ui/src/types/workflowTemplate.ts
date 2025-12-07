@@ -32,6 +32,8 @@ export type TemplateCategory =
   | "ai-automation"
   | "notification"
   | "monitoring"
+  | "automation"
+  | "maintenance"
   | "etl"
   | "other";
 

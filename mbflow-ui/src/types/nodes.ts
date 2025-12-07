@@ -19,6 +19,48 @@ export interface HTTPNodeConfig extends BaseNodeConfig {
   follow_redirects?: boolean;
 }
 
+// Tool Calling Types
+export type ToolCallMode = "auto" | "manual";
+
+export type FunctionType =
+  | "builtin"
+  | "sub_workflow"
+  | "custom_code"
+  | "openapi";
+
+export interface ToolCallConfig {
+  mode: ToolCallMode;
+  max_iterations?: number;
+  timeout_per_tool?: number;
+  total_timeout?: number;
+  stop_on_tool_failure?: boolean;
+}
+
+export interface FunctionDefinition {
+  type: FunctionType;
+  name: string;
+  description: string;
+  parameters?: Record<string, any>; // JSON Schema
+
+  // For FunctionTypeBuiltin
+  builtin_name?: string;
+
+  // For FunctionTypeSubWorkflow
+  workflow_id?: string;
+  input_mapping?: Record<string, string>;
+  output_extractor?: string;
+
+  // For FunctionTypeCustomCode
+  language?: "javascript" | "python";
+  code?: string;
+
+  // For FunctionTypeOpenAPI
+  openapi_spec?: string;
+  operation_id?: string;
+  base_url?: string;
+  auth_config?: Record<string, any>;
+}
+
 // LLM Node Configuration
 export interface LLMNodeConfig extends BaseNodeConfig {
   provider: "openai" | "anthropic" | "google" | "azure" | "ollama";
@@ -44,6 +86,10 @@ export interface LLMNodeConfig extends BaseNodeConfig {
 
   // Streaming (future)
   stream?: boolean;
+
+  // Tool Calling Configuration (Phase 1)
+  tool_call_config?: ToolCallConfig;
+  functions?: FunctionDefinition[];
 }
 
 // Transform Node Configuration
@@ -79,21 +125,55 @@ export interface TelegramNodeConfig extends BaseNodeConfig {
   timeout_seconds?: number;
 }
 
-// Union type for all node configs
+// File Storage Node Configuration
+export interface FileStorageNodeConfig extends BaseNodeConfig {
+  action: "store" | "get" | "delete" | "list" | "metadata";
+  storage_id?: string;
+  file_source?: "url" | "base64";
+  file_data?: string;
+  file_url?: string;
+  file_name?: string;
+  mime_type?: string;
+  file_id?: string;
+  access_scope?: "workflow" | "edge" | "result";
+  ttl?: number;
+  tags?: string[];
+  limit?: number;
+  offset?: number;
+}
+
+// Conditional Node Configuration
+export interface ConditionalNodeConfig extends BaseNodeConfig {
+  condition: string; // Expression to evaluate (supports expr-lang)
+  true_branch?: string; // Node ID for true branch (optional for UI)
+  false_branch?: string; // Node ID for false branch (optional for UI)
+}
+
+// Merge Node Configuration
+export interface MergeNodeConfig extends BaseNodeConfig {
+  merge_strategy?: "first" | "last" | "all" | "custom";
+  custom_expression?: string; // Custom merge expression (expr-lang)
+}
+
 export type NodeConfig =
   | HTTPNodeConfig
   | LLMNodeConfig
   | TransformNodeConfig
   | FunctionCallNodeConfig
-  | TelegramNodeConfig;
+  | TelegramNodeConfig
+  | FileStorageNodeConfig
+  | ConditionalNodeConfig
+  | MergeNodeConfig;
 
-// Node type enum
 export const NodeType = {
   HTTP: "http",
   LLM: "llm",
   TRANSFORM: "transform",
   FUNCTION_CALL: "function_call",
   TELEGRAM: "telegram",
+  FILE_STORAGE: "file_storage",
+  CONDITIONAL: "conditional",
+  MERGE: "merge",
 } as const;
 
 export type NodeType = (typeof NodeType)[keyof typeof NodeType];
@@ -133,6 +213,18 @@ export const DEFAULT_NODE_CONFIGS: Record<NodeType, NodeConfig> = {
     text: "",
     parse_mode: "HTML",
     timeout_seconds: 30,
+  },
+  [NodeType.FILE_STORAGE]: {
+    action: "store",
+    storage_id: "",
+    access_scope: "workflow",
+    ttl: 0,
+  },
+  [NodeType.CONDITIONAL]: {
+    condition: "{{input.value}} > 0",
+  },
+  [NodeType.MERGE]: {
+    merge_strategy: "all",
   },
 };
 
@@ -182,6 +274,30 @@ export const TELEGRAM_MESSAGE_TYPES = [
 export const TELEGRAM_PARSE_MODES = ["Markdown", "MarkdownV2", "HTML"] as const;
 export const TELEGRAM_FILE_SOURCES = ["base64", "url", "file_id"] as const;
 
+// Tool Calling constants
+export const TOOL_CALL_MODES: ToolCallMode[] = ["auto", "manual"];
+
+export const FUNCTION_TYPES: FunctionType[] = [
+  "builtin",
+  "sub_workflow",
+  "custom_code",
+  "openapi",
+];
+
+export const BUILTIN_FUNCTIONS = [
+  "get_current_time",
+  "get_weather",
+  "calculate",
+] as const;
+
+export const DEFAULT_TOOL_CALL_CONFIG: ToolCallConfig = {
+  mode: "manual",
+  max_iterations: 10,
+  timeout_per_tool: 30,
+  total_timeout: 300,
+  stop_on_tool_failure: false,
+};
+
 // Node type metadata
 export interface NodeTypeMetadata {
   type: NodeType;
@@ -226,5 +342,26 @@ export const NODE_TYPE_METADATA: Record<NodeType, NodeTypeMetadata> = {
     description: "Send messages via Telegram Bot API",
     icon: "heroicons:paper-airplane",
     color: "#0EA5E9", // Sky blue for Telegram
+  },
+  [NodeType.FILE_STORAGE]: {
+    type: NodeType.FILE_STORAGE,
+    label: "File Storage",
+    description: "Store, retrieve, and manage files",
+    icon: "heroicons:folder",
+    color: "#14B8A6", // Teal for Storage
+  },
+  [NodeType.CONDITIONAL]: {
+    type: NodeType.CONDITIONAL,
+    label: "Conditional",
+    description: "Branch workflow based on conditions",
+    icon: "heroicons:code-bracket",
+    color: "#EC4899", // Pink for Conditional
+  },
+  [NodeType.MERGE]: {
+    type: NodeType.MERGE,
+    label: "Merge",
+    description: "Merge results from multiple nodes",
+    icon: "heroicons:arrows-pointing-in",
+    color: "#A855F7", // Purple for Merge
   },
 };

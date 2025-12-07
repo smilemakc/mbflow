@@ -41,6 +41,11 @@ type LLMRequest struct {
 	Reasoning    *LLMReasoningInfo `json:"reasoning,omitempty"`      // Reasoning configuration for o3-mini, etc.
 	Store        *bool             `json:"store,omitempty"`          // Whether to store response in OpenAI (defaults to true)
 	MaxToolCalls int               `json:"max_tool_calls,omitempty"` // Limit number of tool iterations
+
+	// Tool calling configuration
+	ToolCallConfig *ToolCallConfig      `json:"tool_call_config,omitempty"` // Auto/manual mode configuration
+	Messages       []LLMMessage         `json:"messages,omitempty"`         // Conversation history (auto mode)
+	Functions      []FunctionDefinition `json:"functions,omitempty"`        // Extended function definitions (built-in, sub-workflow, custom code, OpenAPI)
 }
 
 // LLMTool represents a function tool available to the LLM.
@@ -87,6 +92,12 @@ type LLMResponse struct {
 	Error             *LLMError              `json:"error,omitempty"`              // Error object if status is "failed"
 	IncompleteDetails map[string]interface{} `json:"incomplete_details,omitempty"` // Reason for incomplete status
 	Reasoning         *LLMReasoningInfo      `json:"reasoning,omitempty"`          // Reasoning info for o3-mini, etc.
+
+	// Tool calling results (auto mode)
+	Messages        []LLMMessage          `json:"messages,omitempty"`         // Full conversation history including tool calls
+	ToolExecutions  []ToolExecutionResult `json:"tool_executions,omitempty"`  // Tool execution results
+	TotalIterations int                   `json:"total_iterations,omitempty"` // Number of iterations in auto mode
+	StoppedReason   string                `json:"stopped_reason,omitempty"`   // "finish" | "max_iterations" | "error" | "tool_failure"
 }
 
 // LLMUsage represents token usage statistics.

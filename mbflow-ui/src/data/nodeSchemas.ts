@@ -42,6 +42,19 @@ export const NODE_OUTPUT_SCHEMAS: Record<string, NodeOutputSchema> = {
     merge: {
         output: { type: "any", description: "Merged output from executed branch" },
     },
+    file_storage: {
+        success: { type: "boolean", description: "Operation success status" },
+        file_id: { type: "string", description: "Stored/retrieved file ID" },
+        storage_id: { type: "string", description: "Storage instance ID" },
+        file_name: { type: "string", description: "File name" },
+        file_url: { type: "string", description: "File access URL" },
+        file_data: { type: "string", description: "Base64 encoded file content (for get)" },
+        mime_type: { type: "string", description: "File MIME type" },
+        size: { type: "number", description: "File size in bytes" },
+        checksum: { type: "string", description: "SHA256 checksum" },
+        metadata: { type: "object", description: "File metadata" },
+        files: { type: "array", description: "List of files (for list action)" },
+    },
 };
 
 export const GLOBAL_ENV_VARS = {

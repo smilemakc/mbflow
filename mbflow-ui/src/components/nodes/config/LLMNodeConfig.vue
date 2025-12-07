@@ -181,6 +181,117 @@
           class="input-field"
         />
       </div>
+
+      <!-- Tool Calling Section -->
+      <div class="tool-calling-section">
+        <h3 class="section-title">🔧 Tool Calling (Phase 1)</h3>
+
+        <div class="form-group">
+          <label class="label">Enable Tool Calling</label>
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              v-model="toolCallingEnabled"
+              class="checkbox-field"
+            />
+            Allow LLM to call functions
+          </label>
+        </div>
+
+        <div v-if="toolCallingEnabled" class="tool-config-panel">
+          <div class="form-group">
+            <label class="label">Tool Call Mode</label>
+            <select v-model="toolCallMode" class="select-field">
+              <option value="auto">
+                Auto (Automatic loop until completion)
+              </option>
+              <option value="manual">
+                Manual (Connect FunctionCall nodes via edges)
+              </option>
+            </select>
+            <p class="mt-1 text-xs text-gray-500">
+              <strong>Auto:</strong> LLM automatically calls functions in a loop.
+              <strong>Manual:</strong> Use FunctionCall nodes connected via edges.
+            </p>
+          </div>
+
+          <!-- Auto Mode Settings -->
+          <div v-if="toolCallMode === 'auto'" class="auto-mode-settings">
+            <div class="form-group">
+              <label class="label">
+                Max Iterations
+                <span class="hint">(Prevents infinite loops)</span>
+              </label>
+              <input
+                v-model.number="toolCallConfig.max_iterations"
+                type="number"
+                min="1"
+                max="50"
+                class="input-field"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="label">
+                Timeout Per Tool (seconds)
+                <span class="hint">(Max time for each tool call)</span>
+              </label>
+              <input
+                v-model.number="toolCallConfig.timeout_per_tool"
+                type="number"
+                min="1"
+                max="300"
+                class="input-field"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="label">
+                Total Timeout (seconds)
+                <span class="hint">(Max time for entire loop)</span>
+              </label>
+              <input
+                v-model.number="toolCallConfig.total_timeout"
+                type="number"
+                min="1"
+                max="1800"
+                class="input-field"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  v-model="toolCallConfig.stop_on_tool_failure"
+                  class="checkbox-field"
+                />
+                Stop on tool failure
+              </label>
+              <p class="mt-1 text-xs text-gray-500">
+                If enabled, execution stops when any tool fails. Otherwise,
+                errors are added to conversation.
+              </p>
+            </div>
+          </div>
+
+          <!-- Functions List -->
+          <div class="form-group">
+            <label class="label">
+              Functions ({{ functionCount }})
+              <span class="hint">Phase 1: Built-in functions only</span>
+            </label>
+            <div class="functions-placeholder">
+              <p class="text-sm text-gray-600">
+                Function editor will be available in the next update.
+              </p>
+              <p class="text-xs text-gray-500 mt-2">
+                For now, configure functions via JSON in workflow definition.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -188,7 +299,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import type { LLMNodeConfig } from "@/types/nodes";
-import { LLM_PROVIDER_MODELS } from "@/types/nodes";
+import { LLM_PROVIDER_MODELS, DEFAULT_TOOL_CALL_CONFIG } from "@/types/nodes";
 import TemplateInput from "@/components/common/TemplateInput.vue";
 
 interface Props {
@@ -205,6 +316,40 @@ const emit = defineEmits<{
 const localConfig = ref<LLMNodeConfig>({ ...props.config });
 const showAdvanced = ref(false);
 const variablePlaceholderExample = "{{env.openai_api_key}}";
+
+// Tool Calling State
+const toolCallingEnabled = computed({
+  get: () => !!localConfig.value.tool_call_config,
+  set: (enabled: boolean) => {
+    if (enabled && !localConfig.value.tool_call_config) {
+      localConfig.value.tool_call_config = { ...DEFAULT_TOOL_CALL_CONFIG };
+      localConfig.value.functions = [];
+    } else if (!enabled) {
+      localConfig.value.tool_call_config = undefined;
+      localConfig.value.functions = undefined;
+    }
+  },
+});
+
+const toolCallMode = computed({
+  get: () => localConfig.value.tool_call_config?.mode || "manual",
+  set: (mode: "auto" | "manual") => {
+    if (localConfig.value.tool_call_config) {
+      localConfig.value.tool_call_config.mode = mode;
+    }
+  },
+});
+
+const toolCallConfig = computed(() => {
+  if (!localConfig.value.tool_call_config) {
+    localConfig.value.tool_call_config = { ...DEFAULT_TOOL_CALL_CONFIG };
+  }
+  return localConfig.value.tool_call_config;
+});
+
+const functionCount = computed(() => {
+  return localConfig.value.functions?.length || 0;
+});
 
 // Available models based on selected provider
 const availableModels = computed(() => {
@@ -349,5 +494,65 @@ watch(
   background-color: #f9fafb;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
+}
+
+/* Tool Calling Styles */
+.tool-calling-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid #e5e7eb;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-field {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.tool-config-panel {
+  margin-top: 12px;
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auto-mode-settings {
+  padding: 12px;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.functions-placeholder {
+  padding: 24px;
+  background-color: #f9fafb;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  text-align: center;
 }
 </style>

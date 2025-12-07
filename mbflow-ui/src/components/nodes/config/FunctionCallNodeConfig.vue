@@ -11,16 +11,17 @@
 
     <div class="form-group">
       <label class="label">Arguments (JSON)</label>
-      <MonacoEditor
-        v-model="argumentsJson"
-        language="json"
-        height="200px"
+      <TemplateInput
+        v-model="argumentsStr"
+        :multiline="true"
+        :rows="6"
+        placeholder='{"key": "{{input.value}}"}'
         :node-id="nodeId"
       />
       <div class="help-text">
         Enter function arguments as JSON object. You can use template variables
-        like <code>{"{{ "}env.api_key{" }}"}</code> or
-        <code>{"{{ "}input.user_id{" }}"}</code>
+        like <code v-pre>{{env.api_key}}</code> or
+        <code v-pre>{{input.user_id}}</code>
       </div>
     </div>
 
@@ -38,10 +39,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
+import { ref, watch } from "vue";
 import type { FunctionCallNodeConfig } from "@/types/nodes";
 import TemplateInput from "@/components/common/TemplateInput.vue";
-import MonacoEditor from "@/components/common/MonacoEditor.vue";
 
 interface Props {
   config: FunctionCallNodeConfig;
@@ -54,24 +54,31 @@ const emit = defineEmits<{
   (e: "update:config", config: FunctionCallNodeConfig): void;
 }>();
 
-const localConfig = ref<FunctionCallNodeConfig>({ ...props.config });
+const localConfig = ref<FunctionCallNodeConfig>({
+  function_name: "",
+  arguments: {},
+  timeout_seconds: 30,
+  ...(props.config || {}),
+});
 
-// Convert arguments object to/from JSON string for editor
-const argumentsJson = computed({
-  get: () => {
-    try {
-      return JSON.stringify(localConfig.value.arguments || {}, null, 2);
-    } catch {
-      return "{}";
-    }
-  },
-  set: (value: string) => {
-    try {
-      localConfig.value.arguments = JSON.parse(value);
-    } catch {
-      // Keep previous value if parsing fails
-    }
-  },
+// Store arguments as string to support template variables like {{input.x}}
+const argumentsStr = ref<string>(
+  typeof props.config?.arguments === "string"
+    ? props.config.arguments
+    : JSON.stringify(props.config?.arguments || {}, null, 2)
+);
+
+// Sync argumentsStr to localConfig.arguments
+watch(argumentsStr, (newValue) => {
+  // Store as string - backend will parse after template resolution
+  (localConfig.value as any).arguments_template = newValue;
+  // Try to parse for validation preview, but don't reject invalid JSON
+  try {
+    localConfig.value.arguments = JSON.parse(newValue);
+  } catch {
+    // Keep as template string - will be resolved at runtime
+    localConfig.value.arguments = newValue as any;
+  }
 });
 
 // Watch for external config changes

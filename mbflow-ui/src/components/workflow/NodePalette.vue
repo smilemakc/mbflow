@@ -59,23 +59,30 @@ const nodeTemplates: NodeTemplate[] = [
     color: NODE_TYPE_METADATA[NodeType.TELEGRAM].color,
     defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.TELEGRAM],
   },
-  // Disabled nodes (kept for future use)
-  // {
-  //   type: "conditional",
-  //   label: "Conditional",
-  //   icon: "heroicons:code-bracket",
-  //   description: "Branch workflow based on conditions (Coming soon)",
-  //   color: "#6B7280",
-  //   disabled: true,
-  // },
-  // {
-  //   type: "merge",
-  //   label: "Merge",
-  //   icon: "heroicons:arrows-pointing-in",
-  //   description: "Merge results from multiple nodes (Coming soon)",
-  //   color: "#6B7280",
-  //   disabled: true,
-  // },
+  {
+    type: NodeType.FILE_STORAGE,
+    label: NODE_TYPE_METADATA[NodeType.FILE_STORAGE].label,
+    icon: NODE_TYPE_METADATA[NodeType.FILE_STORAGE].icon,
+    description: NODE_TYPE_METADATA[NodeType.FILE_STORAGE].description,
+    color: NODE_TYPE_METADATA[NodeType.FILE_STORAGE].color,
+    defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.FILE_STORAGE],
+  },
+  {
+    type: NodeType.CONDITIONAL,
+    label: NODE_TYPE_METADATA[NodeType.CONDITIONAL].label,
+    icon: NODE_TYPE_METADATA[NodeType.CONDITIONAL].icon,
+    description: NODE_TYPE_METADATA[NodeType.CONDITIONAL].description,
+    color: NODE_TYPE_METADATA[NodeType.CONDITIONAL].color,
+    defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.CONDITIONAL],
+  },
+  {
+    type: NodeType.MERGE,
+    label: NODE_TYPE_METADATA[NodeType.MERGE].label,
+    icon: NODE_TYPE_METADATA[NodeType.MERGE].icon,
+    description: NODE_TYPE_METADATA[NodeType.MERGE].description,
+    color: NODE_TYPE_METADATA[NodeType.MERGE].color,
+    defaultConfig: DEFAULT_NODE_CONFIGS[NodeType.MERGE],
+  },
 ];
 
 const draggedType = ref<string | null>(null);

@@ -126,6 +126,9 @@ import LLMNodeConfig from "@/components/nodes/config/LLMNodeConfig.vue";
 import TransformNodeConfig from "@/components/nodes/config/TransformNodeConfig.vue";
 import FunctionCallNodeConfig from "@/components/nodes/config/FunctionCallNodeConfig.vue";
 import TelegramNodeConfig from "@/components/nodes/config/TelegramNodeConfig.vue";
+import FileStorageNodeConfig from "@/components/nodes/config/FileStorageNodeConfig.vue";
+import ConditionalNodeConfig from "@/components/nodes/config/ConditionalNodeConfig.vue";
+import MergeNodeConfig from "@/components/nodes/config/MergeNodeConfig.vue";
 
 const workflowStore = useWorkflowStore();
 const emit = defineEmits(["save"]);
@@ -156,6 +159,9 @@ const nodeTypeBadgeClass = computed(() => {
     "#F59E0B": "bg-amber-100 text-amber-700",
     "#3B82F6": "bg-blue-100 text-blue-700",
     "#0EA5E9": "bg-sky-100 text-sky-700",
+    "#14B8A6": "bg-teal-100 text-teal-700",
+    "#EC4899": "bg-pink-100 text-pink-700",
+    "#A855F7": "bg-violet-100 text-violet-700",
   };
 
   return colorMap[color] || "bg-gray-100 text-gray-700";
@@ -168,6 +174,9 @@ const configComponentMap: Record<NodeType, Component> = {
   [NodeType.TRANSFORM]: markRaw(TransformNodeConfig),
   [NodeType.FUNCTION_CALL]: markRaw(FunctionCallNodeConfig),
   [NodeType.TELEGRAM]: markRaw(TelegramNodeConfig),
+  [NodeType.FILE_STORAGE]: markRaw(FileStorageNodeConfig),
+  [NodeType.CONDITIONAL]: markRaw(ConditionalNodeConfig),
+  [NodeType.MERGE]: markRaw(MergeNodeConfig),
 };
 
 const currentConfigComponent = computed(() => {

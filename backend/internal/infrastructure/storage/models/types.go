@@ -114,3 +114,58 @@ func (j JSONBMap) Clone() JSONBMap {
 	_ = json.Unmarshal(bytes, &clone)
 	return clone
 }
+
+// StringArray is a custom type for PostgreSQL TEXT[] columns
+type StringArray []string
+
+// Value implements the driver.Valuer interface for database serialization
+func (a StringArray) Value() (driver.Value, error) {
+	if a == nil || len(a) == 0 {
+		return "{}", nil
+	}
+	// Format as PostgreSQL array literal: {"val1","val2"}
+	bytes, err := json.Marshal(a)
+	if err != nil {
+		return nil, err
+	}
+	// Convert JSON array to PostgreSQL array format
+	// ["a","b"] -> {"a","b"}
+	s := string(bytes)
+	if len(s) >= 2 {
+		return "{" + s[1:len(s)-1] + "}", nil
+	}
+	return "{}", nil
+}
+
+// Scan implements the sql.Scanner interface for database deserialization
+func (a *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*a = make(StringArray, 0)
+		return nil
+	}
+
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return errors.New("failed to scan StringArray: unexpected type")
+	}
+
+	if len(bytes) == 0 || string(bytes) == "{}" {
+		*a = make(StringArray, 0)
+		return nil
+	}
+
+	// Parse PostgreSQL array format: {"val1","val2"}
+	s := string(bytes)
+	if len(s) >= 2 && s[0] == '{' && s[len(s)-1] == '}' {
+		// Convert {"a","b"} to ["a","b"] for JSON parsing
+		jsonStr := "[" + s[1:len(s)-1] + "]"
+		return json.Unmarshal([]byte(jsonStr), a)
+	}
+
+	return errors.New("invalid PostgreSQL array format")
+}

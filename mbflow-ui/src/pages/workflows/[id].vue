@@ -24,6 +24,8 @@ import TransformNode from "@/components/workflow/nodes/TransformNode.vue";
 import ConditionalNode from "@/components/workflow/nodes/ConditionalNode.vue";
 import MergeNode from "@/components/workflow/nodes/MergeNode.vue";
 import TelegramNode from "@/components/workflow/nodes/TelegramNode.vue";
+import FileStorageNode from "@/components/workflow/nodes/FileStorageNode.vue";
+import FunctionCallNode from "@/components/workflow/nodes/FunctionCallNode.vue";
 import ExecuteWorkflowDialog from "@/components/workflow/ExecuteWorkflowDialog.vue";
 import WorkflowVariablesPanel from "@/components/workflow/WorkflowVariablesPanel.vue";
 import ExecutionStatusPanel from "@/components/workflow/ExecutionStatusPanel.vue";
@@ -70,6 +72,8 @@ const nodeTypes = {
   conditional: markRaw(ConditionalNode),
   merge: markRaw(MergeNode),
   telegram: markRaw(TelegramNode),
+  file_storage: markRaw(FileStorageNode),
+  function_call: markRaw(FunctionCallNode),
 };
 
 // Load workflow on mount
