@@ -166,8 +166,8 @@ func (p *OpenAIProvider) buildRequestBody(req *models.LLMRequest) map[string]int
 
 // buildUserContent builds the user message content with multimodal support.
 func (p *OpenAIProvider) buildUserContent(req *models.LLMRequest) interface{} {
-	// If no images, just return text
-	if len(req.ImageURLs) == 0 && len(req.ImageIDs) == 0 {
+	// If no images or files, just return text
+	if len(req.ImageURLs) == 0 && len(req.ImageIDs) == 0 && len(req.Files) == 0 {
 		return req.Prompt
 	}
 
@@ -190,6 +190,40 @@ func (p *OpenAIProvider) buildUserContent(req *models.LLMRequest) interface{} {
 				"url": imageURL,
 			},
 		})
+	}
+
+	// Add base64 encoded files
+	for _, file := range req.Files {
+		if !file.IsSupported() {
+			continue // Skip unsupported file types
+		}
+
+		if file.IsImage() {
+			// Images use image_url with data URL format
+			detail := file.Detail
+			if detail == "" {
+				detail = "auto"
+			}
+			content = append(content, map[string]interface{}{
+				"type": "image_url",
+				"image_url": map[string]interface{}{
+					"url":    "data:" + file.MimeType + ";base64," + file.Data,
+					"detail": detail,
+				},
+			})
+		} else if file.IsPDF() {
+			// PDFs use file content type (supported by gpt-4o, gpt-4o-mini)
+			content = append(content, map[string]interface{}{
+				"type": "file",
+				"file": map[string]interface{}{
+					"filename": file.Name,
+					"file_data": map[string]interface{}{
+						"mime_type": file.MimeType,
+						"data":      file.Data,
+					},
+				},
+			})
+		}
 	}
 
 	// Note: Image IDs and File IDs would require additional API calls to get URLs

@@ -11,21 +11,24 @@ import (
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/visualization"
 )
 
 // WorkflowHandlers provides HTTP handlers for workflow-related endpoints
 type WorkflowHandlers struct {
-	workflowRepo repository.WorkflowRepository
-	logger       *logger.Logger
+	workflowRepo    repository.WorkflowRepository
+	logger          *logger.Logger
+	executorManager executor.Manager
 }
 
 // NewWorkflowHandlers creates a new WorkflowHandlers instance
-func NewWorkflowHandlers(workflowRepo repository.WorkflowRepository, log *logger.Logger) *WorkflowHandlers {
+func NewWorkflowHandlers(workflowRepo repository.WorkflowRepository, log *logger.Logger, executorManager executor.Manager) *WorkflowHandlers {
 	return &WorkflowHandlers{
-		workflowRepo: workflowRepo,
-		logger:       log,
+		workflowRepo:    workflowRepo,
+		logger:          log,
+		executorManager: executorManager,
 	}
 }
 
@@ -288,20 +291,13 @@ func (h *WorkflowHandlers) validateNodes(nodes []NodeRequest) error {
 		return nil
 	}
 
-	nodeIDs := make(map[string]bool)
-	validTypes := map[string]bool{
-		"http":        true,
-		"transform":   true,
-		"llm":         true,
-		"conditional": true,
-		"merge":       true,
-		"split":       true,
-		"delay":       true,
-		"webhook":     true,
+	uiOnlyTypes := map[string]bool{
+		"comment": true,
 	}
 
+	nodeIDs := make(map[string]bool)
+
 	for i, node := range nodes {
-		// Check required fields
 		if node.ID == "" {
 			return fmt.Errorf("node at index %d: id is required", i)
 		}
@@ -312,18 +308,15 @@ func (h *WorkflowHandlers) validateNodes(nodes []NodeRequest) error {
 			return fmt.Errorf("node at index %d: type is required", i)
 		}
 
-		// Check for duplicate node IDs
 		if nodeIDs[node.ID] {
 			return fmt.Errorf("duplicate node id: %s", node.ID)
 		}
 		nodeIDs[node.ID] = true
 
-		// Validate node type
-		if !validTypes[node.Type] {
+		if !uiOnlyTypes[node.Type] && !h.executorManager.Has(node.Type) {
 			return fmt.Errorf("node %s: invalid type '%s'", node.ID, node.Type)
 		}
 
-		// Validate field lengths
 		if len(node.ID) > 100 {
 			return fmt.Errorf("node id too long (max 100 chars): %s", node.ID)
 		}

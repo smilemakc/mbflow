@@ -1,3 +1,5 @@
+//go:build colors
+
 package main
 
 import (

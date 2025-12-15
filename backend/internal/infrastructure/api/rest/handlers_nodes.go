@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -103,6 +104,11 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 
 	if err := h.workflowRepo.CreateNode(c.Request.Context(), nodeModel); err != nil {
 		h.logger.Error("Failed to create node", "error", err, "workflow_id", workflowUUID, "node_id", req.ID)
+		// Check for duplicate node ID constraint violation
+		if strings.Contains(err.Error(), "uq_nodes_workflow_node_id") {
+			respondError(c, http.StatusBadRequest, "node with this ID already exists")
+			return
+		}
 		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}

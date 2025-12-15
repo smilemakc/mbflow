@@ -55,7 +55,6 @@ CREATE TABLE nodes (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT nodes_type_check CHECK (type IN ('http', 'transform', 'llm', 'conditional', 'merge', 'split', 'delay', 'webhook')),
     CONSTRAINT uq_nodes_workflow_node_id UNIQUE (workflow_id, node_id)
 );
 

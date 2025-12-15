@@ -4,6 +4,7 @@ package builtin
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -89,20 +90,56 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	// Parse response
-	var result interface{}
-	if len(respBody) > 0 {
-		if err := json.Unmarshal(respBody, &result); err != nil {
-			// If not JSON, return as string
-			result = string(respBody)
-		}
+	// Get content type
+	contentType := resp.Header.Get("Content-Type")
+
+	// Check if binary response is requested or content type indicates binary
+	responseType := e.GetStringDefault(config, "response_type", "auto")
+	isBinary := responseType == "binary" || isBinaryContentType(contentType)
+
+	result := map[string]interface{}{
+		"status":       resp.StatusCode,
+		"headers":      resp.Header,
+		"content_type": contentType,
 	}
 
-	return map[string]interface{}{
-		"status":  resp.StatusCode,
-		"headers": resp.Header,
-		"body":    result,
-	}, nil
+	if isBinary {
+		// Return base64 encoded body for binary content
+		result["body"] = nil
+		result["body_base64"] = base64.StdEncoding.EncodeToString(respBody)
+		result["size"] = len(respBody)
+	} else {
+		// Parse response as JSON or string
+		var parsedBody interface{}
+		if len(respBody) > 0 {
+			if err := json.Unmarshal(respBody, &parsedBody); err != nil {
+				// If not JSON, return as string
+				parsedBody = string(respBody)
+			}
+		}
+		result["body"] = parsedBody
+	}
+
+	return result, nil
+}
+
+// isBinaryContentType checks if content type indicates binary data
+func isBinaryContentType(contentType string) bool {
+	binaryPrefixes := []string{
+		"image/",
+		"audio/",
+		"video/",
+		"application/octet-stream",
+		"application/pdf",
+		"application/zip",
+		"application/gzip",
+	}
+	for _, prefix := range binaryPrefixes {
+		if len(contentType) >= len(prefix) && contentType[:len(prefix)] == prefix {
+			return true
+		}
+	}
+	return false
 }
 
 // Validate validates the HTTP executor configuration.

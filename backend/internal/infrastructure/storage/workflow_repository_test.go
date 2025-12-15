@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,10 +11,69 @@ import (
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 )
+
+// setupWorkflowRepoTest creates a test database with PostgreSQL container
+func setupWorkflowRepoTest(t *testing.T) (*WorkflowRepository, *bun.DB, func()) {
+	ctx := context.Background()
+
+	// Start PostgreSQL container
+	req := testcontainers.ContainerRequest{
+		Image:        "postgres:16-alpine",
+		ExposedPorts: []string{"5432/tcp"},
+		Env: map[string]string{
+			"POSTGRES_USER":     "test",
+			"POSTGRES_PASSWORD": "test",
+			"POSTGRES_DB":       "mbflow_test",
+		},
+		WaitingFor: wait.ForLog("database system is ready to accept connections"),
+	}
+
+	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	host, err := postgres.Host(ctx)
+	require.NoError(t, err)
+
+	port, err := postgres.MappedPort(ctx, "5432")
+	require.NoError(t, err)
+
+	// Connect to database
+	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
+
+	// Wait for DB to be ready
+	time.Sleep(500 * time.Millisecond)
+
+	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
+
+	// Run migrations
+	migrator, err := NewMigrator(db, "../../../migrations")
+	require.NoError(t, err)
+
+	err = migrator.Init(ctx)
+	require.NoError(t, err)
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err)
+
+	repo := NewWorkflowRepository(db)
+
+	cleanup := func() {
+		db.Close()
+		postgres.Terminate(ctx)
+	}
+
+	return repo, db, cleanup
+}
 
 func setupTestDB(t *testing.T) *bun.DB {
 	dsn := "postgres://mbflow:mbflow@localhost:5566/mbflow?sslmode=disable"
@@ -229,4 +289,431 @@ func TestWorkflowRepository_SyncNodesWithExecutionHistory(t *testing.T) {
 	assert.Equal(t, "completed", remainingNodeExec.Status)
 
 	t.Log("✓ Test passed: Node sync with CASCADE delete works correctly")
+}
+
+// Test Workflow CRUD Operations
+
+func TestWorkflowRepo_Create_BasicWorkflow(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:          uuid.New(),
+		Name:        "Test Workflow Create",
+		Description: "Basic workflow creation test",
+		Status:      "draft",
+		Version:     1,
+		Variables:   models.JSONBMap{"key": "value"},
+		Metadata:    models.JSONBMap{},
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+	assert.False(t, workflow.CreatedAt.IsZero())
+	assert.False(t, workflow.UpdatedAt.IsZero())
+}
+
+func TestWorkflowRepo_Create_WithNodesAndEdges(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:          uuid.New(),
+		Name:        "Workflow With Nodes",
+		Description: "Workflow with nodes and edges",
+		Status:      "draft",
+		Version:     1,
+		Variables:   models.JSONBMap{},
+		Nodes: []*models.NodeModel{
+			{
+				NodeID:   "node1",
+				Name:     "HTTP Node",
+				Type:     "http",
+				Config:   models.JSONBMap{"url": "https://api.example.com"},
+				Position: models.JSONBMap{"x": 100, "y": 100},
+			},
+			{
+				NodeID:   "node2",
+				Name:     "Transform Node",
+				Type:     "transform",
+				Config:   models.JSONBMap{"type": "passthrough"},
+				Position: models.JSONBMap{"x": 300, "y": 100},
+			},
+		},
+		Edges: []*models.EdgeModel{
+			{
+				EdgeID:     "edge1",
+				FromNodeID: "node1",
+				ToNodeID:   "node2",
+			},
+		},
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	// Verify nodes were created
+	nodes, err := repo.FindNodesByWorkflowID(context.Background(), workflow.ID)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 2)
+
+	// Verify edges were created
+	edges, err := repo.FindEdgesByWorkflowID(context.Background(), workflow.ID)
+	require.NoError(t, err)
+	assert.Len(t, edges, 1)
+}
+
+func TestWorkflowRepo_FindByID_Success(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Find By ID Test",
+		Status:  "draft",
+		Version: 1,
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	found, err := repo.FindByID(context.Background(), workflow.ID)
+	require.NoError(t, err)
+	assert.Equal(t, workflow.ID, found.ID)
+	assert.Equal(t, workflow.Name, found.Name)
+}
+
+func TestWorkflowRepo_FindByID_NotFound(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	_, err := repo.FindByID(context.Background(), uuid.New())
+	assert.Error(t, err)
+	assert.Equal(t, sql.ErrNoRows, err)
+}
+
+func TestWorkflowRepo_FindByIDWithRelations_LoadsNodesAndEdges(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "With Relations Test",
+		Status:  "active",
+		Version: 1,
+		Nodes: []*models.NodeModel{
+			{NodeID: "n1", Name: "Node 1", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+			{NodeID: "n2", Name: "Node 2", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+		},
+		Edges: []*models.EdgeModel{
+			{EdgeID: "e1", FromNodeID: "n1", ToNodeID: "n2"},
+		},
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	found, err := repo.FindByIDWithRelations(context.Background(), workflow.ID)
+	require.NoError(t, err)
+	assert.Len(t, found.Nodes, 2)
+	assert.Len(t, found.Edges, 1)
+}
+
+func TestWorkflowRepo_FindByName_Success(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Unique Workflow Name",
+		Status:  "draft",
+		Version: 1,
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	found, err := repo.FindByName(context.Background(), "Unique Workflow Name", 1)
+	require.NoError(t, err)
+	assert.Equal(t, workflow.ID, found.ID)
+}
+
+func TestWorkflowRepo_Update_Metadata(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:          uuid.New(),
+		Name:        "Original Name",
+		Description: "Original Description",
+		Status:      "draft",
+		Version:     1,
+		Variables:   models.JSONBMap{},
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	// Update workflow
+	workflow.Name = "Updated Name"
+	workflow.Description = "Updated Description"
+	workflow.Status = "active"
+
+	err = repo.Update(context.Background(), workflow)
+	require.NoError(t, err)
+
+	// Verify update
+	updated, err := repo.FindByID(context.Background(), workflow.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Name", updated.Name)
+	assert.Equal(t, "Updated Description", updated.Description)
+	assert.Equal(t, "active", updated.Status)
+}
+
+func TestWorkflowRepo_Delete_Success(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Workflow To Delete",
+		Status:  "draft",
+		Version: 1,
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	// Delete
+	err = repo.Delete(context.Background(), workflow.ID)
+	require.NoError(t, err)
+
+	// Verify deleted
+	_, err = repo.FindByID(context.Background(), workflow.ID)
+	assert.Error(t, err)
+}
+
+func TestWorkflowRepo_FindAll_Pagination(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	// Create 5 workflows
+	for i := 0; i < 5; i++ {
+		workflow := &models.WorkflowModel{
+			ID:      uuid.New(),
+			Name:    fmt.Sprintf("Workflow %d", i),
+			Status:  "draft",
+			Version: 1,
+		}
+		err := repo.Create(context.Background(), workflow)
+		require.NoError(t, err)
+		time.Sleep(10 * time.Millisecond) // Ensure different timestamps
+	}
+
+	// Get first page
+	page1, err := repo.FindAll(context.Background(), 2, 0)
+	require.NoError(t, err)
+	assert.Len(t, page1, 2)
+
+	// Get second page
+	page2, err := repo.FindAll(context.Background(), 2, 2)
+	require.NoError(t, err)
+	assert.Len(t, page2, 2)
+
+	// Verify different workflows
+	assert.NotEqual(t, page1[0].ID, page2[0].ID)
+}
+
+func TestWorkflowRepo_FindByStatus_FilterActive(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	// Create workflows with different statuses
+	draft := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Draft Workflow",
+		Status:  "draft",
+		Version: 1,
+	}
+	active := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Active Workflow",
+		Status:  "active",
+		Version: 1,
+	}
+
+	err := repo.Create(context.Background(), draft)
+	require.NoError(t, err)
+
+	err = repo.Create(context.Background(), active)
+	require.NoError(t, err)
+
+	// Find only active workflows
+	activeWorkflows, err := repo.FindByStatus(context.Background(), "active", 10, 0)
+	require.NoError(t, err)
+	assert.Len(t, activeWorkflows, 1)
+	assert.Equal(t, "active", activeWorkflows[0].Status)
+}
+
+func TestWorkflowRepo_Count_Total(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	// Create 3 workflows
+	for i := 0; i < 3; i++ {
+		workflow := &models.WorkflowModel{
+			ID:      uuid.New(),
+			Name:    fmt.Sprintf("Count Test %d", i),
+			Status:  "draft",
+			Version: 1,
+		}
+		err := repo.Create(context.Background(), workflow)
+		require.NoError(t, err)
+	}
+
+	count, err := repo.Count(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 3, count)
+}
+
+func TestWorkflowRepo_CountByStatus_FilterDraft(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	// Create 2 draft and 1 active workflow
+	for i := 0; i < 2; i++ {
+		workflow := &models.WorkflowModel{
+			ID:      uuid.New(),
+			Name:    fmt.Sprintf("Draft %d", i),
+			Status:  "draft",
+			Version: 1,
+		}
+		err := repo.Create(context.Background(), workflow)
+		require.NoError(t, err)
+	}
+
+	active := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Active",
+		Status:  "active",
+		Version: 1,
+	}
+	err := repo.Create(context.Background(), active)
+	require.NoError(t, err)
+
+	draftCount, err := repo.CountByStatus(context.Background(), "draft")
+	require.NoError(t, err)
+	assert.Equal(t, 2, draftCount)
+}
+
+// Test Node Operations
+
+func TestWorkflowRepo_CreateNode_AddToWorkflow(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Node Test Workflow",
+		Status:  "draft",
+		Version: 1,
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	node := &models.NodeModel{
+		NodeID:     "new_node",
+		WorkflowID: workflow.ID,
+		Name:       "New Node",
+		Type:       "http",
+		Config:     models.JSONBMap{"url": "https://example.com"},
+		Position:   models.JSONBMap{"x": 100, "y": 100},
+	}
+
+	err = repo.CreateNode(context.Background(), node)
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, node.ID)
+}
+
+func TestWorkflowRepo_FindNodesByWorkflowID_ReturnsAll(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Multi Node Workflow",
+		Status:  "draft",
+		Version: 1,
+		Nodes: []*models.NodeModel{
+			{NodeID: "n1", Name: "Node 1", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+			{NodeID: "n2", Name: "Node 2", Type: "transform", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+			{NodeID: "n3", Name: "Node 3", Type: "llm", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+		},
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	nodes, err := repo.FindNodesByWorkflowID(context.Background(), workflow.ID)
+	require.NoError(t, err)
+	assert.Len(t, nodes, 3)
+}
+
+// Test DAG Validation
+
+func TestWorkflowRepo_ValidateDAG_ValidDAG(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Valid DAG",
+		Status:  "draft",
+		Version: 1,
+		Nodes: []*models.NodeModel{
+			{NodeID: "n1", Name: "Node 1", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+			{NodeID: "n2", Name: "Node 2", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+			{NodeID: "n3", Name: "Node 3", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+		},
+		Edges: []*models.EdgeModel{
+			{EdgeID: "e1", FromNodeID: "n1", ToNodeID: "n2"},
+			{EdgeID: "e2", FromNodeID: "n2", ToNodeID: "n3"},
+		},
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	err = repo.ValidateDAG(context.Background(), workflow.ID)
+	assert.NoError(t, err, "Valid DAG should not return error")
+}
+
+func TestWorkflowRepo_ValidateDAG_DetectsCycle(t *testing.T) {
+	repo, _, cleanup := setupWorkflowRepoTest(t)
+	defer cleanup()
+
+	workflow := &models.WorkflowModel{
+		ID:      uuid.New(),
+		Name:    "Cyclic DAG",
+		Status:  "draft",
+		Version: 1,
+		Nodes: []*models.NodeModel{
+			{NodeID: "n1", Name: "Node 1", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+			{NodeID: "n2", Name: "Node 2", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+			{NodeID: "n3", Name: "Node 3", Type: "http", Config: models.JSONBMap{}, Position: models.JSONBMap{}},
+		},
+		Edges: []*models.EdgeModel{
+			{EdgeID: "e1", FromNodeID: "n1", ToNodeID: "n2"},
+			{EdgeID: "e2", FromNodeID: "n2", ToNodeID: "n3"},
+			{EdgeID: "e3", FromNodeID: "n3", ToNodeID: "n1"}, // Creates cycle
+		},
+	}
+
+	err := repo.Create(context.Background(), workflow)
+	require.NoError(t, err)
+
+	err = repo.ValidateDAG(context.Background(), workflow.ID)
+	assert.Error(t, err, "Cycle should be detected")
+	assert.Contains(t, err.Error(), "cycle detected")
 }

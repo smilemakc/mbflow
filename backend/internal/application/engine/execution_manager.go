@@ -44,50 +44,184 @@ func NewExecutionManager(
 	}
 }
 
-// Execute executes a workflow
+// Execute executes a workflow synchronously (blocks until completion)
 func (em *ExecutionManager) Execute(
 	ctx context.Context,
 	workflowID string,
 	input map[string]interface{},
 	opts *ExecutionOptions,
 ) (*models.Execution, error) {
+	// Prepare execution (load workflow, create record)
+	execution, workflow, workflowModel, err := em.prepareExecution(ctx, workflowID, input, opts, models.ExecutionStatusRunning)
+	if err != nil {
+		return nil, err
+	}
+
+	// Notify execution started
+	em.notifyExecutionStarted(ctx, execution)
+
+	// Execute workflow DAG
+	execState, execErr := em.executeWorkflowDAG(ctx, execution, workflow, opts)
+
+	// Finalize execution (update status, save results)
+	if err := em.finalizeExecution(ctx, execution, workflow, workflowModel, execState, execErr); err != nil {
+		return nil, err
+	}
+
+	return execution, execErr
+}
+
+// ExecuteAsync executes a workflow asynchronously.
+// It creates the execution record immediately and returns it,
+// while the actual workflow execution happens in a background goroutine.
+func (em *ExecutionManager) ExecuteAsync(
+	ctx context.Context,
+	workflowID string,
+	input map[string]interface{},
+	opts *ExecutionOptions,
+) (*models.Execution, error) {
+	// Prepare execution (load workflow, create record with PENDING status)
+	execution, workflow, workflowModel, err := em.prepareExecution(ctx, workflowID, input, opts, models.ExecutionStatusPending)
+	if err != nil {
+		return nil, err
+	}
+
+	// Execute workflow in background goroutine
+	go func() {
+		bgCtx := context.Background()
+
+		// Update status to running
+		execution.Status = models.ExecutionStatusRunning
+		executionModel := ExecutionDomainToModel(execution)
+		if err := em.executionRepo.Update(bgCtx, executionModel); err != nil {
+			em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to update execution status: %w", err))
+			return
+		}
+
+		// Notify execution started
+		em.notifyExecutionStarted(bgCtx, execution)
+
+		// Build execution state
+		execState, execErr := em.executeWorkflowDAG(bgCtx, execution, workflow, opts)
+
+		// Finalize execution
+		if err := em.finalizeExecution(bgCtx, execution, workflow, workflowModel, execState, execErr); err != nil {
+			em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to finalize execution: %w", err))
+			return
+		}
+	}()
+
+	// Return execution immediately
+	return execution, nil
+}
+
+// prepareExecution loads workflow and creates execution record
+func (em *ExecutionManager) prepareExecution(
+	ctx context.Context,
+	workflowID string,
+	input map[string]interface{},
+	opts *ExecutionOptions,
+	initialStatus models.ExecutionStatus,
+) (*models.Execution, *models.Workflow, *storagemodels.WorkflowModel, error) {
 	// Use default options if not provided
 	if opts == nil {
 		opts = DefaultExecutionOptions()
 	}
 
-	// 1. Load workflow
+	// Load workflow
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid workflow ID: %w", err)
+		return nil, nil, nil, fmt.Errorf("invalid workflow ID: %w", err)
 	}
 
 	workflowModel, err := em.workflowRepo.FindByIDWithRelations(ctx, workflowUUID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load workflow: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to load workflow: %w", err)
 	}
 
-	// Convert storage model to domain model
 	workflow := WorkflowModelToDomain(workflowModel)
 
-	// 2. Create execution record
+	// Create execution record
 	execution := &models.Execution{
 		ID:           uuid.New().String(),
 		WorkflowID:   workflow.ID,
 		WorkflowName: workflow.Name,
-		Status:       models.ExecutionStatusRunning,
+		Status:       initialStatus,
 		Input:        input,
 		Variables:    em.mergeVariables(workflow.Variables, opts.Variables),
 		StartedAt:    time.Now(),
 	}
 
-	// Convert to storage model and save execution
+	// Save execution
 	executionModel := ExecutionDomainToModel(execution)
 	if err := em.executionRepo.Create(ctx, executionModel); err != nil {
-		return nil, fmt.Errorf("failed to create execution: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to create execution: %w", err)
 	}
 
-	// Notify execution started
+	return execution, workflow, workflowModel, nil
+}
+
+// executeWorkflowDAG executes the workflow DAG and returns execution state
+func (em *ExecutionManager) executeWorkflowDAG(
+	ctx context.Context,
+	execution *models.Execution,
+	workflow *models.Workflow,
+	opts *ExecutionOptions,
+) (*ExecutionState, error) {
+	// Build execution state
+	execState := NewExecutionState(
+		execution.ID,
+		workflow.ID,
+		workflow,
+		execution.Input,
+		execution.Variables,
+	)
+
+	// Execute DAG
+	execErr := em.dagExecutor.Execute(ctx, execState, opts)
+
+	return execState, execErr
+}
+
+// finalizeExecution updates execution with results and saves to database
+func (em *ExecutionManager) finalizeExecution(
+	ctx context.Context,
+	execution *models.Execution,
+	workflow *models.Workflow,
+	workflowModel *storagemodels.WorkflowModel,
+	execState *ExecutionState,
+	execErr error,
+) error {
+	// Update execution with results
+	now := time.Now()
+	execution.CompletedAt = &now
+	execution.Duration = execution.CalculateDuration()
+
+	if execErr != nil {
+		execution.Status = models.ExecutionStatusFailed
+		execution.Error = execErr.Error()
+	} else {
+		execution.Status = models.ExecutionStatusCompleted
+		execution.Output = em.getFinalOutput(execState)
+	}
+
+	// Build node executions
+	execution.NodeExecutions = em.buildNodeExecutions(execState, workflow, workflowModel)
+
+	// Update execution in database
+	executionModel := ExecutionDomainToModel(execution)
+	if err := em.executionRepo.Update(ctx, executionModel); err != nil {
+		return fmt.Errorf("failed to update execution: %w", err)
+	}
+
+	// Notify execution completion
+	em.notifyExecutionCompletion(ctx, execution, execErr)
+
+	return nil
+}
+
+// notifyExecutionStarted sends execution started event
+func (em *ExecutionManager) notifyExecutionStarted(ctx context.Context, execution *models.Execution) {
 	if em.observerManager != nil {
 		event := observer.Event{
 			Type:        observer.EventTypeExecutionStarted,
@@ -100,43 +234,10 @@ func (em *ExecutionManager) Execute(
 		}
 		em.observerManager.Notify(ctx, event)
 	}
+}
 
-	// 3. Build execution state
-	execState := NewExecutionState(
-		execution.ID,
-		workflow.ID,
-		workflow,
-		input,
-		execution.Variables,
-	)
-
-	// 4. Execute DAG
-	execErr := em.dagExecutor.Execute(ctx, execState, opts)
-
-	// 5. Update execution with results
-	now := time.Now()
-	execution.CompletedAt = &now
-	execution.Duration = execution.CalculateDuration()
-
-	if execErr != nil {
-		execution.Status = models.ExecutionStatusFailed
-		execution.Error = execErr.Error()
-	} else {
-		execution.Status = models.ExecutionStatusCompleted
-		// Set output to final node's output
-		execution.Output = em.getFinalOutput(execState)
-	}
-
-	// Build node executions (need workflow model for UUID mapping)
-	execution.NodeExecutions = em.buildNodeExecutions(execState, workflow, workflowModel)
-
-	// Convert to storage model and update execution
-	executionModel = ExecutionDomainToModel(execution)
-	if err := em.executionRepo.Update(ctx, executionModel); err != nil {
-		return nil, fmt.Errorf("failed to update execution: %w", err)
-	}
-
-	// Notify execution completion
+// notifyExecutionCompletion sends execution completion event
+func (em *ExecutionManager) notifyExecutionCompletion(ctx context.Context, execution *models.Execution, execErr error) {
 	if em.observerManager != nil {
 		duration := execution.Duration
 		eventType := observer.EventTypeExecutionCompleted
@@ -161,8 +262,20 @@ func (em *ExecutionManager) Execute(
 
 		em.observerManager.Notify(ctx, event)
 	}
+}
 
-	return execution, execErr
+// notifyExecutionError sends execution error event
+func (em *ExecutionManager) notifyExecutionError(ctx context.Context, execution *models.Execution, err error) {
+	if em.observerManager != nil {
+		event := observer.Event{
+			Type:        observer.EventTypeExecutionFailed,
+			ExecutionID: execution.ID,
+			WorkflowID:  execution.WorkflowID,
+			Timestamp:   time.Now(),
+			Error:       err,
+		}
+		em.observerManager.Notify(ctx, event)
+	}
 }
 
 // mergeVariables merges workflow and execution variables.
@@ -198,9 +311,7 @@ func (em *ExecutionManager) getFinalOutput(execState *ExecutionState) map[string
 	// If single leaf, return its output
 	if len(leafNodes) == 1 {
 		if output, ok := execState.GetNodeOutput(leafNodes[0].ID); ok {
-			if outputMap, ok := output.(map[string]interface{}); ok {
-				return outputMap
-			}
+			return toMapInterface(output)
 		}
 	}
 
@@ -269,16 +380,12 @@ func (em *ExecutionManager) buildNodeExecutions(
 
 		// Get input
 		if input, ok := execState.GetNodeInput(node.ID); ok {
-			if inputMap, ok := input.(map[string]interface{}); ok {
-				nodeExec.Input = inputMap
-			}
+			nodeExec.Input = toMapInterface(input)
 		}
 
 		// Get output
 		if output, ok := execState.GetNodeOutput(node.ID); ok {
-			if outputMap, ok := output.(map[string]interface{}); ok {
-				nodeExec.Output = outputMap
-			}
+			nodeExec.Output = toMapInterface(output)
 		}
 
 		// Get config (original)

@@ -24,6 +24,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/internal/application/observer"
+	"github.com/smilemakc/mbflow/internal/config"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/pkg/builder"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
@@ -48,6 +52,26 @@ func main() {
 		log.Fatalf("Failed to create client: %v", err)
 	}
 	defer client.Close()
+	// Create observer manager
+	observerManager := observer.NewObserverManager()
+
+	// Register logger observer to see events in console
+	loggerInstance := logger.New(config.LoggingConfig{
+		Level:  "info",
+		Format: "text",
+	})
+	loggerObserver := observer.NewLoggerObserver(
+		observer.WithLoggerInstance(loggerInstance),
+		// Optional: filter only specific events
+		// observer.WithLoggerFilter(observer.NewEventTypeFilter(
+		// 	observer.EventTypeExecutionStarted,
+		// 	observer.EventTypeNodeCompleted,
+		// 	observer.EventTypeExecutionCompleted,
+		// )),
+	)
+	if err := observerManager.Register(loggerObserver); err != nil {
+		log.Fatalf("Failed to register logger observer: %v", err)
+	}
 
 	ctx := context.Background()
 
@@ -111,7 +135,13 @@ func main() {
 	fmt.Println()
 
 	startTime := time.Now()
-	execution, err := client.ExecuteWorkflowStandalone(ctx, workflow, input, nil)
+	// Prepare execution options with observer manager
+	opts := &engine.ExecutionOptions{
+		MaxParallelism:  10,
+		ObserverManager: observerManager,
+	}
+
+	execution, err := client.ExecuteWorkflowStandalone(ctx, workflow, input, opts)
 	duration := time.Since(startTime)
 
 	if err != nil {

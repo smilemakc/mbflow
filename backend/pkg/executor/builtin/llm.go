@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/models"
@@ -18,8 +19,9 @@ type LLMProvider interface {
 // LLMExecutor executes LLM requests with support for multiple providers.
 type LLMExecutor struct {
 	*executor.BaseExecutor
-	providers map[models.LLMProvider]LLMProvider
-	mu        sync.RWMutex
+	providers           map[models.LLMProvider]LLMProvider
+	toolCallingRegistry *ToolCallingRegistry
+	mu                  sync.RWMutex
 }
 
 // NewLLMExecutor creates a new LLM executor.
@@ -28,6 +30,13 @@ func NewLLMExecutor() *LLMExecutor {
 		BaseExecutor: executor.NewBaseExecutor("llm"),
 		providers:    make(map[models.LLMProvider]LLMProvider),
 	}
+}
+
+// SetToolCallingRegistry sets the tool calling registry for auto mode support.
+func (e *LLMExecutor) SetToolCallingRegistry(registry *ToolCallingRegistry) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.toolCallingRegistry = registry
 }
 
 // RegisterProvider registers a custom LLM provider.
@@ -103,7 +112,17 @@ func (e *LLMExecutor) Execute(ctx context.Context, config map[string]interface{}
 		return nil, err
 	}
 
-	// Execute request
+	// Check if auto mode tool calling is enabled
+	if req.ToolCallConfig != nil && req.ToolCallConfig.Mode == models.ToolCallModeAuto {
+		// Use automatic tool calling mode
+		response, err := e.executeWithToolCalling(ctx, req, provider)
+		if err != nil {
+			return nil, fmt.Errorf("auto mode tool calling failed: %w", err)
+		}
+		return e.responseToMap(response), nil
+	}
+
+	// Execute request (manual mode or no tool calling)
 	response, err := provider.Execute(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("LLM execution failed: %w", err)
@@ -220,6 +239,15 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 		req.StopSequences = e.toStringSlice(stopSeqs)
 	}
 
+	// Parse file attachments
+	if files, ok := config["files"].([]interface{}); ok {
+		parsedFiles, err := e.parseFiles(files)
+		if err != nil {
+			return nil, err
+		}
+		req.Files = parsedFiles
+	}
+
 	// Tools
 	if tools, ok := config["tools"].([]interface{}); ok {
 		parsedTools, err := e.parseTools(tools)
@@ -275,6 +303,33 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 			return nil, err
 		}
 		req.HostedTools = parsedHostedTools
+	}
+
+	// Parse tool calling configuration
+	if toolCallConfig, ok := config["tool_call_config"].(map[string]interface{}); ok {
+		parsedConfig, err := e.parseToolCallConfig(toolCallConfig)
+		if err != nil {
+			return nil, err
+		}
+		req.ToolCallConfig = parsedConfig
+	}
+
+	// Parse messages (conversation history)
+	if messages, ok := config["messages"].([]interface{}); ok {
+		parsedMessages, err := e.parseMessages(messages)
+		if err != nil {
+			return nil, err
+		}
+		req.Messages = parsedMessages
+	}
+
+	// Parse functions (extended function definitions)
+	if functions, ok := config["functions"].([]interface{}); ok {
+		parsedFunctions, err := e.parseFunctions(functions)
+		if err != nil {
+			return nil, err
+		}
+		req.Functions = parsedFunctions
 	}
 
 	return req, nil
@@ -581,6 +636,72 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 		}
 	}
 
+	// Tool calling auto mode fields
+	if len(response.Messages) > 0 {
+		messages := make([]interface{}, len(response.Messages))
+		for i, msg := range response.Messages {
+			msgMap := map[string]interface{}{
+				"role":    msg.Role,
+				"content": msg.Content,
+			}
+			if len(msg.ToolCalls) > 0 {
+				toolCalls := make([]interface{}, len(msg.ToolCalls))
+				for j, tc := range msg.ToolCalls {
+					toolCalls[j] = map[string]interface{}{
+						"id":   tc.ID,
+						"type": tc.Type,
+						"function": map[string]interface{}{
+							"name":      tc.Function.Name,
+							"arguments": tc.Function.Arguments,
+						},
+					}
+				}
+				msgMap["tool_calls"] = toolCalls
+			}
+			if msg.ToolCallID != "" {
+				msgMap["tool_call_id"] = msg.ToolCallID
+			}
+			if msg.Name != "" {
+				msgMap["name"] = msg.Name
+			}
+			if msg.Metadata != nil {
+				msgMap["metadata"] = msg.Metadata
+			}
+			messages[i] = msgMap
+		}
+		result["messages"] = messages
+	}
+
+	if len(response.ToolExecutions) > 0 {
+		toolExecutions := make([]interface{}, len(response.ToolExecutions))
+		for i, exec := range response.ToolExecutions {
+			execMap := map[string]interface{}{
+				"tool_call_id":   exec.ToolCallID,
+				"function_name":  exec.FunctionName,
+				"execution_time": exec.ExecutionTime,
+			}
+			if exec.Result != nil {
+				execMap["result"] = exec.Result
+			}
+			if exec.Error != "" {
+				execMap["error"] = exec.Error
+			}
+			if exec.Metadata != nil {
+				execMap["metadata"] = exec.Metadata
+			}
+			toolExecutions[i] = execMap
+		}
+		result["tool_executions"] = toolExecutions
+	}
+
+	if response.TotalIterations > 0 {
+		result["total_iterations"] = response.TotalIterations
+	}
+
+	if response.StoppedReason != "" {
+		result["stopped_reason"] = response.StoppedReason
+	}
+
 	return result
 }
 
@@ -611,6 +732,45 @@ func (e *LLMExecutor) toStringSlice(items []interface{}) []string {
 		}
 	}
 	return result
+}
+
+// parseFiles parses file attachments configuration.
+func (e *LLMExecutor) parseFiles(filesConfig []interface{}) ([]models.LLMFileAttachment, error) {
+	files := make([]models.LLMFileAttachment, 0, len(filesConfig))
+
+	for i, fileConfig := range filesConfig {
+		fileMap, ok := fileConfig.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("file %d is not a valid object", i)
+		}
+
+		data, _ := fileMap["data"].(string)
+		mimeType, _ := fileMap["mime_type"].(string)
+		name, _ := fileMap["name"].(string)
+		detail, _ := fileMap["detail"].(string)
+
+		if data == "" {
+			return nil, fmt.Errorf("file %d: data is required", i)
+		}
+		if mimeType == "" {
+			return nil, fmt.Errorf("file %d: mime_type is required", i)
+		}
+
+		file := models.LLMFileAttachment{
+			Data:     data,
+			MimeType: mimeType,
+			Name:     name,
+			Detail:   detail,
+		}
+
+		if !file.IsSupported() {
+			return nil, fmt.Errorf("file %d: unsupported mime_type %s (supported: image/jpeg, image/png, image/gif, image/webp, application/pdf)", i, mimeType)
+		}
+
+		files = append(files, file)
+	}
+
+	return files, nil
 }
 
 // Helper function to convert response to JSON for debugging
@@ -671,4 +831,409 @@ func (e *LLMExecutor) parseHostedTools(toolsConfig []interface{}) ([]models.LLMH
 	}
 
 	return tools, nil
+}
+
+// parseToolCallConfig parses tool calling configuration.
+func (e *LLMExecutor) parseToolCallConfig(config map[string]interface{}) (*models.ToolCallConfig, error) {
+	tc := models.DefaultToolCallConfig()
+
+	if mode, ok := config["mode"].(string); ok {
+		tc.Mode = models.ToolCallMode(mode)
+	}
+	// Backward compatibility: auto_execute_tools maps to mode
+	if autoExecute, ok := config["auto_execute_tools"].(bool); ok && autoExecute {
+		tc.Mode = models.ToolCallModeAuto
+	}
+
+	if maxIter, ok := config["max_iterations"].(float64); ok {
+		tc.MaxIterations = int(maxIter)
+	} else if maxIter, ok := config["max_iterations"].(int); ok {
+		tc.MaxIterations = maxIter
+	}
+
+	if timeout, ok := config["timeout_per_tool"].(float64); ok {
+		tc.TimeoutPerTool = int(timeout)
+	} else if timeout, ok := config["timeout_per_tool"].(int); ok {
+		tc.TimeoutPerTool = timeout
+	}
+
+	if totalTimeout, ok := config["total_timeout"].(float64); ok {
+		tc.TotalTimeout = int(totalTimeout)
+	} else if totalTimeout, ok := config["total_timeout"].(int); ok {
+		tc.TotalTimeout = totalTimeout
+	}
+
+	if stopOnFailure, ok := config["stop_on_tool_failure"].(bool); ok {
+		tc.StopOnToolFailure = stopOnFailure
+	}
+
+	return tc, nil
+}
+
+// parseMessages parses conversation messages.
+func (e *LLMExecutor) parseMessages(messagesConfig []interface{}) ([]models.LLMMessage, error) {
+	messages := make([]models.LLMMessage, 0, len(messagesConfig))
+
+	for i, msgConfig := range messagesConfig {
+		msgMap, ok := msgConfig.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("message %d is not a valid object", i)
+		}
+
+		msg := models.LLMMessage{}
+
+		if role, ok := msgMap["role"].(string); ok {
+			msg.Role = role
+		}
+		if content, ok := msgMap["content"].(string); ok {
+			msg.Content = content
+		}
+		if toolCallID, ok := msgMap["tool_call_id"].(string); ok {
+			msg.ToolCallID = toolCallID
+		}
+		if name, ok := msgMap["name"].(string); ok {
+			msg.Name = name
+		}
+
+		// Parse tool calls if present
+		if toolCalls, ok := msgMap["tool_calls"].([]interface{}); ok {
+			for _, tc := range toolCalls {
+				tcMap, ok := tc.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				toolCall := models.LLMToolCall{}
+				if id, ok := tcMap["id"].(string); ok {
+					toolCall.ID = id
+				}
+				if typ, ok := tcMap["type"].(string); ok {
+					toolCall.Type = typ
+				}
+				if funcMap, ok := tcMap["function"].(map[string]interface{}); ok {
+					if name, ok := funcMap["name"].(string); ok {
+						toolCall.Function.Name = name
+					}
+					if args, ok := funcMap["arguments"].(string); ok {
+						toolCall.Function.Arguments = args
+					}
+				}
+				msg.ToolCalls = append(msg.ToolCalls, toolCall)
+			}
+		}
+
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
+}
+
+// parseFunctions parses extended function definitions.
+func (e *LLMExecutor) parseFunctions(functionsConfig []interface{}) ([]models.FunctionDefinition, error) {
+	functions := make([]models.FunctionDefinition, 0, len(functionsConfig))
+
+	for i, funcConfig := range functionsConfig {
+		funcMap, ok := funcConfig.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("function %d is not a valid object", i)
+		}
+
+		funcDef := models.FunctionDefinition{}
+
+		if typ, ok := funcMap["type"].(string); ok {
+			funcDef.Type = models.FunctionType(typ)
+		}
+		if name, ok := funcMap["name"].(string); ok {
+			funcDef.Name = name
+		}
+		if desc, ok := funcMap["description"].(string); ok {
+			funcDef.Description = desc
+		}
+		if params, ok := funcMap["parameters"].(map[string]interface{}); ok {
+			funcDef.Parameters = params
+		}
+
+		// Type-specific fields
+		if builtinName, ok := funcMap["builtin_name"].(string); ok {
+			funcDef.BuiltinName = builtinName
+		}
+		if workflowID, ok := funcMap["workflow_id"].(string); ok {
+			funcDef.WorkflowID = workflowID
+		}
+		if inputMapping, ok := funcMap["input_mapping"].(map[string]interface{}); ok {
+			funcDef.InputMapping = make(map[string]string)
+			for k, v := range inputMapping {
+				if str, ok := v.(string); ok {
+					funcDef.InputMapping[k] = str
+				}
+			}
+		}
+		if outputExtractor, ok := funcMap["output_extractor"].(string); ok {
+			funcDef.OutputExtractor = outputExtractor
+		}
+		if language, ok := funcMap["language"].(string); ok {
+			funcDef.Language = language
+		}
+		if code, ok := funcMap["code"].(string); ok {
+			funcDef.Code = code
+		}
+		if openAPISpec, ok := funcMap["openapi_spec"].(string); ok {
+			funcDef.OpenAPISpec = openAPISpec
+		}
+		if operationID, ok := funcMap["operation_id"].(string); ok {
+			funcDef.OperationID = operationID
+		}
+		if baseURL, ok := funcMap["base_url"].(string); ok {
+			funcDef.BaseURL = baseURL
+		}
+		if authConfig, ok := funcMap["auth_config"].(map[string]interface{}); ok {
+			funcDef.AuthConfig = authConfig
+		}
+
+		functions = append(functions, funcDef)
+	}
+
+	return functions, nil
+}
+
+// executeWithToolCalling executes LLM with automatic tool calling cycle.
+func (e *LLMExecutor) executeWithToolCalling(
+	ctx context.Context,
+	req *models.LLMRequest,
+	provider LLMProvider,
+) (*models.LLMResponse, error) {
+	// Check if tool calling registry is configured
+	e.mu.RLock()
+	registry := e.toolCallingRegistry
+	e.mu.RUnlock()
+
+	if registry == nil {
+		return nil, fmt.Errorf("tool calling registry not configured")
+	}
+
+	// Initialize configuration
+	config := req.ToolCallConfig
+	if config == nil {
+		config = models.DefaultToolCallConfig()
+	}
+
+	maxIterations := config.MaxIterations
+	if maxIterations <= 0 {
+		maxIterations = 10
+	}
+
+	// Initialize messages
+	messages := make([]models.LLMMessage, 0)
+	if len(req.Messages) > 0 {
+		messages = append(messages, req.Messages...)
+	} else {
+		// Create initial messages from prompt
+		if req.Instruction != "" {
+			messages = append(messages, models.LLMMessage{
+				Role:    "system",
+				Content: req.Instruction,
+			})
+		}
+		messages = append(messages, models.LLMMessage{
+			Role:    "user",
+			Content: req.Prompt,
+		})
+	}
+
+	// Convert functions to tools for LLM
+	if len(req.Functions) > 0 {
+		tools, err := e.convertFunctionsToTools(req.Functions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert functions to tools: %w", err)
+		}
+		req.Tools = tools
+	}
+
+	allToolExecutions := make([]models.ToolExecutionResult, 0)
+	var lastResponse *models.LLMResponse
+
+	// Main tool calling loop
+	for iteration := 0; iteration < maxIterations; iteration++ {
+		// Update request with current messages
+		reqCopy := *req
+		reqCopy.Messages = messages
+
+		// Call LLM
+		response, err := provider.Execute(ctx, &reqCopy)
+		if err != nil {
+			return nil, fmt.Errorf("LLM call failed at iteration %d: %w", iteration, err)
+		}
+
+		lastResponse = response
+
+		// Add assistant message to history
+		assistantMsg := models.LLMMessage{
+			Role:      "assistant",
+			Content:   response.Content,
+			ToolCalls: response.ToolCalls,
+		}
+		messages = append(messages, assistantMsg)
+
+		// Check finish reason
+		if response.FinishReason == "stop" || len(response.ToolCalls) == 0 {
+			// LLM finished - return result
+			return &models.LLMResponse{
+				Content:         response.Content,
+				ResponseID:      response.ResponseID,
+				Model:           response.Model,
+				Usage:           response.Usage,
+				FinishReason:    response.FinishReason,
+				ToolCalls:       response.ToolCalls,
+				CreatedAt:       response.CreatedAt,
+				Metadata:        response.Metadata,
+				Messages:        messages,
+				ToolExecutions:  allToolExecutions,
+				TotalIterations: iteration + 1,
+				StoppedReason:   "finish",
+			}, nil
+		}
+
+		// Execute tool calls
+		if len(response.ToolCalls) > 0 {
+			toolResults, err := e.executeToolCallsWithRegistry(ctx, response.ToolCalls, req.Functions, registry)
+			if err != nil {
+				if config.StopOnToolFailure {
+					return nil, fmt.Errorf("tool execution failed at iteration %d: %w", iteration, err)
+				}
+				// Continue with error - add error message to conversation
+			}
+
+			// Check for tool execution errors
+			if config.StopOnToolFailure {
+				for _, result := range toolResults {
+					if result.Error != "" {
+						return nil, fmt.Errorf("tool execution failed at iteration %d: %s (function: %s)",
+							iteration, result.Error, result.FunctionName)
+					}
+				}
+			}
+
+			// Add tool results to messages
+			for _, result := range toolResults {
+				toolMsg := models.LLMMessage{
+					Role:       "tool",
+					ToolCallID: result.ToolCallID,
+					Name:       result.FunctionName,
+					Content:    e.formatToolResult(result),
+				}
+				messages = append(messages, toolMsg)
+			}
+
+			allToolExecutions = append(allToolExecutions, toolResults...)
+		}
+	}
+
+	// Max iterations reached
+	if lastResponse == nil {
+		return nil, fmt.Errorf("no response from LLM")
+	}
+
+	return &models.LLMResponse{
+		Content:         lastResponse.Content,
+		ResponseID:      lastResponse.ResponseID,
+		Model:           lastResponse.Model,
+		Usage:           lastResponse.Usage,
+		FinishReason:    lastResponse.FinishReason,
+		Messages:        messages,
+		ToolExecutions:  allToolExecutions,
+		TotalIterations: maxIterations,
+		StoppedReason:   "max_iterations",
+		Metadata:        lastResponse.Metadata,
+	}, nil
+}
+
+// executeToolCallsWithRegistry executes tool calls using the registry.
+func (e *LLMExecutor) executeToolCallsWithRegistry(
+	ctx context.Context,
+	toolCalls []models.LLMToolCall,
+	functions []models.FunctionDefinition,
+	registry *ToolCallingRegistry,
+) ([]models.ToolExecutionResult, error) {
+	results := make([]models.ToolExecutionResult, len(toolCalls))
+
+	for i, toolCall := range toolCalls {
+		startTime := time.Now()
+
+		// Find function definition
+		funcDef, err := e.findFunctionByName(toolCall.Function.Name, functions)
+		if err != nil {
+			results[i] = models.ToolExecutionResult{
+				ToolCallID:    toolCall.ID,
+				FunctionName:  toolCall.Function.Name,
+				Error:         err.Error(),
+				ExecutionTime: time.Since(startTime).Milliseconds(),
+			}
+			continue
+		}
+
+		// Execute function through registry
+		result, err := registry.ExecuteFunction(ctx, funcDef, toolCall.Function.Arguments)
+
+		executionTime := time.Since(startTime).Milliseconds()
+
+		if err != nil {
+			results[i] = models.ToolExecutionResult{
+				ToolCallID:    toolCall.ID,
+				FunctionName:  toolCall.Function.Name,
+				Error:         err.Error(),
+				ExecutionTime: executionTime,
+			}
+		} else {
+			results[i] = models.ToolExecutionResult{
+				ToolCallID:    toolCall.ID,
+				FunctionName:  toolCall.Function.Name,
+				Result:        result,
+				ExecutionTime: executionTime,
+			}
+		}
+	}
+
+	return results, nil
+}
+
+// convertFunctionsToTools converts FunctionDefinitions to LLMTools.
+func (e *LLMExecutor) convertFunctionsToTools(functions []models.FunctionDefinition) ([]models.LLMTool, error) {
+	tools := make([]models.LLMTool, len(functions))
+
+	for i, funcDef := range functions {
+		tools[i] = models.LLMTool{
+			Type: "function",
+			Function: models.LLMFunctionTool{
+				Name:        funcDef.Name,
+				Description: funcDef.Description,
+				Parameters:  funcDef.Parameters,
+			},
+		}
+	}
+
+	return tools, nil
+}
+
+// findFunctionByName finds a function definition by name.
+func (e *LLMExecutor) findFunctionByName(name string, functions []models.FunctionDefinition) (*models.FunctionDefinition, error) {
+	for i := range functions {
+		if functions[i].Name == name {
+			return &functions[i], nil
+		}
+	}
+	return nil, fmt.Errorf("function not found: %s", name)
+}
+
+// formatToolResult formats a tool execution result for LLM consumption.
+func (e *LLMExecutor) formatToolResult(result models.ToolExecutionResult) string {
+	if result.Error != "" {
+		return fmt.Sprintf("Error: %s", result.Error)
+	}
+
+	// Convert result to JSON string
+	resultJSON, err := json.Marshal(result.Result)
+	if err != nil {
+		return fmt.Sprintf("Error formatting result: %v", err)
+	}
+
+	return string(resultJSON)
 }

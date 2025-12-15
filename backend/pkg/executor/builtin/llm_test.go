@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -857,4 +858,645 @@ func TestLLMExecutor_InputPriorityOrder(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+// ==================== AUTO MODE TOOL CALLING TESTS ====================
+
+func TestLLMExecutor_AutoMode_SingleToolCall(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	// Setup mock function registry
+	funcRegistry := models.NewFunctionRegistry()
+	funcRegistry.Register("get_weather", func(args map[string]interface{}) (interface{}, error) {
+		location := args["location"].(string)
+		return map[string]interface{}{
+			"location":    location,
+			"temperature": 22,
+			"condition":   "sunny",
+		}, nil
+	})
+
+	registry := NewToolCallingRegistry(funcRegistry)
+	exec.SetToolCallingRegistry(registry)
+
+	// Mock provider that returns tool call first, then final answer
+	callCount := 0
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			callCount++
+
+			if callCount == 1 {
+				// First call: LLM requests tool call
+				return &models.LLMResponse{
+					Content:      "",
+					ResponseID:   "resp-1",
+					Model:        "gpt-4",
+					FinishReason: "tool_calls",
+					Usage:        models.LLMUsage{TotalTokens: 50},
+					ToolCalls: []models.LLMToolCall{
+						{
+							ID:   "call-123",
+							Type: "function",
+							Function: models.LLMFunctionCall{
+								Name:      "get_weather",
+								Arguments: `{"location":"London"}`,
+							},
+						},
+					},
+					CreatedAt: time.Now(),
+				}, nil
+			}
+
+			// Second call: LLM returns final answer after tool execution
+			assert.Len(t, req.Messages, 3) // system/user, assistant with tool_calls, tool result
+			lastMsg := req.Messages[len(req.Messages)-1]
+			assert.Equal(t, "tool", lastMsg.Role)
+			assert.Equal(t, "call-123", lastMsg.ToolCallID)
+
+			return &models.LLMResponse{
+				Content:      "The weather in London is sunny with 22°C",
+				ResponseID:   "resp-2",
+				Model:        "gpt-4",
+				FinishReason: "stop",
+				Usage:        models.LLMUsage{TotalTokens: 75},
+				CreatedAt:    time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	config := map[string]interface{}{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "What's the weather in London?",
+		"tool_call_config": map[string]interface{}{
+			"mode":           "auto",
+			"max_iterations": 10,
+		},
+		"functions": []interface{}{
+			map[string]interface{}{
+				"type":         "builtin",
+				"name":         "get_weather",
+				"description":  "Get weather for a location",
+				"builtin_name": "get_weather",
+				"parameters": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"location": map[string]interface{}{"type": "string"},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+
+	assert.Equal(t, "The weather in London is sunny with 22°C", resultMap["content"])
+	assert.Equal(t, "stop", resultMap["finish_reason"])
+	assert.Equal(t, "finish", resultMap["stopped_reason"])
+	assert.Equal(t, 2, resultMap["total_iterations"])
+
+	// Check messages history
+	messagesRaw, ok := resultMap["messages"].([]interface{})
+	require.True(t, ok, "messages should be an array")
+	assert.GreaterOrEqual(t, len(messagesRaw), 3) // user, assistant with tool_calls, tool result
+
+	// Check tool executions
+	toolExecsRaw, ok := resultMap["tool_executions"].([]interface{})
+	require.True(t, ok, "tool_executions should be an array")
+	assert.Len(t, toolExecsRaw, 1)
+
+	toolExec0 := toolExecsRaw[0].(map[string]interface{})
+	assert.Equal(t, "call-123", toolExec0["tool_call_id"])
+	assert.Equal(t, "get_weather", toolExec0["function_name"])
+	assert.NotNil(t, toolExec0["result"])
+}
+
+func TestLLMExecutor_AutoMode_MultipleIterations(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	// Setup registry with two functions
+	funcRegistry := models.NewFunctionRegistry()
+	funcRegistry.Register("get_weather", func(args map[string]interface{}) (interface{}, error) {
+		return map[string]interface{}{"temperature": 22, "condition": "sunny"}, nil
+	})
+	funcRegistry.Register("get_time", func(args map[string]interface{}) (interface{}, error) {
+		return map[string]interface{}{"time": "14:30"}, nil
+	})
+
+	registry := NewToolCallingRegistry(funcRegistry)
+	exec.SetToolCallingRegistry(registry)
+
+	callCount := 0
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			callCount++
+
+			if callCount == 1 {
+				// First iteration: request weather
+				return &models.LLMResponse{
+					Content:      "",
+					Model:        "gpt-4",
+					FinishReason: "tool_calls",
+					Usage:        models.LLMUsage{TotalTokens: 50},
+					ToolCalls: []models.LLMToolCall{
+						{
+							ID:   "call-1",
+							Type: "function",
+							Function: models.LLMFunctionCall{
+								Name:      "get_weather",
+								Arguments: `{"location":"London"}`,
+							},
+						},
+					},
+					CreatedAt: time.Now(),
+				}, nil
+			} else if callCount == 2 {
+				// Second iteration: request time
+				return &models.LLMResponse{
+					Content:      "",
+					Model:        "gpt-4",
+					FinishReason: "tool_calls",
+					Usage:        models.LLMUsage{TotalTokens: 70},
+					ToolCalls: []models.LLMToolCall{
+						{
+							ID:   "call-2",
+							Type: "function",
+							Function: models.LLMFunctionCall{
+								Name:      "get_time",
+								Arguments: `{}`,
+							},
+						},
+					},
+					CreatedAt: time.Now(),
+				}, nil
+			}
+
+			// Third iteration: final answer
+			return &models.LLMResponse{
+				Content:      "It's 14:30 and sunny with 22°C",
+				Model:        "gpt-4",
+				FinishReason: "stop",
+				Usage:        models.LLMUsage{TotalTokens: 90},
+				CreatedAt:    time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	config := map[string]interface{}{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "What's the weather and time?",
+		"tool_call_config": map[string]interface{}{
+			"mode": "auto",
+		},
+		"functions": []interface{}{
+			map[string]interface{}{
+				"type":         "builtin",
+				"name":         "get_weather",
+				"builtin_name": "get_weather",
+			},
+			map[string]interface{}{
+				"type":         "builtin",
+				"name":         "get_time",
+				"builtin_name": "get_time",
+			},
+		},
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+
+	assert.Equal(t, "It's 14:30 and sunny with 22°C", resultMap["content"])
+	assert.Equal(t, 3, resultMap["total_iterations"])
+
+	toolExecsRaw, ok := resultMap["tool_executions"].([]interface{})
+	require.True(t, ok, "tool_executions should be an array")
+	assert.Len(t, toolExecsRaw, 2) // Two tool calls
+}
+
+func TestLLMExecutor_AutoMode_MaxIterations(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	funcRegistry := models.NewFunctionRegistry()
+	funcRegistry.Register("infinite_tool", func(args map[string]interface{}) (interface{}, error) {
+		return map[string]interface{}{"status": "ok"}, nil
+	})
+
+	registry := NewToolCallingRegistry(funcRegistry)
+	exec.SetToolCallingRegistry(registry)
+
+	// Mock that always returns tool calls (infinite loop scenario)
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			return &models.LLMResponse{
+				Content:      "",
+				Model:        "gpt-4",
+				FinishReason: "tool_calls",
+				Usage:        models.LLMUsage{TotalTokens: 50},
+				ToolCalls: []models.LLMToolCall{
+					{
+						ID:   "call-infinite",
+						Type: "function",
+						Function: models.LLMFunctionCall{
+							Name:      "infinite_tool",
+							Arguments: `{}`,
+						},
+					},
+				},
+				CreatedAt: time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	config := map[string]interface{}{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "Test infinite loop",
+		"tool_call_config": map[string]interface{}{
+			"mode":           "auto",
+			"max_iterations": 3,
+		},
+		"functions": []interface{}{
+			map[string]interface{}{
+				"type":         "builtin",
+				"name":         "infinite_tool",
+				"builtin_name": "infinite_tool",
+			},
+		},
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+
+	assert.Equal(t, 3, resultMap["total_iterations"])
+	assert.Equal(t, "max_iterations", resultMap["stopped_reason"])
+
+	toolExecsRaw, ok := resultMap["tool_executions"].([]interface{})
+	require.True(t, ok, "tool_executions should be an array")
+	assert.Len(t, toolExecsRaw, 3) // Should have 3 tool executions
+}
+
+func TestLLMExecutor_AutoMode_StopOnToolFailure(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	funcRegistry := models.NewFunctionRegistry()
+	funcRegistry.Register("failing_tool", func(args map[string]interface{}) (interface{}, error) {
+		return nil, fmt.Errorf("tool execution failed")
+	})
+
+	registry := NewToolCallingRegistry(funcRegistry)
+	exec.SetToolCallingRegistry(registry)
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			return &models.LLMResponse{
+				Content:      "",
+				Model:        "gpt-4",
+				FinishReason: "tool_calls",
+				Usage:        models.LLMUsage{TotalTokens: 50},
+				ToolCalls: []models.LLMToolCall{
+					{
+						ID:   "call-fail",
+						Type: "function",
+						Function: models.LLMFunctionCall{
+							Name:      "failing_tool",
+							Arguments: `{}`,
+						},
+					},
+				},
+				CreatedAt: time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	config := map[string]interface{}{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "Test tool failure",
+		"tool_call_config": map[string]interface{}{
+			"mode":                 "auto",
+			"stop_on_tool_failure": true,
+		},
+		"functions": []interface{}{
+			map[string]interface{}{
+				"type":         "builtin",
+				"name":         "failing_tool",
+				"builtin_name": "failing_tool",
+			},
+		},
+	}
+
+	_, err := exec.Execute(context.Background(), config, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tool execution failed")
+}
+
+func TestLLMExecutor_ParseToolCallConfig(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	tests := []struct {
+		name     string
+		config   map[string]interface{}
+		expected *models.ToolCallConfig
+	}{
+		{
+			name: "full config",
+			config: map[string]interface{}{
+				"mode":                 "auto",
+				"max_iterations":       5.0,
+				"timeout_per_tool":     30.0,
+				"total_timeout":        300.0,
+				"stop_on_tool_failure": true,
+			},
+			expected: &models.ToolCallConfig{
+				Mode:              models.ToolCallModeAuto,
+				MaxIterations:     5,
+				TimeoutPerTool:    30,
+				TotalTimeout:      300,
+				StopOnToolFailure: true,
+			},
+		},
+		{
+			name: "backward compatibility - auto_execute_tools",
+			config: map[string]interface{}{
+				"auto_execute_tools": true,
+			},
+			expected: &models.ToolCallConfig{
+				Mode:              models.ToolCallModeAuto,
+				MaxIterations:     10,
+				TimeoutPerTool:    30,
+				TotalTimeout:      300,
+				StopOnToolFailure: false,
+			},
+		},
+		{
+			name:   "default config",
+			config: map[string]interface{}{},
+			expected: &models.ToolCallConfig{
+				Mode:              models.ToolCallModeManual,
+				MaxIterations:     10,
+				TimeoutPerTool:    30,
+				TotalTimeout:      300,
+				StopOnToolFailure: false,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := exec.parseToolCallConfig(tt.config)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected.Mode, result.Mode)
+			assert.Equal(t, tt.expected.MaxIterations, result.MaxIterations)
+			assert.Equal(t, tt.expected.TimeoutPerTool, result.TimeoutPerTool)
+			assert.Equal(t, tt.expected.TotalTimeout, result.TotalTimeout)
+			assert.Equal(t, tt.expected.StopOnToolFailure, result.StopOnToolFailure)
+		})
+	}
+}
+
+func TestLLMExecutor_ParseFunctions(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	functionsConfig := []interface{}{
+		map[string]interface{}{
+			"type":         "builtin",
+			"name":         "get_weather",
+			"description":  "Get weather",
+			"builtin_name": "get_weather",
+			"parameters": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"location": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+		map[string]interface{}{
+			"type":        "sub_workflow",
+			"name":        "process_data",
+			"description": "Process data via workflow",
+			"workflow_id": "workflow-123",
+			"input_mapping": map[string]interface{}{
+				"data":   "input_data",
+				"format": "output_format",
+			},
+			"output_extractor": ".result",
+		},
+	}
+
+	functions, err := exec.parseFunctions(functionsConfig)
+	require.NoError(t, err)
+	require.Len(t, functions, 2)
+
+	// Check builtin function
+	assert.Equal(t, models.FunctionTypeBuiltin, functions[0].Type)
+	assert.Equal(t, "get_weather", functions[0].Name)
+	assert.Equal(t, "get_weather", functions[0].BuiltinName)
+
+	// Check sub-workflow function
+	assert.Equal(t, models.FunctionTypeSubWorkflow, functions[1].Type)
+	assert.Equal(t, "process_data", functions[1].Name)
+	assert.Equal(t, "workflow-123", functions[1].WorkflowID)
+	assert.Equal(t, "input_data", functions[1].InputMapping["data"])
+	assert.Equal(t, ".result", functions[1].OutputExtractor)
+}
+
+func TestLLMExecutor_ConvertFunctionsToTools(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	functions := []models.FunctionDefinition{
+		{
+			Name:        "get_weather",
+			Description: "Get weather for a location",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"location": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+	}
+
+	tools, err := exec.convertFunctionsToTools(functions)
+	require.NoError(t, err)
+	require.Len(t, tools, 1)
+
+	assert.Equal(t, "function", tools[0].Type)
+	assert.Equal(t, "get_weather", tools[0].Function.Name)
+	assert.Equal(t, "Get weather for a location", tools[0].Function.Description)
+	assert.NotNil(t, tools[0].Function.Parameters)
+}
+
+func TestLLMExecutor_AutoMode_WithoutRegistry(t *testing.T) {
+	exec := NewLLMExecutor()
+	// Don't set registry
+
+	mockProvider := &MockLLMProvider{}
+	exec.RegisterProvider("mock", mockProvider)
+
+	config := map[string]interface{}{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "Test",
+		"tool_call_config": map[string]interface{}{
+			"mode": "auto",
+		},
+		"functions": []interface{}{
+			map[string]interface{}{
+				"type": "builtin",
+				"name": "test_func",
+			},
+		},
+	}
+
+	_, err := exec.Execute(context.Background(), config, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tool calling registry not configured")
+}
+
+// TestLLMExecutor_getOrCreateProvider_OpenAI tests provider creation for OpenAI
+func TestLLMExecutor_getOrCreateProvider_OpenAI(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: models.LLMProviderOpenAI,
+		Model:    "gpt-4",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key":  "sk-test-key",
+			"base_url": "https://api.openai.com/v1",
+			"org_id":   "org-test",
+		},
+	}
+
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	// Verify it's an OpenAI provider by checking the type
+	_, ok := provider.(*OpenAIProvider)
+	assert.True(t, ok, "Expected OpenAI provider")
+}
+
+// TestLLMExecutor_getOrCreateProvider_OpenAIResponses tests provider creation for OpenAI Responses
+func TestLLMExecutor_getOrCreateProvider_OpenAIResponses(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: models.LLMProviderOpenAIResponses,
+		Model:    "gpt-4",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key":  "sk-test-key",
+			"base_url": "https://api.openai.com/v1",
+			"org_id":   "org-test",
+		},
+	}
+
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	// Verify it's an OpenAI Responses provider
+	_, ok := provider.(*OpenAIResponsesProvider)
+	assert.True(t, ok, "Expected OpenAI Responses provider")
+}
+
+// TestLLMExecutor_getOrCreateProvider_UnsupportedProvider tests error for unsupported provider
+func TestLLMExecutor_getOrCreateProvider_UnsupportedProvider(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: "unsupported-provider",
+		Model:    "gpt-4",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key": "sk-test",
+		},
+	}
+
+	_, err := exec.getOrCreateProvider(req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported provider")
+}
+
+// TestLLMExecutor_getOrCreateProvider_RegisteredProvider tests using pre-registered provider
+func TestLLMExecutor_getOrCreateProvider_RegisteredProvider(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			return &models.LLMResponse{
+				Content:    "mock response",
+				ResponseID: "mock-id",
+				Model:      req.Model,
+			}, nil
+		},
+	}
+
+	// Register a provider
+	exec.RegisterProvider("custom", mockProvider)
+
+	req := &models.LLMRequest{
+		Provider: "custom",
+		Model:    "custom-model",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+	}
+
+	// Should return the registered provider, not create a new one
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+	assert.Equal(t, mockProvider, provider)
+}
+
+// TestLLMExecutor_getOrCreateProvider_OpenAIMinimalConfig tests OpenAI with minimal config
+func TestLLMExecutor_getOrCreateProvider_OpenAIMinimalConfig(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: models.LLMProviderOpenAI,
+		Model:    "gpt-4",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key": "sk-test",
+			// No base_url or org_id - should use defaults
+		},
+	}
+
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	_, ok := provider.(*OpenAIProvider)
+	assert.True(t, ok)
 }

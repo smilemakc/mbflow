@@ -1,0 +1,5 @@
+llm_tool_calling_auto
+*.exe
+*.dll
+*.so
+*.dylib

@@ -51,11 +51,12 @@ type Position struct {
 
 // Edge represents a directed edge between two nodes in the DAG.
 type Edge struct {
-	ID        string                 `json:"id"`
-	From      string                 `json:"from"`
-	To        string                 `json:"to"`
-	Condition string                 `json:"condition,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	ID           string                 `json:"id"`
+	From         string                 `json:"from"`
+	To           string                 `json:"to"`
+	SourceHandle string                 `json:"source_handle,omitempty"`
+	Condition    string                 `json:"condition,omitempty"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // Validate validates the workflow structure.

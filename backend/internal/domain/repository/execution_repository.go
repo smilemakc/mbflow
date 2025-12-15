@@ -67,6 +67,9 @@ type ExecutionRepository interface {
 	// FindNodeExecutionsByStatus retrieves node executions by status
 	FindNodeExecutionsByStatus(ctx context.Context, executionID uuid.UUID, status string) ([]*models.NodeExecutionModel, error)
 
+	// GetEvents retrieves all events for an execution
+	GetEvents(ctx context.Context, executionID uuid.UUID) ([]*models.EventModel, error)
+
 	// GetStatistics retrieves execution statistics
 	GetStatistics(ctx context.Context, workflowID *uuid.UUID, from, to time.Time) (*ExecutionStatistics, error)
 }
