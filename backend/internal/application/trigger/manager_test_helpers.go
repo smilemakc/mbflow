@@ -249,6 +249,48 @@ func (m *mockWorkflowRepo) ValidateDAG(ctx context.Context, workflowID uuid.UUID
 	return args.Error(0)
 }
 
+// Resource management methods
+func (m *mockWorkflowRepo) AssignResource(ctx context.Context, workflowID uuid.UUID, resource *storagemodels.WorkflowResourceModel, assignedBy *uuid.UUID) error {
+	args := m.Called(ctx, workflowID, resource, assignedBy)
+	return args.Error(0)
+}
+
+func (m *mockWorkflowRepo) UnassignResource(ctx context.Context, workflowID, resourceID uuid.UUID) error {
+	args := m.Called(ctx, workflowID, resourceID)
+	return args.Error(0)
+}
+
+func (m *mockWorkflowRepo) UnassignResourceFromAllWorkflows(ctx context.Context, resourceID uuid.UUID) (int64, error) {
+	args := m.Called(ctx, resourceID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *mockWorkflowRepo) GetWorkflowResources(ctx context.Context, workflowID uuid.UUID) ([]*storagemodels.WorkflowResourceModel, error) {
+	args := m.Called(ctx, workflowID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*storagemodels.WorkflowResourceModel), args.Error(1)
+}
+
+func (m *mockWorkflowRepo) UpdateResourceAlias(ctx context.Context, workflowID, resourceID uuid.UUID, newAlias string) error {
+	args := m.Called(ctx, workflowID, resourceID, newAlias)
+	return args.Error(0)
+}
+
+func (m *mockWorkflowRepo) ResourceExists(ctx context.Context, workflowID, resourceID uuid.UUID) (bool, error) {
+	args := m.Called(ctx, workflowID, resourceID)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockWorkflowRepo) GetResourceByAlias(ctx context.Context, workflowID uuid.UUID, alias string) (*storagemodels.WorkflowResourceModel, error) {
+	args := m.Called(ctx, workflowID, alias)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*storagemodels.WorkflowResourceModel), args.Error(1)
+}
+
 // Helper to create test Manager with minimal setup
 func createTestManager() (*Manager, error) {
 	triggerRepo := &mockTriggerRepo{}

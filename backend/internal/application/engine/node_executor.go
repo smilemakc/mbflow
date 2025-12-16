@@ -51,6 +51,7 @@ func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (*Nod
 		WorkflowVariables:  nodeCtx.WorkflowVariables,
 		ExecutionVariables: nodeCtx.ExecutionVariables,
 		ParentNodeOutput:   nodeCtx.DirectParentOutput, // ⭐ Key: output from immediate parent
+		Resources:          nodeCtx.Resources,          // ⭐ Resources for {{resource.alias.*}} templates
 		StrictMode:         nodeCtx.StrictMode,
 	}
 
@@ -132,6 +133,7 @@ func PrepareNodeContext(
 		WorkflowVariables:  execState.Workflow.Variables,
 		ExecutionVariables: execState.Variables,
 		DirectParentOutput: directParentOutput,
+		Resources:          execState.Resources,
 		StrictMode:         opts.StrictMode,
 	}
 }

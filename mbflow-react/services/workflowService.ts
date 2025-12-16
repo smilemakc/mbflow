@@ -1,5 +1,6 @@
 import { apiClient } from '../lib/api';
 import { DAG, AppNode, AppEdge } from '@/types';
+import type { WorkflowResource } from '@/types/workflow';
 import {
   workflowFromApi,
   workflowToApi,
@@ -28,6 +29,7 @@ export interface DAGSavePayload {
   nodes?: AppNode[];
   edges?: AppEdge[];
   variables?: Record<string, string>;
+  resources?: WorkflowResource[];
 }
 
 export const workflowService = {
@@ -60,7 +62,7 @@ export const workflowService = {
       dag.id = created.id;
     }
 
-    // Update workflow with nodes, edges, and variables
+    // Update workflow with nodes, edges, variables, and resources
     const payload = workflowToApi({
       id: dag.id,
       name: dag.name || 'Unnamed Workflow',
@@ -68,6 +70,7 @@ export const workflowService = {
       nodes: dag.nodes || [],
       edges: dag.edges || [],
       variables: dag.variables,
+      resources: dag.resources,
     });
 
     const response = await apiClient.put<WorkflowApiResponse>(`/workflows/${dag.id}`, payload);
@@ -77,5 +80,25 @@ export const workflowService = {
   // Delete workflow
   delete: async (id: string) => {
     return await apiClient.delete(`/workflows/${id}`);
-  }
+  },
+
+  // Add resource to workflow
+  attachResource: (workflowId: string, resourceId: string, alias: string, accessType?: string) =>
+    apiClient.post<WorkflowResource>(`/workflows/${workflowId}/resources`, {
+      resource_id: resourceId,
+      alias,
+      access_type: accessType || 'read'
+    }),
+
+  // Remove resource from workflow
+  detachResource: (workflowId: string, resourceId: string) =>
+    apiClient.delete(`/workflows/${workflowId}/resources/${resourceId}`),
+
+  // Get workflow resources
+  getResources: (workflowId: string) =>
+    apiClient.get<{ resources: WorkflowResource[] }>(`/workflows/${workflowId}/resources`),
+
+  // Update resource alias
+  updateResourceAlias: (workflowId: string, resourceId: string, alias: string) =>
+    apiClient.put<WorkflowResource>(`/workflows/${workflowId}/resources/${resourceId}`, { alias }),
 };

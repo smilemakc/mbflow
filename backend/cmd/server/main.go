@@ -22,6 +22,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/infrastructure/cache"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
+	"github.com/smilemakc/mbflow/pkg/crypto"
 	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/executor/builtin"
 )
@@ -195,8 +196,18 @@ func main() {
 	transactionRepo := storage.NewTransactionRepository(db)
 	resourceRepo := storage.NewResourceRepository(db)
 	pricingPlanRepo := storage.NewPricingPlanRepository(db)
+	credentialsRepo := storage.NewCredentialsRepository(db)
 
 	appLogger.Info("Repositories initialized")
+
+	// Initialize encryption service for credentials
+	encryptionService, err := crypto.GetDefaultService()
+	if err != nil {
+		appLogger.Warn("Encryption service not available - credentials feature disabled", "error", err)
+		encryptionService = nil
+	} else {
+		appLogger.Info("Encryption service initialized")
+	}
 
 	// Initialize auth system
 	authService := auth.NewService(userRepo, accountRepo, &cfg.Auth)
@@ -224,6 +235,7 @@ func main() {
 		workflowRepo,
 		executionRepo,
 		eventRepo,
+		resourceRepo,
 		observerManager,
 	)
 
@@ -390,7 +402,7 @@ func main() {
 		triggerHandlers := rest.NewTriggerHandlers(triggerRepo, workflowRepo, appLogger)
 		authHandlers := rest.NewAuthHandlers(authService, providerManager, loginRateLimiter)
 		fileHandlers := rest.NewFileHandlers(fileRepo, fileStorageManager, appLogger)
-		resourceHandlers := rest.NewResourceHandlers(resourceRepo, pricingPlanRepo, appLogger)
+		resourceHandlers := rest.NewResourceHandlers(resourceRepo, pricingPlanRepo, workflowRepo, appLogger)
 		accountHandlers := rest.NewAccountHandlers(accountRepo, transactionRepo, appLogger)
 
 		// Initialize resource file service and handlers
@@ -455,6 +467,12 @@ func main() {
 			workflows.POST("/:workflow_id/publish", workflowHandlers.HandlePublishWorkflow)
 			workflows.POST("/:workflow_id/unpublish", workflowHandlers.HandleUnpublishWorkflow)
 			workflows.GET("/:workflow_id/diagram", workflowHandlers.HandleGetWorkflowDiagram)
+
+			// Workflow resources endpoints
+			workflows.POST("/:workflow_id/resources", workflowHandlers.AttachWorkflowResource)
+			workflows.GET("/:workflow_id/resources", workflowHandlers.GetWorkflowResources)
+			workflows.PUT("/:workflow_id/resources/:resource_id", workflowHandlers.UpdateWorkflowResourceAlias)
+			workflows.DELETE("/:workflow_id/resources/:resource_id", workflowHandlers.DetachWorkflowResource)
 
 			// Node endpoints
 			workflows.POST("/:workflow_id/nodes", nodeHandlers.HandleAddNode)
@@ -537,6 +555,33 @@ func main() {
 			account.POST("/deposit", accountHandlers.Deposit)
 			account.GET("/transactions", accountHandlers.ListTransactions)
 			account.GET("/transactions/:id", accountHandlers.GetTransaction)
+		}
+
+		// Credentials endpoints (require authentication and encryption service)
+		if encryptionService != nil {
+			credentialsHandlers := rest.NewCredentialsHandlers(credentialsRepo, workflowRepo, encryptionService, appLogger)
+
+			credentials := apiV1.Group("/credentials")
+			credentials.Use(authMiddleware.RequireAuth())
+			{
+				// Create endpoints for different credential types
+				credentials.POST("/api-key", credentialsHandlers.CreateAPIKey)
+				credentials.POST("/basic-auth", credentialsHandlers.CreateBasicAuth)
+				credentials.POST("/oauth2", credentialsHandlers.CreateOAuth2)
+				credentials.POST("/service-account", credentialsHandlers.CreateServiceAccount)
+				credentials.POST("/custom", credentialsHandlers.CreateCustom)
+
+				// CRUD endpoints
+				credentials.GET("", credentialsHandlers.ListCredentials)
+				credentials.GET("/:id", credentialsHandlers.GetCredential)
+				credentials.GET("/:id/secrets", credentialsHandlers.GetCredentialSecrets)
+				credentials.PUT("/:id", credentialsHandlers.UpdateCredential)
+				credentials.DELETE("/:id", credentialsHandlers.DeleteCredential)
+			}
+
+			appLogger.Info("Credentials endpoints registered")
+		} else {
+			appLogger.Warn("Credentials endpoints disabled - encryption key not configured")
 		}
 
 		// Webhook endpoints

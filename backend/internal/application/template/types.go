@@ -3,6 +3,8 @@
 // The template engine supports the following syntax:
 //   - {{env.varName}} - Access environment/workflow variables
 //   - {{input.fieldName}} - Access output from parent node
+//   - {{resource.alias}} - Access workflow resource by alias
+//   - {{resource.alias.field}} - Access specific field in resource
 //
 // Variable resolution follows a specific precedence:
 //  1. Execution variables (highest priority, override workflow vars)
@@ -33,6 +35,10 @@ type VariableContext struct {
 
 	// InputVars contains variables from parent node outputs
 	InputVars map[string]interface{}
+
+	// ResourceVars contains workflow resources indexed by alias
+	// Each resource is a map with fields: id, type, name, config, etc.
+	ResourceVars map[string]interface{}
 }
 
 // NewVariableContext creates a new variable context with the given variables.
@@ -41,6 +47,7 @@ func NewVariableContext() *VariableContext {
 		WorkflowVars:  make(map[string]interface{}),
 		ExecutionVars: make(map[string]interface{}),
 		InputVars:     make(map[string]interface{}),
+		ResourceVars:  make(map[string]interface{}),
 	}
 }
 
@@ -63,6 +70,15 @@ func (c *VariableContext) GetEnvVariable(name string) (interface{}, bool) {
 // GetInputVariable retrieves an input variable from parent node output.
 func (c *VariableContext) GetInputVariable(name string) (interface{}, bool) {
 	val, ok := c.InputVars[name]
+	return val, ok
+}
+
+// GetResourceVariable retrieves a resource by alias.
+func (c *VariableContext) GetResourceVariable(alias string) (interface{}, bool) {
+	if c.ResourceVars == nil {
+		return nil, false
+	}
+	val, ok := c.ResourceVars[alias]
 	return val, ok
 }
 

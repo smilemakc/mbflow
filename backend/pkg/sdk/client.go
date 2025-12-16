@@ -283,6 +283,7 @@ func (c *Client) initializeEmbedded() error {
 			c.workflowRepo,
 			c.executionRepo,
 			nil, // eventRepo - will be nil for MVP
+			nil, // resourceRepo - will be nil for SDK
 			nil, // observerManager - optional for SDK
 		)
 	}

@@ -37,7 +37,11 @@ export const useResources = (): ResourcesState & ResourcesActions => {
         resourcesApi.getAccount(),
         resourcesApi.listTransactions(10, 0),
       ]);
-      setResources(resourcesRes.data.resources || []);
+      // Filter only file_storage type resources
+      const fileStorageResources = (resourcesRes.data.resources || []).filter(
+        r => r.type === 'file_storage'
+      );
+      setResources(fileStorageResources);
       setAccount(accountRes.data);
       setTransactions(transactionsRes.data.transactions || []);
       setTransactionsTotal(transactionsRes.data.total || 0);

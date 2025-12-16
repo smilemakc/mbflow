@@ -23,6 +23,11 @@ func WorkflowModelToDomain(wm *storagemodels.WorkflowModel) *models.Workflow {
 		UpdatedAt:   wm.UpdatedAt,
 	}
 
+	// Convert CreatedBy
+	if wm.CreatedBy != nil {
+		workflow.CreatedBy = wm.CreatedBy.String()
+	}
+
 	// Convert Variables
 	if wm.Variables != nil {
 		workflow.Variables = map[string]interface{}(wm.Variables)
@@ -43,6 +48,22 @@ func WorkflowModelToDomain(wm *storagemodels.WorkflowModel) *models.Workflow {
 	workflow.Edges = make([]*models.Edge, 0, len(wm.Edges))
 	for _, em := range wm.Edges {
 		workflow.Edges = append(workflow.Edges, EdgeModelToDomain(em))
+	}
+
+	// Convert Resources
+	workflow.Resources = make([]models.WorkflowResource, 0, len(wm.Resources))
+	for _, rm := range wm.Resources {
+		wr := models.WorkflowResource{
+			ResourceID: rm.ResourceID.String(),
+			Alias:      rm.Alias,
+			AccessType: rm.AccessType,
+		}
+		// Populate resource details if loaded
+		if rm.Resource != nil {
+			wr.ResourceName = rm.Resource.Name
+			wr.ResourceType = rm.Resource.Type
+		}
+		workflow.Resources = append(workflow.Resources, wr)
 	}
 
 	return workflow

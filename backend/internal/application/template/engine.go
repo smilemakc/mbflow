@@ -267,8 +267,8 @@ func ValidateTemplate(template string) error {
 		varType := strings.TrimSpace(parts[0])
 
 		// Validate variable type
-		if varType != "env" && varType != "input" {
-			return fmt.Errorf("%w: unknown variable type '%s' (supported: env, input)", ErrInvalidTemplate, varType)
+		if varType != "env" && varType != "input" && varType != "resource" {
+			return fmt.Errorf("%w: unknown variable type '%s' (supported: env, input, resource)", ErrInvalidTemplate, varType)
 		}
 
 		// {{input}} without path is allowed (returns entire input object)
@@ -281,8 +281,8 @@ func ValidateTemplate(template string) error {
 
 		path := strings.TrimSpace(parts[1])
 
-		// env always requires a path
-		if varType == "env" && path == "" {
+		// env and resource always require a path
+		if (varType == "env" || varType == "resource") && path == "" {
 			return fmt.Errorf("%w: empty path for variable type '%s'", ErrInvalidTemplate, varType)
 		}
 	}

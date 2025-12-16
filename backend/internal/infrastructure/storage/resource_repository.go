@@ -78,6 +78,7 @@ func (r *ResourceRepositoryImpl) GetByID(ctx context.Context, id string) (pkgmod
 	err = r.db.NewSelect().
 		Model(resourceModel).
 		Relation("FileStorage").
+		Relation("Credentials").
 		Where("r.id = ? AND r.deleted_at IS NULL", resourceID).
 		Scan(ctx)
 
@@ -88,7 +89,7 @@ func (r *ResourceRepositoryImpl) GetByID(ctx context.Context, id string) (pkgmod
 		return nil, err
 	}
 
-	return models.ToFileStorageResourceDomain(resourceModel, resourceModel.FileStorage), nil
+	return r.toResourceDomain(resourceModel), nil
 }
 
 func (r *ResourceRepositoryImpl) GetByOwner(ctx context.Context, ownerID string) ([]pkgmodels.Resource, error) {
@@ -101,6 +102,7 @@ func (r *ResourceRepositoryImpl) GetByOwner(ctx context.Context, ownerID string)
 	err = r.db.NewSelect().
 		Model(&resourceModels).
 		Relation("FileStorage").
+		Relation("Credentials").
 		Where("r.owner_id = ? AND r.deleted_at IS NULL", ownerUUID).
 		Order("r.created_at DESC").
 		Scan(ctx)
@@ -109,9 +111,11 @@ func (r *ResourceRepositoryImpl) GetByOwner(ctx context.Context, ownerID string)
 		return nil, err
 	}
 
-	resources := make([]pkgmodels.Resource, len(resourceModels))
-	for i, rm := range resourceModels {
-		resources[i] = models.ToFileStorageResourceDomain(rm, rm.FileStorage)
+	resources := make([]pkgmodels.Resource, 0, len(resourceModels))
+	for _, rm := range resourceModels {
+		if res := r.toResourceDomain(rm); res != nil {
+			resources = append(resources, res)
+		}
 	}
 
 	return resources, nil
@@ -127,6 +131,7 @@ func (r *ResourceRepositoryImpl) GetByOwnerAndType(ctx context.Context, ownerID 
 	err = r.db.NewSelect().
 		Model(&resourceModels).
 		Relation("FileStorage").
+		Relation("Credentials").
 		Where("r.owner_id = ? AND r.type = ? AND r.deleted_at IS NULL", ownerUUID, string(resourceType)).
 		Order("r.created_at DESC").
 		Scan(ctx)
@@ -135,32 +140,30 @@ func (r *ResourceRepositoryImpl) GetByOwnerAndType(ctx context.Context, ownerID 
 		return nil, err
 	}
 
-	resources := make([]pkgmodels.Resource, len(resourceModels))
-	for i, rm := range resourceModels {
-		resources[i] = models.ToFileStorageResourceDomain(rm, rm.FileStorage)
+	resources := make([]pkgmodels.Resource, 0, len(resourceModels))
+	for _, rm := range resourceModels {
+		if res := r.toResourceDomain(rm); res != nil {
+			resources = append(resources, res)
+		}
 	}
 
 	return resources, nil
 }
 
 func (r *ResourceRepositoryImpl) Update(ctx context.Context, resource pkgmodels.Resource) error {
-	fsResource, ok := resource.(*pkgmodels.FileStorageResource)
-	if !ok {
-		return pkgmodels.ErrInvalidResourceType
-	}
-
-	resourceID, err := uuid.Parse(fsResource.ID)
+	resourceID, err := uuid.Parse(resource.GetID())
 	if err != nil {
 		return pkgmodels.ErrInvalidID
 	}
 
 	return r.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+		// Update base resource fields
 		_, err := tx.NewUpdate().
 			Model((*models.ResourceModel)(nil)).
-			Set("name = ?", fsResource.Name).
-			Set("description = ?", fsResource.Description).
-			Set("status = ?", string(fsResource.Status)).
-			Set("metadata = ?", fsResource.Metadata).
+			Set("name = ?", resource.GetName()).
+			Set("description = ?", resource.GetDescription()).
+			Set("status = ?", string(resource.GetStatus())).
+			Set("metadata = ?", resource.GetMetadata()).
 			Set("updated_at = ?", time.Now()).
 			Where("id = ? AND deleted_at IS NULL", resourceID).
 			Exec(ctx)
@@ -169,13 +172,34 @@ func (r *ResourceRepositoryImpl) Update(ctx context.Context, resource pkgmodels.
 			return err
 		}
 
-		_, err = tx.NewUpdate().
-			Model((*models.FileStorageModel)(nil)).
-			Set("storage_limit_bytes = ?", fsResource.StorageLimitBytes).
-			Set("used_storage_bytes = ?", fsResource.UsedStorageBytes).
-			Set("file_count = ?", fsResource.FileCount).
-			Where("resource_id = ?", resourceID).
-			Exec(ctx)
+		// Update type-specific fields
+		switch res := resource.(type) {
+		case *pkgmodels.FileStorageResource:
+			_, err = tx.NewUpdate().
+				Model((*models.FileStorageModel)(nil)).
+				Set("storage_limit_bytes = ?", res.StorageLimitBytes).
+				Set("used_storage_bytes = ?", res.UsedStorageBytes).
+				Set("file_count = ?", res.FileCount).
+				Where("resource_id = ?", resourceID).
+				Exec(ctx)
+		case *pkgmodels.CredentialsResource:
+			encryptedData := make(models.JSONBMap)
+			for k, v := range res.EncryptedData {
+				encryptedData[k] = v
+			}
+			var provider *string
+			if res.Provider != "" {
+				provider = &res.Provider
+			}
+			_, err = tx.NewUpdate().
+				Model((*models.CredentialsModel)(nil)).
+				Set("credential_type = ?", string(res.CredentialType)).
+				Set("encrypted_data = ?", encryptedData).
+				Set("provider = ?", provider).
+				Set("expires_at = ?", res.ExpiresAt).
+				Where("resource_id = ?", resourceID).
+				Exec(ctx)
+		}
 
 		return err
 	})
@@ -271,4 +295,24 @@ func (r *ResourceRepositoryImpl) DecrementUsage(ctx context.Context, resourceID 
 		Exec(ctx)
 
 	return err
+}
+
+// toResourceDomain converts a ResourceModel to the appropriate domain type based on resource type
+func (r *ResourceRepositoryImpl) toResourceDomain(rm *models.ResourceModel) pkgmodels.Resource {
+	if rm == nil {
+		return nil
+	}
+
+	switch pkgmodels.ResourceType(rm.Type) {
+	case pkgmodels.ResourceTypeFileStorage:
+		if rm.FileStorage != nil {
+			return models.ToFileStorageResourceDomain(rm, rm.FileStorage)
+		}
+	case pkgmodels.ResourceTypeCredentials:
+		if rm.Credentials != nil {
+			return models.ToCredentialsResourceDomain(rm, rm.Credentials)
+		}
+	}
+
+	return nil
 }

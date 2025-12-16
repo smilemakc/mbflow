@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/pkg/models"
@@ -15,14 +16,16 @@ import (
 type ResourceHandlers struct {
 	resourceRepo repository.FileStorageRepository
 	planRepo     repository.PricingPlanRepository
+	workflowRepo repository.WorkflowRepository
 	logger       *logger.Logger
 }
 
 // NewResourceHandlers creates a new ResourceHandlers instance
-func NewResourceHandlers(resourceRepo repository.FileStorageRepository, planRepo repository.PricingPlanRepository, log *logger.Logger) *ResourceHandlers {
+func NewResourceHandlers(resourceRepo repository.FileStorageRepository, planRepo repository.PricingPlanRepository, workflowRepo repository.WorkflowRepository, log *logger.Logger) *ResourceHandlers {
 	return &ResourceHandlers{
 		resourceRepo: resourceRepo,
 		planRepo:     planRepo,
+		workflowRepo: workflowRepo,
 		logger:       log,
 	}
 }
@@ -106,27 +109,45 @@ func (h *ResourceHandlers) ListResources(c *gin.Context) {
 
 	response := make([]gin.H, 0, len(resources))
 	for _, r := range resources {
-		fs, ok := r.(*models.FileStorageResource)
-		if !ok {
-			h.logger.Warn("Skipping non-file-storage resource", "resource_id", r.GetID())
+		if r == nil {
 			continue
 		}
-		response = append(response, gin.H{
-			"id":                  fs.ID,
-			"type":                fs.Type,
-			"name":                fs.Name,
-			"description":         fs.Description,
-			"status":              fs.Status,
-			"storage_limit_bytes": fs.StorageLimitBytes,
-			"used_storage_bytes":  fs.UsedStorageBytes,
-			"file_count":          fs.FileCount,
-			"usage_percent":       fs.GetUsagePercent(),
-			"created_at":          fs.CreatedAt,
-			"updated_at":          fs.UpdatedAt,
-		})
+		response = append(response, h.resourceToResponse(r))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"resources": response})
+}
+
+// resourceToResponse converts a Resource to a gin.H response with type-specific fields
+func (h *ResourceHandlers) resourceToResponse(r models.Resource) gin.H {
+	resp := gin.H{
+		"id":          r.GetID(),
+		"type":        r.GetType(),
+		"name":        r.GetName(),
+		"description": r.GetDescription(),
+		"status":      r.GetStatus(),
+	}
+
+	// Add type-specific fields
+	switch res := r.(type) {
+	case *models.FileStorageResource:
+		resp["storage_limit_bytes"] = res.StorageLimitBytes
+		resp["used_storage_bytes"] = res.UsedStorageBytes
+		resp["file_count"] = res.FileCount
+		resp["usage_percent"] = res.GetUsagePercent()
+		resp["created_at"] = res.CreatedAt
+		resp["updated_at"] = res.UpdatedAt
+	case *models.CredentialsResource:
+		resp["credential_type"] = res.CredentialType
+		resp["provider"] = res.Provider
+		resp["expires_at"] = res.ExpiresAt
+		resp["last_used_at"] = res.LastUsedAt
+		resp["usage_count"] = res.UsageCount
+		resp["created_at"] = res.CreatedAt
+		resp["updated_at"] = res.UpdatedAt
+	}
+
+	return resp
 }
 
 // GetResource returns a specific resource by ID
@@ -159,26 +180,13 @@ func (h *ResourceHandlers) GetResource(c *gin.Context) {
 		return
 	}
 
-	fs, ok := resource.(*models.FileStorageResource)
-	if !ok {
-		respondError(c, http.StatusInternalServerError, "invalid resource type")
-		return
+	resp := h.resourceToResponse(resource)
+	// Add available_space for FileStorage
+	if fs, ok := resource.(*models.FileStorageResource); ok {
+		resp["available_space"] = fs.GetAvailableSpace()
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"id":                  fs.ID,
-		"type":                fs.Type,
-		"name":                fs.Name,
-		"description":         fs.Description,
-		"status":              fs.Status,
-		"storage_limit_bytes": fs.StorageLimitBytes,
-		"used_storage_bytes":  fs.UsedStorageBytes,
-		"file_count":          fs.FileCount,
-		"usage_percent":       fs.GetUsagePercent(),
-		"available_space":     fs.GetAvailableSpace(),
-		"created_at":          fs.CreatedAt,
-		"updated_at":          fs.UpdatedAt,
-	})
+	c.JSON(http.StatusOK, resp)
 }
 
 // UpdateResourceRequest represents request to update resource
@@ -222,19 +230,26 @@ func (h *ResourceHandlers) UpdateResource(c *gin.Context) {
 		return
 	}
 
-	fs, ok := resource.(*models.FileStorageResource)
-	if !ok {
-		respondError(c, http.StatusInternalServerError, "invalid resource type")
+	// Update base fields using type switch
+	switch res := resource.(type) {
+	case *models.FileStorageResource:
+		if req.Name != "" {
+			res.Name = req.Name
+		}
+		res.Description = req.Description
+		res.UpdatedAt = time.Now()
+	case *models.CredentialsResource:
+		if req.Name != "" {
+			res.Name = req.Name
+		}
+		res.Description = req.Description
+		res.UpdatedAt = time.Now()
+	default:
+		respondError(c, http.StatusInternalServerError, "unsupported resource type")
 		return
 	}
 
-	if req.Name != "" {
-		fs.Name = req.Name
-	}
-	fs.Description = req.Description
-	fs.UpdatedAt = time.Now()
-
-	if err := h.resourceRepo.Update(c.Request.Context(), fs); err != nil {
+	if err := h.resourceRepo.Update(c.Request.Context(), resource); err != nil {
 		h.logger.Error("Failed to update resource", "error", err, "resource_id", resourceID)
 		respondError(c, http.StatusInternalServerError, "failed to update resource")
 		return
@@ -242,20 +257,12 @@ func (h *ResourceHandlers) UpdateResource(c *gin.Context) {
 
 	h.logger.Info("Resource updated", "resource_id", resourceID, "user_id", userID)
 
-	c.JSON(http.StatusOK, gin.H{
-		"id":                  fs.ID,
-		"type":                fs.Type,
-		"name":                fs.Name,
-		"description":         fs.Description,
-		"status":              fs.Status,
-		"storage_limit_bytes": fs.StorageLimitBytes,
-		"used_storage_bytes":  fs.UsedStorageBytes,
-		"file_count":          fs.FileCount,
-		"usage_percent":       fs.GetUsagePercent(),
-		"available_space":     fs.GetAvailableSpace(),
-		"created_at":          fs.CreatedAt,
-		"updated_at":          fs.UpdatedAt,
-	})
+	resp := h.resourceToResponse(resource)
+	if fs, ok := resource.(*models.FileStorageResource); ok {
+		resp["available_space"] = fs.GetAvailableSpace()
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 // DeleteResource soft-deletes a resource
@@ -288,13 +295,32 @@ func (h *ResourceHandlers) DeleteResource(c *gin.Context) {
 		return
 	}
 
+	// First, detach resource from all workflows
+	resourceUUID, err := uuid.Parse(resourceID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid resource ID")
+		return
+	}
+
+	detachedCount, err := h.workflowRepo.UnassignResourceFromAllWorkflows(c.Request.Context(), resourceUUID)
+	if err != nil {
+		h.logger.Error("Failed to detach resource from workflows", "error", err, "resource_id", resourceID)
+		respondError(c, http.StatusInternalServerError, "failed to detach resource from workflows")
+		return
+	}
+
+	if detachedCount > 0 {
+		h.logger.Info("Resource detached from workflows", "resource_id", resourceID, "workflows_count", detachedCount)
+	}
+
+	// Then delete the resource
 	if err := h.resourceRepo.Delete(c.Request.Context(), resourceID); err != nil {
 		h.logger.Error("Failed to delete resource", "error", err, "resource_id", resourceID)
 		respondError(c, http.StatusInternalServerError, "failed to delete resource")
 		return
 	}
 
-	h.logger.Info("Resource deleted", "resource_id", resourceID, "user_id", userID)
+	h.logger.Info("Resource deleted", "resource_id", resourceID, "user_id", userID, "detached_from_workflows", detachedCount)
 
 	c.JSON(http.StatusOK, gin.H{"message": "resource deleted successfully"})
 }

@@ -30,6 +30,7 @@ type ExecutionState struct {
 	Workflow    *models.Workflow
 	Input       map[string]interface{}
 	Variables   map[string]interface{} // Merged workflow + execution vars
+	Resources   map[string]interface{} // alias -> resource data for template resolution
 
 	// Node execution tracking
 	NodeOutputs         map[string]interface{}                // nodeID -> output
@@ -53,6 +54,7 @@ type NodeContext struct {
 	WorkflowVariables  map[string]interface{} // Variables from workflow definition
 	ExecutionVariables map[string]interface{} // Runtime variables (override workflow vars)
 	DirectParentOutput map[string]interface{} // Output from immediate parent (for {{input.field}})
+	Resources          map[string]interface{} // alias -> resource data for template resolution
 	StrictMode         bool                   // Fail on missing template variables
 }
 
@@ -80,6 +82,7 @@ func NewExecutionState(executionID, workflowID string, workflow *models.Workflow
 		Workflow:            workflow,
 		Input:               input,
 		Variables:           variables,
+		Resources:           make(map[string]interface{}),
 		NodeOutputs:         make(map[string]interface{}),
 		NodeInputs:          make(map[string]interface{}),
 		NodeErrors:          make(map[string]error),

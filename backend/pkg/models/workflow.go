@@ -16,8 +16,10 @@ type Workflow struct {
 	Tags        []string               `json:"tags,omitempty"`
 	Nodes       []*Node                `json:"nodes"`
 	Edges       []*Edge                `json:"edges"`
+	Resources   []WorkflowResource     `json:"resources,omitempty"` // Attached resources with aliases
 	Variables   map[string]interface{} `json:"variables,omitempty"` // Workflow-level variables for template substitution
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	CreatedBy   string                 `json:"created_by,omitempty"` // User ID who created the workflow
 	CreatedAt   time.Time              `json:"created_at"`
 	UpdatedAt   time.Time              `json:"updated_at"`
 }
@@ -31,6 +33,48 @@ const (
 	WorkflowStatusInactive WorkflowStatus = "inactive"
 	WorkflowStatusArchived WorkflowStatus = "archived"
 )
+
+// WorkflowResource represents a resource attached to a workflow with an alias
+type WorkflowResource struct {
+	ResourceID   string `json:"resource_id"`
+	Alias        string `json:"alias"`
+	AccessType   string `json:"access_type"`
+	ResourceName string `json:"resource_name,omitempty"` // Populated from related resource
+	ResourceType string `json:"resource_type,omitempty"` // Populated from related resource
+}
+
+// Validate validates the workflow resource
+func (wr *WorkflowResource) Validate() error {
+	if wr.ResourceID == "" {
+		return &ValidationError{Field: "resource_id", Message: "resource ID is required"}
+	}
+	if wr.Alias == "" {
+		return &ValidationError{Field: "alias", Message: "alias is required"}
+	}
+	if !isValidAlias(wr.Alias) {
+		return &ValidationError{Field: "alias", Message: "alias must be alphanumeric with underscores, starting with a letter"}
+	}
+	validAccessTypes := map[string]bool{"read": true, "write": true, "admin": true}
+	if !validAccessTypes[wr.AccessType] {
+		wr.AccessType = "read"
+	}
+	return nil
+}
+
+func isValidAlias(alias string) bool {
+	if len(alias) == 0 || len(alias) > 100 {
+		return false
+	}
+	if !((alias[0] >= 'a' && alias[0] <= 'z') || (alias[0] >= 'A' && alias[0] <= 'Z')) {
+		return false
+	}
+	for _, c := range alias {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+			return false
+		}
+	}
+	return true
+}
 
 // Node represents a single node in the workflow DAG.
 type Node struct {
@@ -95,6 +139,18 @@ func (w *Workflow) Validate() error {
 		if !nodeIDs[edge.To] {
 			return &ValidationError{Field: "edges", Message: fmt.Sprintf("edge references non-existent target node: %s", edge.To)}
 		}
+	}
+
+	// Validate resources
+	aliasMap := make(map[string]bool)
+	for _, resource := range w.Resources {
+		if err := resource.Validate(); err != nil {
+			return err
+		}
+		if aliasMap[resource.Alias] {
+			return &ValidationError{Field: "resources", Message: fmt.Sprintf("duplicate resource alias: %s", resource.Alias)}
+		}
+		aliasMap[resource.Alias] = true
 	}
 
 	return nil

@@ -7,6 +7,7 @@ type ResourceType string
 
 const (
 	ResourceTypeFileStorage ResourceType = "file_storage"
+	ResourceTypeCredentials ResourceType = "credentials"
 )
 
 // ResourceStatus статус ресурса
@@ -24,7 +25,9 @@ type Resource interface {
 	GetType() ResourceType
 	GetOwnerID() string
 	GetName() string
+	GetDescription() string
 	GetStatus() ResourceStatus
+	GetMetadata() map[string]interface{}
 	Validate() error
 }
 
@@ -61,9 +64,19 @@ func (r *BaseResource) GetName() string {
 	return r.Name
 }
 
+// GetDescription returns the resource description
+func (r *BaseResource) GetDescription() string {
+	return r.Description
+}
+
 // GetStatus returns the resource status
 func (r *BaseResource) GetStatus() ResourceStatus {
 	return r.Status
+}
+
+// GetMetadata returns the resource metadata
+func (r *BaseResource) GetMetadata() map[string]interface{} {
+	return r.Metadata
 }
 
 // Validate validates the base resource structure

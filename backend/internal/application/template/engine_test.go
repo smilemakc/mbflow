@@ -1239,3 +1239,377 @@ func TestEngine_ResolveComplex_EdgeCases(t *testing.T) {
 		}
 	})
 }
+
+func TestEngine_ResolveString_ResourceVariables(t *testing.T) {
+	ctx := NewVariableContext()
+	ctx.ResourceVars["storage"] = map[string]interface{}{
+		"id":   "res-123",
+		"name": "My Storage",
+		"type": "file_storage",
+		"config": map[string]interface{}{
+			"bucket": "my-bucket",
+			"region": "us-east-1",
+		},
+	}
+	ctx.ResourceVars["apiKey"] = map[string]interface{}{
+		"id":    "key-456",
+		"value": "secret-api-key",
+	}
+
+	engine := NewEngineWithDefaults(ctx)
+
+	tests := []struct {
+		name     string
+		template string
+		want     string
+		wantErr  bool
+	}{
+		{
+			name:     "resource id field",
+			template: "Storage ID: {{resource.storage.id}}",
+			want:     "Storage ID: res-123",
+			wantErr:  false,
+		},
+		{
+			name:     "resource name field",
+			template: "Name: {{resource.storage.name}}",
+			want:     "Name: My Storage",
+			wantErr:  false,
+		},
+		{
+			name:     "nested resource field",
+			template: "Bucket: {{resource.storage.config.bucket}}",
+			want:     "Bucket: my-bucket",
+			wantErr:  false,
+		},
+		{
+			name:     "multiple resource references",
+			template: "{{resource.storage.type}} in {{resource.storage.config.region}}",
+			want:     "file_storage in us-east-1",
+			wantErr:  false,
+		},
+		{
+			name:     "different resources",
+			template: "API Key: {{resource.apiKey.value}}",
+			want:     "API Key: secret-api-key",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := engine.ResolveString(tt.template)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ResolveString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEngine_ResolveConfig_WithResources(t *testing.T) {
+	ctx := NewVariableContext()
+	ctx.WorkflowVars["apiUrl"] = "https://api.example.com"
+	ctx.ResourceVars["storage"] = map[string]interface{}{
+		"id":   "res-123",
+		"type": "s3",
+		"config": map[string]interface{}{
+			"bucket":    "my-bucket",
+			"accessKey": "AKIA...",
+		},
+	}
+	ctx.ResourceVars["database"] = map[string]interface{}{
+		"id":   "db-456",
+		"host": "db.example.com",
+		"port": 5432,
+	}
+
+	engine := NewEngineWithDefaults(ctx)
+
+	tests := []struct {
+		name    string
+		config  map[string]interface{}
+		want    map[string]interface{}
+		wantErr bool
+	}{
+		{
+			name: "resource in config",
+			config: map[string]interface{}{
+				"storageId":   "{{resource.storage.id}}",
+				"storageType": "{{resource.storage.type}}",
+			},
+			want: map[string]interface{}{
+				"storageId":   "res-123",
+				"storageType": "s3",
+			},
+			wantErr: false,
+		},
+		{
+			name: "nested resource config",
+			config: map[string]interface{}{
+				"s3": map[string]interface{}{
+					"bucket": "{{resource.storage.config.bucket}}",
+					"key":    "{{resource.storage.config.accessKey}}",
+				},
+			},
+			want: map[string]interface{}{
+				"s3": map[string]interface{}{
+					"bucket": "my-bucket",
+					"key":    "AKIA...",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "mixed variables and resources",
+			config: map[string]interface{}{
+				"url":      "{{env.apiUrl}}/data",
+				"database": "{{resource.database.host}}:{{resource.database.port}}",
+			},
+			want: map[string]interface{}{
+				"url":      "https://api.example.com/data",
+				"database": "db.example.com:5432",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.ResolveConfig(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				for key, expectedVal := range tt.want {
+					gotVal := result[key]
+					if gotVal != expectedVal {
+						// Check nested maps
+						if expectedMap, ok := expectedVal.(map[string]interface{}); ok {
+							gotMap, ok := gotVal.(map[string]interface{})
+							if !ok {
+								t.Errorf("ResolveConfig()[%s] is not a map", key)
+								continue
+							}
+							for nestedKey, nestedExpected := range expectedMap {
+								if gotMap[nestedKey] != nestedExpected {
+									t.Errorf("ResolveConfig()[%s][%s] = %v, want %v", key, nestedKey, gotMap[nestedKey], nestedExpected)
+								}
+							}
+						} else {
+							t.Errorf("ResolveConfig()[%s] = %v, want %v", key, gotVal, expectedVal)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestValidateTemplate_WithResources(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		wantErr  bool
+	}{
+		{
+			name:     "valid resource template",
+			template: "{{resource.storage}}",
+			wantErr:  false,
+		},
+		{
+			name:     "valid resource with field",
+			template: "{{resource.storage.id}}",
+			wantErr:  false,
+		},
+		{
+			name:     "valid resource nested field",
+			template: "{{resource.storage.config.bucket}}",
+			wantErr:  false,
+		},
+		{
+			name:     "resource without path",
+			template: "{{resource}}",
+			wantErr:  true,
+		},
+		{
+			name:     "resource with empty path",
+			template: "{{resource.}}",
+			wantErr:  true,
+		},
+		{
+			name:     "mixed valid templates",
+			template: "{{env.var}} {{input.field}} {{resource.storage.id}}",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplate(tt.template)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateTemplate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestEngine_ResourceWithArrays(t *testing.T) {
+	ctx := NewVariableContext()
+	ctx.ResourceVars["cluster"] = map[string]interface{}{
+		"id": "cluster-001",
+		"nodes": []interface{}{
+			map[string]interface{}{
+				"id":   "node-1",
+				"host": "192.168.1.1",
+				"port": 8080,
+			},
+			map[string]interface{}{
+				"id":   "node-2",
+				"host": "192.168.1.2",
+				"port": 8081,
+			},
+		},
+	}
+
+	engine := NewEngineWithDefaults(ctx)
+
+	tests := []struct {
+		name     string
+		template string
+		want     string
+		wantErr  bool
+	}{
+		{
+			name:     "array element access",
+			template: "{{resource.cluster.nodes[0].host}}",
+			want:     "192.168.1.1",
+			wantErr:  false,
+		},
+		{
+			name:     "second array element",
+			template: "{{resource.cluster.nodes[1].host}}:{{resource.cluster.nodes[1].port}}",
+			want:     "192.168.1.2:8081",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := engine.ResolveString(tt.template)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ResolveString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEngine_ComplexScenario_WithResources(t *testing.T) {
+	// This test simulates a real workflow scenario with resources
+	ctx := NewVariableContext()
+
+	// Workflow variables
+	ctx.WorkflowVars["apiUrl"] = "https://api.example.com"
+
+	// Execution variables
+	ctx.ExecutionVars["executionId"] = "exec-123"
+
+	// Resources
+	ctx.ResourceVars["storage"] = map[string]interface{}{
+		"id":   "res-456",
+		"type": "s3",
+		"config": map[string]interface{}{
+			"bucket":    "my-data-bucket",
+			"region":    "us-west-2",
+			"accessKey": "AKIA123456",
+		},
+	}
+	ctx.ResourceVars["database"] = map[string]interface{}{
+		"id":               "db-789",
+		"connectionString": "postgresql://user:pass@db.example.com:5432/mydb",
+		"credentials": map[string]interface{}{
+			"username": "dbuser",
+			"password": "dbpass",
+		},
+	}
+
+	// Input from previous node
+	ctx.InputVars["userId"] = "user-001"
+	ctx.InputVars["fileName"] = "data.csv"
+
+	engine := NewEngineWithDefaults(ctx)
+
+	// Complex configuration using all variable types
+	config := map[string]interface{}{
+		"apiEndpoint": "{{env.apiUrl}}/upload",
+		"executionId": "{{env.executionId}}",
+		"storage": map[string]interface{}{
+			"type":      "{{resource.storage.type}}",
+			"bucket":    "{{resource.storage.config.bucket}}",
+			"region":    "{{resource.storage.config.region}}",
+			"accessKey": "{{resource.storage.config.accessKey}}",
+		},
+		"database": map[string]interface{}{
+			"connection": "{{resource.database.connectionString}}",
+			"user":       "{{resource.database.credentials.username}}",
+		},
+		"metadata": map[string]interface{}{
+			"userId":   "{{input.userId}}",
+			"fileName": "{{input.fileName}}",
+			"bucket":   "{{resource.storage.config.bucket}}",
+		},
+	}
+
+	result, err := engine.Resolve(config)
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+
+	resultMap := result.(map[string]interface{})
+
+	// Verify all substitutions
+	if resultMap["apiEndpoint"] != "https://api.example.com/upload" {
+		t.Errorf("apiEndpoint = %v, want https://api.example.com/upload", resultMap["apiEndpoint"])
+	}
+	if resultMap["executionId"] != "exec-123" {
+		t.Errorf("executionId = %v, want exec-123", resultMap["executionId"])
+	}
+
+	storage := resultMap["storage"].(map[string]interface{})
+	if storage["type"] != "s3" {
+		t.Errorf("storage.type = %v, want s3", storage["type"])
+	}
+	if storage["bucket"] != "my-data-bucket" {
+		t.Errorf("storage.bucket = %v, want my-data-bucket", storage["bucket"])
+	}
+	if storage["region"] != "us-west-2" {
+		t.Errorf("storage.region = %v, want us-west-2", storage["region"])
+	}
+
+	database := resultMap["database"].(map[string]interface{})
+	if database["connection"] != "postgresql://user:pass@db.example.com:5432/mydb" {
+		t.Errorf("database.connection = %v", database["connection"])
+	}
+	if database["user"] != "dbuser" {
+		t.Errorf("database.user = %v, want dbuser", database["user"])
+	}
+
+	metadata := resultMap["metadata"].(map[string]interface{})
+	if metadata["userId"] != "user-001" {
+		t.Errorf("metadata.userId = %v, want user-001", metadata["userId"])
+	}
+	if metadata["fileName"] != "data.csv" {
+		t.Errorf("metadata.fileName = %v, want data.csv", metadata["fileName"])
+	}
+	if metadata["bucket"] != "my-data-bucket" {
+		t.Errorf("metadata.bucket = %v, want my-data-bucket", metadata["bucket"])
+	}
+}

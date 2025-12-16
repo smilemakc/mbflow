@@ -24,6 +24,7 @@
 import React, {useEffect, useState} from 'react';
 import {FileStorageNodeConfig} from '@/types/nodeConfigs.ts';
 import {VariableAutocomplete} from '@/components';
+import {ResourceSelector} from '@/components/builder/ResourceSelector';
 import { useTranslation } from '@/store/translations';
 
 interface FileStorageNodeConfigProps {
@@ -75,6 +76,9 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
 
     const [tagsStr, setTagsStr] = useState<string>(
         config.tags?.join(', ') || ''
+    );
+    const [useResourceSelector, setUseResourceSelector] = useState<boolean>(
+        (config.storage_id || '').startsWith('{{resource.')
     );
 
     useEffect(() => {
@@ -151,18 +155,39 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
 
             {/* Storage ID (optional) */}
             <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {t.nodeConfig.fileStorage.storageId}
-                </label>
-                <VariableAutocomplete
-                    value={localConfig.storage_id || ''}
-                    onChange={(value) => updateConfig({storage_id: value})}
-                    placeholder={t.nodeConfig.fileStorage.storageIdPlaceholder}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t.nodeConfig.fileStorage.storageIdHint}
-                </p>
+                <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        {t.nodeConfig.fileStorage.storageId}
+                    </label>
+                    <button
+                        type="button"
+                        onClick={() => setUseResourceSelector(!useResourceSelector)}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                        {useResourceSelector ? 'Manual ID' : 'Use Resource'}
+                    </button>
+                </div>
+                {useResourceSelector ? (
+                    <ResourceSelector
+                        value={localConfig.storage_id || ''}
+                        onChange={(value) => updateConfig({storage_id: value})}
+                        placeholder="Select file storage resource..."
+                        hint="Select a file storage resource attached to this workflow"
+                        resourceType="file_storage"
+                    />
+                ) : (
+                    <>
+                        <VariableAutocomplete
+                            value={localConfig.storage_id || ''}
+                            onChange={(value) => updateConfig({storage_id: value})}
+                            placeholder={t.nodeConfig.fileStorage.storageIdPlaceholder}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t.nodeConfig.fileStorage.storageIdHint}
+                        </p>
+                    </>
+                )}
             </div>
 
             {/* Store Action Fields */}

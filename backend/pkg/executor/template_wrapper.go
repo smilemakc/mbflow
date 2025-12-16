@@ -52,6 +52,7 @@ type ExecutionContextData struct {
 	WorkflowVariables  map[string]interface{}
 	ExecutionVariables map[string]interface{}
 	ParentNodeOutput   map[string]interface{}
+	Resources          map[string]interface{} // alias -> resource data
 	StrictMode         bool
 }
 
@@ -72,6 +73,7 @@ func NewTemplateEngine(execCtx *ExecutionContextData) *template.Engine {
 	varCtx.WorkflowVars = execCtx.WorkflowVariables
 	varCtx.ExecutionVars = execCtx.ExecutionVariables
 	varCtx.InputVars = execCtx.ParentNodeOutput
+	varCtx.ResourceVars = execCtx.Resources
 
 	opts := template.TemplateOptions{
 		StrictMode:           execCtx.StrictMode,

@@ -19,6 +19,7 @@ type ExecutionManager struct {
 	workflowRepo    repository.WorkflowRepository
 	executionRepo   repository.ExecutionRepository
 	eventRepo       repository.EventRepository
+	resourceRepo    repository.ResourceRepository
 	dagExecutor     *DAGExecutor
 	observerManager *observer.ObserverManager
 }
@@ -29,6 +30,7 @@ func NewExecutionManager(
 	workflowRepo repository.WorkflowRepository,
 	executionRepo repository.ExecutionRepository,
 	eventRepo repository.EventRepository,
+	resourceRepo repository.ResourceRepository,
 	observerManager *observer.ObserverManager,
 ) *ExecutionManager {
 	nodeExecutor := NewNodeExecutor(executorManager)
@@ -39,6 +41,7 @@ func NewExecutionManager(
 		workflowRepo:    workflowRepo,
 		executionRepo:   executionRepo,
 		eventRepo:       eventRepo,
+		resourceRepo:    resourceRepo,
 		dagExecutor:     dagExecutor,
 		observerManager: observerManager,
 	}
@@ -176,6 +179,15 @@ func (em *ExecutionManager) executeWorkflowDAG(
 		execution.Input,
 		execution.Variables,
 	)
+
+	// Load and validate workflow resources
+	if len(workflow.Resources) > 0 {
+		resourceMap, err := em.loadAndValidateResources(ctx, workflow)
+		if err != nil {
+			return execState, err
+		}
+		execState.Resources = resourceMap
+	}
 
 	// Execute DAG
 	execErr := em.dagExecutor.Execute(ctx, execState, opts)
@@ -415,4 +427,42 @@ func (em *ExecutionManager) buildNodeExecutions(
 	}
 
 	return nodeExecs
+}
+
+// loadAndValidateResources loads workflow resources and validates ownership
+func (em *ExecutionManager) loadAndValidateResources(
+	ctx context.Context,
+	workflow *models.Workflow,
+) (map[string]interface{}, error) {
+	resourceMap := make(map[string]interface{})
+
+	for _, wr := range workflow.Resources {
+		// Get the actual resource to verify ownership and get details
+		resource, err := em.resourceRepo.GetByID(ctx, wr.ResourceID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load resource %s (alias: %s): %w", wr.ResourceID, wr.Alias, err)
+		}
+
+		// Strict validation: check resource owner matches workflow owner
+		if workflow.CreatedBy != "" && resource.GetOwnerID() != workflow.CreatedBy {
+			return nil, fmt.Errorf("resource access denied: resource %s (alias: %s) owner does not match workflow owner",
+				wr.ResourceID, wr.Alias)
+		}
+
+		// Check resource is active
+		if resource.GetStatus() != models.ResourceStatusActive {
+			return nil, fmt.Errorf("resource %s (alias: %s) is not active (status: %s)",
+				wr.ResourceID, wr.Alias, resource.GetStatus())
+		}
+
+		// Build resource data for template context
+		resourceMap[wr.Alias] = map[string]interface{}{
+			"id":          resource.GetID(),
+			"name":        resource.GetName(),
+			"type":        string(resource.GetType()),
+			"access_type": wr.AccessType,
+		}
+	}
+
+	return resourceMap, nil
 }

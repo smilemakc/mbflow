@@ -398,6 +398,7 @@ func setupE2EEnvironment(t *testing.T) *E2ETestEnvironment {
 		env.WorkflowRepo,
 		env.ExecutionRepo,
 		nil, // eventRepo - deferred for MVP
+		nil, // resourceRepo - optional for tests
 		nil, // observerManager - optional for tests
 	)
 

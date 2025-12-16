@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
@@ -124,6 +126,7 @@ func WorkflowFromStorage(sw *WorkflowModel) *models.Workflow {
 		Tags:        tags,
 		Nodes:       nodes,
 		Edges:       edges,
+		Resources:   WorkflowResourcesFromStorage(sw.Resources),
 		Variables:   variables,
 		Metadata:    metadata,
 		CreatedAt:   sw.CreatedAt,
@@ -178,4 +181,43 @@ func EdgeFromStorage(se *EdgeModel) *models.Edge {
 		Condition: condition,
 		Metadata:  metadata,
 	}
+}
+
+// WorkflowResourceToStorage converts domain WorkflowResource to storage model
+func WorkflowResourceToStorage(domain *models.WorkflowResource, workflowID uuid.UUID) *WorkflowResourceModel {
+	resourceID, _ := uuid.Parse(domain.ResourceID)
+	return &WorkflowResourceModel{
+		WorkflowID: workflowID,
+		ResourceID: resourceID,
+		Alias:      domain.Alias,
+		AccessType: domain.AccessType,
+		AssignedAt: time.Now(),
+	}
+}
+
+// WorkflowResourceFromStorage converts storage model to domain WorkflowResource
+func WorkflowResourceFromStorage(storage *WorkflowResourceModel) *models.WorkflowResource {
+	return &models.WorkflowResource{
+		ResourceID: storage.ResourceID.String(),
+		Alias:      storage.Alias,
+		AccessType: storage.AccessType,
+	}
+}
+
+// WorkflowResourcesToStorage converts slice of domain WorkflowResource to storage models
+func WorkflowResourcesToStorage(domains []models.WorkflowResource, workflowID uuid.UUID) []*WorkflowResourceModel {
+	result := make([]*WorkflowResourceModel, len(domains))
+	for i, d := range domains {
+		result[i] = WorkflowResourceToStorage(&d, workflowID)
+	}
+	return result
+}
+
+// WorkflowResourcesFromStorage converts slice of storage models to domain WorkflowResources
+func WorkflowResourcesFromStorage(storage []*WorkflowResourceModel) []models.WorkflowResource {
+	result := make([]models.WorkflowResource, len(storage))
+	for i, s := range storage {
+		result[i] = *WorkflowResourceFromStorage(s)
+	}
+	return result
 }

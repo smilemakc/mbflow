@@ -74,4 +74,13 @@ type WorkflowRepository interface {
 
 	// ValidateDAG validates that the workflow forms a valid DAG (no cycles)
 	ValidateDAG(ctx context.Context, workflowID uuid.UUID) error
+
+	// Resource management
+	AssignResource(ctx context.Context, workflowID uuid.UUID, resource *models.WorkflowResourceModel, assignedBy *uuid.UUID) error
+	UnassignResource(ctx context.Context, workflowID, resourceID uuid.UUID) error
+	UnassignResourceFromAllWorkflows(ctx context.Context, resourceID uuid.UUID) (int64, error)
+	GetWorkflowResources(ctx context.Context, workflowID uuid.UUID) ([]*models.WorkflowResourceModel, error)
+	UpdateResourceAlias(ctx context.Context, workflowID, resourceID uuid.UUID, newAlias string) error
+	ResourceExists(ctx context.Context, workflowID, resourceID uuid.UUID) (bool, error)
+	GetResourceByAlias(ctx context.Context, workflowID uuid.UUID, alias string) (*models.WorkflowResourceModel, error)
 }

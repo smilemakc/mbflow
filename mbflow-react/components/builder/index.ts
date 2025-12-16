@@ -10,3 +10,5 @@ export {ContextMenu} from './ContextMenu';
 export {QuickAddMenu} from './QuickAddMenu';
 export {VariableAutocomplete} from './VariableAutocomplete';
 export {WorkflowVariablesGuide} from './WorkflowVariablesGuide';
+export {WorkflowResourcesPanel} from './WorkflowResourcesPanel';
+export {ResourceSelector} from './ResourceSelector';

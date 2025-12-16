@@ -1,4 +1,5 @@
 import type {Edge as ReactFlowEdge, Node as ReactFlowNode} from 'reactflow';
+import type { WorkflowResource } from './types/workflow';
 
 // --- Enums ---
 
@@ -122,6 +123,7 @@ export interface DAG {
     nodes: AppNode[];
     edges: AppEdge[];
     variables: Variable[];
+    resources?: WorkflowResource[];
     tags?: string[];
     metadata?: Record<string, any>;
     createdAt: string;

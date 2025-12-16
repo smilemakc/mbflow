@@ -21,6 +21,7 @@ import {
   ExecutionLog,
   NodeExecutionResult
 } from '@/types';
+import type { WorkflowResource } from '@/types/workflow';
 import type { ExecutionEvent } from '@/types/execution';
 import { workflowService } from '@/services/workflowService';
 import { executionService } from '@/services/executionService';
@@ -33,6 +34,7 @@ interface DAGState {
   edges: AppEdge[];
   dagId: string; // Added to track backend ID
   dagName: string;
+  resources: WorkflowResource[];
 
   // === Selection ===
   selectedNodeId: string | null;
@@ -84,6 +86,14 @@ interface DAGState {
   // === DAG Name ===
   setDAGName: (name: string) => void;
 
+  // === Resource Actions ===
+  attachResource: (resourceId: string, alias: string, accessType?: 'read' | 'write' | 'admin') => Promise<void>;
+  detachResource: (resourceId: string) => Promise<void>;
+  updateResourceAlias: (resourceId: string, newAlias: string) => Promise<void>;
+  getResourceAliases: () => string[];
+  getResourceByAlias: (alias: string) => WorkflowResource | undefined;
+  getResourcesMap: () => Record<string, { id: string; alias: string; type?: string; name?: string }>;
+
   // === Persistence & Execution ===
   saveDAG: () => Promise<string | null>;
   createNewWorkflow: (name: string) => Promise<void>;
@@ -107,6 +117,7 @@ export const useDagStore = create<DAGState>((set, get) => ({
   edges: [],
   dagId: '',
   dagName: 'New Workflow',
+  resources: [],
   selectedNodeId: null,
   selectedEdgeId: null,
   history: [{ nodes: [], edges: [] }],
@@ -363,10 +374,119 @@ export const useDagStore = create<DAGState>((set, get) => ({
     set({ dagName: name, isDirty: true });
   },
 
+  // === Resource Management ===
+
+  attachResource: async (resourceId: string, alias: string, accessType: 'read' | 'write' | 'admin' = 'read') => {
+    // Validate alias format (must start with letter, alphanumeric + underscore)
+    const aliasRegex = /^[a-zA-Z][a-zA-Z0-9_]*$/;
+    if (!aliasRegex.test(alias)) {
+      throw new Error('Invalid alias format. Must start with a letter and contain only letters, numbers, and underscores.');
+    }
+
+    // Check for duplicate alias
+    if (get().resources.some(r => r.alias === alias)) {
+      throw new Error(`Alias "${alias}" is already in use.`);
+    }
+
+    const newResource: WorkflowResource = {
+      resource_id: resourceId,
+      alias,
+      access_type: accessType,
+    };
+
+    set((state) => ({
+      resources: [...state.resources, newResource],
+      isDirty: true,
+    }));
+
+    // If workflow is saved (has dagId), also update on backend
+    const { dagId } = get();
+    if (dagId) {
+      try {
+        await workflowService.attachResource(dagId, resourceId, alias, accessType);
+      } catch (error) {
+        console.error('Failed to attach resource on backend:', error);
+        // Rollback on error
+        set((state) => ({
+          resources: state.resources.filter(r => r.resource_id !== resourceId),
+        }));
+        throw error;
+      }
+    }
+  },
+
+  detachResource: async (resourceId: string) => {
+    const previousResources = get().resources;
+
+    // Optimistic update
+    set((state) => ({
+      resources: state.resources.filter(r => r.resource_id !== resourceId),
+      isDirty: true,
+    }));
+
+    const { dagId } = get();
+    if (dagId) {
+      try {
+        await workflowService.detachResource(dagId, resourceId);
+      } catch (error) {
+        console.error('Failed to detach resource:', error);
+        // Rollback on error
+        set({ resources: previousResources });
+        throw error;
+      }
+    }
+  },
+
+  updateResourceAlias: async (resourceId: string, newAlias: string) => {
+    const previousResources = get().resources;
+
+    // Optimistic update
+    set((state) => ({
+      resources: state.resources.map(r =>
+        r.resource_id === resourceId ? { ...r, alias: newAlias } : r
+      ),
+      isDirty: true,
+    }));
+
+    const { dagId } = get();
+    if (dagId) {
+      try {
+        await workflowService.updateResourceAlias(dagId, resourceId, newAlias);
+      } catch (error) {
+        console.error('Failed to update alias:', error);
+        // Rollback on error
+        set({ resources: previousResources });
+        throw error;
+      }
+    }
+  },
+
+  getResourceAliases: () => {
+    return get().resources.map(r => r.alias);
+  },
+
+  getResourceByAlias: (alias: string) => {
+    return get().resources.find(r => r.alias === alias);
+  },
+
+  getResourcesMap: () => {
+    const resources = get().resources;
+    const map: Record<string, { id: string; alias: string; type?: string; name?: string }> = {};
+    for (const r of resources) {
+      map[r.alias] = {
+        id: r.resource_id,
+        alias: r.alias,
+        type: r.resource_type,
+        name: r.resource_name,
+      };
+    }
+    return map;
+  },
+
   // === Persistence with Backend Support ===
 
   saveDAG: async () => {
-    const { nodes, edges, dagId, dagName } = get();
+    const { nodes, edges, dagId, dagName, resources } = get();
     const isNew = !dagId;
 
     try {
@@ -378,7 +498,8 @@ export const useDagStore = create<DAGState>((set, get) => ({
         name: dagName,
         nodes,
         edges,
-        variables: get().workflowVariables
+        variables: get().workflowVariables,
+        resources
       };
 
       console.log('Saving to backend...', payload);
@@ -423,6 +544,7 @@ export const useDagStore = create<DAGState>((set, get) => ({
           nodes: dag.nodes,
           edges: dag.edges,
           workflowVariables: workflowVars,
+          resources: dag.resources || [],
           isDirty: false,
           isLoading: false,
           history: [{ nodes: dag.nodes, edges: dag.edges }],
@@ -444,6 +566,7 @@ export const useDagStore = create<DAGState>((set, get) => ({
         dagName: created.name,
         nodes: [],
         edges: [],
+        resources: [],
         isDirty: false,
         isLoading: false,
         history: [{ nodes: [], edges: [] }],
@@ -471,6 +594,7 @@ export const useDagStore = create<DAGState>((set, get) => ({
       dagName: 'New Workflow',
       nodes: [],
       edges: [],
+      resources: [],
       workflowVariables: {},
       isDirty: false,
       isLoading: false,

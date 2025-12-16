@@ -745,3 +745,435 @@ func TestResolver_ResolveField_UnmarshalError(t *testing.T) {
 		t.Errorf("resolveField() should return nil for unmarshalable type, got %v", result)
 	}
 }
+
+// Test resource variable resolution
+func TestResolver_ResolveResourceVariable(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceVars map[string]interface{}
+		path         string
+		expected     interface{}
+		expectError  bool
+	}{
+		{
+			name: "resolve full resource object",
+			resourceVars: map[string]interface{}{
+				"myStorage": map[string]interface{}{
+					"id":   "res-123",
+					"name": "My Storage",
+					"type": "file_storage",
+				},
+			},
+			path:     "myStorage",
+			expected: map[string]interface{}{"id": "res-123", "name": "My Storage", "type": "file_storage"},
+		},
+		{
+			name: "resolve resource id field",
+			resourceVars: map[string]interface{}{
+				"myStorage": map[string]interface{}{
+					"id":   "res-123",
+					"name": "My Storage",
+					"type": "file_storage",
+				},
+			},
+			path:     "myStorage.id",
+			expected: "res-123",
+		},
+		{
+			name: "resolve resource name field",
+			resourceVars: map[string]interface{}{
+				"myStorage": map[string]interface{}{
+					"id":   "res-123",
+					"name": "My Storage",
+					"type": "file_storage",
+				},
+			},
+			path:     "myStorage.name",
+			expected: "My Storage",
+		},
+		{
+			name: "resolve resource type field",
+			resourceVars: map[string]interface{}{
+				"myStorage": map[string]interface{}{
+					"id":   "res-123",
+					"name": "My Storage",
+					"type": "file_storage",
+				},
+			},
+			path:     "myStorage.type",
+			expected: "file_storage",
+		},
+		{
+			name: "resolve nested resource field",
+			resourceVars: map[string]interface{}{
+				"apiResource": map[string]interface{}{
+					"id": "api-456",
+					"config": map[string]interface{}{
+						"endpoint": "https://api.example.com",
+						"apiKey":   "secret-key",
+					},
+				},
+			},
+			path:     "apiResource.config.endpoint",
+			expected: "https://api.example.com",
+		},
+		{
+			name: "resolve nested resource field deep",
+			resourceVars: map[string]interface{}{
+				"apiResource": map[string]interface{}{
+					"id": "api-456",
+					"config": map[string]interface{}{
+						"endpoint": "https://api.example.com",
+						"apiKey":   "secret-key",
+					},
+				},
+			},
+			path:     "apiResource.config.apiKey",
+			expected: "secret-key",
+		},
+		{
+			name: "multiple resources - access first",
+			resourceVars: map[string]interface{}{
+				"storage1": map[string]interface{}{
+					"id":   "res-001",
+					"type": "s3",
+				},
+				"storage2": map[string]interface{}{
+					"id":   "res-002",
+					"type": "local",
+				},
+			},
+			path:     "storage1.type",
+			expected: "s3",
+		},
+		{
+			name: "multiple resources - access second",
+			resourceVars: map[string]interface{}{
+				"storage1": map[string]interface{}{
+					"id":   "res-001",
+					"type": "s3",
+				},
+				"storage2": map[string]interface{}{
+					"id":   "res-002",
+					"type": "local",
+				},
+			},
+			path:     "storage2.type",
+			expected: "local",
+		},
+		{
+			name: "resource with array field",
+			resourceVars: map[string]interface{}{
+				"database": map[string]interface{}{
+					"id": "db-789",
+					"tables": []interface{}{
+						"users",
+						"products",
+						"orders",
+					},
+				},
+			},
+			path:     "database.tables[0]",
+			expected: "users",
+		},
+		{
+			name: "resource with array of objects",
+			resourceVars: map[string]interface{}{
+				"cluster": map[string]interface{}{
+					"id": "cluster-001",
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"id":   "node-1",
+							"host": "192.168.1.1",
+						},
+						map[string]interface{}{
+							"id":   "node-2",
+							"host": "192.168.1.2",
+						},
+					},
+				},
+			},
+			path:     "cluster.nodes[1].host",
+			expected: "192.168.1.2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &VariableContext{
+				ResourceVars: tt.resourceVars,
+			}
+			resolver := NewResolver(ctx, TemplateOptions{})
+
+			result, err := resolver.ResolveVariable("resource", tt.path)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("ResolveVariable() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("ResolveVariable() unexpected error = %v", err)
+					return
+				}
+				if !reflect.DeepEqual(result, tt.expected) {
+					t.Errorf("ResolveVariable() = %v, want %v", result, tt.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestResolver_ResolveResourceVariable_Errors(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceVars map[string]interface{}
+		path         string
+		errCheck     func(error) bool
+	}{
+		{
+			name:         "empty path",
+			resourceVars: map[string]interface{}{},
+			path:         "",
+			errCheck: func(err error) bool {
+				return errors.Is(err, ErrInvalidTemplate)
+			},
+		},
+		{
+			name:         "resource not found",
+			resourceVars: map[string]interface{}{},
+			path:         "unknown",
+			errCheck: func(err error) bool {
+				return errors.Is(err, ErrVariableNotFound)
+			},
+		},
+		{
+			name:         "nil resource vars",
+			resourceVars: nil,
+			path:         "myStorage",
+			errCheck: func(err error) bool {
+				return errors.Is(err, ErrVariableNotFound)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &VariableContext{
+				ResourceVars: tt.resourceVars,
+			}
+			resolver := NewResolver(ctx, TemplateOptions{})
+
+			result, err := resolver.ResolveVariable("resource", tt.path)
+			if err == nil {
+				t.Errorf("ResolveVariable() expected error, got nil with result %v", result)
+				return
+			}
+			if tt.errCheck != nil && !tt.errCheck(err) {
+				t.Errorf("ResolveVariable() error check failed for error: %v", err)
+			}
+		})
+	}
+}
+
+func TestGetResourceVariable(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceVars map[string]interface{}
+		alias        string
+		expected     interface{}
+		expectFound  bool
+	}{
+		{
+			name: "get existing resource",
+			resourceVars: map[string]interface{}{
+				"myStorage": map[string]interface{}{
+					"id": "res-123",
+				},
+			},
+			alias:       "myStorage",
+			expected:    map[string]interface{}{"id": "res-123"},
+			expectFound: true,
+		},
+		{
+			name:         "get non-existing resource",
+			resourceVars: map[string]interface{}{},
+			alias:        "unknown",
+			expected:     nil,
+			expectFound:  false,
+		},
+		{
+			name:         "nil resource vars",
+			resourceVars: nil,
+			alias:        "myStorage",
+			expected:     nil,
+			expectFound:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &VariableContext{
+				ResourceVars: tt.resourceVars,
+			}
+
+			result, found := ctx.GetResourceVariable(tt.alias)
+			if found != tt.expectFound {
+				t.Errorf("GetResourceVariable() found = %v, want %v", found, tt.expectFound)
+			}
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("GetResourceVariable() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestResolveResourcePath_ComplexScenarios(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceVars map[string]interface{}
+		path         string
+		expected     interface{}
+		expectFound  bool
+	}{
+		{
+			name: "deeply nested object",
+			resourceVars: map[string]interface{}{
+				"config": map[string]interface{}{
+					"database": map[string]interface{}{
+						"connections": map[string]interface{}{
+							"primary": map[string]interface{}{
+								"host": "db.example.com",
+								"port": 5432,
+							},
+						},
+					},
+				},
+			},
+			path:        "config.database.connections.primary.host",
+			expected:    "db.example.com",
+			expectFound: true,
+		},
+		{
+			name: "array within nested object",
+			resourceVars: map[string]interface{}{
+				"service": map[string]interface{}{
+					"endpoints": map[string]interface{}{
+						"api": []interface{}{
+							"https://api1.example.com",
+							"https://api2.example.com",
+						},
+					},
+				},
+			},
+			path:        "service.endpoints.api[1]",
+			expected:    "https://api2.example.com",
+			expectFound: true,
+		},
+		{
+			name: "mixed types with numbers",
+			resourceVars: map[string]interface{}{
+				"metrics": map[string]interface{}{
+					"stats": map[string]interface{}{
+						"count":   100,
+						"average": 75.5,
+						"enabled": true,
+					},
+				},
+			},
+			path:        "metrics.stats.count",
+			expected:    100,
+			expectFound: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &VariableContext{
+				ResourceVars: tt.resourceVars,
+			}
+			resolver := NewResolver(ctx, TemplateOptions{})
+
+			result, found := resolver.resolveResourcePath(tt.path)
+			if found != tt.expectFound {
+				t.Errorf("resolveResourcePath() found = %v, want %v", found, tt.expectFound)
+			}
+			if tt.expectFound && !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("resolveResourcePath() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestResolver_ResolveVariable_AllTypesIncludingResource(t *testing.T) {
+	// Test that all variable types (env, input, resource) work together
+	ctx := &VariableContext{
+		WorkflowVars: map[string]interface{}{
+			"apiKey": "workflow-key",
+		},
+		ExecutionVars: map[string]interface{}{
+			"executionID": "exec-123",
+		},
+		InputVars: map[string]interface{}{
+			"userId": "user-456",
+		},
+		ResourceVars: map[string]interface{}{
+			"storage": map[string]interface{}{
+				"id":   "res-789",
+				"type": "s3",
+			},
+		},
+	}
+	resolver := NewResolver(ctx, TemplateOptions{})
+
+	tests := []struct {
+		name     string
+		varType  string
+		path     string
+		expected interface{}
+	}{
+		{
+			name:     "env variable",
+			varType:  "env",
+			path:     "apiKey",
+			expected: "workflow-key",
+		},
+		{
+			name:     "execution variable overrides workflow",
+			varType:  "env",
+			path:     "executionID",
+			expected: "exec-123",
+		},
+		{
+			name:     "input variable",
+			varType:  "input",
+			path:     "userId",
+			expected: "user-456",
+		},
+		{
+			name:     "resource full object",
+			varType:  "resource",
+			path:     "storage",
+			expected: map[string]interface{}{"id": "res-789", "type": "s3"},
+		},
+		{
+			name:     "resource field",
+			varType:  "resource",
+			path:     "storage.id",
+			expected: "res-789",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := resolver.ResolveVariable(tt.varType, tt.path)
+			if err != nil {
+				t.Errorf("ResolveVariable() error = %v", err)
+				return
+			}
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("ResolveVariable() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}

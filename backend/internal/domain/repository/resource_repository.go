@@ -46,3 +46,33 @@ type FileStorageRepository interface {
 	// DecrementUsage atomically decrements storage usage
 	DecrementUsage(ctx context.Context, resourceID string, bytesRemoved int64) error
 }
+
+// CredentialsRepository defines the interface for credentials resource operations
+type CredentialsRepository interface {
+	// CreateCredentials creates a new credentials resource with encrypted data
+	CreateCredentials(ctx context.Context, cred *models.CredentialsResource) error
+
+	// GetCredentials retrieves credentials by resource ID (encrypted data only)
+	GetCredentials(ctx context.Context, resourceID string) (*models.CredentialsResource, error)
+
+	// GetCredentialsByOwner retrieves all credentials for an owner (encrypted data only)
+	GetCredentialsByOwner(ctx context.Context, ownerID string) ([]*models.CredentialsResource, error)
+
+	// GetCredentialsByProvider retrieves credentials by provider for an owner
+	GetCredentialsByProvider(ctx context.Context, ownerID, provider string) ([]*models.CredentialsResource, error)
+
+	// UpdateCredentials updates credentials resource
+	UpdateCredentials(ctx context.Context, cred *models.CredentialsResource) error
+
+	// UpdateEncryptedData updates only the encrypted data
+	UpdateEncryptedData(ctx context.Context, resourceID string, encryptedData map[string]string) error
+
+	// DeleteCredentials soft-deletes a credentials resource
+	DeleteCredentials(ctx context.Context, resourceID string) error
+
+	// IncrementUsageCount increments the usage counter and updates last_used_at
+	IncrementUsageCount(ctx context.Context, resourceID string) error
+
+	// LogCredentialAccess logs an access event to the audit log
+	LogCredentialAccess(ctx context.Context, resourceID, action, actorID, actorType string, metadata map[string]interface{}) error
+}

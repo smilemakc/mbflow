@@ -6,6 +6,7 @@ import {useAutoSave} from '@/hooks/useAutoSave';
 import {
     Check,
     ChevronRight,
+    Database,
     Home,
     Keyboard,
     LayoutTemplate,
@@ -24,6 +25,7 @@ import {
     X
 } from 'lucide-react';
 import {Button} from '@/components/ui';
+import {WorkflowResourcesPanel} from '@/components/builder/WorkflowResourcesPanel';
 
 interface HeaderProps {
     onSave?: () => void;
@@ -66,6 +68,7 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [editedName, setEditedName] = useState(dagName);
     const inputRef = useRef<HTMLInputElement>(null);
+    const [showResourcesPanel, setShowResourcesPanel] = useState(false);
 
     // Sync editedName when dagName changes externally
     useEffect(() => {
@@ -194,6 +197,12 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
                     />
                     <Button
                         variant="ghost"
+                        icon={<Database size={18} />}
+                        onClick={() => setShowResourcesPanel(true)}
+                        title={t.header.workflowResources}
+                    />
+                    <Button
+                        variant="ghost"
                         icon={<LayoutTemplate size={18} />}
                         onClick={() => setActiveModal('templates')}
                         title={t.header.templates}
@@ -278,6 +287,12 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
                     {isRunning ? t.common.running : t.common.run}
                 </Button>
             </div>
+
+            {/* Workflow Resources Panel */}
+            <WorkflowResourcesPanel
+                isOpen={showResourcesPanel}
+                onClose={() => setShowResourcesPanel(false)}
+            />
         </header>
     );
 };

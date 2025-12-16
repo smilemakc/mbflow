@@ -6,6 +6,7 @@
  */
 
 import { AppNode, AppEdge, NodeType, NodeStatus, VariableType, VariableSource, isValidNodeType } from '@/types';
+import type { WorkflowResource } from '@/types/workflow';
 import { MarkerType } from 'reactflow';
 
 // ============ Type Definitions for API Responses ============
@@ -17,6 +18,7 @@ export interface WorkflowApiResponse {
     status: string;
     version: number;
     variables: Record<string, any>;
+    resources?: WorkflowResource[];
     metadata: Record<string, any>;
     nodes: NodeApiResponse[];
     edges: EdgeApiResponse[];
@@ -113,6 +115,13 @@ export function workflowFromApi(api: WorkflowApiResponse) {
         nodes: api.nodes?.map(nodeFromApi) || [],
         edges: api.edges?.map(edgeFromApi) || [],
         variables,
+        resources: api.resources?.map(r => ({
+            resource_id: r.resource_id,
+            alias: r.alias,
+            access_type: r.access_type,
+            resource_name: r.resource_name,
+            resource_type: r.resource_type
+        })) || [],
         tags: [],
         metadata: api.metadata || {},
         createdAt: api.created_at,
@@ -128,6 +137,7 @@ export function workflowToApi(workflow: {
     nodes: AppNode[];
     edges: AppEdge[];
     variables?: Record<string, string>;
+    resources?: WorkflowResource[];
 }) {
     return {
         id: workflow.id,
@@ -136,6 +146,11 @@ export function workflowToApi(workflow: {
         nodes: workflow.nodes.map(nodeToApi),
         edges: workflow.edges.map(edgeToApi),
         variables: workflow.variables || {},
+        resources: workflow.resources?.map(r => ({
+            resource_id: r.resource_id,
+            alias: r.alias,
+            access_type: r.access_type || 'read'
+        })) || [],
     };
 }
 

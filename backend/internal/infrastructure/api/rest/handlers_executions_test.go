@@ -45,6 +45,7 @@ func setupExecutionHandlersTest(t *testing.T) (*ExecutionHandlers, *gin.Engine, 
 		workflowRepo,
 		executionRepo,
 		eventRepo,
+		nil, // No resource repo for tests
 		nil, // No observer manager for tests
 	)
 

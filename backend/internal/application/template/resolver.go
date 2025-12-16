@@ -48,6 +48,12 @@ func (r *Resolver) ResolveVariable(varType, path string) (interface{}, error) {
 			value, found = r.resolveInputPath(path)
 		}
 
+	case "resource":
+		if path == "" {
+			return nil, fmt.Errorf("%w: resource requires an alias", ErrInvalidTemplate)
+		}
+		value, found = r.resolveResourcePath(path)
+
 	default:
 		return nil, fmt.Errorf("%w: unknown variable type '%s'", ErrInvalidTemplate, varType)
 	}
@@ -146,6 +152,55 @@ func (r *Resolver) resolveInputPath(path string) (interface{}, bool) {
 
 	// Traverse remaining path
 	return r.traversePath(root, parts)
+}
+
+// resolveResourcePath resolves a resource variable with nested path support.
+// Supports: resource.alias or resource.alias.field
+func (r *Resolver) resolveResourcePath(path string) (interface{}, bool) {
+	parts := splitPath(path)
+	if len(parts) == 0 {
+		return nil, false
+	}
+
+	// Extract resource alias (first part)
+	alias := parts[0]
+	if bracketIdx := strings.Index(alias, "["); bracketIdx > 0 {
+		alias = alias[:bracketIdx]
+	}
+
+	// Get the resource by alias
+	resource, found := r.context.GetResourceVariable(alias)
+	if !found {
+		return nil, false
+	}
+
+	// If just alias requested, return the whole resource object
+	if len(parts) == 1 && !strings.Contains(parts[0], "[") {
+		return resource, true
+	}
+
+	// If first part has array index, apply it
+	if strings.Contains(parts[0], "[") {
+		if bracketIdx := strings.Index(parts[0], "["); bracketIdx >= 0 {
+			indexPart := parts[0][bracketIdx:]
+			var err error
+			resource, err = r.resolveArrayIndex(resource, indexPart)
+			if err != nil {
+				return nil, false
+			}
+		}
+		parts = parts[1:]
+	} else {
+		parts = parts[1:]
+	}
+
+	// If no more nested path, return resource
+	if len(parts) == 0 {
+		return resource, true
+	}
+
+	// Traverse remaining path (for nested fields like resource.alias.field)
+	return r.traversePath(resource, parts)
 }
 
 // traversePath traverses a nested path in a value.

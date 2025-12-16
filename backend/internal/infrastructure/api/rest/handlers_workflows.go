@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -156,6 +157,14 @@ type UpdateWorkflowRequest struct {
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	Nodes       []NodeRequest          `json:"nodes,omitempty"`
 	Edges       []EdgeRequest          `json:"edges,omitempty"`
+	Resources   []ResourceRequest      `json:"resources,omitempty"`
+}
+
+// ResourceRequest represents a resource attachment in the request body
+type ResourceRequest struct {
+	ResourceID string `json:"resource_id" validate:"required"`
+	Alias      string `json:"alias" validate:"required,min=1,max=100"`
+	AccessType string `json:"access_type" validate:"omitempty,oneof=read write admin"`
 }
 
 // NodeRequest represents a node in the request body
@@ -262,6 +271,30 @@ func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 				FromNodeID: edgeReq.From,
 				ToNodeID:   edgeReq.To,
 				Condition:  storagemodels.JSONBMap(edgeReq.Condition),
+			}
+		}
+	}
+
+	// Update resources if provided
+	if req.Resources != nil {
+		workflowModel.Resources = make([]*storagemodels.WorkflowResourceModel, len(req.Resources))
+		for i, resReq := range req.Resources {
+			resourceUUID, err := uuid.Parse(resReq.ResourceID)
+			if err != nil {
+				respondError(c, http.StatusBadRequest, fmt.Sprintf("invalid resource_id: %s", resReq.ResourceID))
+				return
+			}
+
+			accessType := resReq.AccessType
+			if accessType == "" {
+				accessType = "read"
+			}
+
+			workflowModel.Resources[i] = &storagemodels.WorkflowResourceModel{
+				WorkflowID: workflowUUID,
+				ResourceID: resourceUUID,
+				Alias:      resReq.Alias,
+				AccessType: accessType,
 			}
 		}
 	}
@@ -540,4 +573,320 @@ func (h *WorkflowHandlers) HandleGetWorkflowDiagram(c *gin.Context) {
 	// Return as plain text
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.String(http.StatusOK, diagram)
+}
+
+// AttachResourceRequest represents request to attach a resource to workflow
+type AttachResourceRequest struct {
+	ResourceID string `json:"resource_id" binding:"required,uuid"`
+	Alias      string `json:"alias" binding:"required,min=1,max=100"`
+	AccessType string `json:"access_type" binding:"omitempty,oneof=read write admin"`
+}
+
+// AttachWorkflowResource attaches a resource to a workflow
+// POST /api/v1/workflows/:workflow_id/resources
+func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
+	userID, ok := GetUserID(c)
+	if !ok {
+		respondError(c, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	workflowID := c.Param("workflow_id")
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	var req AttachResourceRequest
+	if err := bindJSON(c, &req); err != nil {
+		return
+	}
+
+	// Verify workflow exists and user has access
+	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		if errors.Is(err, models.ErrWorkflowNotFound) {
+			respondError(c, http.StatusNotFound, "workflow not found")
+			return
+		}
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
+		respondError(c, http.StatusInternalServerError, "failed to find workflow")
+		return
+	}
+
+	_ = userID // suppress unused variable (for future auth)
+
+	accessType := req.AccessType
+	if accessType == "" {
+		accessType = "read"
+	}
+
+	workflowResource := &models.WorkflowResource{
+		ResourceID: req.ResourceID,
+		Alias:      req.Alias,
+		AccessType: accessType,
+	}
+
+	if err := workflowResource.Validate(); err != nil {
+		respondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resourceUUID, err := uuid.Parse(req.ResourceID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid resource ID")
+		return
+	}
+
+	// Parse userID as UUID for assignedBy field
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		userUUID = uuid.Nil
+	}
+
+	// Create workflow resource model
+	workflowResourceModel := &storagemodels.WorkflowResourceModel{
+		WorkflowID: workflowUUID,
+		ResourceID: resourceUUID,
+		Alias:      req.Alias,
+		AccessType: accessType,
+	}
+
+	var assignedBy *uuid.UUID
+	if userUUID != uuid.Nil {
+		assignedBy = &userUUID
+	}
+
+	if err := h.workflowRepo.AssignResource(c.Request.Context(), workflowUUID, workflowResourceModel, assignedBy); err != nil {
+		if errors.Is(err, models.ErrResourceNotFound) {
+			respondError(c, http.StatusNotFound, "resource not found")
+			return
+		}
+		h.logger.Error("Failed to attach resource", "error", err, "workflow_id", workflowUUID, "resource_id", req.ResourceID)
+		respondError(c, http.StatusInternalServerError, "failed to attach resource")
+		return
+	}
+
+	h.logger.Info("Resource attached to workflow",
+		"workflow_id", workflowUUID,
+		"resource_id", req.ResourceID,
+		"alias", req.Alias,
+	)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"resource_id": req.ResourceID,
+		"alias":       req.Alias,
+		"access_type": accessType,
+	})
+}
+
+// DetachWorkflowResource removes a resource from a workflow
+// DELETE /api/v1/workflows/:workflow_id/resources/:resource_id
+func (h *WorkflowHandlers) DetachWorkflowResource(c *gin.Context) {
+	userID, ok := GetUserID(c)
+	if !ok {
+		respondError(c, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	workflowID := c.Param("workflow_id")
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	resourceID := c.Param("resource_id")
+	if resourceID == "" {
+		respondError(c, http.StatusBadRequest, "resource ID is required")
+		return
+	}
+
+	resourceUUID, err := uuid.Parse(resourceID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid resource ID")
+		return
+	}
+
+	// Verify workflow exists
+	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		if errors.Is(err, models.ErrWorkflowNotFound) {
+			respondError(c, http.StatusNotFound, "workflow not found")
+			return
+		}
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
+		respondError(c, http.StatusInternalServerError, "failed to find workflow")
+		return
+	}
+
+	_ = userID // suppress unused variable (for future auth)
+
+	if err := h.workflowRepo.UnassignResource(c.Request.Context(), workflowUUID, resourceUUID); err != nil {
+		if errors.Is(err, models.ErrResourceNotFound) {
+			respondError(c, http.StatusNotFound, "resource not attached to this workflow")
+			return
+		}
+		h.logger.Error("Failed to detach resource", "error", err, "workflow_id", workflowUUID, "resource_id", resourceID)
+		respondError(c, http.StatusInternalServerError, "failed to detach resource")
+		return
+	}
+
+	h.logger.Info("Resource detached from workflow",
+		"workflow_id", workflowUUID,
+		"resource_id", resourceID,
+	)
+
+	c.JSON(http.StatusOK, gin.H{"message": "resource detached successfully"})
+}
+
+// GetWorkflowResources returns all resources attached to a workflow
+// GET /api/v1/workflows/:workflow_id/resources
+func (h *WorkflowHandlers) GetWorkflowResources(c *gin.Context) {
+	userID, ok := GetUserID(c)
+	if !ok {
+		respondError(c, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	workflowID := c.Param("workflow_id")
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	// Verify workflow exists
+	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		if errors.Is(err, models.ErrWorkflowNotFound) {
+			respondError(c, http.StatusNotFound, "workflow not found")
+			return
+		}
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
+		respondError(c, http.StatusInternalServerError, "failed to find workflow")
+		return
+	}
+
+	_ = userID // suppress unused variable (for future auth)
+
+	resources, err := h.workflowRepo.GetWorkflowResources(c.Request.Context(), workflowUUID)
+	if err != nil {
+		h.logger.Error("Failed to get workflow resources", "error", err, "workflow_id", workflowUUID)
+		respondError(c, http.StatusInternalServerError, "failed to get resources")
+		return
+	}
+
+	response := make([]gin.H, len(resources))
+	for i, r := range resources {
+		response[i] = gin.H{
+			"resource_id": r.ResourceID.String(),
+			"alias":       r.Alias,
+			"access_type": r.AccessType,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"resources": response})
+}
+
+// UpdateResourceAliasRequest represents request to update resource alias
+type UpdateResourceAliasRequest struct {
+	Alias string `json:"alias" binding:"required,min=1,max=100"`
+}
+
+// UpdateWorkflowResourceAlias updates the alias of a workflow resource
+// PUT /api/v1/workflows/:workflow_id/resources/:resource_id
+func (h *WorkflowHandlers) UpdateWorkflowResourceAlias(c *gin.Context) {
+	userID, ok := GetUserID(c)
+	if !ok {
+		respondError(c, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	workflowID := c.Param("workflow_id")
+	if workflowID == "" {
+		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		return
+	}
+
+	workflowUUID, err := uuid.Parse(workflowID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		return
+	}
+
+	resourceID := c.Param("resource_id")
+	if resourceID == "" {
+		respondError(c, http.StatusBadRequest, "resource ID is required")
+		return
+	}
+
+	resourceUUID, err := uuid.Parse(resourceID)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid resource ID")
+		return
+	}
+
+	var req UpdateResourceAliasRequest
+	if err := bindJSON(c, &req); err != nil {
+		return
+	}
+
+	// Verify workflow exists
+	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
+	if err != nil {
+		if errors.Is(err, models.ErrWorkflowNotFound) {
+			respondError(c, http.StatusNotFound, "workflow not found")
+			return
+		}
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
+		respondError(c, http.StatusInternalServerError, "failed to find workflow")
+		return
+	}
+
+	_ = userID // suppress unused variable (for future auth)
+
+	// Validate alias format
+	tempResource := &models.WorkflowResource{ResourceID: resourceID, Alias: req.Alias, AccessType: "read"}
+	if err := tempResource.Validate(); err != nil {
+		respondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.workflowRepo.UpdateResourceAlias(c.Request.Context(), workflowUUID, resourceUUID, req.Alias); err != nil {
+		if errors.Is(err, models.ErrResourceNotFound) {
+			respondError(c, http.StatusNotFound, "resource not attached to this workflow")
+			return
+		}
+		h.logger.Error("Failed to update resource alias", "error", err, "workflow_id", workflowUUID, "resource_id", resourceID)
+		respondError(c, http.StatusInternalServerError, "failed to update alias")
+		return
+	}
+
+	h.logger.Info("Resource alias updated",
+		"workflow_id", workflowUUID,
+		"resource_id", resourceID,
+		"new_alias", req.Alias,
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"resource_id": resourceID,
+		"alias":       req.Alias,
+	})
 }

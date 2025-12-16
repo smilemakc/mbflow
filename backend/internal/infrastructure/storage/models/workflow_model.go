@@ -24,9 +24,10 @@ type WorkflowModel struct {
 	DeletedAt   *time.Time `bun:"deleted_at" json:"deleted_at,omitempty"`
 
 	// Relationships
-	Nodes    []*NodeModel    `bun:"rel:has-many,join:id=workflow_id" json:"nodes,omitempty"`
-	Edges    []*EdgeModel    `bun:"rel:has-many,join:id=workflow_id" json:"edges,omitempty"`
-	Triggers []*TriggerModel `bun:"rel:has-many,join:id=workflow_id" json:"triggers,omitempty"`
+	Nodes     []*NodeModel             `bun:"rel:has-many,join:id=workflow_id" json:"nodes,omitempty"`
+	Edges     []*EdgeModel             `bun:"rel:has-many,join:id=workflow_id" json:"edges,omitempty"`
+	Triggers  []*TriggerModel          `bun:"rel:has-many,join:id=workflow_id" json:"triggers,omitempty"`
+	Resources []*WorkflowResourceModel `bun:"rel:has-many,join:id=workflow_id" json:"resources,omitempty"`
 }
 
 // TableName returns the table name for WorkflowModel

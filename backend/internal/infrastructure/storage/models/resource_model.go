@@ -14,7 +14,7 @@ type ResourceModel struct {
 	bun.BaseModel `bun:"table:resources,alias:r"`
 
 	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
-	Type        string     `bun:"type,notnull" json:"type" validate:"required,oneof=file_storage"`
+	Type        string     `bun:"type,notnull" json:"type" validate:"required,oneof=file_storage credentials"`
 	OwnerID     uuid.UUID  `bun:"owner_id,notnull,type:uuid" json:"owner_id" validate:"required"`
 	Name        string     `bun:"name,notnull" json:"name" validate:"required,max=255"`
 	Description string     `bun:"description" json:"description,omitempty" validate:"max=1000"`
@@ -27,6 +27,7 @@ type ResourceModel struct {
 	// Relations
 	Owner       *UserModel        `bun:"rel:belongs-to,join:owner_id=id" json:"owner,omitempty"`
 	FileStorage *FileStorageModel `bun:"rel:has-one,join:id=resource_id" json:"file_storage,omitempty"`
+	Credentials *CredentialsModel `bun:"rel:has-one,join:id=resource_id" json:"credentials,omitempty"`
 }
 
 // TableName returns the table name for ResourceModel
@@ -323,4 +324,146 @@ func FromPricingPlanDomain(plan *pkgmodels.PricingPlan) *PricingPlanModel {
 // ToFileStorageResourceDomain converts ResourceModel and FileStorageModel to domain FileStorageResource
 func ToFileStorageResourceDomain(r *ResourceModel, fs *FileStorageModel) pkgmodels.Resource {
 	return ToResourceDomain(r, fs)
+}
+
+// ============================================================================
+// Credentials Model
+// ============================================================================
+
+// CredentialsModel represents credentials-specific data in the database
+type CredentialsModel struct {
+	bun.BaseModel `bun:"table:resource_credentials,alias:rc"`
+
+	ResourceID     uuid.UUID  `bun:"resource_id,pk,type:uuid" json:"resource_id" validate:"required"`
+	CredentialType string     `bun:"credential_type,notnull" json:"credential_type" validate:"required,oneof=api_key basic_auth oauth2 service_account custom"`
+	EncryptedData  JSONBMap   `bun:"encrypted_data,type:jsonb,notnull,default:'{}'" json:"encrypted_data"`
+	Provider       *string    `bun:"provider" json:"provider,omitempty"`
+	ExpiresAt      *time.Time `bun:"expires_at" json:"expires_at,omitempty"`
+	LastUsedAt     *time.Time `bun:"last_used_at" json:"last_used_at,omitempty"`
+	UsageCount     int64      `bun:"usage_count,notnull,default:0" json:"usage_count"`
+	PricingPlanID  *uuid.UUID `bun:"pricing_plan_id,type:uuid" json:"pricing_plan_id,omitempty"`
+
+	// Relations
+	Resource    *ResourceModel    `bun:"rel:belongs-to,join:resource_id=id" json:"resource,omitempty"`
+	PricingPlan *PricingPlanModel `bun:"rel:belongs-to,join:pricing_plan_id=id" json:"pricing_plan,omitempty"`
+}
+
+// TableName returns the table name for CredentialsModel
+func (CredentialsModel) TableName() string {
+	return "resource_credentials"
+}
+
+// ToCredentialsResourceDomain converts ResourceModel and CredentialsModel to domain CredentialsResource
+func ToCredentialsResourceDomain(r *ResourceModel, c *CredentialsModel) *pkgmodels.CredentialsResource {
+	if r == nil || c == nil {
+		return nil
+	}
+
+	var metadata map[string]interface{}
+	if r.Metadata != nil {
+		metadata = r.Metadata
+	}
+
+	var pricingPlanID string
+	if c.PricingPlanID != nil {
+		pricingPlanID = c.PricingPlanID.String()
+	}
+
+	var provider string
+	if c.Provider != nil {
+		provider = *c.Provider
+	}
+
+	// Convert encrypted data from JSONBMap to map[string]string
+	encryptedData := make(map[string]string)
+	for k, v := range c.EncryptedData {
+		if str, ok := v.(string); ok {
+			encryptedData[k] = str
+		}
+	}
+
+	return &pkgmodels.CredentialsResource{
+		BaseResource: pkgmodels.BaseResource{
+			ID:          r.ID.String(),
+			Type:        pkgmodels.ResourceType(r.Type),
+			OwnerID:     r.OwnerID.String(),
+			Name:        r.Name,
+			Description: r.Description,
+			Status:      pkgmodels.ResourceStatus(r.Status),
+			Metadata:    metadata,
+			CreatedAt:   r.CreatedAt,
+			UpdatedAt:   r.UpdatedAt,
+		},
+		CredentialType: pkgmodels.CredentialType(c.CredentialType),
+		EncryptedData:  encryptedData,
+		Provider:       provider,
+		ExpiresAt:      c.ExpiresAt,
+		LastUsedAt:     c.LastUsedAt,
+		UsageCount:     c.UsageCount,
+		PricingPlanID:  pricingPlanID,
+	}
+}
+
+// FromCredentialsResourceDomain converts domain CredentialsResource to ResourceModel and CredentialsModel
+func FromCredentialsResourceDomain(cred *pkgmodels.CredentialsResource) (*ResourceModel, *CredentialsModel) {
+	if cred == nil {
+		return nil, nil
+	}
+
+	var resourceID uuid.UUID
+	if cred.ID != "" {
+		resourceID = uuid.MustParse(cred.ID)
+	}
+
+	var ownerID uuid.UUID
+	if cred.OwnerID != "" {
+		ownerID = uuid.MustParse(cred.OwnerID)
+	}
+
+	var metadata JSONBMap
+	if cred.Metadata != nil {
+		metadata = JSONBMap(cred.Metadata)
+	}
+
+	resourceModel := &ResourceModel{
+		ID:          resourceID,
+		Type:        string(cred.Type),
+		OwnerID:     ownerID,
+		Name:        cred.Name,
+		Description: cred.Description,
+		Status:      string(cred.Status),
+		Metadata:    metadata,
+		CreatedAt:   cred.CreatedAt,
+		UpdatedAt:   cred.UpdatedAt,
+	}
+
+	var pricingPlanID *uuid.UUID
+	if cred.PricingPlanID != "" {
+		planID := uuid.MustParse(cred.PricingPlanID)
+		pricingPlanID = &planID
+	}
+
+	var provider *string
+	if cred.Provider != "" {
+		provider = &cred.Provider
+	}
+
+	// Convert encrypted data from map[string]string to JSONBMap
+	encryptedData := make(JSONBMap)
+	for k, v := range cred.EncryptedData {
+		encryptedData[k] = v
+	}
+
+	credentialsModel := &CredentialsModel{
+		ResourceID:     resourceID,
+		CredentialType: string(cred.CredentialType),
+		EncryptedData:  encryptedData,
+		Provider:       provider,
+		ExpiresAt:      cred.ExpiresAt,
+		LastUsedAt:     cred.LastUsedAt,
+		UsageCount:     cred.UsageCount,
+		PricingPlanID:  pricingPlanID,
+	}
+
+	return resourceModel, credentialsModel
 }

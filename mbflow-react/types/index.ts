@@ -5,6 +5,9 @@
 // Core types from main types.ts
 export * from '@/types';
 
+// Workflow types
+export * from './workflow';
+
 // Execution types
 export * from './execution';
 

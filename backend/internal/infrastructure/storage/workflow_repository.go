@@ -3,12 +3,14 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
+	domainmodels "github.com/smilemakc/mbflow/pkg/models"
 	"github.com/uptrace/bun"
 )
 
@@ -59,6 +61,19 @@ func (r *WorkflowRepository) Create(ctx context.Context, workflow *models.Workfl
 			}
 		}
 
+		// 4. Create resources
+		if len(workflow.Resources) > 0 {
+			for _, resource := range workflow.Resources {
+				resource.WorkflowID = workflow.ID
+				if resource.AssignedAt.IsZero() {
+					resource.AssignedAt = time.Now()
+				}
+			}
+			if _, err := tx.NewInsert().Model(&workflow.Resources).Exec(ctx); err != nil {
+				return fmt.Errorf("failed to create resources: %w", err)
+			}
+		}
+
 		return nil
 	})
 }
@@ -88,6 +103,11 @@ func (r *WorkflowRepository) Update(ctx context.Context, workflow *models.Workfl
 		// 3. Sync edges (smart merge)
 		if err := r.syncEdges(ctx, tx, workflow.ID, workflow.Edges); err != nil {
 			return fmt.Errorf("failed to sync edges: %w", err)
+		}
+
+		// 4. Sync resources (smart merge)
+		if err := r.syncResources(ctx, tx, workflow.ID, workflow.Resources); err != nil {
+			return fmt.Errorf("failed to sync resources: %w", err)
 		}
 
 		return nil
@@ -244,6 +264,82 @@ func (r *WorkflowRepository) syncEdges(
 	return nil
 }
 
+// syncResources performs a smart merge of resources
+func (r *WorkflowRepository) syncResources(
+	ctx context.Context,
+	tx bun.Tx,
+	workflowID uuid.UUID,
+	resources []*models.WorkflowResourceModel,
+) error {
+	// 1. Get existing resources from DB
+	var existingResources []*models.WorkflowResourceModel
+	err := tx.NewSelect().
+		Model(&existingResources).
+		Where("workflow_id = ?", workflowID).
+		Scan(ctx)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	// 2. Build lookup map: resource_id -> existing WorkflowResourceModel
+	existingMap := make(map[uuid.UUID]*models.WorkflowResourceModel)
+	for _, resource := range existingResources {
+		existingMap[resource.ResourceID] = resource
+	}
+
+	// 3. Build incoming map
+	incomingMap := make(map[uuid.UUID]*models.WorkflowResourceModel)
+	for _, resource := range resources {
+		incomingMap[resource.ResourceID] = resource
+	}
+
+	// 4. Update or Create resources
+	for _, incomingResource := range resources {
+		if existing, exists := existingMap[incomingResource.ResourceID]; exists {
+			// Resource exists - UPDATE
+			incomingResource.WorkflowID = workflowID
+			incomingResource.AssignedAt = existing.AssignedAt
+
+			_, err := tx.NewUpdate().
+				Model(incomingResource).
+				Column("alias", "access_type").
+				Where("workflow_id = ? AND resource_id = ?", workflowID, incomingResource.ResourceID).
+				Exec(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to update resource %s: %w", incomingResource.ResourceID, err)
+			}
+		} else {
+			// New resource - CREATE
+			incomingResource.WorkflowID = workflowID
+			if incomingResource.AssignedAt.IsZero() {
+				incomingResource.AssignedAt = time.Now()
+			}
+
+			_, err := tx.NewInsert().
+				Model(incomingResource).
+				Exec(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to create resource %s: %w", incomingResource.ResourceID, err)
+			}
+		}
+	}
+
+	// 5. Delete removed resources
+	for resourceID, existing := range existingMap {
+		if _, stillExists := incomingMap[resourceID]; !stillExists {
+			_, err := tx.NewDelete().
+				Model((*models.WorkflowResourceModel)(nil)).
+				Where("workflow_id = ? AND resource_id = ?", workflowID, existing.ResourceID).
+				Exec(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to delete resource %s: %w", resourceID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 // Delete soft-deletes a workflow
 func (r *WorkflowRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	// Assuming WorkflowModel has a DeletedAt field for soft deletes
@@ -280,13 +376,15 @@ func (r *WorkflowRepository) FindByID(ctx context.Context, id uuid.UUID) (*model
 	return workflow, nil
 }
 
-// FindByIDWithRelations retrieves a workflow with all its relations (nodes, edges, triggers)
+// FindByIDWithRelations retrieves a workflow with all its relations (nodes, edges, triggers, resources)
 func (r *WorkflowRepository) FindByIDWithRelations(ctx context.Context, id uuid.UUID) (*models.WorkflowModel, error) {
 	workflow := &models.WorkflowModel{}
 	err := r.db.NewSelect().
 		Model(workflow).
 		Relation("Nodes").
 		Relation("Edges").
+		Relation("Resources").
+		Relation("Resources.Resource"). // Load resource details (name, type)
 		Where("w.id = ?", id).
 		Scan(ctx)
 	if err != nil {
@@ -510,4 +608,124 @@ func (r *WorkflowRepository) ValidateDAG(ctx context.Context, workflowID uuid.UU
 	}
 
 	return nil
+}
+
+// AssignResource attaches a resource to a workflow with an alias
+func (r *WorkflowRepository) AssignResource(ctx context.Context, workflowID uuid.UUID, resource *models.WorkflowResourceModel, assignedBy *uuid.UUID) error {
+	resource.WorkflowID = workflowID
+	resource.AssignedAt = time.Now()
+	resource.AssignedBy = assignedBy
+
+	_, err := r.db.NewInsert().Model(resource).
+		On("CONFLICT (workflow_id, resource_id) DO UPDATE").
+		Set("alias = EXCLUDED.alias").
+		Set("access_type = EXCLUDED.access_type").
+		Exec(ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to assign resource: %w", err)
+	}
+	return nil
+}
+
+// UnassignResource removes a resource from a workflow
+func (r *WorkflowRepository) UnassignResource(ctx context.Context, workflowID, resourceID uuid.UUID) error {
+	result, err := r.db.NewDelete().
+		Model((*models.WorkflowResourceModel)(nil)).
+		Where("workflow_id = ? AND resource_id = ?", workflowID, resourceID).
+		Exec(ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to unassign resource: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return domainmodels.ErrResourceNotFound
+	}
+	return nil
+}
+
+// UnassignResourceFromAllWorkflows removes a resource from all workflows
+// Used when deleting a resource to clean up all references
+func (r *WorkflowRepository) UnassignResourceFromAllWorkflows(ctx context.Context, resourceID uuid.UUID) (int64, error) {
+	result, err := r.db.NewDelete().
+		Model((*models.WorkflowResourceModel)(nil)).
+		Where("resource_id = ?", resourceID).
+		Exec(ctx)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to unassign resource from workflows: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	return rowsAffected, nil
+}
+
+// GetWorkflowResources returns all resources attached to a workflow
+func (r *WorkflowRepository) GetWorkflowResources(ctx context.Context, workflowID uuid.UUID) ([]*models.WorkflowResourceModel, error) {
+	var resources []*models.WorkflowResourceModel
+
+	err := r.db.NewSelect().
+		Model(&resources).
+		Where("workflow_id = ?", workflowID).
+		Order("alias ASC").
+		Scan(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow resources: %w", err)
+	}
+
+	return resources, nil
+}
+
+// UpdateResourceAlias changes the alias of a workflow resource
+func (r *WorkflowRepository) UpdateResourceAlias(ctx context.Context, workflowID, resourceID uuid.UUID, newAlias string) error {
+	result, err := r.db.NewUpdate().
+		Model((*models.WorkflowResourceModel)(nil)).
+		Set("alias = ?", newAlias).
+		Where("workflow_id = ? AND resource_id = ?", workflowID, resourceID).
+		Exec(ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to update resource alias: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("resource not found in workflow")
+	}
+	return nil
+}
+
+// ResourceExists checks if a resource is attached to a workflow
+func (r *WorkflowRepository) ResourceExists(ctx context.Context, workflowID, resourceID uuid.UUID) (bool, error) {
+	count, err := r.db.NewSelect().
+		Model((*models.WorkflowResourceModel)(nil)).
+		Where("workflow_id = ? AND resource_id = ?", workflowID, resourceID).
+		Count(ctx)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to check resource existence: %w", err)
+	}
+	return count > 0, nil
+}
+
+// GetResourceByAlias returns a workflow resource by its alias
+func (r *WorkflowRepository) GetResourceByAlias(ctx context.Context, workflowID uuid.UUID, alias string) (*models.WorkflowResourceModel, error) {
+	var resource models.WorkflowResourceModel
+
+	err := r.db.NewSelect().
+		Model(&resource).
+		Where("workflow_id = ? AND alias = ?", workflowID, alias).
+		Scan(ctx)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domainmodels.ErrResourceNotFound
+		}
+		return nil, fmt.Errorf("failed to get resource by alias: %w", err)
+	}
+
+	return &resource, nil
 }

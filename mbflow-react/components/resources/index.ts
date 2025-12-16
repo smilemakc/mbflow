@@ -9,3 +9,9 @@ export { TransactionHistory } from './TransactionHistory.tsx';
 export { CreateStorageModal } from './CreateStorageModal.tsx';
 export { DepositModal } from './DepositModal.tsx';
 export { FilesModal } from './FilesModal.tsx';
+
+// Credentials components
+export { CredentialCard } from './CredentialCard.tsx';
+export { CredentialList } from './CredentialList.tsx';
+export { CreateCredentialModal } from './CreateCredentialModal.tsx';
+export { ViewSecretsModal } from './ViewSecretsModal.tsx';
