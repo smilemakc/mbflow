@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { DollarSign, CreditCard } from 'lucide-react';
 import { Button, Modal } from '@/components/ui';
+import { useTranslation } from '@/store/translations';
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const t = useTranslation();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -48,12 +50,12 @@ export const DepositModal: React.FC<DepositModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Deposit Funds"
+      title={t.resources.depositFundsTitle}
       size="md"
       footer={
         <div className="flex justify-end gap-3">
           <Button onClick={handleClose} variant="secondary" disabled={loading}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -62,7 +64,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
             disabled={!isValidAmount}
             icon={<CreditCard size={16} />}
           >
-            Deposit
+            {t.resources.deposit}
           </Button>
         </div>
       }
@@ -79,10 +81,12 @@ interface AmountInputProps {
   onChange: (value: string) => void;
 }
 
-const AmountInput: React.FC<AmountInputProps> = ({ value, onChange }) => (
+const AmountInput: React.FC<AmountInputProps> = ({ value, onChange }) => {
+  const t = useTranslation();
+  return (
   <div>
     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-      Amount <span className="text-red-500">*</span>
+      {t.resources.amount} <span className="text-red-500">*</span>
     </label>
     <div className="relative">
       <DollarSign
@@ -93,14 +97,15 @@ const AmountInput: React.FC<AmountInputProps> = ({ value, onChange }) => (
         type="number"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="0.00"
+        placeholder={t.resources.amountPlaceholder}
         min="0"
         step="0.01"
         className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
       />
     </div>
     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-      Enter the amount you want to add to your account balance
+      {t.resources.amountHint}
     </p>
   </div>
-);
+  );
+};

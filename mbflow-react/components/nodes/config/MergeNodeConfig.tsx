@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {MergeNodeConfig} from '@/types/nodeConfigs.ts';
 import {VariableAutocomplete} from '@/components';
+import { useTranslation } from '@/store/translations';
 
 interface Props {
     config: MergeNodeConfig;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export const MergeNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChange}) => {
+    const t = useTranslation();
     const [localConfig, setLocalConfig] = useState<MergeNodeConfig>({
         merge_strategy: 'all',
         ...config,
@@ -37,20 +39,20 @@ export const MergeNodeConfigComponent: React.FC<Props> = ({config, nodeId, onCha
             {/* Merge Strategy */}
             <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    Merge Strategy
+                    {t.nodeConfig.merge.mergeStrategy}
                 </label>
                 <select
                     value={localConfig.merge_strategy || 'all'}
                     onChange={(e) => handleStrategyChange(e.target.value as any)}
                     className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-slate-800 dark:text-slate-200"
                 >
-                    <option value="first">First (Use first available result)</option>
-                    <option value="last">Last (Use last available result)</option>
-                    <option value="all">All (Combine all results into array)</option>
-                    <option value="custom">Custom (Use expression)</option>
+                    <option value="first">{t.nodeConfig.merge.strategyFirst}</option>
+                    <option value="last">{t.nodeConfig.merge.strategyLast}</option>
+                    <option value="all">{t.nodeConfig.merge.strategyAll}</option>
+                    <option value="custom">{t.nodeConfig.merge.strategyCustom}</option>
                 </select>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Choose how to combine results from multiple parent nodes.
+                    {t.nodeConfig.merge.strategyHint}
                 </p>
             </div>
 
@@ -58,18 +60,18 @@ export const MergeNodeConfigComponent: React.FC<Props> = ({config, nodeId, onCha
             {localConfig.merge_strategy === 'custom' && (
                 <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                        Custom Merge Expression
+                        {t.nodeConfig.merge.customExpression}
                     </label>
                     <VariableAutocomplete
                         type="textarea"
                         value={localConfig.custom_expression || ''}
                         onChange={handleExpressionChange}
                         rows={4}
-                        placeholder="[{{input.parent1}}, {{input.parent2}}]"
+                        placeholder={t.nodeConfig.merge.customExpressionPlaceholder}
                         className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none text-slate-800 dark:text-slate-200 placeholder-slate-400 font-mono"
                     />
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Use expr-lang to define custom merge logic.
+                        {t.nodeConfig.merge.customExpressionHint}
                     </p>
                 </div>
             )}

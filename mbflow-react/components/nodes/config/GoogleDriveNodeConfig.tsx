@@ -1,7 +1,8 @@
 import React from 'react';
 import { HardDrive } from 'lucide-react';
-import type { GoogleDriveNodeConfig as GoogleDriveNodeConfigType } from '../../../types/nodeConfigs';
-import { VariableAutocomplete } from '../../builder/VariableAutocomplete';
+import type { GoogleDriveNodeConfig as GoogleDriveNodeConfigType } from '@/types/nodeConfigs';
+import { VariableAutocomplete } from '@/components/builder/VariableAutocomplete';
+import { useTranslation } from '@/store/translations';
 
 interface Props {
     config: GoogleDriveNodeConfigType;
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChange }) => {
+    const t = useTranslation();
+
     // ALWAYS create safeConfig with defaults to prevent undefined errors
     const safeConfig: GoogleDriveNodeConfigType = {
         operation: config?.operation || 'list_files',
@@ -73,9 +76,9 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-start gap-3">
                 <HardDrive className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={18} />
                 <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Google Drive</h3>
+                    <h3 className="font-semibold text-slate-900 dark:text-white text-sm">{t.nodeConfig.googleDrive.title}</h3>
                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                        Manage files and folders in Google Drive using service account credentials
+                        {t.nodeConfig.googleDrive.description}
                     </p>
                 </div>
             </div>
@@ -85,39 +88,39 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                 {/* Operation */}
                 <label className="block">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                        Operation <span className="text-red-500">*</span>
+                        {t.nodeConfig.googleDrive.operation} <span className="text-red-500">{t.nodeConfig.required}</span>
                     </span>
                     <select
                         value={safeConfig.operation}
                         onChange={(e) => handleOperationChange(e.target.value as any)}
                         className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     >
-                        <option value="create_spreadsheet">Create Spreadsheet</option>
-                        <option value="create_folder">Create Folder</option>
-                        <option value="list_files">List Files</option>
-                        <option value="delete">Delete File/Folder</option>
-                        <option value="move">Move File</option>
-                        <option value="copy">Copy File</option>
+                        <option value="create_spreadsheet">{t.nodeConfig.googleDrive.operationCreateSpreadsheet}</option>
+                        <option value="create_folder">{t.nodeConfig.googleDrive.operationCreateFolder}</option>
+                        <option value="list_files">{t.nodeConfig.googleDrive.operationListFiles}</option>
+                        <option value="delete">{t.nodeConfig.googleDrive.operationDelete}</option>
+                        <option value="move">{t.nodeConfig.googleDrive.operationMove}</option>
+                        <option value="copy">{t.nodeConfig.googleDrive.operationCopy}</option>
                     </select>
                     <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                        Select the operation to perform on Google Drive
+                        {t.nodeConfig.googleDrive.operationHint}
                     </span>
                 </label>
 
                 {/* Credentials */}
                 <label className="block">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                        Service Account Credentials (JSON) <span className="text-red-500">*</span>
+                        {t.nodeConfig.googleDrive.credentials} <span className="text-red-500">{t.nodeConfig.required}</span>
                     </span>
                     <textarea
                         value={safeConfig.credentials}
                         onChange={(e) => handleCredentialsChange(e.target.value)}
-                        placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"..."}'
+                        placeholder={t.nodeConfig.googleDrive.credentialsPlaceholder}
                         rows={4}
                         className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-mono resize-y"
                     />
                     <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                        Full JSON credentials from Google Cloud Console service account
+                        {t.nodeConfig.googleDrive.credentialsHint}
                     </span>
                 </label>
 
@@ -125,18 +128,16 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                 {showFileNameField && (
                     <label className="block">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                            File Name {safeConfig.operation === 'create_spreadsheet' && <span className="text-slate-400">(optional)</span>}
+                            {t.nodeConfig.googleDrive.fileName} {safeConfig.operation === 'create_spreadsheet' && <span className="text-slate-400">{t.nodeConfig.googleDrive.fileNameOptional}</span>}
                         </span>
                         <VariableAutocomplete
                             value={safeConfig.file_name || ''}
                             onChange={handleFileNameChange}
-                            placeholder={safeConfig.operation === 'create_spreadsheet' ? 'Untitled Spreadsheet' : 'Copy of Original File'}
+                            placeholder={safeConfig.operation === 'create_spreadsheet' ? t.nodeConfig.googleDrive.fileNamePlaceholder : 'Copy of Original File'}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         />
                         <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                            {safeConfig.operation === 'create_spreadsheet' 
-                                ? 'Name for the new spreadsheet (default: Untitled Spreadsheet)'
-                                : 'Optional new name for copied file'}
+                            {t.nodeConfig.googleDrive.fileNameHint}
                         </span>
                     </label>
                 )}
@@ -145,16 +146,16 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                 {showFolderNameField && (
                     <label className="block">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                            Folder Name <span className="text-slate-400">(optional)</span>
+                            {t.nodeConfig.googleDrive.folderName} <span className="text-slate-400">{t.nodeConfig.optional}</span>
                         </span>
                         <VariableAutocomplete
                             value={safeConfig.folder_name || ''}
                             onChange={handleFolderNameChange}
-                            placeholder="Untitled Folder"
+                            placeholder={t.nodeConfig.googleDrive.folderNamePlaceholder}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         />
                         <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                            Name for the new folder (default: Untitled Folder)
+                            {t.nodeConfig.googleDrive.folderNameHint}
                         </span>
                     </label>
                 )}
@@ -163,16 +164,16 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                 {showFileIdField && (
                     <label className="block">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                            File ID <span className="text-red-500">*</span>
+                            {t.nodeConfig.googleDrive.fileId} <span className="text-red-500">{t.nodeConfig.required}</span>
                         </span>
                         <VariableAutocomplete
                             value={safeConfig.file_id || ''}
                             onChange={handleFileIdChange}
-                            placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                            placeholder={t.nodeConfig.googleDrive.fileIdPlaceholder}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
                         />
                         <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                            Google Drive file ID to {safeConfig.operation}
+                            {t.nodeConfig.googleDrive.fileIdHint}
                         </span>
                     </label>
                 )}
@@ -181,18 +182,16 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                 {(safeConfig.operation === 'create_spreadsheet' || safeConfig.operation === 'create_folder' || safeConfig.operation === 'list_files') && (
                     <label className="block">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                            Parent Folder ID <span className="text-slate-400">(optional)</span>
+                            {t.nodeConfig.googleDrive.parentFolderId} <span className="text-slate-400">{t.nodeConfig.optional}</span>
                         </span>
                         <VariableAutocomplete
                             value={safeConfig.parent_folder_id || ''}
                             onChange={handleParentFolderIdChange}
-                            placeholder="Leave empty for root folder"
+                            placeholder={t.nodeConfig.googleDrive.parentFolderIdPlaceholder}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
                         />
                         <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                            {safeConfig.operation === 'list_files' 
-                                ? 'Folder to list files from (leave empty for root)'
-                                : 'Parent folder where file/folder will be created (leave empty for root)'}
+                            {t.nodeConfig.googleDrive.parentFolderIdHint}
                         </span>
                     </label>
                 )}
@@ -201,16 +200,16 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                 {showDestinationFolderIdField && (
                     <label className="block">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                            Destination Folder ID {safeConfig.operation === 'move' ? <span className="text-red-500">*</span> : <span className="text-slate-400">(optional)</span>}
+                            {t.nodeConfig.googleDrive.destinationFolderId} {safeConfig.operation === 'move' ? <span className="text-red-500">{t.nodeConfig.required}</span> : <span className="text-slate-400">{t.nodeConfig.optional}</span>}
                         </span>
                         <VariableAutocomplete
                             value={safeConfig.destination_folder_id || ''}
                             onChange={handleDestinationFolderIdChange}
-                            placeholder={safeConfig.operation === 'copy' ? 'Leave empty for same folder' : 'Destination folder ID'}
+                            placeholder={t.nodeConfig.googleDrive.destinationFolderIdPlaceholder}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
                         />
                         <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                            Folder ID where file will be {safeConfig.operation === 'move' ? 'moved' : 'copied'}
+                            {t.nodeConfig.googleDrive.destinationFolderIdHint}
                         </span>
                     </label>
                 )}
@@ -220,7 +219,7 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                     <>
                         <label className="block">
                             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                Max Results
+                                {t.nodeConfig.googleDrive.maxResults}
                             </span>
                             <input
                                 type="number"
@@ -231,28 +230,28 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                                 className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                             />
                             <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                                Maximum number of files to return (default: 100)
+                                {t.nodeConfig.googleDrive.maxResultsHint}
                             </span>
                         </label>
 
                         <label className="block">
                             <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                                Order By
+                                {t.nodeConfig.googleDrive.orderBy}
                             </span>
                             <select
                                 value={safeConfig.order_by}
                                 onChange={(e) => handleOrderByChange(e.target.value)}
                                 className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                             >
-                                <option value="modifiedTime desc">Modified Time (newest first)</option>
-                                <option value="modifiedTime">Modified Time (oldest first)</option>
-                                <option value="createdTime desc">Created Time (newest first)</option>
-                                <option value="createdTime">Created Time (oldest first)</option>
-                                <option value="name">Name (A-Z)</option>
-                                <option value="name desc">Name (Z-A)</option>
+                                <option value="modifiedTime desc">{t.nodeConfig.googleDrive.orderByModifiedDesc}</option>
+                                <option value="modifiedTime">{t.nodeConfig.googleDrive.orderByModified}</option>
+                                <option value="createdTime desc">{t.nodeConfig.googleDrive.orderByCreatedDesc}</option>
+                                <option value="createdTime">{t.nodeConfig.googleDrive.orderByCreated}</option>
+                                <option value="name">{t.nodeConfig.googleDrive.orderByName}</option>
+                                <option value="name desc">{t.nodeConfig.googleDrive.orderByNameDesc}</option>
                             </select>
                             <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                                Sort order for listed files
+                                {t.nodeConfig.googleDrive.orderByHint}
                             </span>
                         </label>
                     </>
@@ -261,7 +260,7 @@ export const GoogleDriveNodeConfigComponent: React.FC<Props> = ({ config, onChan
                 {/* Usage Hint */}
                 <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                     <h4 className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1">
-                        Output Variables
+                        {t.nodeConfig.googleDrive.outputVariables}
                     </h4>
                     <p className="text-xs text-blue-700 dark:text-blue-400">
                         {safeConfig.operation === 'list_files' && 'Returns: success, files (array), file_count'}

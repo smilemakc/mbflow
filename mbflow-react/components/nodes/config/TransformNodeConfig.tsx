@@ -2,7 +2,8 @@ import React from 'react';
 import { Zap, ArrowRight, FileText, Code } from 'lucide-react';
 import type {TransformNodeConfig} from '@/types/nodeConfigs';
 import {TRANSFORM_TYPES} from '@/types/nodeConfigs';
-import {VariableAutocomplete} from '../../builder/VariableAutocomplete';
+import {VariableAutocomplete} from '@/components/builder/VariableAutocomplete';
+import {useTranslation} from '@/store/translations';
 
 interface TransformNodeConfigProps {
     config: TransformNodeConfig;
@@ -15,6 +16,7 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
     nodeId,
     onChange,
 }) => {
+    const t = useTranslation();
     // Create safeConfig with defaults to prevent undefined errors
     const safeConfig: TransformNodeConfig = {
         type: config?.type || 'passthrough',
@@ -51,9 +53,9 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-start gap-3">
                 <Zap className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" size={18}/>
                 <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Transform Data</h3>
+                    <h3 className="font-semibold text-slate-900 dark:text-white text-sm">{t.nodeConfig.transform.title}</h3>
                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                        Transform input data using various methods: passthrough, templates, expressions, or jq filters
+                        {t.nodeConfig.transform.description}
                     </p>
                 </div>
             </div>
@@ -62,7 +64,7 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
             <div className="space-y-3">
                 <label className="block">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                        Transformation Type
+                        {t.nodeConfig.transform.transformationType}
                     </span>
                     <select
                         value={safeConfig.type}
@@ -83,7 +85,7 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
                         <div className="flex items-start gap-2">
                             <ArrowRight size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
                             <div>
-                                <strong className="text-slate-700 dark:text-slate-300">Passthrough:</strong> Pass input data unchanged to the next node
+                                <strong className="text-slate-700 dark:text-slate-300">{t.nodeConfig.transform.passthrough}:</strong> {t.nodeConfig.transform.passthroughDesc}
                             </div>
                         </div>
                     )}
@@ -91,7 +93,7 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
                         <div className="flex items-start gap-2">
                             <FileText size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
                             <div>
-                                <strong className="text-slate-700 dark:text-slate-300">Template:</strong> Use template syntax with variables like <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-[11px]">{'{{env.var}}'}</code> or <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-[11px]">{'{{input.field}}'}</code>
+                                <strong className="text-slate-700 dark:text-slate-300">{t.nodeConfig.transform.template}:</strong> {t.nodeConfig.transform.templateDesc}
                             </div>
                         </div>
                     )}
@@ -99,7 +101,7 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
                         <div className="flex items-start gap-2">
                             <Code size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
                             <div>
-                                <strong className="text-slate-700 dark:text-slate-300">Expression:</strong> Use expr-lang for complex transformations with access to <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-[11px]">input</code> variable
+                                <strong className="text-slate-700 dark:text-slate-300">{t.nodeConfig.transform.expression}:</strong> {t.nodeConfig.transform.expressionDesc}
                             </div>
                         </div>
                     )}
@@ -107,7 +109,7 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
                         <div className="flex items-start gap-2">
                             <Code size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
                             <div>
-                                <strong className="text-slate-700 dark:text-slate-300">JQ Filter:</strong> Use jq syntax for JSON transformations and queries
+                                <strong className="text-slate-700 dark:text-slate-300">{t.nodeConfig.transform.jq}:</strong> {t.nodeConfig.transform.jqDesc}
                             </div>
                         </div>
                     )}
@@ -119,18 +121,17 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
                 <div className="space-y-3">
                     <label className="block">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                            Template String
+                            {t.nodeConfig.transform.templateLabel}
                         </span>
                         <VariableAutocomplete
                             value={safeConfig.template}
                             onChange={handleTemplateChange}
-                            placeholder="Hello {{env.userName}}, your input is: {{input.data}}"
-                            nodeId={nodeId}
+                            placeholder={t.nodeConfig.transform.templatePlaceholder}
                             rows={6}
                         />
                     </label>
                     <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg leading-relaxed">
-                        <strong className="text-slate-700 dark:text-slate-300">Template Examples:</strong>
+                        <strong className="text-slate-700 dark:text-slate-300">{t.nodeConfig.transform.templateExamples}</strong>
                         <br/>
                         <code className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono text-[11px]">{'{{env.apiKey}}'}</code> - Access workflow/execution variable
                         <br/>
@@ -146,18 +147,18 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
                 <div className="space-y-3">
                     <label className="block">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                            Expression (expr-lang)
+                            {t.nodeConfig.transform.expressionLabel}
                         </span>
                         <textarea
                             value={safeConfig.expression}
                             onChange={(e) => handleExpressionChange(e.target.value)}
-                            placeholder='input.field * 2'
+                            placeholder={t.nodeConfig.transform.expressionPlaceholder}
                             rows={8}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-mono resize-none"
                         />
                     </label>
                     <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg leading-relaxed">
-                        <strong className="text-slate-700 dark:text-slate-300">Expression Examples:</strong>
+                        <strong className="text-slate-700 dark:text-slate-300">{t.nodeConfig.transform.expressionExamples}</strong>
                         <br/>
                         <code className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono text-[11px]">input.value * 100</code> - Math operations
                         <br/>
@@ -173,18 +174,18 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
                 <div className="space-y-3">
                     <label className="block">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                            JQ Filter
+                            {t.nodeConfig.transform.jqLabel}
                         </span>
                         <textarea
                             value={safeConfig.filter}
                             onChange={(e) => handleFilterChange(e.target.value)}
-                            placeholder='.field | select(.value > 0)'
+                            placeholder={t.nodeConfig.transform.jqPlaceholder}
                             rows={8}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-mono resize-none"
                         />
                     </label>
                     <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg leading-relaxed">
-                        <strong className="text-slate-700 dark:text-slate-300">JQ Examples:</strong>
+                        <strong className="text-slate-700 dark:text-slate-300">{t.nodeConfig.transform.jqExamples}</strong>
                         <br/>
                         <code className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono text-[11px]">.</code> - Pass through input
                         <br/>
@@ -199,7 +200,7 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
             <div className="space-y-3">
                 <label className="block">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                        Timeout (seconds)
+                        {t.nodeConfig.transform.timeout}
                     </span>
                     <input
                         type="number"

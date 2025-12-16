@@ -2,19 +2,21 @@ import React from 'react';
 import {Keyboard, X} from 'lucide-react';
 import {useUIStore} from '@/store/uiStore';
 import { Button } from '../ui';
-
-const SHORTCUTS = [
-    {key: 'Ctrl + S', description: 'Save Workflow'},
-    {key: 'Ctrl + Enter', description: 'Run Workflow'},
-    {key: 'Ctrl + Z', description: 'Undo'},
-    {key: 'Ctrl + Y', description: 'Redo'},
-    {key: 'Shift + F', description: 'Toggle Focus Mode'},
-    {key: 'Delete', description: 'Delete Selected Node'},
-    {key: 'Ctrl + /', description: 'Toggle Shortcuts'},
-];
+import { useTranslation } from '@/store/translations';
 
 export const ShortcutsModal: React.FC = () => {
     const {setActiveModal} = useUIStore();
+    const t = useTranslation();
+
+    const SHORTCUTS = [
+        {key: 'Ctrl + S', description: t.shortcuts.saveWorkflow},
+        {key: 'Ctrl + Enter', description: t.shortcuts.runWorkflow},
+        {key: 'Ctrl + Z', description: t.shortcuts.undo},
+        {key: 'Ctrl + Y', description: t.shortcuts.redo},
+        {key: 'Shift + F', description: t.shortcuts.toggleFocusMode},
+        {key: 'Delete', description: t.shortcuts.deleteNode},
+        {key: 'Ctrl + /', description: t.shortcuts.toggleShortcuts},
+    ];
 
     return (
         <div
@@ -25,7 +27,7 @@ export const ShortcutsModal: React.FC = () => {
                     className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                     <div className="flex items-center space-x-2">
                         <Keyboard className="text-blue-500" size={20}/>
-                        <h2 className="font-bold text-slate-800 dark:text-slate-100">Keyboard Shortcuts</h2>
+                        <h2 className="font-bold text-slate-800 dark:text-slate-100">{t.shortcuts.title}</h2>
                     </div>
                     <Button
                         onClick={() => setActiveModal(null)}
@@ -59,8 +61,7 @@ export const ShortcutsModal: React.FC = () => {
 
                 <div
                     className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 text-center">
-                    <p className="text-xs text-slate-400">Pro tip: You can also use Right-Click on the canvas for more
-                        options.</p>
+                    <p className="text-xs text-slate-400">{t.shortcuts.proTip}</p>
                 </div>
             </div>
         </div>

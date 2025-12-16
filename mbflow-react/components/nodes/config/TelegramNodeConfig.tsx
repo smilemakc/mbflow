@@ -22,13 +22,14 @@
  */
 
 import React, {useEffect, useState} from 'react';
-import {VariableAutocomplete} from '../../builder/VariableAutocomplete.tsx';
+import {VariableAutocomplete} from '@/components/builder/VariableAutocomplete.tsx';
 import {
     TELEGRAM_FILE_SOURCES,
     TELEGRAM_MESSAGE_TYPES,
     TELEGRAM_PARSE_MODES,
     TelegramNodeConfig,
 } from '@/types/nodeConfigs.ts';
+import { useTranslation } from '@/store/translations';
 
 interface Props {
     config: TelegramNodeConfig;
@@ -41,6 +42,7 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
                                                                  nodeId,
                                                                  onChange,
                                                              }) => {
+    const t = useTranslation();
     const [localConfig, setLocalConfig] = useState<TelegramNodeConfig>({
         bot_token: config.bot_token || '',
         chat_id: config.chat_id || '',
@@ -90,17 +92,17 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
     const getFileDataLabel = () => {
         switch (localConfig.file_source) {
             case 'url':
-                return 'File URL';
+                return t.nodeConfig.telegram.fileData;
             case 'file_id':
-                return 'File ID';
+                return t.nodeConfig.telegram.fileId;
             default:
-                return 'Base64 Data';
+                return t.nodeConfig.telegram.base64Data;
         }
     };
 
     const getFileDataPlaceholder = () => {
         if (localConfig.file_source === 'url') {
-            return 'https://example.com/image.jpg';
+            return t.nodeConfig.telegram.fileDataPlaceholder;
         }
         return 'File data...';
     };
@@ -109,26 +111,26 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
         <div className="telegram-config space-y-4">
             {/* API Credentials */}
             <div className={sectionClass}>
-                <h4 className={sectionTitleClass}>Credentials</h4>
+                <h4 className={sectionTitleClass}>{t.nodeConfig.telegram.credentials}</h4>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Bot Token</label>
+                    <label className={labelClass}>{t.nodeConfig.telegram.botToken}</label>
                     <VariableAutocomplete
                         type="input"
                         value={localConfig.bot_token}
                         onChange={(val) => handleChange('bot_token', val)}
-                        placeholder="{{env.TELEGRAM_BOT_TOKEN}}"
+                        placeholder={t.nodeConfig.telegram.botTokenPlaceholder}
                         className={inputClass}
                     />
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Chat ID</label>
+                    <label className={labelClass}>{t.nodeConfig.telegram.chatId}</label>
                     <VariableAutocomplete
                         type="input"
                         value={localConfig.chat_id}
                         onChange={(val) => handleChange('chat_id', val)}
-                        placeholder="@channel_name or {{env.CHAT_ID}}"
+                        placeholder={t.nodeConfig.telegram.chatIdPlaceholder}
                         className={inputClass}
                     />
                 </div>
@@ -136,10 +138,10 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
 
             {/* Message Settings */}
             <div className="space-y-4">
-                <h4 className={sectionTitleClass}>Message</h4>
+                <h4 className={sectionTitleClass}>{t.nodeConfig.telegram.message}</h4>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Message Type</label>
+                    <label className={labelClass}>{t.nodeConfig.telegram.messageType}</label>
                     <select
                         value={localConfig.message_type}
                         onChange={(e) => handleChange('message_type', e.target.value as any)}
@@ -156,12 +158,12 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
                 {/* Text Content */}
                 {localConfig.message_type === 'text' ? (
                     <div className="space-y-1.5">
-                        <label className={labelClass}>Message Text</label>
+                        <label className={labelClass}>{t.nodeConfig.telegram.messageText}</label>
                         <VariableAutocomplete
                             type="textarea"
                             value={localConfig.text || ''}
                             onChange={(val) => handleChange('text', val)}
-                            placeholder="Hello world! {{input.data}}"
+                            placeholder={t.nodeConfig.telegram.messageTextPlaceholder}
                             rows={4}
                             className={inputClass + ' resize-none'}
                         />
@@ -170,12 +172,12 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
                     <>
                         {/* Caption */}
                         <div className="space-y-1.5">
-                            <label className={labelClass}>Caption (Optional)</label>
+                            <label className={labelClass}>{t.nodeConfig.telegram.caption}</label>
                             <VariableAutocomplete
                                 type="textarea"
                                 value={localConfig.text || ''}
                                 onChange={(val) => handleChange('text', val)}
-                                placeholder="Media caption..."
+                                placeholder={t.nodeConfig.telegram.captionPlaceholder}
                                 rows={2}
                                 className={inputClass + ' resize-none'}
                             />
@@ -184,11 +186,11 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
                         {/* File Settings */}
                         <div className={sectionClass}>
                             <h5 className="text-xs font-medium text-gray-700 dark:text-slate-300">
-                                File Settings
+                                {t.nodeConfig.telegram.fileSettings}
                             </h5>
 
                             <div className="space-y-1.5">
-                                <label className={labelClass}>File Source</label>
+                                <label className={labelClass}>{t.nodeConfig.telegram.fileSource}</label>
                                 <select
                                     value={localConfig.file_source}
                                     onChange={(e) => handleChange('file_source', e.target.value as any)}
@@ -216,12 +218,12 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
                             {(localConfig.file_source === 'base64' ||
                                 localConfig.file_source === 'url') && (
                                 <div className="space-y-1.5">
-                                    <label className={labelClass}>File Name (Optional)</label>
+                                    <label className={labelClass}>{t.nodeConfig.telegram.fileName}</label>
                                     <VariableAutocomplete
                                         type="input"
                                         value={localConfig.file_name || ''}
                                         onChange={(val) => handleChange('file_name', val)}
-                                        placeholder="image.jpg"
+                                        placeholder={t.nodeConfig.telegram.fileNamePlaceholder}
                                         className={inputClass}
                                     />
                                 </div>
@@ -232,7 +234,7 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
 
                 {/* Common Options */}
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Parse Mode</label>
+                    <label className={labelClass}>{t.nodeConfig.telegram.parseMode}</label>
                     <select
                         value={localConfig.parse_mode}
                         onChange={(e) => handleChange('parse_mode', e.target.value as any)}
@@ -256,7 +258,7 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
                         />
                         <span
                             className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-              Disable Web Page Preview
+              {t.nodeConfig.telegram.disableWebPagePreview}
             </span>
                     </label>
 
@@ -269,7 +271,7 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
                         />
                         <span
                             className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-              Disable Notification
+              {t.nodeConfig.telegram.disableNotification}
             </span>
                     </label>
 
@@ -282,14 +284,14 @@ export const TelegramNodeConfigComponent: React.FC<Props> = ({
                         />
                         <span
                             className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-              Protect Content (Prevent Forwarding)
+              {t.nodeConfig.telegram.protectContent}
             </span>
                     </label>
                 </div>
 
                 {/* Timeout */}
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Timeout (seconds)</label>
+                    <label className={labelClass}>{t.nodeConfig.telegram.timeout}</label>
                     <input
                         type="number"
                         value={localConfig.timeout_seconds ?? ''}

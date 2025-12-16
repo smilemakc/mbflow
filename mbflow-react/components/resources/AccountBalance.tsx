@@ -6,19 +6,21 @@
 import React from 'react';
 import {AlertCircle, CheckCircle2, DollarSign} from 'lucide-react';
 import {Account} from '@/services/resources.ts';
+import {useTranslation} from '@/store/translations.ts';
 
 interface AccountBalanceProps {
     account: Account;
 }
 
 export const AccountBalance: React.FC<AccountBalanceProps> = ({account}) => {
+    const t = useTranslation();
     const isActive = account.status === 'active';
 
     return (
         <div
             className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm min-w-[180px]">
             <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">
-                Account Balance
+                {t.resources.accountBalance}
             </div>
             <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-center">
                 <DollarSign size={20} className="mr-1"/>

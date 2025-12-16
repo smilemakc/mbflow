@@ -24,6 +24,7 @@
 import React, {useEffect, useState} from "react";
 import {HTTP_METHODS, HTTPNodeConfig} from "@/types/nodeConfigs.ts";
 import {Button} from '@/components/ui';
+import {useTranslation} from '@/store/translations';
 
 interface HTTPNodeConfigProps {
     config: HTTPNodeConfig;
@@ -36,6 +37,7 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
                                                                            nodeId,
                                                                            onChange,
                                                                        }) => {
+    const t = useTranslation();
     const [localConfig, setLocalConfig] = useState<HTTPNodeConfig>({
         ...config,
         headers: config.headers ?? {},
@@ -70,7 +72,7 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
         <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-semibold text-gray-700">
-                    HTTP Method
+                    {t.nodeConfig.http.method}
                 </label>
                 <select
                     value={localConfig.method}
@@ -90,21 +92,21 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
             </div>
 
             <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-gray-700">URL</label>
+                <label className="text-sm font-semibold text-gray-700">{t.nodeConfig.http.url}</label>
                 <input
                     type="text"
                     value={localConfig.url}
                     onChange={(e) => updateConfig({url: e.target.value})}
-                    placeholder="https://api.example.com/endpoint"
+                    placeholder={t.nodeConfig.http.urlPlaceholder}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm transition-colors focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
                 />
                 <span className="text-xs text-gray-500">
-          Supports template variables: {`{{env.API_KEY}}, {{node.previous.result}}`}
+          {t.nodeConfig.http.urlHint}
         </span>
             </div>
 
             <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-gray-700">Headers</label>
+                <label className="text-sm font-semibold text-gray-700">{t.nodeConfig.http.headers}</label>
                 <div className="space-y-2">
                     {Object.entries(localConfig.headers || {}).map(([key, value], index) => (
                         <div key={index} className="flex gap-2">
@@ -117,7 +119,7 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
                                     newHeaders[e.target.value] = value;
                                     updateConfig({headers: newHeaders});
                                 }}
-                                placeholder="Content-Type"
+                                placeholder={t.nodeConfig.http.headerKeyPlaceholder}
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
                             />
                             <input
@@ -128,7 +130,7 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
                                     newHeaders[key] = e.target.value;
                                     updateConfig({headers: newHeaders});
                                 }}
-                                placeholder="application/json"
+                                placeholder={t.nodeConfig.http.headerValuePlaceholder}
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
                             />
                             <Button
@@ -139,7 +141,7 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
                                 }}
                                 variant="danger"
                                 size="sm"
-                                title="Remove header"
+                                title={t.nodeConfig.http.removeHeader}
                             >
                                 ×
                             </Button>
@@ -159,30 +161,30 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
                         size="sm"
                         fullWidth
                     >
-                        + Add Header
+                        {t.nodeConfig.http.addHeader}
                     </Button>
                 </div>
             </div>
 
             {shouldShowBody && (
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-semibold text-gray-700">Body</label>
+                    <label className="text-sm font-semibold text-gray-700">{t.nodeConfig.http.body}</label>
                     <textarea
                         value={localConfig.body || ""}
                         onChange={(e) => updateConfig({body: e.target.value})}
-                        placeholder='{"key": "value"}'
+                        placeholder={t.nodeConfig.http.bodyPlaceholder}
                         rows={6}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono transition-colors focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 resize-y"
                     />
                     <span className="text-xs text-gray-500">
-            JSON format. Supports template variables.
+            {t.nodeConfig.http.bodyHint}
           </span>
                 </div>
             )}
 
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-semibold text-gray-700">
-                    Timeout (seconds)
+                    {t.nodeConfig.http.timeout}
                 </label>
                 <input
                     type="number"
@@ -198,7 +200,7 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
 
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-semibold text-gray-700">
-                    Retry Count
+                    {t.nodeConfig.http.retryCount}
                 </label>
                 <input
                     type="number"
@@ -222,7 +224,7 @@ export const HTTPNodeConfigComponent: React.FC<HTTPNodeConfigProps> = ({
                         }
                         className="w-[18px] h-[18px] cursor-pointer"
                     />
-                    Follow Redirects
+                    {t.nodeConfig.http.followRedirects}
                 </label>
             </div>
         </div>

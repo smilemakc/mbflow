@@ -1,8 +1,9 @@
 import React, {useEffect, useState} from 'react';
 import {useDagStore} from '@/store/dagStore.ts';
+import {useTranslation} from '@/store/translations';
 import {VariableAutocomplete} from "@/components/builder";
 import {ArrowRight, Check, Trash2, X, XCircle} from 'lucide-react';
-import {Button, ConfirmModal} from '../ui';
+import {Button, ConfirmModal} from '@/components/ui';
 
 export const EdgeConfigPanel: React.FC = () => {
     const {
@@ -13,6 +14,8 @@ export const EdgeConfigPanel: React.FC = () => {
         updateEdge,
         deleteEdge,
     } = useDagStore();
+
+    const t = useTranslation();
 
     const selectedEdge = edges.find((e) => e.id === selectedEdgeId);
     const isOpen = !!selectedEdge;
@@ -80,7 +83,7 @@ export const EdgeConfigPanel: React.FC = () => {
                         <div className="flex items-center gap-2">
                             <ArrowRight className="w-5 h-5 text-slate-700 dark:text-slate-300"/>
                             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                                Edge Configuration
+                                {t.edge.title}
                             </h3>
                         </div>
                         <Button
@@ -96,7 +99,7 @@ export const EdgeConfigPanel: React.FC = () => {
                         {/* Edge Info */}
                         <div className="rounded-lg bg-slate-50 dark:bg-slate-950 p-3">
                             <div className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                                Connection
+                                {t.edge.connection}
                             </div>
                             <div className="flex items-center gap-2 text-sm">
                 <span
@@ -115,7 +118,7 @@ export const EdgeConfigPanel: React.FC = () => {
                         {isFromConditionalNode && (
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                    Branch
+                                    {t.edge.branch}
                                 </label>
                                 <div className="flex gap-2">
                                     <button
@@ -127,7 +130,7 @@ export const EdgeConfigPanel: React.FC = () => {
                                         }`}
                                     >
                                         <Check className="inline w-4 h-4 mr-1"/>
-                                        True Branch
+                                        {t.edge.trueBranch}
                                     </button>
                                     <button
                                         onClick={() => setSourceHandle('false')}
@@ -138,11 +141,11 @@ export const EdgeConfigPanel: React.FC = () => {
                                         }`}
                                     >
                                         <XCircle className="inline w-4 h-4 mr-1"/>
-                                        False Branch
+                                        {t.edge.falseBranch}
                                     </button>
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                                    Select which branch of the conditional node this edge follows.
+                                    {t.edge.branchDescription}
                                 </p>
                             </div>
                         )}
@@ -150,20 +153,19 @@ export const EdgeConfigPanel: React.FC = () => {
                         {/* Condition Expression */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                Condition Expression{' '}
-                                <span className="text-slate-400 dark:text-slate-500">(optional)</span>
+                                {t.edge.conditionExpression}{' '}
+                                <span className="text-slate-400 dark:text-slate-500">{t.edge.optional}</span>
                             </label>
                             <VariableAutocomplete
                                 type="textarea"
                                 value={condition}
                                 onChange={setCondition}
                                 rows={3}
-                                placeholder='output.status == "success"'
+                                placeholder={t.edge.conditionPlaceholder}
                                 className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none text-slate-800 dark:text-slate-200 placeholder-slate-400 font-mono"
                             />
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                Use expr-lang syntax. Edge will only be followed if condition evaluates to
-                                true.
+                                {t.edge.conditionDescription}
                             </p>
                         </div>
 
@@ -171,7 +173,7 @@ export const EdgeConfigPanel: React.FC = () => {
                         <div
                             className="rounded-lg border border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/20 p-3">
                             <h4 className="mb-2 text-sm font-semibold text-blue-800 dark:text-blue-300">
-                                Condition Examples
+                                {t.edge.conditionExamples}
                             </h4>
                             <ul className="space-y-1 text-xs text-blue-700 dark:text-blue-400">
                                 <li>
@@ -202,13 +204,13 @@ export const EdgeConfigPanel: React.FC = () => {
                                 onClick={handleSave}
                                 className="flex-1"
                             >
-                                Save Changes
+                                {t.edge.saveChanges}
                             </Button>
                             <Button
                                 variant="outline"
                                 onClick={handleClose}
                             >
-                                Cancel
+                                {t.common.cancel}
                             </Button>
                         </div>
                         <Button
@@ -217,7 +219,7 @@ export const EdgeConfigPanel: React.FC = () => {
                             icon={<Trash2 size={16} />}
                             onClick={() => setShowDeleteConfirm(true)}
                         >
-                            Delete Edge
+                            {t.edge.deleteEdge}
                         </Button>
                     </div>
                 </div>
@@ -228,9 +230,9 @@ export const EdgeConfigPanel: React.FC = () => {
                 isOpen={showDeleteConfirm}
                 onClose={() => setShowDeleteConfirm(false)}
                 onConfirm={handleDelete}
-                title="Delete Edge"
-                message="Are you sure you want to delete this edge? This action cannot be undone."
-                confirmText="Delete"
+                title={t.edge.deleteModal.title}
+                message={t.edge.deleteModal.message}
+                confirmText={t.edge.deleteModal.confirm}
                 variant="danger"
             />
 

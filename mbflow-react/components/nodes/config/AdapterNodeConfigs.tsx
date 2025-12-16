@@ -1,5 +1,6 @@
 import React from 'react';
 import {ArrowRight, Info} from 'lucide-react';
+import { useTranslation } from '@/store/translations.ts';
 
 interface AdapterConfigProps {
     config: Record<string, any>;
@@ -24,15 +25,15 @@ const InfoBlock: React.FC<{ input: string; output: string }> = ({input, output})
 );
 
 export const Base64ToBytesNodeConfig: React.FC<AdapterConfigProps> = () => {
+    const t = useTranslation();
     return (
         <div className="flex flex-col gap-4">
             <div>
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Base64 to Bytes Converter
+                    {t.nodeConfig.adapter.base64ToBytes.title}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Decodes a base64-encoded string into raw bytes. Useful for processing binary data received as
-                    base64.
+                    {t.nodeConfig.adapter.base64ToBytes.description}
                 </p>
             </div>
 
@@ -42,21 +43,22 @@ export const Base64ToBytesNodeConfig: React.FC<AdapterConfigProps> = () => {
             />
 
             <div className="text-xs text-slate-500 dark:text-slate-500 italic">
-                No configuration required. Input is automatically converted.
+                {t.nodeConfig.adapter.base64ToBytes.noConfig}
             </div>
         </div>
     );
 };
 
 export const BytesToBase64NodeConfig: React.FC<AdapterConfigProps> = () => {
+    const t = useTranslation();
     return (
         <div className="flex flex-col gap-4">
             <div>
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Bytes to Base64 Converter
+                    {t.nodeConfig.adapter.bytesToBase64.title}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Encodes raw bytes into a base64 string. Useful for transmitting binary data as text.
+                    {t.nodeConfig.adapter.bytesToBase64.description}
                 </p>
             </div>
 
@@ -66,21 +68,22 @@ export const BytesToBase64NodeConfig: React.FC<AdapterConfigProps> = () => {
             />
 
             <div className="text-xs text-slate-500 dark:text-slate-500 italic">
-                No configuration required. Input is automatically converted.
+                {t.nodeConfig.adapter.bytesToBase64.noConfig}
             </div>
         </div>
     );
 };
 
 export const StringToJsonNodeConfig: React.FC<AdapterConfigProps> = () => {
+    const t = useTranslation();
     return (
         <div className="flex flex-col gap-4">
             <div>
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    String to JSON Parser
+                    {t.nodeConfig.adapter.stringToJson.title}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Parses a JSON-formatted string into a structured object. Validates JSON syntax.
+                    {t.nodeConfig.adapter.stringToJson.description}
                 </p>
             </div>
 
@@ -90,21 +93,22 @@ export const StringToJsonNodeConfig: React.FC<AdapterConfigProps> = () => {
             />
 
             <div className="text-xs text-slate-500 dark:text-slate-500 italic">
-                No configuration required. Input is automatically parsed.
+                {t.nodeConfig.adapter.stringToJson.noConfig}
             </div>
         </div>
     );
 };
 
 export const JsonToStringNodeConfig: React.FC<AdapterConfigProps> = () => {
+    const t = useTranslation();
     return (
         <div className="flex flex-col gap-4">
             <div>
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    JSON to String Serializer
+                    {t.nodeConfig.adapter.jsonToString.title}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Serializes a structured object into a JSON-formatted string.
+                    {t.nodeConfig.adapter.jsonToString.description}
                 </p>
             </div>
 
@@ -114,21 +118,22 @@ export const JsonToStringNodeConfig: React.FC<AdapterConfigProps> = () => {
             />
 
             <div className="text-xs text-slate-500 dark:text-slate-500 italic">
-                No configuration required. Input is automatically serialized.
+                {t.nodeConfig.adapter.jsonToString.noConfig}
             </div>
         </div>
     );
 };
 
 export const BytesToJsonNodeConfig: React.FC<AdapterConfigProps> = () => {
+    const t = useTranslation();
     return (
         <div className="flex flex-col gap-4">
             <div>
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Bytes to JSON Parser
+                    {t.nodeConfig.adapter.bytesToJson.title}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Decodes bytes (UTF-8) and parses the result as JSON. Combines decoding and parsing in one step.
+                    {t.nodeConfig.adapter.bytesToJson.description}
                 </p>
             </div>
 
@@ -138,21 +143,22 @@ export const BytesToJsonNodeConfig: React.FC<AdapterConfigProps> = () => {
             />
 
             <div className="text-xs text-slate-500 dark:text-slate-500 italic">
-                No configuration required. Input is automatically decoded and parsed.
+                {t.nodeConfig.adapter.bytesToJson.noConfig}
             </div>
         </div>
     );
 };
 
 export const FileToBytesNodeConfig: React.FC<AdapterConfigProps> = () => {
+    const t = useTranslation();
     return (
         <div className="flex flex-col gap-4">
             <div>
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    File to Bytes Reader
+                    {t.nodeConfig.adapter.fileToBytes.title}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Reads a file from storage and outputs its content as raw bytes.
+                    {t.nodeConfig.adapter.fileToBytes.description}
                 </p>
             </div>
 
@@ -162,13 +168,14 @@ export const FileToBytesNodeConfig: React.FC<AdapterConfigProps> = () => {
             />
 
             <div className="text-xs text-slate-500 dark:text-slate-500 italic">
-                No configuration required. Accepts File object from storage nodes.
+                {t.nodeConfig.adapter.fileToBytes.noConfig}
             </div>
         </div>
     );
 };
 
 export const BytesToFileNodeConfig: React.FC<AdapterConfigProps> = ({config, onChange}) => {
+    const t = useTranslation();
     const handleFilenameChange = (filename: string) => {
         onChange({...config, filename});
     };
@@ -177,10 +184,10 @@ export const BytesToFileNodeConfig: React.FC<AdapterConfigProps> = ({config, onC
         <div className="flex flex-col gap-4">
             <div>
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Bytes to File Writer
+                    {t.nodeConfig.adapter.bytesToFile.title}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Writes raw bytes to a file in storage. Specify the filename for the created file.
+                    {t.nodeConfig.adapter.bytesToFile.description}
                 </p>
             </div>
 
@@ -191,17 +198,17 @@ export const BytesToFileNodeConfig: React.FC<AdapterConfigProps> = ({config, onC
 
             <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    Filename
+                    {t.nodeConfig.adapter.bytesToFile.filename}
                 </label>
                 <input
                     type="text"
                     value={config.filename || ''}
                     onChange={(e) => handleFilenameChange(e.target.value)}
-                    placeholder="output.bin"
+                    placeholder={t.nodeConfig.adapter.bytesToFile.filenamePlaceholder}
                     className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-slate-800 dark:text-slate-200 placeholder-slate-400"
                 />
                 <p className="text-xs text-slate-500 dark:text-slate-500">
-                    The name of the file to be created in storage
+                    {t.nodeConfig.adapter.bytesToFile.filenameHint}
                 </p>
             </div>
         </div>

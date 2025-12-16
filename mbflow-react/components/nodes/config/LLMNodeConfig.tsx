@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {DEFAULT_TOOL_CALL_CONFIG, LLM_PROVIDER_MODELS, LLMNodeConfig} from '@/types/nodeConfigs.ts';
 import {VariableAutocomplete} from '@/components';
 import {Button} from '@/components/ui';
+import {useTranslation} from '@/store/translations';
 
 interface Props {
     config: LLMNodeConfig;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChange}) => {
+    const t = useTranslation();
     const [localConfig, setLocalConfig] = useState<LLMNodeConfig>({...config});
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [toolCallingEnabled, setToolCallingEnabled] = useState(!!localConfig.tool_call_config);
@@ -111,7 +113,7 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
         <div className="flex flex-col gap-4">
             {/* Basic Settings */}
             <div className="flex flex-col gap-1.5">
-                <label className={labelClasses}>Provider</label>
+                <label className={labelClasses}>{t.nodeConfig.llm.provider}</label>
                 <select
                     value={localConfig.provider}
                     onChange={(e) => handleProviderChange(e.target.value as LLMNodeConfig['provider'])}
@@ -126,7 +128,7 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
             </div>
 
             <div className="flex flex-col gap-1.5">
-                <label className={labelClasses}>Model</label>
+                <label className={labelClasses}>{t.nodeConfig.llm.model}</label>
                 <select
                     value={localConfig.model}
                     onChange={(e) => updateConfig({model: e.target.value})}
@@ -141,27 +143,25 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
             </div>
 
             <div className="flex flex-col gap-1.5">
-                <label className={labelClasses}>API Key</label>
+                <label className={labelClasses}>{t.nodeConfig.llm.apiKey}</label>
                 <VariableAutocomplete
                     value={localConfig.api_key}
                     onChange={(value) => updateConfig({api_key: value})}
-                    placeholder="{{env.openai_api_key}}"
+                    placeholder={t.nodeConfig.llm.apiKeyPlaceholder}
                     className={inputClasses}
                     type="input"
                 />
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Use templates like <code
-                    className="rounded bg-slate-100 dark:bg-slate-800 px-1">{'{{env.openai_api_key}}'}</code> to
-                    reference workflow variables
+                    {t.nodeConfig.llm.apiKeyHint}
                 </p>
             </div>
 
             <div className="flex flex-col gap-1.5">
-                <label className={labelClasses}>System Prompt (Optional)</label>
+                <label className={labelClasses}>{t.nodeConfig.llm.systemPrompt}</label>
                 <VariableAutocomplete
                     value={localConfig.instruction || ''}
                     onChange={(value) => updateConfig({instruction: value})}
-                    placeholder="Enter system instructions..."
+                    placeholder={t.nodeConfig.llm.systemPromptPlaceholder}
                     className={textareaClasses}
                     type="textarea"
                     rows={3}
@@ -169,11 +169,11 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
             </div>
 
             <div className="flex flex-col gap-1.5">
-                <label className={labelClasses}>User Prompt</label>
+                <label className={labelClasses}>{t.nodeConfig.llm.userPrompt}</label>
                 <VariableAutocomplete
                     value={localConfig.prompt}
                     onChange={(value) => updateConfig({prompt: value})}
-                    placeholder="Enter user prompt..."
+                    placeholder={t.nodeConfig.llm.userPromptPlaceholder}
                     className={textareaClasses}
                     type="textarea"
                     rows={5}
@@ -187,7 +187,7 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
                 size="sm"
                 type="button"
             >
-                {showAdvanced ? '▼' : '▶'} Advanced Settings
+                {showAdvanced ? '▼' : '▶'} {t.nodeConfig.llm.advancedSettings}
             </Button>
 
             {/* Advanced Section */}
@@ -196,8 +196,8 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
                     className="flex flex-col gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-md">
                     <div className="flex flex-col gap-1.5">
                         <label className={labelClasses}>
-                            Temperature
-                            <span className={hintClasses}>(0.0 - 2.0, default: 0.7)</span>
+                            {t.nodeConfig.llm.temperature}
+                            <span className={hintClasses}>{t.nodeConfig.llm.temperatureHint}</span>
                         </label>
                         <input
                             type="number"
@@ -212,8 +212,8 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
 
                     <div className="flex flex-col gap-1.5">
                         <label className={labelClasses}>
-                            Max Tokens
-                            <span className={hintClasses}>(Maximum response length)</span>
+                            {t.nodeConfig.llm.maxTokens}
+                            <span className={hintClasses}>{t.nodeConfig.llm.maxTokensHint}</span>
                         </label>
                         <input
                             type="number"
@@ -227,8 +227,8 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
 
                     <div className="flex flex-col gap-1.5">
                         <label className={labelClasses}>
-                            Top P
-                            <span className={hintClasses}>(0.0 - 1.0, nucleus sampling)</span>
+                            {t.nodeConfig.llm.topP}
+                            <span className={hintClasses}>{t.nodeConfig.llm.topPHint}</span>
                         </label>
                         <input
                             type="number"
@@ -243,8 +243,8 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
 
                     <div className="flex flex-col gap-1.5">
                         <label className={labelClasses}>
-                            Frequency Penalty
-                            <span className={hintClasses}>(-2.0 - 2.0)</span>
+                            {t.nodeConfig.llm.frequencyPenalty}
+                            <span className={hintClasses}>{t.nodeConfig.llm.frequencyPenaltyHint}</span>
                         </label>
                         <input
                             type="number"
@@ -259,8 +259,8 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
 
                     <div className="flex flex-col gap-1.5">
                         <label className={labelClasses}>
-                            Presence Penalty
-                            <span className={hintClasses}>(-2.0 - 2.0)</span>
+                            {t.nodeConfig.llm.presencePenalty}
+                            <span className={hintClasses}>{t.nodeConfig.llm.presencePenaltyHint}</span>
                         </label>
                         <input
                             type="number"
@@ -274,30 +274,30 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                        <label className={labelClasses}>Stop Sequences (one per line)</label>
+                        <label className={labelClasses}>{t.nodeConfig.llm.stopSequences}</label>
                         <textarea
                             value={stopSequencesText}
                             onChange={(e) => handleStopSequencesChange(e.target.value)}
-                            placeholder="Enter stop sequences, one per line"
+                            placeholder={t.nodeConfig.llm.stopSequencesPlaceholder}
                             rows={3}
                             className={textareaClasses}
                         />
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                        <label className={labelClasses}>Response Format</label>
+                        <label className={labelClasses}>{t.nodeConfig.llm.responseFormat}</label>
                         <select
                             value={localConfig.response_format || 'text'}
                             onChange={(e) => updateConfig({response_format: e.target.value as 'text' | 'json'})}
                             className={selectClasses}
                         >
-                            <option value="text">Text</option>
-                            <option value="json">JSON</option>
+                            <option value="text">{t.nodeConfig.llm.responseFormatText}</option>
+                            <option value="json">{t.nodeConfig.llm.responseFormatJson}</option>
                         </select>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                        <label className={labelClasses}>Timeout (seconds)</label>
+                        <label className={labelClasses}>{t.nodeConfig.llm.timeout}</label>
                         <input
                             type="number"
                             min="1"
@@ -309,7 +309,7 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                        <label className={labelClasses}>Retry Count</label>
+                        <label className={labelClasses}>{t.nodeConfig.llm.retryCount}</label>
                         <input
                             type="number"
                             min="0"

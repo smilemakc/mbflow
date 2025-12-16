@@ -13,8 +13,9 @@ import {
   FileText,
 } from 'lucide-react';
 import { Button, Modal, ConfirmModal } from '@/components/ui';
-import { FileMetadata, FileStorageResource } from '../../services/resources.ts';
-import { formatBytes } from '../../utils/formatters.ts';
+import { FileMetadata, FileStorageResource } from '@/services/resources.ts';
+import { formatBytes } from '@/utils/formatters.ts';
+import { useTranslation } from '@/store/translations';
 
 interface FilesModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const FilesModal: React.FC<FilesModalProps> = ({
   onDelete,
   onDownload,
 }) => {
+  const t = useTranslation();
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<{id: string, name: string} | null>(null);
@@ -78,7 +80,7 @@ export const FilesModal: React.FC<FilesModalProps> = ({
       <Modal
         isOpen={isOpen}
         onClose={handleClose}
-        title={`Files - ${resource?.name || ''}`}
+        title={`${t.resources.filesTitle} - ${resource?.name || ''}`}
         size="lg"
       >
         <div className="space-y-4">
@@ -103,9 +105,9 @@ export const FilesModal: React.FC<FilesModalProps> = ({
         isOpen={!!fileToDelete}
         onClose={() => setFileToDelete(null)}
         onConfirm={handleDeleteConfirm}
-        title="Delete File"
-        message={`Are you sure you want to delete "${fileToDelete?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
+        title={t.resources.deleteFileTitle}
+        message={t.resources.deleteFileMessage.replace('this file', `"${fileToDelete?.name}"`)}
+        confirmText={t.common.delete}
         variant="danger"
       />
     </>
@@ -124,7 +126,9 @@ const UploadSection: React.FC<UploadSectionProps> = ({
   onFileSelect,
   onUpload,
   loading,
-}) => (
+}) => {
+  const t = useTranslation();
+  return (
   <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-4">
     <div className="flex items-center gap-3">
       <input
@@ -139,7 +143,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
       >
         <Upload size={16} className="mr-2" />
         <span className="text-sm text-slate-600 dark:text-slate-400">
-          {uploadFile ? uploadFile.name : 'Choose file to upload'}
+          {uploadFile ? uploadFile.name : t.resources.chooseFile}
         </span>
       </label>
       {uploadFile && (
@@ -150,17 +154,18 @@ const UploadSection: React.FC<UploadSectionProps> = ({
           loading={loading}
           icon={<Upload size={14} />}
         >
-          Upload
+          {t.resources.upload}
         </Button>
       )}
     </div>
     {uploadFile && (
       <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-        File size: {formatBytes(uploadFile.size)}
+        {t.resources.fileSize}: {formatBytes(uploadFile.size)}
       </p>
     )}
   </div>
-);
+  );
+};
 
 interface FilesListProps {
   files: FileMetadata[];
@@ -209,12 +214,15 @@ const FilesList: React.FC<FilesListProps> = ({
   );
 };
 
-const EmptyState: React.FC = () => (
+const EmptyState: React.FC = () => {
+  const t = useTranslation();
+  return (
   <div className="text-center py-12">
     <FolderOpen size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-700" />
-    <p className="text-slate-500 dark:text-slate-400">No files uploaded yet</p>
+    <p className="text-slate-500 dark:text-slate-400">{t.resources.noFilesYet}</p>
   </div>
-);
+  );
+};
 
 interface FilesHeaderProps {
   count: number;
@@ -223,12 +231,13 @@ interface FilesHeaderProps {
 }
 
 const FilesHeader: React.FC<FilesHeaderProps> = ({ count, total, files }) => {
+  const t = useTranslation();
   const totalSize = files.reduce((sum, f) => sum + f.size, 0);
 
   return (
     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-2">
-      <span>Showing {count} of {total} files</span>
-      <span>Total: {formatBytes(totalSize)}</span>
+      <span>{t.resources.showingFiles} {count} {t.resources.ofFiles} {total} {t.resources.totalFiles}</span>
+      <span>{t.resources.totalSize}: {formatBytes(totalSize)}</span>
     </div>
   );
 };

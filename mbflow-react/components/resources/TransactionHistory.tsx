@@ -8,6 +8,7 @@ import {CreditCard, FileText, TrendingUp} from 'lucide-react';
 import {Button} from '@/components/ui';
 import {Transaction} from '@/services/resources.ts';
 import {formatDate} from '@/utils/formatters.ts';
+import {useTranslation} from '@/store/translations';
 
 interface TransactionHistoryProps {
     transactions: Transaction[];
@@ -33,10 +34,12 @@ interface SectionHeaderProps {
     onDepositClick: () => void;
 }
 
-const SectionHeader: React.FC<SectionHeaderProps> = ({onDepositClick}) => (
+const SectionHeader: React.FC<SectionHeaderProps> = ({onDepositClick}) => {
+    const t = useTranslation();
+    return (
     <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            Billing & Transactions
+            {t.resources.billingTransactions}
         </h2>
         <Button
             onClick={onDepositClick}
@@ -44,10 +47,11 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({onDepositClick}) => (
             size="sm"
             icon={<CreditCard size={16}/>}
         >
-            Deposit Funds
+            {t.resources.depositFunds}
         </Button>
     </div>
-);
+    );
+};
 
 interface TransactionTableProps {
     transactions: Transaction[];
@@ -71,39 +75,47 @@ interface TableHeaderProps {
     total: number;
 }
 
-const TableHeader: React.FC<TableHeaderProps> = ({count, total}) => (
+const TableHeader: React.FC<TableHeaderProps> = ({count, total}) => {
+    const t = useTranslation();
+    return (
     <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
         <h3 className="font-bold text-slate-900 dark:text-white flex items-center">
             <TrendingUp size={18} className="mr-2"/>
-            Transaction History
+            {t.resources.transactionHistory}
         </h3>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Showing {count} of {total} total transactions
+            {t.resources.showingTransactions} {count} {t.resources.ofTotal} {total} {t.resources.totalTransactions}
         </p>
     </div>
-);
+    );
+};
 
-const EmptyState: React.FC = () => (
+const EmptyState: React.FC = () => {
+    const t = useTranslation();
+    return (
     <div className="p-12 text-center">
         <FileText size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-700"/>
-        <p className="text-slate-500 dark:text-slate-400">No transactions yet</p>
+        <p className="text-slate-500 dark:text-slate-400">{t.resources.noTransactionsYet}</p>
     </div>
-);
+    );
+};
 
 interface TableBodyProps {
     transactions: Transaction[];
 }
 
-const TableBody: React.FC<TableBodyProps> = ({transactions}) => (
+const TableBody: React.FC<TableBodyProps> = ({transactions}) => {
+    const t = useTranslation();
+    return (
     <div className="overflow-x-auto">
         <table className="w-full">
             <thead className="bg-slate-50 dark:bg-slate-900/50">
             <tr>
-                <TableHeaderCell>Type</TableHeaderCell>
-                <TableHeaderCell>Description</TableHeaderCell>
-                <TableHeaderCell align="right">Amount</TableHeaderCell>
-                <TableHeaderCell align="center">Status</TableHeaderCell>
-                <TableHeaderCell align="right">Date</TableHeaderCell>
+                <TableHeaderCell>{t.resources.type}</TableHeaderCell>
+                <TableHeaderCell>{t.resources.transactionDescription}</TableHeaderCell>
+                <TableHeaderCell align="right">{t.resources.transactionAmount}</TableHeaderCell>
+                <TableHeaderCell align="center">{t.resources.status}</TableHeaderCell>
+                <TableHeaderCell align="right">{t.resources.date}</TableHeaderCell>
             </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -113,7 +125,8 @@ const TableBody: React.FC<TableBodyProps> = ({transactions}) => (
             </tbody>
         </table>
     </div>
-);
+    );
+};
 
 interface TableHeaderCellProps {
     children: React.ReactNode;
@@ -160,12 +173,18 @@ interface TypeBadgeProps {
     type: string;
 }
 
-const TypeBadge: React.FC<TypeBadgeProps> = ({type}) => (
+const TypeBadge: React.FC<TypeBadgeProps> = ({type}) => {
+    const t = useTranslation();
+    const typeKey = type as keyof typeof t.resources.transactionTypes;
+    const displayType = t.resources.transactionTypes[typeKey] || type;
+
+    return (
     <span
         className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
-    {type}
+    {displayType}
   </span>
-);
+    );
+};
 
 interface AmountCellProps {
     amount: number;
@@ -191,6 +210,7 @@ interface StatusBadgeProps {
 }
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({status}) => {
+    const t = useTranslation();
     const getStatusStyles = (status: string): string => {
         switch (status) {
             case 'completed':
@@ -202,11 +222,14 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({status}) => {
         }
     };
 
+    const statusKey = status as keyof typeof t.resources.statuses;
+    const displayStatus = t.resources.statuses[statusKey] || status;
+
     return (
         <span
             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusStyles(status)}`}
         >
-      {status}
+      {displayStatus}
     </span>
     );
 };

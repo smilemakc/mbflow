@@ -26,8 +26,10 @@ import {
   TransactionHistory,
 } from '@/components/resources';
 import {ConfirmModal} from '@/components/ui';
+import { useTranslation } from '@/store/translations';
 
 export const ResourcesPage: React.FC = () => {
+    const t = useTranslation();
     // Data hooks
     const {
         resources,
@@ -124,9 +126,9 @@ export const ResourcesPage: React.FC = () => {
                 isOpen={!!resourceToDelete}
                 onClose={() => setResourceToDelete(null)}
                 onConfirm={handleDeleteResource}
-                title="Delete Resource"
-                message={`Are you sure you want to delete "${resourceToDelete?.name}"? This action cannot be undone.`}
-                confirmText="Delete"
+                title={t.resources.deleteResourceTitle}
+                message={t.resources.deleteResourceMessage}
+                confirmText={t.common.delete}
                 variant="danger"
             />
         </div>
@@ -139,19 +141,22 @@ interface PageHeaderProps {
     account: any | null;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({account}) => (
-    <div className="flex justify-between items-start">
-        <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Resources & Billing
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">
-                Manage your file storage resources and account balance.
-            </p>
+const PageHeader: React.FC<PageHeaderProps> = ({account}) => {
+    const t = useTranslation();
+    return (
+        <div className="flex justify-between items-start">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {t.resources.pageTitle}
+                </h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-1">
+                    {t.resources.pageSubtitle}
+                </p>
+            </div>
+            {account && <AccountBalance account={account}/>}
         </div>
-        {account && <AccountBalance account={account}/>}
-    </div>
-);
+    );
+};
 
 const LoadingSpinner: React.FC = () => (
     <div className="flex items-center justify-center py-20">

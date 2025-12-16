@@ -23,6 +23,7 @@
 import React, {useEffect, useState} from 'react';
 import {VariableAutocomplete} from '@/components';
 import {TelegramCallbackNodeConfig} from '@/types/nodeConfigs.ts';
+import { useTranslation } from '@/store/translations';
 
 interface Props {
     config: TelegramCallbackNodeConfig;
@@ -35,6 +36,7 @@ export const TelegramCallbackNodeConfigComponent: React.FC<Props> = ({
                                                                          nodeId,
                                                                          onChange,
                                                                      }) => {
+    const t = useTranslation();
     const [localConfig, setLocalConfig] = useState<TelegramCallbackNodeConfig>({
         bot_token: config.bot_token || '',
         callback_query_id: config.callback_query_id || '',
@@ -75,10 +77,10 @@ export const TelegramCallbackNodeConfigComponent: React.FC<Props> = ({
         <div className="telegram-callback-config space-y-4">
             {/* API Credentials */}
             <div className={sectionClass}>
-                <h4 className={sectionTitleClass}>Credentials</h4>
+                <h4 className={sectionTitleClass}>{t.nodeConfig.telegramCallback.credentials}</h4>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Bot Token</label>
+                    <label className={labelClass}>{t.nodeConfig.telegramCallback.botToken}</label>
                     <VariableAutocomplete
                         type="input"
                         value={localConfig.bot_token}
@@ -91,26 +93,26 @@ export const TelegramCallbackNodeConfigComponent: React.FC<Props> = ({
 
             {/* Callback Settings */}
             <div className="space-y-4">
-                <h4 className={sectionTitleClass}>Callback Query</h4>
+                <h4 className={sectionTitleClass}>{t.nodeConfig.telegramCallback.callbackQuery}</h4>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Callback Query ID</label>
+                    <label className={labelClass}>{t.nodeConfig.telegramCallback.callbackQueryId}</label>
                     <VariableAutocomplete
                         type="input"
                         value={localConfig.callback_query_id}
                         onChange={(val) => handleChange('callback_query_id', val)}
-                        placeholder="{{input.callback_query_id}}"
+                        placeholder={t.nodeConfig.telegramCallback.callbackQueryIdPlaceholder}
                         className={inputClass}
                     />
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Text Response (Optional)</label>
+                    <label className={labelClass}>{t.nodeConfig.telegramCallback.textResponse}</label>
                     <VariableAutocomplete
                         type="textarea"
                         value={localConfig.text || ''}
                         onChange={(val) => handleChange('text', val)}
-                        placeholder="Request completed! {{input.result}}"
+                        placeholder={t.nodeConfig.telegramCallback.textResponsePlaceholder}
                         rows={3}
                         className={inputClass + ' resize-none'}
                     />
@@ -128,7 +130,7 @@ export const TelegramCallbackNodeConfigComponent: React.FC<Props> = ({
                         htmlFor="show-alert"
                         className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors cursor-pointer"
                     >
-                        Show as popup alert instead of notification
+                        {t.nodeConfig.telegramCallback.showAlert}
                     </label>
                 </div>
             </div>
@@ -138,18 +140,18 @@ export const TelegramCallbackNodeConfigComponent: React.FC<Props> = ({
                 <h4 className={sectionTitleClass}>Optional</h4>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>URL (Optional)</label>
+                    <label className={labelClass}>{t.nodeConfig.telegramCallback.url}</label>
                     <VariableAutocomplete
                         type="input"
                         value={localConfig.url || ''}
                         onChange={(val) => handleChange('url', val)}
-                        placeholder="https://example.com"
+                        placeholder={t.nodeConfig.telegramCallback.urlPlaceholder}
                         className={inputClass}
                     />
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Cache Time (seconds)</label>
+                    <label className={labelClass}>{t.nodeConfig.telegramCallback.cacheTime}</label>
                     <input
                         type="number"
                         value={localConfig.cache_time ?? 0}
@@ -164,7 +166,7 @@ export const TelegramCallbackNodeConfigComponent: React.FC<Props> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className={labelClass}>Timeout (seconds)</label>
+                    <label className={labelClass}>{t.nodeConfig.telegramCallback.timeout}</label>
                     <input
                         type="number"
                         value={localConfig.timeout ?? ''}

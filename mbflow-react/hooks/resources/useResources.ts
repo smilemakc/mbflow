@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { resourcesApi, FileStorageResource, Account, Transaction } from '../../services/resources.ts';
-import { toast } from '../../lib/toast.ts';
+import { resourcesApi, FileStorageResource, Account, Transaction } from '@/services/resources.ts';
+import { toast } from '@/lib/toast.ts';
 
 export interface ResourcesState {
   resources: FileStorageResource[];

@@ -18,6 +18,7 @@ import {useDagStore} from '@/store/dagStore';
 import {AppEdge, AppNode, NodeStatus, NodeType} from '@/types';
 import {MarkerType} from 'reactflow';
 import {Button, ConfirmModal} from '../ui';
+import { useTranslation } from '@/store/translations.ts';
 
 // Template interface
 interface WorkflowTemplate {
@@ -1023,27 +1024,28 @@ const TEMPLATES: WorkflowTemplate[] = [
     }
 ];
 
-// Category filter options
-const CATEGORIES = [
-    {id: 'all', label: 'All Templates'},
-    {id: 'basic', label: 'Basic'},
-    {id: 'telegram', label: 'Telegram'},
-    {id: 'ai', label: 'AI & LLM'},
-    {id: 'data', label: 'Data Processing'}
-];
-
 export const TemplatesModal: React.FC = () => {
     const {setActiveModal} = useUIStore();
     const {loadGraph} = useDagStore();
+    const t = useTranslation();
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [templateToLoad, setTemplateToLoad] = useState<WorkflowTemplate | null>(null);
 
-    const filteredTemplates = TEMPLATES.filter(t => {
-        const matchesCategory = selectedCategory === 'all' || t.category === selectedCategory;
+    // Category filter options
+    const CATEGORIES = [
+        {id: 'all', label: t.templates.allTemplates},
+        {id: 'basic', label: t.templates.basic},
+        {id: 'telegram', label: t.templates.telegram},
+        {id: 'ai', label: t.templates.aiLlm},
+        {id: 'data', label: t.templates.dataProcessing}
+    ];
+
+    const filteredTemplates = TEMPLATES.filter(template => {
+        const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory;
         const matchesSearch = searchQuery === '' ||
-            t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.description.toLowerCase().includes(searchQuery.toLowerCase());
+            template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            template.description.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     });
 
@@ -1074,10 +1076,10 @@ export const TemplatesModal: React.FC = () => {
                     <div>
                         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center">
                             <LayoutTemplate className="mr-3 text-blue-500" size={24}/>
-                            Workflow Templates
+                            {t.templates.title}
                         </h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            Start with a pre-built automation pattern with full configurations
+                            {t.templates.subtitle}
                         </p>
                     </div>
                     <Button
@@ -1112,7 +1114,7 @@ export const TemplatesModal: React.FC = () => {
                     <div className="flex-1 min-w-[200px]">
                         <input
                             type="text"
-                            placeholder="Search templates..."
+                            placeholder={t.templates.searchPlaceholder}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full px-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700 dark:text-slate-200 placeholder-slate-400"
@@ -1123,43 +1125,43 @@ export const TemplatesModal: React.FC = () => {
                 {/* Templates Grid */}
                 <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30 dark:bg-slate-950/30">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {filteredTemplates.map((t) => (
+                        {filteredTemplates.map((template) => (
                             <div
-                                key={t.id}
+                                key={template.id}
                                 className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer flex flex-col"
-                                onClick={() => handleSelect(t)}
+                                onClick={() => handleSelect(template)}
                             >
                                 <div className="flex justify-between items-start mb-3">
                                     <div
-                                        className={`p-2.5 rounded-lg bg-${t.color}-50 dark:bg-${t.color}-900/20 text-${t.color}-600 dark:text-${t.color}-400 group-hover:scale-110 transition-transform`}>
-                                        <t.icon size={22}/>
+                                        className={`p-2.5 rounded-lg bg-${template.color}-50 dark:bg-${template.color}-900/20 text-${template.color}-600 dark:text-${template.color}-400 group-hover:scale-110 transition-transform`}>
+                                        <template.icon size={22}/>
                                     </div>
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                     <span
                         className="flex items-center text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-full">
-                      Use <ArrowRight size={12} className="ml-1"/>
+                      {t.templates.use} <ArrowRight size={12} className="ml-1"/>
                     </span>
                                     </div>
                                 </div>
 
-                                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1.5">{t.name}</h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 flex-1 leading-relaxed">{t.description}</p>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1.5">{template.name}</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 flex-1 leading-relaxed">{template.description}</p>
 
                                 <div
                                     className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                                     <div className="flex items-center space-x-3">
                     <span
                         className="text-xs font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                      {t.nodes.length} nodes
+                      {template.nodes.length} {t.templates.nodesCount}
                     </span>
                                         <span
                                             className="text-xs font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                      {t.edges.length} edges
+                      {template.edges.length} {t.templates.edgesCount}
                     </span>
                                     </div>
                                     <span
-                                        className={`text-xs font-medium px-2 py-0.5 rounded-full bg-${t.color}-50 dark:bg-${t.color}-900/20 text-${t.color}-600 dark:text-${t.color}-400`}>
-                    {CATEGORIES.find(c => c.id === t.category)?.label}
+                                        className={`text-xs font-medium px-2 py-0.5 rounded-full bg-${template.color}-50 dark:bg-${template.color}-900/20 text-${template.color}-600 dark:text-${template.color}-400`}>
+                    {CATEGORIES.find(c => c.id === template.category)?.label}
                   </span>
                                 </div>
                             </div>
@@ -1169,7 +1171,7 @@ export const TemplatesModal: React.FC = () => {
                     {filteredTemplates.length === 0 && (
                         <div className="text-center py-12 text-slate-400">
                             <FileText size={48} className="mx-auto mb-3 opacity-50"/>
-                            <p>No templates found matching your criteria</p>
+                            <p>{t.templates.noResults}</p>
                         </div>
                     )}
                 </div>
@@ -1181,9 +1183,9 @@ export const TemplatesModal: React.FC = () => {
                 isOpen={!!templateToLoad}
                 onClose={() => setTemplateToLoad(null)}
                 onConfirm={handleConfirmLoad}
-                title="Load Template"
-                message="This will replace your current workflow. Any unsaved changes will be lost. Continue?"
-                confirmText="Load Template"
+                title={t.templates.loadModal.title}
+                message={t.templates.loadModal.message}
+                confirmText={t.templates.loadModal.confirm}
                 variant="warning"
             />
         </div>

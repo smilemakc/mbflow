@@ -12,6 +12,7 @@ import ReactFlow, {
 import {ArrowDown, ArrowRight} from 'lucide-react';
 import {useDagStore} from '@/store/dagStore';
 import {useUIStore} from '@/store/uiStore';
+import {useTranslation} from '@/store/translations';
 import {NodeType} from '@/types';
 import {CustomNode} from './CustomNode';
 import {ContextMenu} from './ContextMenu';
@@ -29,6 +30,7 @@ export const DAGCanvas: React.FC = () => {
     const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
     const {theme} = useUIStore();
     const {fitView} = useReactFlow();
+    const t = useTranslation();
 
     // Auto Layout
     const {applyLayout, isLayouting} = useAutoLayout();
@@ -250,14 +252,14 @@ export const DAGCanvas: React.FC = () => {
                 <Controls>
                     <ControlButton
                         onClick={() => handleAutoLayout('TB')}
-                        title="Auto Layout (Top to Bottom)"
+                        title={t.canvas.autoLayoutTopBottom}
                         disabled={isLayouting || nodes.length === 0}
                     >
                         <ArrowDown size={16}/>
                     </ControlButton>
                     <ControlButton
                         onClick={() => handleAutoLayout('LR')}
-                        title="Auto Layout (Left to Right)"
+                        title={t.canvas.autoLayoutLeftRight}
                         disabled={isLayouting || nodes.length === 0}
                     >
                         <ArrowRight size={16}/>

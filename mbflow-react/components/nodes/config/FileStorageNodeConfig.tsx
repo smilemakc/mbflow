@@ -24,6 +24,7 @@
 import React, {useEffect, useState} from 'react';
 import {FileStorageNodeConfig} from '@/types/nodeConfigs.ts';
 import {VariableAutocomplete} from '@/components';
+import { useTranslation } from '@/store/translations';
 
 interface FileStorageNodeConfigProps {
     config: FileStorageNodeConfig;
@@ -31,30 +32,31 @@ interface FileStorageNodeConfigProps {
     onChange: (config: FileStorageNodeConfig) => void;
 }
 
-const actionOptions = [
-    {label: 'Store File', value: 'store'},
-    {label: 'Get File', value: 'get'},
-    {label: 'Delete File', value: 'delete'},
-    {label: 'List Files', value: 'list'},
-    {label: 'Get Metadata', value: 'metadata'},
-] as const;
-
-const fileSourceOptions = [
-    {label: 'URL', value: 'url'},
-    {label: 'Base64 Data', value: 'base64'},
-] as const;
-
-const accessScopeOptions = [
-    {label: 'Workflow', value: 'workflow'},
-    {label: 'Edge (Connected Nodes)', value: 'edge'},
-    {label: 'Result (Output Storage)', value: 'result'},
-] as const;
-
 export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps> = ({
                                                                                          config,
                                                                                          nodeId,
                                                                                          onChange,
                                                                                      }) => {
+    const t = useTranslation();
+
+    const actionOptions = [
+        {label: t.nodeConfig.fileStorage.actionStore, value: 'store'},
+        {label: t.nodeConfig.fileStorage.actionGet, value: 'get'},
+        {label: t.nodeConfig.fileStorage.actionDelete, value: 'delete'},
+        {label: t.nodeConfig.fileStorage.actionList, value: 'list'},
+        {label: t.nodeConfig.fileStorage.actionMetadata, value: 'metadata'},
+    ] as const;
+
+    const fileSourceOptions = [
+        {label: t.nodeConfig.fileStorage.sourceTypeUrl, value: 'url'},
+        {label: t.nodeConfig.fileStorage.sourceTypeBase64, value: 'base64'},
+    ] as const;
+
+    const accessScopeOptions = [
+        {label: t.nodeConfig.fileStorage.accessScopeWorkflow, value: 'workflow'},
+        {label: t.nodeConfig.fileStorage.accessScopeEdge, value: 'edge'},
+        {label: t.nodeConfig.fileStorage.accessScopeResult, value: 'result'},
+    ] as const;
     const [localConfig, setLocalConfig] = useState<FileStorageNodeConfig>({
         action: config.action || 'store',
         storage_id: config.storage_id || '',
@@ -128,7 +130,7 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
             {/* Action Selection */}
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Action
+                    {t.nodeConfig.fileStorage.action}
                 </label>
                 <select
                     value={localConfig.action}
@@ -150,16 +152,16 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
             {/* Storage ID (optional) */}
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Storage ID (optional)
+                    {t.nodeConfig.fileStorage.storageId}
                 </label>
                 <VariableAutocomplete
                     value={localConfig.storage_id || ''}
                     onChange={(value) => updateConfig({storage_id: value})}
-                    placeholder="default"
+                    placeholder={t.nodeConfig.fileStorage.storageIdPlaceholder}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Leave empty for default storage
+                    {t.nodeConfig.fileStorage.storageIdHint}
                 </p>
             </div>
 
@@ -168,12 +170,12 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
                 <>
                     <div className="rounded-md border border-gray-200 dark:border-gray-700 p-3 space-y-4">
                         <h5 className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
-                            File Source
+                            {t.nodeConfig.fileStorage.fileSource}
                         </h5>
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                Source Type
+                                {t.nodeConfig.fileStorage.sourceType}
                             </label>
                             <select
                                 value={localConfig.file_source}
@@ -194,20 +196,20 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                {localConfig.file_source === 'url' ? 'File URL' : 'Base64 Data'}
+                                {localConfig.file_source === 'url' ? t.nodeConfig.fileStorage.fileUrl : t.nodeConfig.fileStorage.base64Data}
                             </label>
                             {localConfig.file_source === 'url' ? (
                                 <VariableAutocomplete
                                     value={localConfig.file_url || ''}
                                     onChange={(value) => updateConfig({file_url: value})}
-                                    placeholder="https://example.com/document.pdf or {{input.url}}"
+                                    placeholder={t.nodeConfig.fileStorage.fileUrlPlaceholder}
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                 />
                             ) : (
                                 <VariableAutocomplete
                                     value={localConfig.file_data || ''}
                                     onChange={(value) => updateConfig({file_data: value})}
-                                    placeholder="{{input.base64_data}}"
+                                    placeholder={t.nodeConfig.fileStorage.base64Placeholder}
                                     type="textarea"
                                     rows={3}
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-y"
@@ -217,24 +219,24 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                File Name
+                                {t.nodeConfig.fileStorage.fileName}
                             </label>
                             <VariableAutocomplete
                                 value={localConfig.file_name || ''}
                                 onChange={(value) => updateConfig({file_name: value})}
-                                placeholder="document.pdf or {{input.filename}}"
+                                placeholder={t.nodeConfig.fileStorage.fileNamePlaceholder}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                MIME Type (optional)
+                                {t.nodeConfig.fileStorage.mimeType}
                             </label>
                             <VariableAutocomplete
                                 value={localConfig.mime_type || ''}
                                 onChange={(value) => updateConfig({mime_type: value})}
-                                placeholder="Auto-detected if empty"
+                                placeholder={t.nodeConfig.fileStorage.mimeTypePlaceholder}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -243,12 +245,12 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
                     {/* Access Scope & Options */}
                     <div className="rounded-md border border-gray-200 dark:border-gray-700 p-3 space-y-4">
                         <h5 className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
-                            Storage Options
+                            {t.nodeConfig.fileStorage.storageOptions}
                         </h5>
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                Access Scope
+                                {t.nodeConfig.fileStorage.accessScope}
                             </label>
                             <select
                                 value={localConfig.access_scope}
@@ -269,24 +271,24 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                TTL (seconds, 0 = no expiration)
+                                {t.nodeConfig.fileStorage.ttl}
                             </label>
                             <VariableAutocomplete
                                 value={String(localConfig.ttl || 0)}
                                 onChange={(value) => updateConfig({ttl: Number(value) || 0})}
-                                placeholder="0"
+                                placeholder={t.nodeConfig.fileStorage.ttlPlaceholder}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
 
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                Tags (comma-separated)
+                                {t.nodeConfig.fileStorage.tags}
                             </label>
                             <VariableAutocomplete
                                 value={tagsStr}
                                 onChange={handleTagsChange}
-                                placeholder="document, important"
+                                placeholder={t.nodeConfig.fileStorage.tagsPlaceholder}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -298,12 +300,12 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
             {['get', 'delete', 'metadata'].includes(localConfig.action) && (
                 <div className="flex flex-col gap-1.5">
                     <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        File ID
+                        {t.nodeConfig.fileStorage.fileId}
                     </label>
                     <VariableAutocomplete
                         value={localConfig.file_id || ''}
                         onChange={(value) => updateConfig({file_id: value})}
-                        placeholder="{{input.file_id}}"
+                        placeholder={t.nodeConfig.fileStorage.fileIdPlaceholder}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                 </div>
@@ -313,12 +315,12 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
             {localConfig.action === 'list' && (
                 <div className="rounded-md border border-gray-200 dark:border-gray-700 p-3 space-y-4">
                     <h5 className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
-                        Filters
+                        {t.nodeConfig.fileStorage.filters}
                     </h5>
 
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            Access Scope (optional)
+                            {t.nodeConfig.fileStorage.accessScope}
                         </label>
                         <select
                             value={localConfig.access_scope || ''}
@@ -329,7 +331,7 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
                             }
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors focus:outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
                         >
-                            <option value="">All Scopes</option>
+                            <option value="">{t.nodeConfig.fileStorage.allScopes}</option>
                             {accessScopeOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                     {option.label}
@@ -340,12 +342,12 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
 
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            Tags Filter (comma-separated)
+                            {t.nodeConfig.fileStorage.tagsFilter}
                         </label>
                         <VariableAutocomplete
                             value={tagsStr}
                             onChange={handleTagsChange}
-                            placeholder="document, important"
+                            placeholder={t.nodeConfig.fileStorage.tagsPlaceholder}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                         />
                     </div>
@@ -353,23 +355,23 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                Limit
+                                {t.nodeConfig.fileStorage.limit}
                             </label>
                             <VariableAutocomplete
                                 value={String(localConfig.limit || 100)}
                                 onChange={(value) => updateConfig({limit: Number(value) || 100})}
-                                placeholder="100"
+                                placeholder={t.nodeConfig.fileStorage.limitPlaceholder}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                Offset
+                                {t.nodeConfig.fileStorage.offset}
                             </label>
                             <VariableAutocomplete
                                 value={String(localConfig.offset || 0)}
                                 onChange={(value) => updateConfig({offset: Number(value) || 0})}
-                                placeholder="0"
+                                placeholder={t.nodeConfig.fileStorage.offsetPlaceholder}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                             />
                         </div>

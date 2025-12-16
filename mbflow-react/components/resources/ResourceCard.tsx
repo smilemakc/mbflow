@@ -8,6 +8,7 @@ import {AlertCircle, Calendar, CheckCircle2, Database, Eye, FileText, Trash2,} f
 import {Button} from '@/components/ui';
 import {FileStorageResource} from '@/services/resources.ts';
 import {formatBytes, formatShortDate} from '@/utils/formatters.ts';
+import {useTranslation} from '@/store/translations';
 
 interface ResourceCardProps {
     resource: FileStorageResource;
@@ -21,6 +22,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = (
         onDelete,
         onViewFiles,
     }) => {
+    const t = useTranslation();
     const isActive = resource.status === 'active';
 
     return (
@@ -91,6 +93,7 @@ interface StorageUsageProps {
 }
 
 const StorageUsage: React.FC<StorageUsageProps> = ({resource}) => {
+    const t = useTranslation();
     const getProgressColor = (percent: number): string => {
         if (percent > 90) return 'bg-red-600';
         if (percent > 75) return 'bg-yellow-500';
@@ -107,7 +110,7 @@ const StorageUsage: React.FC<StorageUsageProps> = ({resource}) => {
         <div className="space-y-3">
             <div>
                 <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-slate-600 dark:text-slate-400">Storage Usage</span>
+                    <span className="text-slate-600 dark:text-slate-400">{t.resources.storageUsage}</span>
                     <span className="font-medium text-slate-900 dark:text-white">
             {formatBytes(resource.used_storage_bytes)} / {formatBytes(resource.storage_limit_bytes)}
           </span>
@@ -121,10 +124,10 @@ const StorageUsage: React.FC<StorageUsageProps> = ({resource}) => {
                 <div className="flex items-center justify-between mt-1.5 text-xs">
           <span className="text-slate-500 dark:text-slate-400 flex items-center">
             <FileText size={12} className="mr-1"/>
-              {resource.file_count} file{resource.file_count !== 1 ? 's' : ''}
+              {resource.file_count} {resource.file_count !== 1 ? t.resources.files : t.resources.file}
           </span>
                     <span className={`font-medium ${getTextColor(resource.usage_percent)}`}>
-            {resource.usage_percent.toFixed(1)}% used
+            {resource.usage_percent.toFixed(1)}% {t.resources.used}
           </span>
                 </div>
             </div>
@@ -143,12 +146,14 @@ const ResourceActions: React.FC<ResourceActionsProps> = (
         resource,
         onDelete,
         onViewFiles,
-    }) => (
+    }) => {
+    const t = useTranslation();
+    return (
     <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
         <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
       <span className="flex items-center">
         <Calendar size={12} className="mr-1"/>
-        Created {formatShortDate(resource.created_at)}
+        {t.resources.created} {formatShortDate(resource.created_at)}
       </span>
         </div>
         <div className="flex items-center gap-2">
@@ -159,7 +164,7 @@ const ResourceActions: React.FC<ResourceActionsProps> = (
                 icon={<Eye size={14}/>}
                 className="flex-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
             >
-                View Files
+                {t.resources.viewFiles}
             </Button>
             <Button
                 onClick={() => onDelete(resource.id, resource.name)}
@@ -170,4 +175,5 @@ const ResourceActions: React.FC<ResourceActionsProps> = (
             />
         </div>
     </div>
-);
+    );
+};

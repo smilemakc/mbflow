@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import type {TelegramDownloadNodeConfig as TelegramDownloadNodeConfigType} from '@/types/nodeConfigs.ts';
 import {VariableAutocomplete} from '@/components';
+import { useTranslation } from '@/store/translations';
 
 interface Props {
     config: TelegramDownloadNodeConfigType;
@@ -13,6 +14,7 @@ export const TelegramDownloadNodeConfig: React.FC<Props> = ({
                                                                 nodeId,
                                                                 onChange
                                                             }) => {
+    const t = useTranslation();
     const [localConfig, setLocalConfig] = useState<TelegramDownloadNodeConfigType>({
         bot_token: config.bot_token || '',
         file_id: config.file_id || '',
@@ -56,18 +58,18 @@ export const TelegramDownloadNodeConfig: React.FC<Props> = ({
     };
 
     const outputFormatOptions = [
-        {label: 'Base64 (download content)', value: 'base64'},
-        {label: 'URL (link only)', value: 'url'},
+        {label: t.nodeConfig.telegramDownload.outputFormatBase64, value: 'base64'},
+        {label: t.nodeConfig.telegramDownload.outputFormatUrl, value: 'url'},
     ];
 
     return (
         <div className="space-y-4">
             {/* Credentials */}
             <div className="space-y-4 rounded-md border border-gray-200 bg-gray-50 p-3">
-                <h4 className="text-xs font-semibold uppercase text-gray-500">Credentials</h4>
+                <h4 className="text-xs font-semibold uppercase text-gray-500">{t.nodeConfig.telegramDownload.credentials}</h4>
 
                 <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Bot Token</label>
+                    <label className="text-sm font-medium text-gray-700">{t.nodeConfig.telegramDownload.botToken}</label>
                     <VariableAutocomplete
                         value={localConfig.bot_token}
                         onChange={handleBotTokenChange}
@@ -79,23 +81,23 @@ export const TelegramDownloadNodeConfig: React.FC<Props> = ({
 
             {/* File Settings */}
             <div className="space-y-4">
-                <h4 className="text-xs font-semibold uppercase text-gray-500">File</h4>
+                <h4 className="text-xs font-semibold uppercase text-gray-500">{t.nodeConfig.telegramDownload.file}</h4>
 
                 <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">File ID</label>
+                    <label className="text-sm font-medium text-gray-700">{t.nodeConfig.telegramDownload.fileId}</label>
                     <VariableAutocomplete
                         value={localConfig.file_id}
                         onChange={handleFileIdChange}
-                        placeholder="{{input.message.document.file_id}}"
+                        placeholder={t.nodeConfig.telegramDownload.fileIdPlaceholder}
                         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-500">
-                        File ID from Telegram message (photo, document, audio, video, etc.)
+                        {t.nodeConfig.telegramDownload.fileIdHint}
                     </p>
                 </div>
 
                 <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Output Format</label>
+                    <label className="text-sm font-medium text-gray-700">{t.nodeConfig.telegramDownload.outputFormat}</label>
                     <select
                         value={localConfig.output_format}
                         onChange={(e) => handleOutputFormatChange(e.target.value)}
@@ -110,7 +112,7 @@ export const TelegramDownloadNodeConfig: React.FC<Props> = ({
                 </div>
 
                 <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Timeout (seconds)</label>
+                    <label className="text-sm font-medium text-gray-700">{t.nodeConfig.telegramDownload.timeout}</label>
                     <input
                         type="number"
                         min="1"

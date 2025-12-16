@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {AlertTriangle, CheckCircle, Info, X, XCircle} from 'lucide-react';
-import type {Toast as ToastType} from '../../hooks/useToast';
+import type {Toast as ToastType} from '@/hooks/useToast';
 
 interface ToastProps {
     toast: ToastType;

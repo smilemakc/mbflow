@@ -2,6 +2,7 @@ import React from 'react';
 import {FileText, Info} from 'lucide-react';
 import type {HTMLCleanNodeConfig as HTMLCleanNodeConfigType} from '@/types/nodeConfigs';
 import {VariableAutocomplete} from '@/components/builder/VariableAutocomplete';
+import { useTranslation } from '@/store/translations';
 
 interface HTMLCleanNodeConfigProps {
     config: HTMLCleanNodeConfigType;
@@ -13,6 +14,8 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
                                                                                      config,
                                                                                      onChange,
                                                                                  }) => {
+    const t = useTranslation();
+
     // Ensure config has default values to prevent undefined errors
     const safeConfig: HTMLCleanNodeConfigType = {
         output_format: config?.output_format || 'both',
@@ -64,9 +67,9 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
                 className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 border border-orange-200 dark:border-orange-800 rounded-lg p-4 flex items-start gap-3">
                 <FileText className="text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" size={18}/>
                 <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white text-sm">HTML Clean</h3>
+                    <h3 className="font-semibold text-slate-900 dark:text-white text-sm">{t.nodeConfig.htmlClean.title}</h3>
                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                        Extract readable content from HTML, removing scripts, styles, and boilerplate
+                        {t.nodeConfig.htmlClean.description}
                     </p>
                 </div>
             </div>
@@ -75,19 +78,19 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
             <div className="space-y-3">
                 <label className="block">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                        Output Format
+                        {t.nodeConfig.htmlClean.outputFormat}
                     </span>
                     <select
                         value={safeConfig.output_format}
                         onChange={(e) => handleOutputFormatChange(e.target.value as 'text' | 'html' | 'both')}
                         className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-400 text-sm"
                     >
-                        <option value="both">Both (text + HTML)</option>
-                        <option value="text">Plain Text Only</option>
-                        <option value="html">Minimal HTML Only</option>
+                        <option value="both">{t.nodeConfig.htmlClean.outputFormatBoth}</option>
+                        <option value="text">{t.nodeConfig.htmlClean.outputFormatText}</option>
+                        <option value="html">{t.nodeConfig.htmlClean.outputFormatHtml}</option>
                     </select>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Choose what content format to return
+                        {t.nodeConfig.htmlClean.outputFormatHint}
                     </p>
                 </label>
             </div>
@@ -95,7 +98,7 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
             {/* Checkboxes */}
             <div className="space-y-3">
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 block">
-                    Options
+                    {t.nodeConfig.htmlClean.options}
                 </span>
 
                 {/* Extract Metadata */}
@@ -108,10 +111,10 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
                     />
                     <div>
                         <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">
-                            Extract Metadata
+                            {t.nodeConfig.htmlClean.extractMetadata}
                         </span>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Include title, author, excerpt, site name in output
+                            {t.nodeConfig.htmlClean.extractMetadataHint}
                         </p>
                     </div>
                 </label>
@@ -126,10 +129,10 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
                     />
                     <div>
                         <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white">
-                            Preserve Links
+                            {t.nodeConfig.htmlClean.preserveLinks}
                         </span>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Convert links to markdown format [text](url) in text output
+                            {t.nodeConfig.htmlClean.preserveLinksHint}
                         </p>
                     </div>
                 </label>
@@ -139,18 +142,18 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
             <div className="space-y-3">
                 <label className="block">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                        Max Length <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span>
+                        {t.nodeConfig.htmlClean.maxLength} <span className="font-normal text-slate-500 dark:text-slate-400">{t.nodeConfig.optional}</span>
                     </span>
                     <input
                         type="number"
                         min="0"
                         value={safeConfig.max_length || ''}
                         onChange={(e) => handleMaxLengthChange(parseInt(e.target.value, 10) || 0)}
-                        placeholder="0 = no limit"
+                        placeholder={t.nodeConfig.htmlClean.maxLengthPlaceholder}
                         className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-400 text-sm"
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Truncate output to this many characters (0 = unlimited)
+                        {t.nodeConfig.htmlClean.maxLengthHint}
                     </p>
                 </label>
             </div>
@@ -159,17 +162,17 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
             <div className="space-y-3">
                 <label className="block">
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                        Input Key <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span>
+                        {t.nodeConfig.htmlClean.inputKey} <span className="font-normal text-slate-500 dark:text-slate-400">{t.nodeConfig.optional}</span>
                     </span>
                     <VariableAutocomplete
                         value={safeConfig.input_key}
                         onChange={handleInputKeyChange}
-                        placeholder="body, html, content, response..."
+                        placeholder={t.nodeConfig.htmlClean.inputKeyPlaceholder}
                         type="input"
                         className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 dark:focus:ring-orange-400 text-sm"
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Key to extract from input data. Leave empty to auto-detect (tries: html, body, content, data, text, response)
+                        {t.nodeConfig.htmlClean.inputKeyHint}
                     </p>
                 </label>
             </div>
@@ -180,18 +183,18 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
                 <div className="flex items-start gap-3">
                     <Info className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={16}/>
                     <div>
-                        <h4 className="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">Smart Detection</h4>
+                        <h4 className="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">{t.nodeConfig.htmlClean.smartDetection}</h4>
                         <p className="text-xs text-slate-700 dark:text-slate-300 mb-3">
                             Automatically detects if input is HTML. Non-HTML content (plain text, JSON, etc.) passes through unchanged.
                         </p>
-                        <h4 className="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">What Gets Removed (HTML only)</h4>
+                        <h4 className="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">{t.nodeConfig.htmlClean.whatGetsRemoved}</h4>
                         <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc pl-4">
                             <li>Scripts, styles, and inline JavaScript</li>
                             <li>Navigation, sidebars, and footers</li>
                             <li>Ads, social buttons, and related content</li>
                             <li>Comments and cookie notices</li>
                         </ul>
-                        <h4 className="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2 mt-3">What Gets Kept</h4>
+                        <h4 className="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2 mt-3">{t.nodeConfig.htmlClean.whatGetsKept}</h4>
                         <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc pl-4">
                             <li>Main article content and headings</li>
                             <li>Lists, tables, and code blocks</li>
@@ -204,7 +207,7 @@ export const HTMLCleanNodeConfigComponent: React.FC<HTMLCleanNodeConfigProps> = 
             {/* Output Preview */}
             <div
                 className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
-                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium mb-2">Output Fields</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium mb-2">{t.nodeConfig.htmlClean.outputFields}</p>
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                     {(safeConfig.output_format === 'both' || safeConfig.output_format === 'text') && (
                         <div className="bg-white dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">

@@ -18,6 +18,7 @@
 
 import React, {useEffect, useState} from 'react';
 import {TelegramParseNodeConfig} from '@/types/nodeConfigs.ts';
+import { useTranslation } from '@/store/translations';
 
 interface TelegramParseNodeConfigProps {
     config: TelegramParseNodeConfig;
@@ -28,6 +29,7 @@ interface TelegramParseNodeConfigProps {
 export const TelegramParseNodeConfigComponent: React.FC<
     TelegramParseNodeConfigProps
 > = ({config, nodeId, onChange}) => {
+    const t = useTranslation();
     const [localConfig, setLocalConfig] = useState<TelegramParseNodeConfig>({
         extract_files: config.extract_files ?? true,
         extract_commands: config.extract_commands ?? true,
@@ -59,7 +61,7 @@ export const TelegramParseNodeConfigComponent: React.FC<
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-gray-700">Extract Options</h3>
+                <h3 className="text-sm font-semibold text-gray-700">{t.nodeConfig.telegramParse.extractOptions}</h3>
 
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                     <input
@@ -68,9 +70,9 @@ export const TelegramParseNodeConfigComponent: React.FC<
                         onChange={(e) => handleChange('extract_files', e.target.checked)}
                         className="w-[18px] h-[18px] cursor-pointer"
                     />
-                    <span>Extract Files</span>
+                    <span>{t.nodeConfig.telegramParse.extractFiles}</span>
                     <span className="text-xs text-gray-500">
-            (documents, photos, videos, audio)
+            {t.nodeConfig.telegramParse.extractFilesHint}
           </span>
                 </label>
 
@@ -81,8 +83,8 @@ export const TelegramParseNodeConfigComponent: React.FC<
                         onChange={(e) => handleChange('extract_commands', e.target.checked)}
                         className="w-[18px] h-[18px] cursor-pointer"
                     />
-                    <span>Extract Commands</span>
-                    <span className="text-xs text-gray-500">(e.g., /start, /help)</span>
+                    <span>{t.nodeConfig.telegramParse.extractCommands}</span>
+                    <span className="text-xs text-gray-500">{t.nodeConfig.telegramParse.extractCommandsHint}</span>
                 </label>
 
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -92,17 +94,16 @@ export const TelegramParseNodeConfigComponent: React.FC<
                         onChange={(e) => handleChange('extract_entities', e.target.checked)}
                         className="w-[18px] h-[18px] cursor-pointer"
                     />
-                    <span>Extract Entities</span>
+                    <span>{t.nodeConfig.telegramParse.extractEntities}</span>
                     <span className="text-xs text-gray-500">
-            (mentions, hashtags, URLs)
+            {t.nodeConfig.telegramParse.extractEntitiesHint}
           </span>
                 </label>
             </div>
 
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-xs text-blue-900">
-                    Selected options control what data is extracted from Telegram updates
-                    and made available in the node output.
+                    {t.nodeConfig.telegramParse.infoText}
                 </p>
             </div>
         </div>

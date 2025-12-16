@@ -22,6 +22,7 @@ import {WorkflowStatus} from '@/types';
 import {WorkflowVariablesGuide} from '@/components/builder/WorkflowVariablesGuide.tsx';
 import {toast} from '../lib/toast';
 import {Button, ConfirmModal} from '@/components/ui';
+import { useTranslation } from '../store/translations';
 
 interface Workflow {
     id: string;
@@ -62,6 +63,7 @@ const STATUS_COLORS = {
 };
 
 export const WorkflowsPage: React.FC = () => {
+    const t = useTranslation();
     const navigate = useNavigate();
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
     const [filteredWorkflows, setFilteredWorkflows] = useState<Workflow[]>([]);
@@ -147,7 +149,7 @@ export const WorkflowsPage: React.FC = () => {
             await loadWorkflows();
         } catch (err) {
             console.error('Failed to clone workflow:', err);
-            toast.error('Clone Failed', 'Failed to clone workflow. Please try again.');
+            toast.error(t.workflows.errors.cloneFailed, t.workflows.errors.cloneMessage);
         }
     };
 
@@ -159,7 +161,7 @@ export const WorkflowsPage: React.FC = () => {
             await loadWorkflows();
         } catch (err) {
             console.error('Failed to delete workflow:', err);
-            toast.error('Delete Failed', 'Failed to delete workflow. Please try again.');
+            toast.error(t.workflows.errors.deleteFailed, t.workflows.errors.deleteMessage);
         } finally {
             setWorkflowToDelete(null);
         }
@@ -171,9 +173,9 @@ export const WorkflowsPage: React.FC = () => {
         const diffMs = now.getTime() - date.getTime();
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Yesterday';
-        if (diffDays < 7) return `${diffDays} days ago`;
+        if (diffDays === 0) return t.workflows.today;
+        if (diffDays === 1) return t.workflows.yesterday;
+        if (diffDays < 7) return `${diffDays} ${t.workflows.daysAgo}`;
         return date.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
     };
 
@@ -189,9 +191,9 @@ export const WorkflowsPage: React.FC = () => {
                 {/* Header */}
                 <div className="flex justify-between items-end">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Workflows</h1>
+                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t.workflows.title}</h1>
                         <p className="text-slate-500 dark:text-slate-400 mt-1">
-                            Manage and organize your automation workflows.
+                            {t.workflows.subtitle}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -201,7 +203,7 @@ export const WorkflowsPage: React.FC = () => {
                             size="sm"
                             icon={<BookOpen size={16}/>}
                         >
-                            Variables Guide
+                            {t.workflows.variablesGuide}
                         </Button>
                         <Button
                             onClick={handleCreateNew}
@@ -209,7 +211,7 @@ export const WorkflowsPage: React.FC = () => {
                             size="sm"
                             icon={<Plus size={16}/>}
                         >
-                            Create New Workflow
+                            {t.workflows.createNew}
                         </Button>
                     </div>
                 </div>
@@ -231,7 +233,7 @@ export const WorkflowsPage: React.FC = () => {
                             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
                             <input
                                 type="text"
-                                placeholder="Search workflows by name or description..."
+                                placeholder={t.workflows.searchPlaceholder}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
@@ -246,11 +248,11 @@ export const WorkflowsPage: React.FC = () => {
                                 onChange={(e) => setStatusFilter(e.target.value as WorkflowStatus | 'all')}
                                 className="px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                             >
-                                <option value="all">All Status</option>
-                                <option value="draft">Draft</option>
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                                <option value="archived">Archived</option>
+                                <option value="all">{t.workflows.allStatus}</option>
+                                <option value="draft">{t.workflows.draft}</option>
+                                <option value="active">{t.workflows.active}</option>
+                                <option value="inactive">{t.workflows.inactive}</option>
+                                <option value="archived">{t.workflows.archived}</option>
                             </select>
                         </div>
                     </div>
@@ -258,9 +260,9 @@ export const WorkflowsPage: React.FC = () => {
                     {/* Results Count */}
                     <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                         <p className="text-sm text-slate-600 dark:text-slate-400">
-                            Showing <span
-                            className="font-medium text-slate-900 dark:text-white">{filteredWorkflows.length}</span> workflow{filteredWorkflows.length !== 1 ? 's' : ''}
-                            {searchQuery && <> matching "<span className="font-medium">{searchQuery}</span>"</>}
+                            {t.workflows.showing} <span
+                            className="font-medium text-slate-900 dark:text-white">{filteredWorkflows.length}</span> {filteredWorkflows.length !== 1 ? t.workflows.workflowsCount : t.workflows.workflow}
+                            {searchQuery && <> {t.workflows.matching} "<span className="font-medium">{searchQuery}</span>"</>}
                         </p>
                     </div>
                 </div>
@@ -284,7 +286,7 @@ export const WorkflowsPage: React.FC = () => {
                                 variant="danger"
                                 size="sm"
                             >
-                                Try Again
+                                {t.workflows.tryAgain}
                             </Button>
                         </div>
                     </div>
@@ -296,12 +298,12 @@ export const WorkflowsPage: React.FC = () => {
                         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-12 text-center">
                         <GitBranch size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-700"/>
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-                            {searchQuery || statusFilter !== 'all' ? 'No workflows found' : 'No workflows yet'}
+                            {searchQuery || statusFilter !== 'all' ? t.workflows.noWorkflowsFound : t.workflows.noWorkflowsYet}
                         </h3>
                         <p className="text-slate-500 dark:text-slate-400 mb-6">
                             {searchQuery || statusFilter !== 'all'
-                                ? 'Try adjusting your search or filter criteria.'
-                                : 'Get started by creating your first workflow.'}
+                                ? t.workflows.adjustFilters
+                                : t.workflows.getStarted}
                         </p>
                         {!searchQuery && statusFilter === 'all' && (
                             <Button
@@ -310,7 +312,7 @@ export const WorkflowsPage: React.FC = () => {
                                 size="sm"
                                 icon={<Plus size={16}/>}
                             >
-                                Create Your First Workflow
+                                {t.workflows.createFirst}
                             </Button>
                         )}
                     </div>
@@ -358,7 +360,7 @@ export const WorkflowsPage: React.FC = () => {
                                                     <GitBranch size={14} className="mr-1.5"/>
                                                     <span className="font-medium">{workflow.nodes?.length || 0}</span>
                                                     <span
-                                                        className="ml-1">node{workflow.nodes?.length !== 1 ? 's' : ''}</span>
+                                                        className="ml-1">{workflow.nodes?.length !== 1 ? t.workflows.nodesCount : t.workflows.node}</span>
                                                 </div>
                                             </div>
 
@@ -366,11 +368,11 @@ export const WorkflowsPage: React.FC = () => {
                                             <div className="space-y-1.5 text-xs">
                                                 <div className="flex items-center text-slate-500 dark:text-slate-500">
                                                     <Calendar size={12} className="mr-1.5"/>
-                                                    <span>Created {formatDate(workflow.createdAt)}</span>
+                                                    <span>{t.workflows.created} {formatDate(workflow.createdAt)}</span>
                                                 </div>
                                                 <div className="flex items-center text-slate-500 dark:text-slate-500">
                                                     <Clock size={12} className="mr-1.5"/>
-                                                    <span>Updated {formatDate(workflow.updatedAt)}</span>
+                                                    <span>{t.workflows.updated} {formatDate(workflow.updatedAt)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -385,21 +387,21 @@ export const WorkflowsPage: React.FC = () => {
                                                 icon={<Edit size={14}/>}
                                                 className="flex-1"
                                             >
-                                                Edit
+                                                {t.workflows.edit}
                                             </Button>
                                             <Button
                                                 onClick={() => handleClone(workflow)}
                                                 variant="outline"
                                                 size="sm"
                                                 icon={<Copy size={14}/>}
-                                                title="Clone workflow"
+                                                title={t.workflows.cloneTooltip}
                                             />
                                             <Button
                                                 onClick={() => setWorkflowToDelete({id: workflow.id, name: workflow.name})}
                                                 variant="danger"
                                                 size="sm"
                                                 icon={<Trash2 size={14}/>}
-                                                title="Delete workflow"
+                                                title={t.workflows.deleteTooltip}
                                             />
                                         </div>
                                     </div>
@@ -416,7 +418,7 @@ export const WorkflowsPage: React.FC = () => {
                                     variant="outline"
                                     size="sm"
                                 >
-                                    Previous
+                                    {t.workflows.previous}
                                 </Button>
 
                                 <div className="flex items-center gap-1">
@@ -438,7 +440,7 @@ export const WorkflowsPage: React.FC = () => {
                                     variant="outline"
                                     size="sm"
                                 >
-                                    Next
+                                    {t.workflows.next}
                                 </Button>
                             </div>
                         )}
@@ -451,9 +453,9 @@ export const WorkflowsPage: React.FC = () => {
                 isOpen={!!workflowToDelete}
                 onClose={() => setWorkflowToDelete(null)}
                 onConfirm={handleDelete}
-                title="Delete Workflow"
-                message={`Are you sure you want to delete "${workflowToDelete?.name}"? This action cannot be undone.`}
-                confirmText="Delete"
+                title={t.workflows.deleteModal.title}
+                message={t.workflows.deleteModal.message}
+                confirmText={t.workflows.deleteModal.confirm}
                 variant="danger"
             />
         </div>

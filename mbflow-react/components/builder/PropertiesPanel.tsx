@@ -4,7 +4,7 @@ import {useTranslation} from '@/store/translations.ts';
 import {Trash2, X} from 'lucide-react';
 import {NodeType} from '@/types.ts';
 import {VariableAutocomplete} from '@/components';
-import {Button, ConfirmModal} from '../ui';
+import {Button, ConfirmModal} from '@/components/ui';
 
 // Import all node config components
 import {HTTPNodeConfigComponent} from '@/components/nodes/config/HTTPNodeConfig.tsx';

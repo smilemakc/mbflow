@@ -4,8 +4,8 @@
  */
 
 import { useState, useCallback } from 'react';
-import { resourcesApi, FileMetadata, FileStorageResource } from '../../services/resources.ts';
-import { toast } from '../../lib/toast.ts';
+import { resourcesApi, FileMetadata, FileStorageResource } from '@/services/resources.ts';
+import { toast } from '@/lib/toast.ts';
 
 export interface FileStorageState {
   files: FileMetadata[];

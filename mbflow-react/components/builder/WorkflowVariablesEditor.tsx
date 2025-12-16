@@ -89,10 +89,10 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                         </div>
                         <div>
                             <h2 className="font-bold text-slate-800 dark:text-slate-100">
-                                Workflow Variables
+                                {t.variables.title}
                             </h2>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                Define environment variables for this workflow
+                                {t.variables.subtitle}
                             </p>
                         </div>
                     </div>
@@ -103,7 +103,7 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                         onClick={() => setShowVariablesGuide(!showVariablesGuide)}
                         className="shadow-sm"
                     >
-                        Variables Guide
+                        {t.variables.guide}
                     </Button>
                     <Button
                         variant="ghost"
@@ -126,9 +126,7 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                     <div className="flex gap-2 text-sm">
                         <Info size={16} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5"/>
                         <p className="text-blue-700 dark:text-blue-300">
-                            Use <code
-                            className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded text-xs font-mono">{'{{env.VARIABLE_NAME}}'}</code> in
-                            node configurations to reference these variables.
+                            {t.variables.usageHint}
                         </p>
                     </div>
                 </div>
@@ -138,8 +136,8 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                     {variables.length === 0 ? (
                         <div className="text-center py-8 text-slate-400">
                             <Variable size={32} className="mx-auto mb-2 opacity-50"/>
-                            <p className="text-sm">No variables defined yet</p>
-                            <p className="text-xs mt-1">Add your first variable below</p>
+                            <p className="text-sm">{t.variables.noVariables}</p>
+                            <p className="text-xs mt-1">{t.variables.addFirst}</p>
                         </div>
                     ) : (
                         variables.map(([key, value]) => (
@@ -199,7 +197,7 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                                                     size="sm"
                                                     icon={showSecrets[key] ? <EyeOff size={14}/> : <Eye size={14}/>}
                                                     onClick={() => toggleShowSecret(key)}
-                                                    title={showSecrets[key] ? 'Hide value' : 'Show value'}
+                                                    title={showSecrets[key] ? t.variables.hideValue : t.variables.showValue}
                                                 />
                                             )}
                                             <Button
@@ -207,7 +205,7 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                                                 size="sm"
                                                 icon={copiedKey === key ? <Check size={14} className="text-green-500"/> : <Copy size={14}/>}
                                                 onClick={() => copyTemplate(key)}
-                                                title="Copy template"
+                                                title={t.variables.copyTemplate}
                                             />
                                             <Button
                                                 variant="ghost"
@@ -216,10 +214,10 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                                                     setEditingKey(key);
                                                     setEditValue(value);
                                                 }}
-                                                title="Edit"
+                                                title={t.variables.edit}
                                                 className="text-blue-500 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
                                             >
-                                                Edit
+                                                {t.variables.edit}
                                             </Button>
                                             <Button
                                                 variant="ghost"
@@ -244,7 +242,7 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                             type="text"
                             value={newKey}
                             onChange={(e) => setNewKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))}
-                            placeholder="VARIABLE_NAME"
+                            placeholder={t.variables.namePlaceholder}
                             className="w-40 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                         />
                         <input
@@ -252,7 +250,7 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                             value={newValue}
                             onChange={(e) => setNewValue(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                            placeholder="Value..."
+                            placeholder={t.variables.valuePlaceholder}
                             className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                         />
                         <Button
@@ -261,11 +259,11 @@ export const WorkflowVariablesEditor: React.FC<WorkflowVariablesEditorProps> = (
                             onClick={handleAdd}
                             disabled={!newKey.trim()}
                         >
-                            Add
+                            {t.variables.add}
                         </Button>
                     </div>
                     <p className="mt-2 text-xs text-slate-400">
-                        Variable names should be UPPERCASE with underscores (e.g., API_KEY, BASE_URL)
+                        {t.variables.namingRules}
                     </p>
                 </div>
             </div>

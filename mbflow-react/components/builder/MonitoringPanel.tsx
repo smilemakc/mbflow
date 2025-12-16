@@ -4,7 +4,7 @@ import {useTranslation} from '@/store/translations';
 import {useReactFlow} from 'reactflow';
 import {Activity, ArrowRight, ChevronDown, ChevronUp, Terminal, Trash2, Wifi, WifiOff} from 'lucide-react';
 import {NodeStatus} from '@/types';
-import {Button} from '../ui';
+import {Button} from '@/components/ui';
 
 export const MonitoringPanel: React.FC = () => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -101,7 +101,7 @@ export const MonitoringPanel: React.FC = () => {
                             {selectedNodeId && (
                                 <span
                                     className="ml-2 text-[10px] opacity-60 bg-slate-300 dark:bg-slate-600 px-1 rounded">
-                   Selected
+                   {t.monitoringPanel.selected}
                 </span>
                             )}
                         </button>
@@ -119,12 +119,12 @@ export const MonitoringPanel: React.FC = () => {
                             {wsConnected ? (
                                 <>
                                     <Wifi size={12} className="animate-pulse" />
-                                    <span>Live</span>
+                                    <span>{t.monitoringPanel.live}</span>
                                 </>
                             ) : (
                                 <>
                                     <WifiOff size={12} />
-                                    <span>Offline</span>
+                                    <span>{t.monitoringPanel.offline}</span>
                                 </>
                             )}
                         </div>

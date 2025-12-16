@@ -5,6 +5,7 @@
 
 import React, {useState} from 'react';
 import {Button, Modal} from '@/components/ui';
+import {useTranslation} from '@/store/translations';
 
 interface CreateStorageModalProps {
     isOpen: boolean;
@@ -18,6 +19,7 @@ export const CreateStorageModal: React.FC<CreateStorageModalProps> = (
         onClose,
         onSubmit,
     }) => {
+    const t = useTranslation();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [loading, setLoading] = useState(false);
@@ -48,12 +50,12 @@ export const CreateStorageModal: React.FC<CreateStorageModalProps> = (
         <Modal
             isOpen={isOpen}
             onClose={handleClose}
-            title="Create File Storage"
+            title={t.resources.createStorageTitle}
             size="md"
             footer={
                 <div className="flex justify-end gap-3">
                     <Button onClick={handleClose} variant="secondary" disabled={loading}>
-                        Cancel
+                        {t.common.cancel}
                     </Button>
                     <Button
                         onClick={handleSubmit}
@@ -61,24 +63,24 @@ export const CreateStorageModal: React.FC<CreateStorageModalProps> = (
                         loading={loading}
                         disabled={!name.trim()}
                     >
-                        Create
+                        {t.resources.create}
                     </Button>
                 </div>
             }
         >
             <div className="space-y-4">
                 <FormField
-                    label="Storage Name"
+                    label={t.resources.storageName}
                     required
                     value={name}
                     onChange={setName}
-                    placeholder="e.g., Production Storage"
+                    placeholder={t.resources.storageNamePlaceholder}
                 />
                 <FormTextArea
-                    label="Description"
+                    label={t.resources.description}
                     value={description}
                     onChange={setDescription}
-                    placeholder="Optional description..."
+                    placeholder={t.resources.descriptionPlaceholder}
                 />
             </div>
         </Modal>

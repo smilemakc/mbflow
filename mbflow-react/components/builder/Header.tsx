@@ -2,7 +2,7 @@ import React, {useState, useRef, useEffect} from 'react';
 import {useDagStore} from '@/store/dagStore';
 import {useUIStore} from '@/store/uiStore';
 import {useTranslation} from '@/store/translations';
-import {useAutoSave} from '../../hooks/useAutoSave';
+import {useAutoSave} from '@/hooks/useAutoSave';
 import {
     Check,
     ChevronRight,
@@ -23,7 +23,7 @@ import {
     Variable,
     X
 } from 'lucide-react';
-import {Button} from '../ui';
+import {Button} from '@/components/ui';
 
 interface HeaderProps {
     onSave?: () => void;
@@ -148,9 +148,9 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
                         <button
                             onClick={() => setIsEditingName(true)}
                             className="group flex items-center gap-1.5 font-semibold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                            title="Click to edit workflow name"
+                            title={t.header.clickToEdit}
                         >
-                            <span className="truncate max-w-[200px]">{dagName || 'Untitled Workflow'}</span>
+                            <span className="truncate max-w-[200px]">{dagName || t.header.untitledWorkflow}</span>
                             <Pencil size={12} className="opacity-0 group-hover:opacity-100 transition-opacity"/>
                         </button>
                     )}
@@ -190,19 +190,19 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
                         variant="ghost"
                         icon={<Variable size={18} />}
                         onClick={() => setActiveModal('variables')}
-                        title="Workflow Variables"
+                        title={t.header.workflowVariables}
                     />
                     <Button
                         variant="ghost"
                         icon={<LayoutTemplate size={18} />}
                         onClick={() => setActiveModal('templates')}
-                        title="Templates"
+                        title={t.header.templates}
                     />
                     <Button
                         variant="ghost"
                         icon={<Keyboard size={18} />}
                         onClick={() => setActiveModal('shortcuts')}
-                        title="Shortcuts"
+                        title={t.header.shortcuts}
                     />
                 </div>
 
@@ -236,7 +236,7 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
                     <Button
                         variant="ghost"
                         onClick={toggleLanguage}
-                        title="Switch Language"
+                        title={t.header.switchLanguage}
                         className="font-bold text-xs w-9 h-9 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                     >
                         {language.toUpperCase()}
@@ -246,7 +246,7 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
                         variant="ghost"
                         icon={isFullscreen ? <Minimize size={20}/> : <Maximize size={20}/>}
                         onClick={toggleFullscreen}
-                        title="Focus Mode"
+                        title={t.header.focusMode}
                         className={isFullscreen ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : ''}
                     />
 
@@ -254,7 +254,7 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
                         variant="ghost"
                         icon={theme === 'dark' ? <Sun size={20}/> : <Moon size={20}/>}
                         onClick={toggleTheme}
-                        title="Toggle Theme"
+                        title={t.header.toggleTheme}
                     />
                 </div>
 

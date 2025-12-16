@@ -29,7 +29,7 @@ import {
 import {NodeType} from '@/types.ts';
 import {useTranslation} from '@/store/translations.ts';
 import {useUIStore} from '@/store/uiStore.ts';
-import {Button} from '../ui';
+import {Button} from '@/components/ui';
 
 // Node definitions with metadata
 interface NodeDefinition {

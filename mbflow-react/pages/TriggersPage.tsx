@@ -18,8 +18,10 @@ import {
 import {triggerService} from '@/services/triggerService';
 import type {Trigger, TriggerStatus, TriggerType,} from '@/types/triggers';
 import {Button, ConfirmModal} from '@/components/ui';
+import { useTranslation } from '../store/translations';
 
 export const TriggersPage: React.FC = () => {
+    const t = useTranslation();
     const [triggers, setTriggers] = useState<Trigger[]>([]);
     const [filteredTriggers, setFilteredTriggers] = useState<Trigger[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -149,12 +151,12 @@ export const TriggersPage: React.FC = () => {
         const diffMs = date.getTime() - now.getTime();
         const diffMins = Math.floor(diffMs / 60000);
 
-        if (diffMins < 0) return 'Overdue';
-        if (diffMins < 60) return `in ${diffMins} mins`;
+        if (diffMins < 0) return t.triggers.overdue;
+        if (diffMins < 60) return t.triggers.inMinutes.replace('{n}', diffMins.toString());
         const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) return `in ${diffHours} hours`;
+        if (diffHours < 24) return t.triggers.inHours.replace('{n}', diffHours.toString());
         const diffDays = Math.floor(diffHours / 24);
-        return `in ${diffDays} days`;
+        return t.triggers.inDays.replace('{n}', diffDays.toString());
     };
 
     return (
@@ -164,10 +166,10 @@ export const TriggersPage: React.FC = () => {
                 <div className="flex justify-between items-end">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                            Triggers
+                            {t.triggers.title}
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 mt-1">
-                            Manage workflow triggers and execution schedules
+                            {t.triggers.subtitle}
                         </p>
                     </div>
                     <Button
@@ -176,7 +178,7 @@ export const TriggersPage: React.FC = () => {
                         size="sm"
                         icon={<Plus size={16}/>}
                     >
-                        Create Trigger
+                        {t.triggers.createTrigger}
                     </Button>
                 </div>
 
@@ -186,7 +188,7 @@ export const TriggersPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                         <Filter size={16} className="text-slate-400"/>
                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Filter:
+              {t.triggers.filter}
             </span>
                     </div>
 
@@ -196,11 +198,11 @@ export const TriggersPage: React.FC = () => {
                         onChange={(e) => setSelectedType(e.target.value as TriggerType | 'all')}
                         className="px-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500 text-slate-700 dark:text-slate-300"
                     >
-                        <option value="all">All Types</option>
-                        <option value="manual">Manual</option>
-                        <option value="schedule">Schedule</option>
-                        <option value="webhook">Webhook</option>
-                        <option value="event">Event</option>
+                        <option value="all">{t.triggers.allTypes}</option>
+                        <option value="manual">{t.triggers.manual}</option>
+                        <option value="schedule">{t.triggers.schedule}</option>
+                        <option value="webhook">{t.triggers.webhook}</option>
+                        <option value="event">{t.triggers.event}</option>
                     </select>
 
                     {/* Status Filter */}
@@ -211,13 +213,13 @@ export const TriggersPage: React.FC = () => {
                         }
                         className="px-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500 text-slate-700 dark:text-slate-300"
                     >
-                        <option value="all">All Status</option>
-                        <option value="enabled">Enabled</option>
-                        <option value="disabled">Disabled</option>
+                        <option value="all">{t.triggers.allStatus}</option>
+                        <option value="enabled">{t.triggers.enabled}</option>
+                        <option value="disabled">{t.triggers.disabled}</option>
                     </select>
 
                     <div className="ml-auto text-sm text-slate-500 dark:text-slate-400">
-                        {filteredTriggers.length} of {triggers.length} triggers
+                        {filteredTriggers.length} {t.triggers.ofTriggers} {triggers.length} {t.triggers.triggersCount}
                     </div>
                 </div>
 
@@ -231,12 +233,12 @@ export const TriggersPage: React.FC = () => {
                         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-12 text-center">
                         <Calendar size={48} className="mx-auto text-slate-300 dark:text-slate-700 mb-4"/>
                         <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            No triggers found
+                            {t.triggers.noTriggersFound}
                         </h3>
                         <p className="text-slate-500 dark:text-slate-400 mb-6">
                             {selectedType !== 'all' || selectedStatus !== 'all'
-                                ? 'Try adjusting your filters'
-                                : 'Create your first trigger to automate workflow execution'}
+                                ? t.triggers.adjustFilters
+                                : t.triggers.createFirst}
                         </p>
                         {selectedType === 'all' && selectedStatus === 'all' && (
                             <Button
@@ -244,7 +246,7 @@ export const TriggersPage: React.FC = () => {
                                 variant="primary"
                                 size="sm"
                             >
-                                Create Trigger
+                                {t.triggers.createTrigger}
                             </Button>
                         )}
                     </div>
@@ -256,13 +258,13 @@ export const TriggersPage: React.FC = () => {
                                 <thead
                                     className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
                                 <tr>
-                                    <th className="px-6 py-3 text-left font-medium">Name</th>
-                                    <th className="px-6 py-3 text-left font-medium">Type</th>
-                                    <th className="px-6 py-3 text-left font-medium">Workflow</th>
-                                    <th className="px-6 py-3 text-left font-medium">Status</th>
-                                    <th className="px-6 py-3 text-left font-medium">Next Run</th>
-                                    <th className="px-6 py-3 text-left font-medium">Last Triggered</th>
-                                    <th className="px-6 py-3 text-right font-medium">Actions</th>
+                                    <th className="px-6 py-3 text-left font-medium">{t.triggers.table.name}</th>
+                                    <th className="px-6 py-3 text-left font-medium">{t.triggers.table.type}</th>
+                                    <th className="px-6 py-3 text-left font-medium">{t.triggers.table.workflow}</th>
+                                    <th className="px-6 py-3 text-left font-medium">{t.triggers.table.status}</th>
+                                    <th className="px-6 py-3 text-left font-medium">{t.triggers.table.nextRun}</th>
+                                    <th className="px-6 py-3 text-left font-medium">{t.triggers.table.lastTriggered}</th>
+                                    <th className="px-6 py-3 text-right font-medium">{t.triggers.table.actions}</th>
                                 </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -331,7 +333,7 @@ export const TriggersPage: React.FC = () => {
                                             <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs">
                                                 {trigger.last_triggered_at
                                                     ? new Date(trigger.last_triggered_at).toLocaleString()
-                                                    : 'Never'}
+                                                    : t.triggers.never}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-end gap-2">
@@ -344,7 +346,7 @@ export const TriggersPage: React.FC = () => {
                                                             icon={isExecuting ?
                                                                 <Loader2 size={16} className="animate-spin"/> :
                                                                 <Play size={16}/>}
-                                                            title="Execute Now"
+                                                            title={t.triggers.executeNow}
                                                         />
                                                     )}
                                                     <Button
@@ -352,7 +354,7 @@ export const TriggersPage: React.FC = () => {
                                                         variant="ghost"
                                                         size="sm"
                                                         icon={<Edit size={16}/>}
-                                                        title="Edit"
+                                                        title={t.triggers.edit}
                                                     />
                                                     <Button
                                                         onClick={() => setTriggerToDelete(trigger.id)}
@@ -362,7 +364,7 @@ export const TriggersPage: React.FC = () => {
                                                         icon={isDeleting ?
                                                             <Loader2 size={16} className="animate-spin"/> :
                                                             <Trash2 size={16}/>}
-                                                        title="Delete"
+                                                        title={t.common.delete}
                                                         className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                                                     />
                                                 </div>
@@ -385,7 +387,7 @@ export const TriggersPage: React.FC = () => {
                         <div
                             className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                                Create New Trigger
+                                {t.triggers.createModal.title}
                             </h2>
                             <Button
                                 onClick={() => setShowCreateModal(false)}
@@ -396,7 +398,7 @@ export const TriggersPage: React.FC = () => {
                         </div>
                         <div className="p-6">
                             <p className="text-slate-600 dark:text-slate-400">
-                                Trigger creation form will be implemented here.
+                                {t.triggers.createModal.placeholder}
                             </p>
                             {/* TODO: Implement trigger creation form */}
                         </div>
@@ -412,7 +414,7 @@ export const TriggersPage: React.FC = () => {
                         <div
                             className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                                Edit Trigger
+                                {t.triggers.editModal.title}
                             </h2>
                             <Button
                                 onClick={() => setEditingTrigger(null)}
@@ -423,7 +425,7 @@ export const TriggersPage: React.FC = () => {
                         </div>
                         <div className="p-6">
                             <p className="text-slate-600 dark:text-slate-400">
-                                Editing trigger: {editingTrigger.name}
+                                {t.triggers.editModal.editing} {editingTrigger.name}
                             </p>
                             {/* TODO: Implement trigger edit form */}
                         </div>
@@ -436,9 +438,9 @@ export const TriggersPage: React.FC = () => {
                 isOpen={!!triggerToDelete}
                 onClose={() => setTriggerToDelete(null)}
                 onConfirm={handleDelete}
-                title="Delete Trigger"
-                message="Are you sure you want to delete this trigger? This action cannot be undone."
-                confirmText="Delete"
+                title={t.triggers.deleteModal.title}
+                message={t.triggers.deleteModal.message}
+                confirmText={t.triggers.deleteModal.confirm}
                 variant="danger"
             />
         </div>
