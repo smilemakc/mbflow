@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/smilemakc/mbflow/internal/application/auth"
 	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/internal/application/observer"
@@ -184,8 +185,29 @@ func main() {
 	executionRepo := storage.NewExecutionRepository(db)
 	eventRepo := storage.NewEventRepository(db)
 	triggerRepo := storage.NewTriggerRepository(db)
+	userRepo := storage.NewUserRepository(db)
 
 	appLogger.Info("Repositories initialized")
+
+	// Initialize auth system
+	authService := auth.NewService(userRepo, &cfg.Auth)
+	providerManager, err := auth.NewProviderManager(&cfg.Auth, authService)
+	if err != nil {
+		appLogger.Warn("Failed to initialize auth provider manager", "error", err)
+		// Continue with builtin provider only
+	}
+
+	authMiddleware := rest.NewAuthMiddleware(providerManager, authService)
+	loginRateLimiter := rest.NewLoginRateLimiter(
+		cfg.Auth.MaxLoginAttempts,
+		time.Duration(cfg.Auth.MaxLoginAttempts)*time.Minute,
+		cfg.Auth.LockoutDuration,
+	)
+
+	appLogger.Info("Auth system initialized",
+		"mode", cfg.Auth.Mode,
+		"registration_enabled", cfg.Auth.AllowRegistration,
+	)
 
 	// Initialize execution engine
 	executionManager := engine.NewExecutionManager(
@@ -357,9 +379,50 @@ func main() {
 		edgeHandlers := rest.NewEdgeHandlers(workflowRepo, appLogger)
 		executionHandlers := rest.NewExecutionHandlers(executionRepo, workflowRepo, executionManager, appLogger)
 		triggerHandlers := rest.NewTriggerHandlers(triggerRepo, workflowRepo, appLogger)
+		authHandlers := rest.NewAuthHandlers(authService, providerManager, loginRateLimiter)
 
-		// Workflow endpoints
+		// Auth endpoints (public)
+		authGroup := apiV1.Group("/auth")
+		{
+			authGroup.POST("/register", authHandlers.HandleRegister)
+			authGroup.POST("/login", loginRateLimiter.Middleware(), authHandlers.HandleLogin)
+			authGroup.POST("/refresh", authHandlers.HandleRefresh)
+			authGroup.GET("/info", authHandlers.HandleGetAuthInfo)
+
+			// OAuth endpoints
+			authGroup.GET("/oauth/authorize", authHandlers.HandleOAuthAuthorize)
+			authGroup.GET("/oauth/callback", authHandlers.HandleOAuthCallback)
+
+			// Protected auth endpoints
+			authGroup.POST("/logout", authMiddleware.RequireAuth(), authHandlers.HandleLogout)
+			authGroup.GET("/me", authMiddleware.RequireAuth(), authHandlers.HandleGetMe)
+			authGroup.POST("/password", authMiddleware.RequireAuth(), authHandlers.HandleChangePassword)
+		}
+
+		// Admin endpoints (requires admin role)
+		adminGroup := apiV1.Group("/admin")
+		adminGroup.Use(authMiddleware.RequireAdmin())
+		{
+			// User management
+			adminGroup.GET("/users", authHandlers.HandleAdminListUsers)
+			adminGroup.POST("/users", authHandlers.HandleAdminCreateUser)
+			adminGroup.GET("/users/:id", authHandlers.HandleAdminGetUser)
+			adminGroup.PUT("/users/:id", authHandlers.HandleAdminUpdateUser)
+			adminGroup.DELETE("/users/:id", authHandlers.HandleAdminDeleteUser)
+			adminGroup.POST("/users/:id/reset-password", authHandlers.HandleAdminResetPassword)
+
+			// Role management
+			adminGroup.GET("/roles", authHandlers.HandleListRoles)
+			adminGroup.GET("/users/:id/roles", authHandlers.HandleGetUserRoles)
+			adminGroup.POST("/users/:id/roles", authHandlers.HandleAssignRole)
+			adminGroup.DELETE("/users/:id/roles/:role_id", authHandlers.HandleRemoveRole)
+		}
+
+		appLogger.Info("Auth endpoints registered")
+
+		// Workflow endpoints (with optional auth for ownership tracking)
 		workflows := apiV1.Group("/workflows")
+		workflows.Use(authMiddleware.OptionalAuth())
 		{
 			workflows.POST("", workflowHandlers.HandleCreateWorkflow)
 			workflows.GET("", workflowHandlers.HandleListWorkflows)

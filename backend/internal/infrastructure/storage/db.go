@@ -99,6 +99,12 @@ func registerModels(db *bun.DB) {
 		(*models.NodeExecutionModel)(nil),
 		(*models.EventModel)(nil),
 		(*models.TriggerModel)(nil),
+		// Auth models (UserRoleModel must be registered first for m2m relations)
+		(*models.UserRoleModel)(nil),
+		(*models.UserModel)(nil),
+		(*models.SessionModel)(nil),
+		(*models.RoleModel)(nil),
+		(*models.AuditLogModel)(nil),
 	)
 }
 

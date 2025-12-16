@@ -16,3 +16,6 @@ export * from './workflowTemplates';
 
 // Node configuration types
 export * from './nodeConfigs';
+
+// Auth types
+export * from './auth';

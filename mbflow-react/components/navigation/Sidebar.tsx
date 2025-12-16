@@ -16,6 +16,7 @@ import {
 import {useLocation, useNavigate} from 'react-router-dom';
 import {useUIStore} from '@/store/uiStore';
 import {useTranslation} from '@/store/translations';
+import {useAuthStore} from '@/store/authStore';
 import {Button} from '../ui';
 
 export const Sidebar: React.FC = () => {
@@ -23,6 +24,12 @@ export const Sidebar: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const t = useTranslation();
+    const {logout, isAuthenticated} = useAuthStore();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login');
+    };
 
     const isActive = (path: string) => {
         if (path === '/') return location.pathname === '/';
@@ -111,19 +118,22 @@ export const Sidebar: React.FC = () => {
 
             {/* Footer Actions */}
             <div className="p-4 border-t border-slate-800 space-y-2">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    fullWidth
-                    icon={<LogOut size={20}/>}
-                    className="text-slate-400 hover:text-white justify-center md:justify-start"
-                >
-                    <span className={`ml-3 text-sm font-medium transition-all duration-200 ${
-                        isSidebarCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'
-                    }`}>
-                        {t.sidebar.signOut}
-                    </span>
-                </Button>
+                {isAuthenticated && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        fullWidth
+                        icon={<LogOut size={20}/>}
+                        onClick={handleLogout}
+                        className="text-slate-400 hover:text-red-400 justify-center md:justify-start"
+                    >
+                        <span className={`ml-3 text-sm font-medium transition-all duration-200 ${
+                            isSidebarCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'
+                        }`}>
+                            {t.sidebar.signOut}
+                        </span>
+                    </Button>
+                )}
 
                 {/* Collapse Toggle */}
                 <Button
@@ -158,11 +168,12 @@ const NavItem: React.FC<NavItemProps> = ({icon, label, active, collapsed, onClic
             } ${collapsed ? 'justify-center' : ''}`}
             title={collapsed ? label : undefined}
         >
+            <span className="flex-shrink-0">{icon}</span>
             <span className={`ml-3 font-medium text-sm whitespace-nowrap transition-all duration-200 ${
                 collapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'
             }`}>
-        {label}
-      </span>
+                {label}
+            </span>
         </button>
     );
 };

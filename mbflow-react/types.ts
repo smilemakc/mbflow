@@ -36,7 +36,11 @@ export enum NodeType {
     // Content processing
     HTML_CLEAN = 'html_clean',
     RSS_PARSER = 'rss_parser',
-    CSV_TO_JSON = 'csv_to_json'
+    CSV_TO_JSON = 'csv_to_json',
+
+    // External integrations
+    GOOGLE_SHEETS = 'google_sheets',
+    GOOGLE_DRIVE = 'google_drive'
 }
 
 // Type representing all possible NodeType values

@@ -127,6 +127,10 @@ const dictionaries = {
       bytesToFile: "Bytes → File",
       csvToJson: "CSV → JSON",
 
+      // External integrations
+      googleSheets: "Google Sheets",
+      googleDrive: "Google Drive",
+
       // Legacy keys (for backwards compatibility)
       scheduler: "Scheduler",
       telegramBot: "Telegram Bot",
@@ -210,6 +214,42 @@ const dictionaries = {
       fetchError: "Failed to load execution details",
       retryStarted: "Retry started",
       retryFailed: "Failed to retry execution"
+    },
+    auth: {
+      signIn: "Sign In",
+      signUp: "Sign Up",
+      signOut: "Sign Out",
+      signInDescription: "Enter your credentials to access your account",
+      signUpDescription: "Create a new account to get started",
+      signingIn: "Signing in...",
+      creatingAccount: "Creating account...",
+      createAccount: "Create Account",
+      email: "Email",
+      password: "Password",
+      confirmPassword: "Confirm Password",
+      username: "Username",
+      fullName: "Full Name",
+      noAccount: "Don't have an account?",
+      alreadyHaveAccount: "Already have an account?",
+      passwordsDoNotMatch: "Passwords do not match",
+      passwordTooShort: "Password must be at least 8 characters",
+      usernameTooShort: "Username must be at least 3 characters",
+      usernameHint: "Letters, numbers, underscores and hyphens only",
+      passwordHint: "At least 8 characters with uppercase, lowercase, and number"
+    },
+    nav: {
+      settings: "Settings",
+      userManagement: "User Management"
+    },
+    admin: {
+      userManagement: "User Management",
+      userManagementDescription: "Manage users and their roles",
+      addUser: "Add User",
+      user: "User",
+      email: "Email",
+      roles: "Roles",
+      status: "Status",
+      actions: "Actions"
     }
   },
   ru: {
@@ -338,6 +378,10 @@ const dictionaries = {
       bytesToFile: "Байты → Файл",
       csvToJson: "CSV → JSON",
 
+      // External integrations
+      googleSheets: "Google Таблицы",
+      googleDrive: "Google Диск",
+
       // Legacy keys (for backwards compatibility)
       scheduler: "Планировщик",
       telegramBot: "Telegram Бот",
@@ -421,14 +465,85 @@ const dictionaries = {
       fetchError: "Не удалось загрузить детали выполнения",
       retryStarted: "Повторный запуск начат",
       retryFailed: "Не удалось повторить выполнение"
+    },
+    auth: {
+      signIn: "Войти",
+      signUp: "Регистрация",
+      signOut: "Выйти",
+      signInDescription: "Введите свои данные для входа в аккаунт",
+      signUpDescription: "Создайте новый аккаунт",
+      signingIn: "Вход...",
+      creatingAccount: "Создание аккаунта...",
+      createAccount: "Создать аккаунт",
+      email: "Email",
+      password: "Пароль",
+      confirmPassword: "Подтвердите пароль",
+      username: "Имя пользователя",
+      fullName: "Полное имя",
+      noAccount: "Нет аккаунта?",
+      alreadyHaveAccount: "Уже есть аккаунт?",
+      passwordsDoNotMatch: "Пароли не совпадают",
+      passwordTooShort: "Пароль должен быть не менее 8 символов",
+      usernameTooShort: "Имя пользователя должно быть не менее 3 символов",
+      usernameHint: "Только буквы, цифры, подчеркивания и дефисы",
+      passwordHint: "Минимум 8 символов с заглавной, строчной буквой и цифрой"
+    },
+    nav: {
+      settings: "Настройки",
+      userManagement: "Управление пользователями"
+    },
+    admin: {
+      userManagement: "Управление пользователями",
+      userManagementDescription: "Управление пользователями и их ролями",
+      addUser: "Добавить пользователя",
+      user: "Пользователь",
+      email: "Email",
+      roles: "Роли",
+      status: "Статус",
+      actions: "Действия"
     }
   }
 };
 
 export const useTranslation = () => {
   const { language } = useUIStore();
-  
+
   // Return the dictionary for the current language
   // Fallback to English if something goes wrong, though types prevent valid keys
   return dictionaries[language] || dictionaries.en;
+};
+
+// Helper function for translations with fallback support
+// Usage: t('auth.signIn', 'Sign In') or t('auth.signIn')
+export const useTranslations = () => {
+  const { language } = useUIStore();
+  const dict = dictionaries[language] || dictionaries.en;
+  const fallbackDict = dictionaries.en;
+
+  return (key: string, fallback?: string): string => {
+    const keys = key.split('.');
+    let value: unknown = dict;
+    let fallbackValue: unknown = fallbackDict;
+
+    for (const k of keys) {
+      if (value && typeof value === 'object' && k in value) {
+        value = (value as Record<string, unknown>)[k];
+      } else {
+        value = undefined;
+      }
+      if (fallbackValue && typeof fallbackValue === 'object' && k in fallbackValue) {
+        fallbackValue = (fallbackValue as Record<string, unknown>)[k];
+      } else {
+        fallbackValue = undefined;
+      }
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof fallbackValue === 'string') {
+      return fallbackValue;
+    }
+    return fallback ?? key;
+  };
 };

@@ -23,6 +23,8 @@ func RegisterBuiltins(manager executor.Manager) error {
 		"merge":             NewMergeExecutor(),
 		"html_clean":        NewHTMLCleanExecutor(),
 		"rss_parser":        NewRSSParserExecutor(),
+		"google_sheets":     NewGoogleSheetsExecutor(),
+		"google_drive":      NewGoogleDriveExecutor(),
 	}
 
 	for name, exec := range executors {

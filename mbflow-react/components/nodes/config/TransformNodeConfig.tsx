@@ -22,8 +22,10 @@ export const TransformNodeConfigComponent: React.FC<TransformNodeConfigProps> = 
     }, [config]);
 
     useEffect(() => {
-        onChange(localConfig);
-    }, [localConfig, onChange]);
+        if (JSON.stringify(localConfig) !== JSON.stringify(config)) {
+            onChange(localConfig);
+        }
+    }, [localConfig]);
 
     const handleLanguageChange = (language: 'jq' | 'javascript') => {
         setLocalConfig((prev) => ({...prev, language}));

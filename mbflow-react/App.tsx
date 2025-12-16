@@ -1,7 +1,9 @@
 import React, {useEffect} from 'react';
 import {HashRouter, Navigate, Route, Routes} from 'react-router-dom';
 import {useUIStore} from './store/uiStore';
+import {useAuthStore, initializeAuth} from './store/authStore';
 import {ToastContainer} from '@/components/ui';
+import {ProtectedRoute} from '@/components/auth';
 
 // Layouts
 import {BuilderLayout, PageLayout} from '@/layouts';
@@ -18,48 +20,101 @@ import {
     WorkflowsPage
 } from './pages';
 
+// Auth Pages
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import UsersPage from './pages/UsersPage';
+
 const App: React.FC = () => {
     const {theme} = useUIStore();
+    const {isInitialized} = useAuthStore();
 
+    // Initialize theme
     useEffect(() => {
         const root = window.document.documentElement;
         root.classList.remove('light', 'dark');
         root.classList.add(theme);
     }, [theme]);
 
+    // Initialize auth on app load
+    useEffect(() => {
+        initializeAuth();
+    }, []);
+
+    // Show loading while auth is initializing
+    if (!isInitialized) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <HashRouter>
             <Routes>
+                {/* Public auth routes */}
+                <Route path="/login" element={<LoginPage/>}/>
+                <Route path="/register" element={<RegisterPage/>}/>
+
                 {/* Default redirect */}
                 <Route path="/" element={<Navigate to="/builder" replace/>}/>
 
-                {/* Builder (complex layout with ReactFlow) */}
-                <Route path="/builder" element={<BuilderLayout/>}/>
+                {/* Protected routes */}
+                <Route path="/builder" element={
+                    <ProtectedRoute><BuilderLayout/></ProtectedRoute>
+                }/>
 
                 {/* Standard pages with simple layout */}
                 <Route path="/dashboard" element={
-                    <PageLayout title="Dashboard"><DashboardPage/></PageLayout>
+                    <ProtectedRoute>
+                        <PageLayout title="Dashboard"><DashboardPage/></PageLayout>
+                    </ProtectedRoute>
                 }/>
                 <Route path="/workflows" element={
-                    <PageLayout title="Workflows"><WorkflowsPage/></PageLayout>
+                    <ProtectedRoute>
+                        <PageLayout title="Workflows"><WorkflowsPage/></PageLayout>
+                    </ProtectedRoute>
                 }/>
                 <Route path="/executions" element={
-                    <PageLayout title="Execution History"><ExecutionsPage/></PageLayout>
+                    <ProtectedRoute>
+                        <PageLayout title="Execution History"><ExecutionsPage/></PageLayout>
+                    </ProtectedRoute>
                 }/>
                 <Route path="/executions/:id" element={
-                    <PageLayout title="Execution Details"><ExecutionDetailPage/></PageLayout>
+                    <ProtectedRoute>
+                        <PageLayout title="Execution Details"><ExecutionDetailPage/></PageLayout>
+                    </ProtectedRoute>
                 }/>
                 <Route path="/triggers" element={
-                    <PageLayout title="Triggers"><TriggersPage/></PageLayout>
+                    <ProtectedRoute>
+                        <PageLayout title="Triggers"><TriggersPage/></PageLayout>
+                    </ProtectedRoute>
                 }/>
                 <Route path="/monitoring" element={
-                    <PageLayout title="System Monitoring"><MonitoringPage/></PageLayout>
+                    <ProtectedRoute>
+                        <PageLayout title="System Monitoring"><MonitoringPage/></PageLayout>
+                    </ProtectedRoute>
                 }/>
                 <Route path="/resources" element={
-                    <PageLayout title="Resources"><ResourcesPage/></PageLayout>
+                    <ProtectedRoute>
+                        <PageLayout title="Resources"><ResourcesPage/></PageLayout>
+                    </ProtectedRoute>
                 }/>
                 <Route path="/settings" element={
-                    <PageLayout title="Settings"><SettingsPage/></PageLayout>
+                    <ProtectedRoute>
+                        <PageLayout title="Settings"><SettingsPage/></PageLayout>
+                    </ProtectedRoute>
+                }/>
+
+                {/* Admin routes */}
+                <Route path="/admin/users" element={
+                    <ProtectedRoute requireAdmin>
+                        <UsersPage/>
+                    </ProtectedRoute>
                 }/>
 
                 {/* Fallback */}

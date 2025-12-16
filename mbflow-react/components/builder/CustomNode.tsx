@@ -2,30 +2,77 @@ import React, {memo} from 'react';
 import {Handle, NodeProps, Position} from 'reactflow';
 import {
     AlertCircle,
-    Bot,
+    Box,
+    Braces,
+    BrushCleaning,
+    CheckCircle,
     CheckCircle2,
     Clock,
     Clock3,
+    Code,
+    Download,
+    FileDown,
+    FileSearch,
+    FileText,
+    FileUp,
+    Folder,
     GitBranch,
+    GitMerge,
     Globe,
+    HardDrive,
     HelpCircle,
     Loader2,
+    Lock,
+    MessageSquare,
     MoreHorizontal,
-    Sparkles
+    Rss,
+    Send,
+    Sheet,
+    Sparkles,
+    Table,
+    Unlock,
+    Zap,
 } from 'lucide-react';
 import {NodeData, NodeStatus, NodeType} from '@/types';
 
 // Helper to get color/icon based on type
 const getNodeStyles = (type?: NodeType) => {
     switch (type) {
+        // Telegram nodes
         case NodeType.TELEGRAM:
             return {
-                icon: Bot,
-                color: 'text-blue-500',
-                bg: 'bg-blue-500',
-                border: 'border-blue-200 dark:border-blue-900',
-                gradient: 'from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-900'
+                icon: Send,
+                color: 'text-sky-500',
+                bg: 'bg-sky-500',
+                border: 'border-sky-200 dark:border-sky-900',
+                gradient: 'from-sky-50 to-white dark:from-sky-900/20 dark:to-slate-900'
             };
+        case NodeType.TELEGRAM_DOWNLOAD:
+            return {
+                icon: Download,
+                color: 'text-sky-500',
+                bg: 'bg-sky-500',
+                border: 'border-sky-200 dark:border-sky-900',
+                gradient: 'from-sky-50 to-white dark:from-sky-900/20 dark:to-slate-900'
+            };
+        case NodeType.TELEGRAM_PARSE:
+            return {
+                icon: FileSearch,
+                color: 'text-sky-500',
+                bg: 'bg-sky-500',
+                border: 'border-sky-200 dark:border-sky-900',
+                gradient: 'from-sky-50 to-white dark:from-sky-900/20 dark:to-slate-900'
+            };
+        case NodeType.TELEGRAM_CALLBACK:
+            return {
+                icon: CheckCircle,
+                color: 'text-sky-500',
+                bg: 'bg-sky-500',
+                border: 'border-sky-200 dark:border-sky-900',
+                gradient: 'from-sky-50 to-white dark:from-sky-900/20 dark:to-slate-900'
+            };
+
+        // Actions
         case NodeType.LLM:
             return {
                 icon: Sparkles,
@@ -34,30 +81,177 @@ const getNodeStyles = (type?: NodeType) => {
                 border: 'border-purple-200 dark:border-purple-900',
                 gradient: 'from-purple-50 to-white dark:from-purple-900/20 dark:to-slate-900'
             };
-        case NodeType.DELAY:
+        case NodeType.HTTP:
             return {
-                icon: Clock,
+                icon: Globe,
+                color: 'text-green-500',
+                bg: 'bg-green-500',
+                border: 'border-green-200 dark:border-green-900',
+                gradient: 'from-green-50 to-white dark:from-green-900/20 dark:to-slate-900'
+            };
+        case NodeType.TRANSFORM:
+            return {
+                icon: Zap,
+                color: 'text-amber-500',
+                bg: 'bg-amber-500',
+                border: 'border-amber-200 dark:border-amber-900',
+                gradient: 'from-amber-50 to-white dark:from-amber-900/20 dark:to-slate-900'
+            };
+        case NodeType.FUNCTION_CALL:
+            return {
+                icon: Code,
+                color: 'text-blue-500',
+                bg: 'bg-blue-500',
+                border: 'border-blue-200 dark:border-blue-900',
+                gradient: 'from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-900'
+            };
+        case NodeType.RSS_PARSER:
+            return {
+                icon: Rss,
                 color: 'text-orange-500',
                 bg: 'bg-orange-500',
                 border: 'border-orange-200 dark:border-orange-900',
                 gradient: 'from-orange-50 to-white dark:from-orange-900/20 dark:to-slate-900'
             };
-        case NodeType.HTTP:
+        case NodeType.GOOGLE_SHEETS:
             return {
-                icon: Globe,
-                color: 'text-emerald-500',
-                bg: 'bg-emerald-500',
-                border: 'border-emerald-200 dark:border-emerald-900',
-                gradient: 'from-emerald-50 to-white dark:from-emerald-900/20 dark:to-slate-900'
+                icon: Sheet,
+                color: 'text-green-600',
+                bg: 'bg-green-600',
+                border: 'border-green-200 dark:border-green-900',
+                gradient: 'from-green-50 to-white dark:from-green-900/20 dark:to-slate-900'
             };
+        case NodeType.GOOGLE_DRIVE:
+            return {
+                icon: HardDrive,
+                color: 'text-blue-500',
+                bg: 'bg-blue-500',
+                border: 'border-blue-200 dark:border-blue-900',
+                gradient: 'from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-900'
+            };
+
+        // Triggers
+        case NodeType.DELAY:
+            return {
+                icon: Clock,
+                color: 'text-cyan-500',
+                bg: 'bg-cyan-500',
+                border: 'border-cyan-200 dark:border-cyan-900',
+                gradient: 'from-cyan-50 to-white dark:from-cyan-900/20 dark:to-slate-900'
+            };
+
+        // Logic
         case NodeType.CONDITIONAL:
             return {
                 icon: GitBranch,
-                color: 'text-slate-500',
-                bg: 'bg-slate-500',
-                border: 'border-slate-300 dark:border-slate-700',
-                gradient: 'from-slate-100 to-white dark:from-slate-800 dark:to-slate-900'
+                color: 'text-pink-500',
+                bg: 'bg-pink-500',
+                border: 'border-pink-200 dark:border-pink-900',
+                gradient: 'from-pink-50 to-white dark:from-pink-900/20 dark:to-slate-900'
             };
+        case NodeType.MERGE:
+            return {
+                icon: GitMerge,
+                color: 'text-violet-500',
+                bg: 'bg-violet-500',
+                border: 'border-violet-200 dark:border-violet-900',
+                gradient: 'from-violet-50 to-white dark:from-violet-900/20 dark:to-slate-900'
+            };
+
+        // Storage
+        case NodeType.FILE_STORAGE:
+            return {
+                icon: Folder,
+                color: 'text-teal-500',
+                bg: 'bg-teal-500',
+                border: 'border-teal-200 dark:border-teal-900',
+                gradient: 'from-teal-50 to-white dark:from-teal-900/20 dark:to-slate-900'
+            };
+
+        // Adapters
+        case NodeType.HTML_CLEAN:
+            return {
+                icon: BrushCleaning,
+                color: 'text-orange-500',
+                bg: 'bg-orange-500',
+                border: 'border-orange-200 dark:border-orange-900',
+                gradient: 'from-orange-50 to-white dark:from-orange-900/20 dark:to-slate-900'
+            };
+        case NodeType.BASE64_TO_BYTES:
+            return {
+                icon: Unlock,
+                color: 'text-red-500',
+                bg: 'bg-red-500',
+                border: 'border-red-200 dark:border-red-900',
+                gradient: 'from-red-50 to-white dark:from-red-900/20 dark:to-slate-900'
+            };
+        case NodeType.BYTES_TO_BASE64:
+            return {
+                icon: Lock,
+                color: 'text-amber-500',
+                bg: 'bg-amber-500',
+                border: 'border-amber-200 dark:border-amber-900',
+                gradient: 'from-amber-50 to-white dark:from-amber-900/20 dark:to-slate-900'
+            };
+        case NodeType.STRING_TO_JSON:
+            return {
+                icon: Braces,
+                color: 'text-violet-500',
+                bg: 'bg-violet-500',
+                border: 'border-violet-200 dark:border-violet-900',
+                gradient: 'from-violet-50 to-white dark:from-violet-900/20 dark:to-slate-900'
+            };
+        case NodeType.JSON_TO_STRING:
+            return {
+                icon: FileText,
+                color: 'text-pink-500',
+                bg: 'bg-pink-500',
+                border: 'border-pink-200 dark:border-pink-900',
+                gradient: 'from-pink-50 to-white dark:from-pink-900/20 dark:to-slate-900'
+            };
+        case NodeType.BYTES_TO_JSON:
+            return {
+                icon: Box,
+                color: 'text-cyan-500',
+                bg: 'bg-cyan-500',
+                border: 'border-cyan-200 dark:border-cyan-900',
+                gradient: 'from-cyan-50 to-white dark:from-cyan-900/20 dark:to-slate-900'
+            };
+        case NodeType.FILE_TO_BYTES:
+            return {
+                icon: FileDown,
+                color: 'text-green-500',
+                bg: 'bg-green-500',
+                border: 'border-green-200 dark:border-green-900',
+                gradient: 'from-green-50 to-white dark:from-green-900/20 dark:to-slate-900'
+            };
+        case NodeType.BYTES_TO_FILE:
+            return {
+                icon: FileUp,
+                color: 'text-teal-500',
+                bg: 'bg-teal-500',
+                border: 'border-teal-200 dark:border-teal-900',
+                gradient: 'from-teal-50 to-white dark:from-teal-900/20 dark:to-slate-900'
+            };
+        case NodeType.CSV_TO_JSON:
+            return {
+                icon: Table,
+                color: 'text-cyan-500',
+                bg: 'bg-cyan-500',
+                border: 'border-cyan-200 dark:border-cyan-900',
+                gradient: 'from-cyan-50 to-white dark:from-cyan-900/20 dark:to-slate-900'
+            };
+
+        // Comment
+        case NodeType.COMMENT:
+            return {
+                icon: MessageSquare,
+                color: 'text-slate-400',
+                bg: 'bg-slate-400',
+                border: 'border-slate-200 dark:border-slate-700',
+                gradient: 'from-slate-50 to-white dark:from-slate-800 dark:to-slate-900'
+            };
+
         default:
             return {
                 icon: HelpCircle,

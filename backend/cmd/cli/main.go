@@ -2,15 +2,23 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/internal/application/auth"
+	"github.com/smilemakc/mbflow/internal/config"
+	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
+	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
 	"github.com/smilemakc/mbflow/pkg/visualization"
+	"golang.org/x/term"
 )
 
 const (
@@ -23,6 +31,7 @@ USAGE:
 COMMANDS:
     workflow show <id>    Show workflow diagram
     workflow list         List all workflows
+    admin create          Create admin user (requires DATABASE_URL)
     version               Show version information
     help                  Show this help message
 
@@ -34,6 +43,12 @@ WORKFLOW SHOW OPTIONS:
     -compact              Compact mode for ASCII (default: false)
     -color                Use colors in ASCII (default: true)
     -output <file>        Save to file instead of stdout
+
+ADMIN CREATE OPTIONS:
+    -email <email>        Admin email address (required)
+    -username <name>      Admin username (required)
+    -password <pass>      Admin password (will prompt if not provided)
+    -full-name <name>     Admin full name (optional)
 
 CONNECTION OPTIONS:
     -endpoint <url>       MBFlow server endpoint (default: http://localhost:8181)
@@ -53,9 +68,16 @@ EXAMPLES:
     # List all workflows
     mbflow-cli workflow list
 
+    # Create admin user (interactive password prompt)
+    mbflow-cli admin create -email admin@example.com -username admin
+
+    # Create admin user with password
+    mbflow-cli admin create -email admin@example.com -username admin -password SecurePass123!
+
 ENVIRONMENT VARIABLES:
     MBFLOW_ENDPOINT       Server endpoint (overridden by -endpoint)
     MBFLOW_API_KEY        API key (overridden by -api-key)
+    DATABASE_URL          Database connection string for admin commands
 `
 )
 
@@ -82,6 +104,21 @@ func main() {
 			handleWorkflowList(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "Error: unknown workflow subcommand: %s\n", subcommand)
+			os.Exit(1)
+		}
+
+	case "admin":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "Error: admin command requires a subcommand (create)")
+			fmt.Fprintln(os.Stderr, usage)
+			os.Exit(1)
+		}
+		subcommand := os.Args[2]
+		switch subcommand {
+		case "create":
+			handleAdminCreate(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "Error: unknown admin subcommand: %s\n", subcommand)
 			os.Exit(1)
 		}
 
@@ -247,4 +284,158 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func handleAdminCreate(args []string) {
+	// Parse flags
+	fs := flag.NewFlagSet("admin create", flag.ExitOnError)
+	email := fs.String("email", "", "Admin email address (required)")
+	username := fs.String("username", "", "Admin username (required)")
+	password := fs.String("password", "", "Admin password (will prompt if not provided)")
+	fullName := fs.String("full-name", "", "Admin full name (optional)")
+
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Validate required fields
+	if *email == "" {
+		fmt.Fprintln(os.Stderr, "Error: -email is required")
+		os.Exit(1)
+	}
+	if *username == "" {
+		fmt.Fprintln(os.Stderr, "Error: -username is required")
+		os.Exit(1)
+	}
+
+	// Get password if not provided
+	if *password == "" {
+		*password = promptPassword("Enter admin password: ")
+		if *password == "" {
+			fmt.Fprintln(os.Stderr, "Error: password cannot be empty")
+			os.Exit(1)
+		}
+
+		// Confirm password
+		confirm := promptPassword("Confirm password: ")
+		if *password != confirm {
+			fmt.Fprintln(os.Stderr, "Error: passwords do not match")
+			os.Exit(1)
+		}
+	}
+
+	// Get database URL from environment
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		fmt.Fprintln(os.Stderr, "Error: DATABASE_URL environment variable is required")
+		fmt.Fprintln(os.Stderr, "Example: DATABASE_URL=\"postgres://user:pass@localhost:5432/mbflow?sslmode=disable\"")
+		os.Exit(1)
+	}
+
+	// Connect to database
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dbConfig := storage.DefaultConfig()
+	dbConfig.DSN = databaseURL
+
+	db, err := storage.NewDB(dbConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer storage.Close(db)
+
+	// Create user repository
+	userRepo := storage.NewUserRepository(db)
+
+	// Check if user already exists
+	existingUser, _ := userRepo.FindByEmail(ctx, *email)
+	if existingUser != nil {
+		fmt.Fprintf(os.Stderr, "Error: user with email '%s' already exists\n", *email)
+		os.Exit(1)
+	}
+
+	existingUser, _ = userRepo.FindByUsername(ctx, *username)
+	if existingUser != nil {
+		fmt.Fprintf(os.Stderr, "Error: user with username '%s' already exists\n", *username)
+		os.Exit(1)
+	}
+
+	// Create auth config for password service
+	authCfg := &config.AuthConfig{
+		MinPasswordLength: 8,
+	}
+	passwordService := auth.NewPasswordService(authCfg.MinPasswordLength)
+
+	// Validate password
+	if err := passwordService.ValidatePassword(*password); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Hash password
+	passwordHash, err := passwordService.HashPassword(*password)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to hash password: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create admin user
+	user := &models.UserModel{
+		ID:           uuid.New(),
+		Email:        *email,
+		Username:     *username,
+		PasswordHash: passwordHash,
+		FullName:     *fullName,
+		IsActive:     true,
+		IsAdmin:      true,
+	}
+
+	if err := userRepo.Create(ctx, user); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create admin user: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Assign admin role if exists
+	adminRole, err := userRepo.FindRoleByName(ctx, "admin")
+	if err == nil && adminRole != nil {
+		if err := userRepo.AssignRole(ctx, user.ID, adminRole.ID, nil); err != nil {
+			fmt.Printf("Warning: failed to assign admin role: %v\n", err)
+		}
+	}
+
+	fmt.Println("Admin user created successfully!")
+	fmt.Printf("  ID:       %s\n", user.ID)
+	fmt.Printf("  Email:    %s\n", user.Email)
+	fmt.Printf("  Username: %s\n", user.Username)
+	if user.FullName != "" {
+		fmt.Printf("  Name:     %s\n", user.FullName)
+	}
+	fmt.Printf("  Admin:    true\n")
+}
+
+func promptPassword(prompt string) string {
+	fmt.Print(prompt)
+
+	// Try to read password without echo
+	if term.IsTerminal(int(syscall.Stdin)) {
+		password, err := term.ReadPassword(int(syscall.Stdin))
+		fmt.Println() // Print newline after password input
+		if err != nil {
+			// Fallback to regular input
+			return promptPasswordFallback()
+		}
+		return string(password)
+	}
+
+	// Fallback for non-terminal input
+	return promptPasswordFallback()
+}
+
+func promptPasswordFallback() string {
+	reader := bufio.NewReader(os.Stdin)
+	password, _ := reader.ReadString('\n')
+	return strings.TrimSpace(password)
 }

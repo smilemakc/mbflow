@@ -31,6 +31,8 @@ import {
 import {HTMLCleanNodeConfigComponent} from '../nodes/config/HTMLCleanNodeConfig';
 import {RSSParserNodeConfigComponent} from '../nodes/config/RSSParserNodeConfig';
 import {CSVToJSONNodeConfigComponent} from '../nodes/config/CSVToJSONNodeConfig';
+import {GoogleSheetsNodeConfigComponent} from '../nodes/config/GoogleSheetsNodeConfig';
+import {GoogleDriveNodeConfigComponent} from '../nodes/config/GoogleDriveNodeConfig';
 
 // Import default configs
 import {DEFAULT_NODE_CONFIGS} from '@/types/nodeConfigs';
@@ -410,6 +412,26 @@ const renderNodeConfigComponent = (
         case NodeType.CSV_TO_JSON:
             return (
                 <CSVToJSONNodeConfigComponent
+                    config={config as any}
+                    nodeId={nodeId}
+                    onChange={onChange}
+                />
+            );
+
+        // Google Sheets (value: 'google_sheets')
+        case NodeType.GOOGLE_SHEETS:
+            return (
+                <GoogleSheetsNodeConfigComponent
+                    config={config as any}
+                    nodeId={nodeId}
+                    onChange={onChange}
+                />
+            );
+
+        // Google Drive (value: 'google_drive')
+        case NodeType.GOOGLE_DRIVE:
+            return (
+                <GoogleDriveNodeConfigComponent
                     config={config as any}
                     nodeId={nodeId}
                     onChange={onChange}

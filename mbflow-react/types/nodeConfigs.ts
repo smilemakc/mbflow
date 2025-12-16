@@ -246,6 +246,31 @@ export interface CSVToJSONNodeConfig extends BaseNodeConfig {
   input_key?: string;
 }
 
+// Google Sheets Node
+export interface GoogleSheetsNodeConfig extends BaseNodeConfig {
+  operation: "read" | "write" | "append";
+  spreadsheet_id: string;
+  sheet_name?: string;
+  range?: string;
+  credentials: string;
+  value_input_option?: "RAW" | "USER_ENTERED";
+  major_dimension?: "ROWS" | "COLUMNS";
+  columns?: string;  // Comma-separated list of field names to extract from objects
+}
+
+// Google Drive Node
+export interface GoogleDriveNodeConfig extends BaseNodeConfig {
+  operation: "create_spreadsheet" | "create_folder" | "list_files" | "delete" | "move" | "copy";
+  credentials: string;
+  file_name?: string;
+  folder_name?: string;
+  file_id?: string;
+  parent_folder_id?: string;
+  destination_folder_id?: string;
+  max_results?: number;
+  order_by?: string;
+}
+
 // Union type of all node configs
 export type NodeConfig =
   | HTTPNodeConfig
@@ -269,7 +294,9 @@ export type NodeConfig =
   | BytesToFileNodeConfig
   | HTMLCleanNodeConfig
   | RSSParserNodeConfig
-  | CSVToJSONNodeConfig;
+  | CSVToJSONNodeConfig
+  | GoogleSheetsNodeConfig
+  | GoogleDriveNodeConfig;
 
 // NodeTypeValues is deprecated - use NodeType enum from '@/types' instead
 // Kept as alias for backward compatibility during migration
@@ -399,6 +426,27 @@ export const DEFAULT_NODE_CONFIGS: Record<string, NodeConfig> = {
     trim_spaces: true,
     skip_empty_rows: true,
     input_key: "",
+  },
+  [NodeType.GOOGLE_SHEETS]: {  // 'google_sheets'
+    operation: "read",
+    spreadsheet_id: "",
+    sheet_name: "",
+    range: "",
+    credentials: "",
+    value_input_option: "USER_ENTERED",
+    major_dimension: "ROWS",
+    columns: "",
+  },
+  [NodeType.GOOGLE_DRIVE]: {  // 'google_drive'
+    operation: "list_files",
+    credentials: "",
+    file_name: "",
+    folder_name: "",
+    file_id: "",
+    parent_folder_id: "",
+    destination_folder_id: "",
+    max_results: 100,
+    order_by: "modifiedTime desc",
   },
 };
 
@@ -658,6 +706,22 @@ export const NODE_TYPE_METADATA: Record<string, NodeTypeMetadata> = {
     color: "#06B6D4",
     category: "adapters",
   },
+  [NodeType.GOOGLE_SHEETS]: {  // 'google_sheets'
+    type: NodeType.GOOGLE_SHEETS,
+    label: "Google Sheets",
+    description: "Read, write, and append data to Google Sheets",
+    icon: "Sheet",
+    color: "#34A853",
+    category: "actions",
+  },
+  [NodeType.GOOGLE_DRIVE]: {  // 'google_drive'
+    type: NodeType.GOOGLE_DRIVE,
+    label: "Google Drive",
+    description: "Manage files and folders in Google Drive",
+    icon: "HardDrive",
+    color: "#1A73E8",
+    category: "actions",
+  },
 };
 
 // Node output schemas for variable autocomplete
@@ -795,5 +859,50 @@ export const NODE_OUTPUT_SCHEMAS: Record<string, Record<string, any>> = {
     column_count: { type: "number", description: "Number of columns" },
     headers: { type: "array", description: "Column headers" },
     duration_ms: { type: "number", description: "Processing time in milliseconds" },
+  },
+  [NodeType.GOOGLE_SHEETS]: {  // 'google_sheets'
+    success: { type: "boolean", description: "Whether operation was successful" },
+    operation: { type: "string", description: "Operation performed (read/write/append)" },
+    spreadsheet_id: { type: "string", description: "Google Sheets spreadsheet ID" },
+    sheet_name: { type: "string", description: "Sheet name" },
+    range: { type: "string", description: "Range notation" },
+    data: {
+      type: "array",
+      description: "Data read from spreadsheet (for read operation)",
+      items: { type: "array", description: "Row data" }
+    },
+    updated_cells: { type: "number", description: "Number of cells updated (for write/append)" },
+    updated_rows: { type: "number", description: "Number of rows updated (for write/append)" },
+    updated_range: { type: "string", description: "Range that was updated (for write/append)" },
+    row_count: { type: "number", description: "Number of rows read (for read)" },
+    column_count: { type: "number", description: "Number of columns read (for read)" },
+    duration_ms: { type: "number", description: "Operation duration in milliseconds" },
+  },
+  [NodeType.GOOGLE_DRIVE]: {  // 'google_drive'
+    success: { type: "boolean", description: "Whether operation was successful" },
+    operation: { type: "string", description: "Operation performed" },
+    file_id: { type: "string", description: "File ID" },
+    folder_id: { type: "string", description: "Folder ID (for create_folder)" },
+    file_name: { type: "string", description: "File or folder name" },
+    mime_type: { type: "string", description: "MIME type of file" },
+    web_view_url: { type: "string", description: "URL to view file in browser" },
+    files: {
+      type: "array",
+      description: "List of files (for list_files)",
+      items: {
+        id: { type: "string" },
+        name: { type: "string" },
+        mime_type: { type: "string" },
+        created_time: { type: "string" },
+        modified_time: { type: "string" },
+        web_view_link: { type: "string" },
+        size: { type: "number" },
+      }
+    },
+    file_count: { type: "number", description: "Number of files returned (for list_files)" },
+    source_file_id: { type: "string", description: "Original file ID (for copy)" },
+    destination_file_id: { type: "string", description: "Destination folder ID (for move/copy)" },
+    metadata: { type: "object", description: "Additional metadata" },
+    duration_ms: { type: "number", description: "Operation duration in milliseconds" },
   },
 };

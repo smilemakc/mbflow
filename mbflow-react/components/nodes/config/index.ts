@@ -20,3 +20,5 @@ export {
 export {default as HTMLCleanNodeConfig, HTMLCleanNodeConfigComponent} from "./HTMLCleanNodeConfig";
 export {default as RSSParserNodeConfig, RSSParserNodeConfigComponent} from "./RSSParserNodeConfig";
 export {default as CSVToJSONNodeConfig, CSVToJSONNodeConfigComponent} from "./CSVToJSONNodeConfig";
+export {default as GoogleSheetsNodeConfig, GoogleSheetsNodeConfigComponent} from "./GoogleSheetsNodeConfig";
+export {default as GoogleDriveNodeConfig, GoogleDriveNodeConfigComponent} from "./GoogleDriveNodeConfig";

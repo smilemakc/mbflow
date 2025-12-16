@@ -18,6 +18,7 @@ import {
     Lock,
     Search,
     Send,
+    Sheet,
     Sparkles,
     Table,
     Unlock,
@@ -76,6 +77,18 @@ const nodeDefinitions: NodeDefinition[] = [
         type: NodeType.FUNCTION_CALL,
         labelKey: 'functionCall',
         icon: <Code size={16} className="text-blue-500"/>,
+        category: 'actions'
+    },
+    {
+        type: NodeType.GOOGLE_SHEETS,
+        labelKey: 'googleSheets',
+        icon: <Sheet size={16} className="text-green-600"/>,
+        category: 'actions'
+    },
+    {
+        type: NodeType.GOOGLE_DRIVE,
+        labelKey: 'googleDrive',
+        icon: <Folder size={16} className="text-blue-600"/>,
         category: 'actions'
     },
 

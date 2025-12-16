@@ -43,8 +43,18 @@ var (
 	ErrInvalidConfig    = errors.New("invalid configuration")
 
 	// Authorization errors
-	ErrUnauthorized = errors.New("unauthorized")
-	ErrForbidden    = errors.New("forbidden")
+	ErrUnauthorized       = errors.New("unauthorized")
+	ErrForbidden          = errors.New("forbidden")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrUserExists         = errors.New("user already exists")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrTokenExpired       = errors.New("token expired")
+	ErrSessionNotFound    = errors.New("session not found")
+	ErrSessionExpired     = errors.New("session expired")
+	ErrRoleNotFound       = errors.New("role not found")
+	ErrInvalidRole        = errors.New("invalid role")
+	ErrPermissionDenied   = errors.New("permission denied")
 
 	// Validation errors
 	ErrValidationFailed = errors.New("validation failed")
@@ -104,4 +114,27 @@ func (e ValidationErrors) Error() string {
 		return "validation failed"
 	}
 	return e[0].Error()
+}
+
+// AuthError represents an authentication or authorization error.
+type AuthError struct {
+	UserID string
+	Action string
+	Err    error
+}
+
+func (e *AuthError) Error() string {
+	msg := "auth error"
+	if e.UserID != "" {
+		msg += " for user " + e.UserID
+	}
+	if e.Action != "" {
+		msg += " during " + e.Action
+	}
+	msg += ": " + e.Err.Error()
+	return msg
+}
+
+func (e *AuthError) Unwrap() error {
+	return e.Err
 }

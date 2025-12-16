@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Config holds the application configuration.
@@ -16,6 +18,7 @@ type Config struct {
 	Redis    RedisConfig
 	Logging  LoggingConfig
 	Observer ObserverConfig
+	Auth     AuthConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -77,8 +80,42 @@ type ObserverConfig struct {
 	BufferSize int
 }
 
+// AuthConfig holds authentication and authorization configuration.
+type AuthConfig struct {
+	Mode string
+
+	JWTSecret          string
+	JWTExpirationHours int
+	RefreshExpiryDays  int
+
+	SessionDuration    time.Duration
+	MaxSessionsPerUser int
+
+	MinPasswordLength   int
+	RequireSpecialChars bool
+	RequireUppercase    bool
+	RequireNumbers      bool
+
+	EnableRateLimit  bool
+	MaxLoginAttempts int
+	LockoutDuration  time.Duration
+
+	AllowRegistration bool
+
+	GatewayURL   string
+	ClientID     string
+	ClientSecret string
+	IssuerURL    string
+	JWKSURL      string
+	RedirectURL  string
+
+	EnableFallback bool
+	FallbackMode   string
+}
+
 // Load loads the configuration from environment variables.
 func Load() (*Config, error) {
+	godotenv.Load()
 	cfg := &Config{
 		Server: ServerConfig{
 			Port:            getEnvAsInt("PORT", 8181),
@@ -119,6 +156,30 @@ func Load() (*Config, error) {
 			EnableWebSocket:     getEnvAsBool("OBSERVER_WEBSOCKET_ENABLED", true),
 			WebSocketBufferSize: getEnvAsInt("OBSERVER_WEBSOCKET_BUFFER_SIZE", 256),
 			BufferSize:          getEnvAsInt("OBSERVER_BUFFER_SIZE", 100),
+		},
+		Auth: AuthConfig{
+			Mode:                getEnv("AUTH_MODE", "builtin"),
+			JWTSecret:           getEnv("JWT_SECRET", ""),
+			JWTExpirationHours:  getEnvAsInt("JWT_EXPIRATION_HOURS", 24),
+			RefreshExpiryDays:   getEnvAsInt("JWT_REFRESH_DAYS", 30),
+			SessionDuration:     getEnvAsDuration("SESSION_DURATION", 24*time.Hour),
+			MaxSessionsPerUser:  getEnvAsInt("MAX_SESSIONS_PER_USER", 5),
+			MinPasswordLength:   getEnvAsInt("MIN_PASSWORD_LENGTH", 8),
+			RequireSpecialChars: getEnvAsBool("REQUIRE_SPECIAL_CHARS", false),
+			RequireUppercase:    getEnvAsBool("REQUIRE_UPPERCASE", false),
+			RequireNumbers:      getEnvAsBool("REQUIRE_NUMBERS", false),
+			EnableRateLimit:     getEnvAsBool("ENABLE_RATE_LIMIT", true),
+			MaxLoginAttempts:    getEnvAsInt("MAX_LOGIN_ATTEMPTS", 5),
+			LockoutDuration:     getEnvAsDuration("LOCKOUT_DURATION", 15*time.Minute),
+			AllowRegistration:   getEnvAsBool("ALLOW_REGISTRATION", true),
+			GatewayURL:          getEnv("AUTH_GATEWAY_URL", ""),
+			ClientID:            getEnv("AUTH_CLIENT_ID", ""),
+			ClientSecret:        getEnv("AUTH_CLIENT_SECRET", ""),
+			IssuerURL:           getEnv("AUTH_ISSUER_URL", ""),
+			JWKSURL:             getEnv("AUTH_JWKS_URL", ""),
+			RedirectURL:         getEnv("AUTH_REDIRECT_URL", ""),
+			EnableFallback:      getEnvAsBool("AUTH_ENABLE_FALLBACK", false),
+			FallbackMode:        getEnv("AUTH_FALLBACK_MODE", "builtin"),
 		},
 	}
 
@@ -165,6 +226,37 @@ func (c *Config) Validate() error {
 
 	if c.Logging.Format != "json" && c.Logging.Format != "text" {
 		return fmt.Errorf("invalid log format: %s (must be json or text)", c.Logging.Format)
+	}
+
+	if err := c.validateAuth(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Config) validateAuth() error {
+	if c.Auth.Mode != "builtin" && c.Auth.Mode != "gateway" && c.Auth.Mode != "hybrid" {
+		return fmt.Errorf("invalid AUTH_MODE: %s (must be builtin, gateway, or hybrid)", c.Auth.Mode)
+	}
+
+	if c.Auth.Mode == "builtin" || c.Auth.Mode == "hybrid" {
+		if c.Auth.JWTSecret == "" {
+			return fmt.Errorf("JWT_SECRET is required for %s mode", c.Auth.Mode)
+		}
+		if len(c.Auth.JWTSecret) < 32 {
+			return fmt.Errorf("JWT_SECRET must be at least 32 characters")
+		}
+	}
+
+	if c.Auth.Mode == "gateway" || c.Auth.Mode == "hybrid" {
+		if c.Auth.GatewayURL == "" || c.Auth.ClientID == "" {
+			return fmt.Errorf("AUTH_GATEWAY_URL and AUTH_CLIENT_ID are required for %s mode", c.Auth.Mode)
+		}
+	}
+
+	if c.Auth.MinPasswordLength < 8 {
+		return fmt.Errorf("MIN_PASSWORD_LENGTH must be at least 8")
 	}
 
 	return nil
