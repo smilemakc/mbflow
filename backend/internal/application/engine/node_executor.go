@@ -67,17 +67,20 @@ func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (*Nod
 	//   - {{input.field}} → already resolved in resolvedConfig
 	//   - {{env.var}} → already resolved in resolvedConfig
 	output, err := baseExecutor.Execute(ctx, resolvedConfig, nodeCtx.DirectParentOutput)
-	if err != nil {
-		return nil, fmt.Errorf("node execution failed: %w", err)
-	}
 
-	// 6. Return result with metadata
-	return &NodeExecutionResult{
-		Output:         output,
+	// 6. Return result with metadata (even on error - for debugging purposes)
+	result := &NodeExecutionResult{
+		Output:         output, // Will be nil on error
 		Input:          nodeCtx.DirectParentOutput,
 		Config:         nodeCtx.Node.Config, // Original config
 		ResolvedConfig: resolvedConfig,      // Resolved config
-	}, nil
+	}
+
+	if err != nil {
+		return result, fmt.Errorf("node execution failed: %w", err)
+	}
+
+	return result, nil
 }
 
 // PrepareNodeContext builds NodeContext from execution state and node.

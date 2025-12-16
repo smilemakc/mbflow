@@ -13,12 +13,13 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	Logging  LoggingConfig
-	Observer ObserverConfig
-	Auth     AuthConfig
+	Server      ServerConfig
+	Database    DatabaseConfig
+	Redis       RedisConfig
+	Logging     LoggingConfig
+	Observer    ObserverConfig
+	Auth        AuthConfig
+	FileStorage FileStorageConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -113,6 +114,12 @@ type AuthConfig struct {
 	FallbackMode   string
 }
 
+// FileStorageConfig holds file storage configuration.
+type FileStorageConfig struct {
+	MaxFileSize int64
+	StoragePath string
+}
+
 // Load loads the configuration from environment variables.
 func Load() (*Config, error) {
 	godotenv.Load()
@@ -180,6 +187,10 @@ func Load() (*Config, error) {
 			RedirectURL:         getEnv("AUTH_REDIRECT_URL", ""),
 			EnableFallback:      getEnvAsBool("AUTH_ENABLE_FALLBACK", false),
 			FallbackMode:        getEnv("AUTH_FALLBACK_MODE", "builtin"),
+		},
+		FileStorage: FileStorageConfig{
+			MaxFileSize: getEnvAsInt64("FILE_STORAGE_MAX_FILE_SIZE", 10*1024*1024),
+			StoragePath: getEnv("FILE_STORAGE_PATH", "./data/storage"),
 		},
 	}
 
@@ -338,6 +349,20 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 	}
 
 	return result
+}
+
+func getEnvAsInt64(key string, defaultValue int64) int64 {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+
+	value, err := strconv.ParseInt(valueStr, 10, 64)
+	if err != nil {
+		return defaultValue
+	}
+
+	return value
 }
 
 // parseHTTPHeaders parses HTTP headers from environment variable

@@ -84,9 +84,13 @@ func main() {
 	}
 
 	// Initialize file storage manager
-	fileStorageManager := filestorage.NewStorageManager(filestorage.DefaultManagerConfig())
+	fileStorageConfig := filestorage.DefaultManagerConfig()
+	fileStorageConfig.BasePath = cfg.FileStorage.StoragePath
+	fileStorageConfig.MaxFileSize = cfg.FileStorage.MaxFileSize
+	fileStorageManager := filestorage.NewStorageManager(fileStorageConfig)
 	appLogger.Info("File storage manager initialized",
-		"base_path", "./file_storage",
+		"base_path", cfg.FileStorage.StoragePath,
+		"max_file_size", cfg.FileStorage.MaxFileSize,
 	)
 
 	// Register file_storage executor
@@ -186,11 +190,16 @@ func main() {
 	eventRepo := storage.NewEventRepository(db)
 	triggerRepo := storage.NewTriggerRepository(db)
 	userRepo := storage.NewUserRepository(db)
+	fileRepo := storage.NewFileRepository(db)
+	accountRepo := storage.NewAccountRepository(db)
+	transactionRepo := storage.NewTransactionRepository(db)
+	resourceRepo := storage.NewResourceRepository(db)
+	pricingPlanRepo := storage.NewPricingPlanRepository(db)
 
 	appLogger.Info("Repositories initialized")
 
 	// Initialize auth system
-	authService := auth.NewService(userRepo, &cfg.Auth)
+	authService := auth.NewService(userRepo, accountRepo, &cfg.Auth)
 	providerManager, err := auth.NewProviderManager(&cfg.Auth, authService)
 	if err != nil {
 		appLogger.Warn("Failed to initialize auth provider manager", "error", err)
@@ -380,6 +389,19 @@ func main() {
 		executionHandlers := rest.NewExecutionHandlers(executionRepo, workflowRepo, executionManager, appLogger)
 		triggerHandlers := rest.NewTriggerHandlers(triggerRepo, workflowRepo, appLogger)
 		authHandlers := rest.NewAuthHandlers(authService, providerManager, loginRateLimiter)
+		fileHandlers := rest.NewFileHandlers(fileRepo, fileStorageManager, appLogger)
+		resourceHandlers := rest.NewResourceHandlers(resourceRepo, pricingPlanRepo, appLogger)
+		accountHandlers := rest.NewAccountHandlers(accountRepo, transactionRepo, appLogger)
+
+		// Initialize resource file service and handlers
+		resourceFileService := filestorage.NewResourceFileService(
+			db,
+			resourceRepo,
+			fileRepo,
+			fileStorageManager,
+			cfg.FileStorage.MaxFileSize,
+		)
+		fileStorageHandlers := rest.NewFileStorageHandlers(resourceRepo, resourceFileService, appLogger)
 
 		// Auth endpoints (public)
 		authGroup := apiV1.Group("/auth")
@@ -474,6 +496,47 @@ func main() {
 			triggers.POST("/:id/enable", triggerHandlers.HandleEnableTrigger)
 			triggers.POST("/:id/disable", triggerHandlers.HandleDisableTrigger)
 			triggers.POST("/:id/execute", triggerHandlers.HandleTriggerManual)
+		}
+
+		// File endpoints
+		files := apiV1.Group("/files")
+		files.Use(authMiddleware.OptionalAuth())
+		{
+			files.POST("", fileHandlers.HandleUploadFile)
+			files.GET("", fileHandlers.HandleListFiles)
+			files.GET("/:id", fileHandlers.HandleGetFile)
+			files.GET("/:id/metadata", fileHandlers.HandleGetFileMetadata)
+			files.DELETE("/:id", fileHandlers.HandleDeleteFile)
+			files.GET("/storage/:storage_id/usage", fileHandlers.HandleGetStorageUsage)
+		}
+
+		// Resource endpoints (require authentication)
+		resources := apiV1.Group("/resources")
+		resources.Use(authMiddleware.RequireAuth())
+		{
+			resources.POST("/file-storage", resourceHandlers.CreateFileStorage)
+			resources.GET("", resourceHandlers.ListResources)
+			resources.GET("/:id", resourceHandlers.GetResource)
+			resources.PUT("/:id", resourceHandlers.UpdateResource)
+			resources.DELETE("/:id", resourceHandlers.DeleteResource)
+			resources.GET("/pricing-plans", resourceHandlers.ListPricingPlans)
+
+			// File storage resource endpoints
+			resources.POST("/:id/files", fileStorageHandlers.UploadFile)
+			resources.GET("/:id/files", fileStorageHandlers.ListFiles)
+			resources.GET("/:id/files/:file_id", fileStorageHandlers.GetFileMetadata)
+			resources.GET("/:id/files/:file_id/download", fileStorageHandlers.DownloadFile)
+			resources.DELETE("/:id/files/:file_id", fileStorageHandlers.DeleteFile)
+		}
+
+		// Account endpoints (require authentication)
+		account := apiV1.Group("/account")
+		account.Use(authMiddleware.RequireAuth())
+		{
+			account.GET("", accountHandlers.GetAccount)
+			account.POST("/deposit", accountHandlers.Deposit)
+			account.GET("/transactions", accountHandlers.ListTransactions)
+			account.GET("/transactions/:id", accountHandlers.GetTransaction)
 		}
 
 		// Webhook endpoints

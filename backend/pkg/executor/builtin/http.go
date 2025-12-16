@@ -43,12 +43,25 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{
 		return nil, err
 	}
 
-	// Build request
+	// Build request body
 	var body io.Reader
 	if config["body"] != nil {
-		bodyData, err := json.Marshal(config["body"])
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		var bodyData []byte
+		var err error
+
+		switch v := config["body"].(type) {
+		case string:
+			// If body is already a string, use it directly (avoid double serialization)
+			bodyData = []byte(v)
+		case []byte:
+			// If body is bytes, use directly
+			bodyData = v
+		default:
+			// For maps, slices, etc. - serialize to JSON
+			bodyData, err = json.Marshal(v)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			}
 		}
 		body = bytes.NewReader(bodyData)
 	}

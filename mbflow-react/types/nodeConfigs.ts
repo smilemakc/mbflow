@@ -87,8 +87,10 @@ export interface LLMNodeConfig extends BaseNodeConfig {
 
 // Transform Node
 export interface TransformNodeConfig extends BaseNodeConfig {
-  language: "jq" | "javascript";
-  expression: string;
+  type: "passthrough" | "template" | "expression" | "jq";
+  template?: string;      // For type: "template"
+  expression?: string;    // For type: "expression" (expr-lang)
+  filter?: string;        // For type: "jq" (gojq)
   timeout_seconds?: number;
 }
 
@@ -321,8 +323,7 @@ export const DEFAULT_NODE_CONFIGS: Record<string, NodeConfig> = {
     max_tokens: 1000,
   },
   [NodeType.TRANSFORM]: {  // 'transform'
-    language: "jq",
-    expression: ".",
+    type: "passthrough",
     timeout_seconds: 10,
   },
   [NodeType.FUNCTION_CALL]: {  // 'function_call'
@@ -484,7 +485,7 @@ export const HTTP_METHODS = [
   "OPTIONS",
 ] as const;
 
-export const TRANSFORM_LANGUAGES = ["jq", "javascript"] as const;
+export const TRANSFORM_TYPES = ["passthrough", "template", "expression", "jq"] as const;
 
 export const TELEGRAM_MESSAGE_TYPES = [
   "text",
@@ -549,7 +550,7 @@ export const NODE_TYPE_METADATA: Record<string, NodeTypeMetadata> = {
   [NodeType.TRANSFORM]: {  // 'transform'
     type: NodeType.TRANSFORM,
     label: "Transform",
-    description: "Transform data using jq or JavaScript",
+    description: "Transform data using passthrough, templates, expressions, or jq",
     icon: "Zap",
     color: "#F59E0B",
     category: "logic",
@@ -747,7 +748,7 @@ export const NODE_OUTPUT_SCHEMAS: Record<string, Record<string, any>> = {
     tool_calls: { type: "array", description: "Tool calls made by the model" },
   },
   [NodeType.TRANSFORM]: {  // 'transform'
-    result: { type: "any", description: "Transformed data" },
+    result: { type: "any", description: "Transformed data (output depends on transformation type and expression)" },
   },
   [NodeType.FUNCTION_CALL]: {  // 'function_call'
     result: { type: "any", description: "Function execution result" },

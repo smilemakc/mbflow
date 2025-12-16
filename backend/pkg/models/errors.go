@@ -59,6 +59,22 @@ var (
 	// Validation errors
 	ErrValidationFailed = errors.New("validation failed")
 	ErrRequired         = errors.New("required field is missing")
+
+	// Billing and resource errors
+	ErrInsufficientBalance   = errors.New("insufficient balance")
+	ErrAccountNotFound       = errors.New("account not found")
+	ErrAccountInactive       = errors.New("account is inactive")
+	ErrAccountSuspended      = errors.New("account is suspended")
+	ErrAccountClosed         = errors.New("account is closed")
+	ErrResourceNotFound      = errors.New("resource not found")
+	ErrResourceLimitExceeded = errors.New("resource limit exceeded")
+	ErrStorageLimitExceeded  = errors.New("storage limit exceeded")
+	ErrTransactionNotFound   = errors.New("transaction not found")
+	ErrTransactionFailed     = errors.New("transaction failed")
+	ErrDuplicateTransaction  = errors.New("duplicate transaction")
+	ErrPricingPlanNotFound   = errors.New("pricing plan not found")
+	ErrInvalidResourceType   = errors.New("invalid resource type")
+	ErrInvalidID             = errors.New("invalid ID format")
 )
 
 // WorkflowError represents an error that occurred during workflow operations.

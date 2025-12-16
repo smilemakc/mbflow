@@ -376,7 +376,7 @@ func setupAuthTestService() (*auth.Service, *MockUserRepository) {
 		AllowRegistration:  true,
 	}
 
-	service := auth.NewService(mockRepo, cfg)
+	service := auth.NewService(mockRepo, nil, cfg)
 	return service, mockRepo
 }
 
@@ -785,7 +785,7 @@ func TestHandleRegister_RegistrationDisabled(t *testing.T) {
 		AllowRegistration:  false, // Disabled
 	}
 
-	authService := auth.NewService(mockRepo, cfg)
+	authService := auth.NewService(mockRepo, nil, cfg)
 	router := setupAuthTestRouter(authService, nil)
 
 	req := RegisterRequest{

@@ -31,6 +31,7 @@ var (
 // Service handles authentication and authorization operations
 type Service struct {
 	userRepo        repository.UserRepository
+	accountRepo     repository.AccountRepository
 	jwtService      *JWTService
 	passwordService *PasswordService
 	config          *config.AuthConfig
@@ -39,10 +40,12 @@ type Service struct {
 // NewService creates a new auth service
 func NewService(
 	userRepo repository.UserRepository,
+	accountRepo repository.AccountRepository,
 	cfg *config.AuthConfig,
 ) *Service {
 	return &Service{
 		userRepo:        userRepo,
+		accountRepo:     accountRepo,
 		jwtService:      NewJWTService(cfg),
 		passwordService: NewPasswordService(cfg.MinPasswordLength),
 		config:          cfg,
@@ -121,6 +124,16 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*AuthResu
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Create billing account for the new user
+	if s.accountRepo != nil {
+		billingAccount := pkgmodels.NewAccount(user.ID.String())
+		if err := s.accountRepo.Create(ctx, billingAccount); err != nil {
+			// Log error but don't fail registration - account can be created later
+			// In production, this should be done in a transaction
+			fmt.Printf("warning: failed to create billing account for user %s: %v\n", user.ID.String(), err)
+		}
 	}
 
 	// Assign default "user" role

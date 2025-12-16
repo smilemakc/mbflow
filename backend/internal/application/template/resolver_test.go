@@ -2,6 +2,7 @@ package template
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -49,10 +50,12 @@ func TestResolver_ResolveVariable(t *testing.T) {
 			name:    "input without path",
 			varType: "input",
 			path:    "",
-			wantErr: true,
-			errCheck: func(err error) bool {
-				return errors.Is(err, ErrInvalidTemplate)
+			want: map[string]interface{}{
+				"data": map[string]interface{}{
+					"name": "test",
+				},
 			},
+			wantErr: false,
 		},
 		{
 			name:    "unknown variable type",
@@ -95,7 +98,7 @@ func TestResolver_ResolveVariable(t *testing.T) {
 					t.Errorf("ResolveVariable() error check failed for error: %v", err)
 				}
 			}
-			if !tt.wantErr && got != tt.want {
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ResolveVariable() = %v, want %v", got, tt.want)
 			}
 		})

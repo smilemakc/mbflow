@@ -1,6 +1,7 @@
 import React, {useCallback, useMemo, useRef, useState} from 'react';
 import ReactFlow, {
     Background,
+    ControlButton,
     Controls,
     MarkerType,
     MiniMap,
@@ -8,12 +9,14 @@ import ReactFlow, {
     ReactFlowInstance,
     useReactFlow
 } from 'reactflow';
+import {ArrowDown, ArrowRight} from 'lucide-react';
 import {useDagStore} from '@/store/dagStore';
 import {useUIStore} from '@/store/uiStore';
 import {NodeType} from '@/types';
 import {CustomNode} from './CustomNode';
 import {ContextMenu} from './ContextMenu';
 import {QuickAddMenu} from './QuickAddMenu';
+import {LayoutDirection, useAutoLayout} from '@/hooks/useAutoLayout';
 
 // Define Custom Node Types
 const nodeTypes = {
@@ -26,6 +29,9 @@ export const DAGCanvas: React.FC = () => {
     const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
     const {theme} = useUIStore();
     const {fitView} = useReactFlow();
+
+    // Auto Layout
+    const {applyLayout, isLayouting} = useAutoLayout();
 
     // Component State for interactions
     const [contextMenu, setContextMenu] = useState<{
@@ -58,8 +64,16 @@ export const DAGCanvas: React.FC = () => {
         setSelectedEdgeId,
         duplicateNode,
         deleteNode,
-        updateNodeData
+        updateNodeData,
+        applyLayoutedNodes
     } = useDagStore();
+
+    // Apply auto layout
+    const handleAutoLayout = useCallback((direction: LayoutDirection) => {
+        const {nodes: layoutedNodes} = applyLayout(nodes, edges, direction);
+        applyLayoutedNodes(layoutedNodes);
+        setTimeout(() => fitView({duration: 300}), 50);
+    }, [nodes, edges, applyLayout, applyLayoutedNodes, fitView]);
 
     const onDragOver = useCallback((event: React.DragEvent) => {
         event.preventDefault();
@@ -233,11 +247,24 @@ export const DAGCanvas: React.FC = () => {
             >
                 <Background color={dotColor} gap={20} size={1}/>
 
-                <Controls
-                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg overflow-hidden [&>button]:bg-white dark:[&>button]:bg-slate-800 [&>button]:border-b-slate-200 dark:[&>button]:border-b-slate-700 [&>button:hover]:bg-slate-50 dark:[&>button:hover]:bg-slate-700 [&_svg]:!fill-slate-600 dark:[&_svg]:!fill-slate-100"/>
+                <Controls>
+                    <ControlButton
+                        onClick={() => handleAutoLayout('TB')}
+                        title="Auto Layout (Top to Bottom)"
+                        disabled={isLayouting || nodes.length === 0}
+                    >
+                        <ArrowDown size={16}/>
+                    </ControlButton>
+                    <ControlButton
+                        onClick={() => handleAutoLayout('LR')}
+                        title="Auto Layout (Left to Right)"
+                        disabled={isLayouting || nodes.length === 0}
+                    >
+                        <ArrowRight size={16}/>
+                    </ControlButton>
+                </Controls>
 
                 <MiniMap
-                    className="border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg bg-white dark:bg-slate-800"
                     maskColor={minimapMaskColor}
                     nodeColor={() => theme === 'dark' ? '#475569' : '#94a3b8'}
                 />

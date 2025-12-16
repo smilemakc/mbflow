@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react';
 import {HashRouter, Navigate, Route, Routes} from 'react-router-dom';
-import {useUIStore} from './store/uiStore';
-import {useAuthStore, initializeAuth} from './store/authStore';
+import {useUIStore} from '@/store/uiStore';
+import {initializeAuth, useAuthStore} from '@/store/authStore';
 import {ToastContainer} from '@/components/ui';
 import {ProtectedRoute} from '@/components/auth';
 
@@ -11,19 +11,19 @@ import {BuilderLayout, PageLayout} from '@/layouts';
 // Pages
 import {
     DashboardPage,
-    ExecutionsPage,
     ExecutionDetailPage,
+    ExecutionsPage,
     MonitoringPage,
     ResourcesPage,
     SettingsPage,
     TriggersPage,
     WorkflowsPage
-} from './pages';
+} from '@/pages';
 
 // Auth Pages
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import UsersPage from './pages/UsersPage';
+import LoginPage from '@/pages/LoginPage';
+import RegisterPage from '@/pages/RegisterPage';
+import UsersPage from '@/pages/UsersPage';
 
 const App: React.FC = () => {
     const {theme} = useUIStore();
@@ -46,7 +46,7 @@ const App: React.FC = () => {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
                     <p className="text-gray-600 dark:text-gray-400">Loading...</p>
                 </div>
             </div>
@@ -65,6 +65,9 @@ const App: React.FC = () => {
 
                 {/* Protected routes */}
                 <Route path="/builder" element={
+                    <ProtectedRoute><BuilderLayout/></ProtectedRoute>
+                }/>
+                <Route path="/builder/:workflowId" element={
                     <ProtectedRoute><BuilderLayout/></ProtectedRoute>
                 }/>
 

@@ -37,9 +37,16 @@ func (r *Resolver) ResolveVariable(varType, path string) (interface{}, error) {
 
 	case "input":
 		if path == "" {
-			return nil, fmt.Errorf("%w: input requires a field name", ErrInvalidTemplate)
+			// Return entire input object when no path specified ({{input}})
+			if r.context.InputVars != nil {
+				value = r.context.InputVars
+				found = true
+			} else {
+				return nil, fmt.Errorf("%w: input is empty", ErrVariableNotFound)
+			}
+		} else {
+			value, found = r.resolveInputPath(path)
 		}
-		value, found = r.resolveInputPath(path)
 
 	default:
 		return nil, fmt.Errorf("%w: unknown variable type '%s'", ErrInvalidTemplate, varType)

@@ -25,7 +25,11 @@ import {
 } from 'lucide-react';
 import {Button} from '../ui';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+    onSave?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onSave }) => {
     const {
         isDirty,
         lastSavedAt,
@@ -39,6 +43,8 @@ export const Header: React.FC = () => {
         dagName,
         setDAGName
     } = useDagStore();
+
+    const handleSave = onSave || saveDAG;
 
     const {
         theme,
@@ -255,7 +261,7 @@ export const Header: React.FC = () => {
                 <Button
                     variant="outline"
                     icon={<Save size={16} />}
-                    onClick={() => saveDAG()}
+                    onClick={handleSave}
                     disabled={isRunning}
                     className="hidden sm:flex"
                 >

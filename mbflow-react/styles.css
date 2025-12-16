@@ -53,6 +53,32 @@
   }
 }
 
+/* React Flow Controls - Dark Mode Support */
+.react-flow__controls {
+  @apply bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg overflow-hidden;
+}
+
+.react-flow__controls-button {
+  @apply bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 transition-colors;
+}
+
+.react-flow__controls-button:hover {
+  @apply bg-slate-100 dark:bg-slate-700;
+}
+
+.react-flow__controls-button svg {
+  @apply fill-slate-600 dark:fill-slate-300;
+}
+
+.react-flow__controls-button:hover svg {
+  @apply fill-slate-900 dark:fill-white;
+}
+
+/* React Flow MiniMap - Dark Mode Support */
+.react-flow__minimap {
+  @apply bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg overflow-hidden;
+}
+
 /* Toast Animations */
 @layer utilities {
   @keyframes slide-in {

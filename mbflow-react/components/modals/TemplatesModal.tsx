@@ -17,7 +17,7 @@ import {useUIStore} from '@/store/uiStore';
 import {useDagStore} from '@/store/dagStore';
 import {AppEdge, AppNode, NodeStatus, NodeType} from '@/types';
 import {MarkerType} from 'reactflow';
-import { Button } from '../ui';
+import {Button, ConfirmModal} from '../ui';
 
 // Template interface
 interface WorkflowTemplate {
@@ -1037,6 +1037,7 @@ export const TemplatesModal: React.FC = () => {
     const {loadGraph} = useDagStore();
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [templateToLoad, setTemplateToLoad] = useState<WorkflowTemplate | null>(null);
 
     const filteredTemplates = TEMPLATES.filter(t => {
         const matchesCategory = selectedCategory === 'all' || t.category === selectedCategory;
@@ -1047,13 +1048,18 @@ export const TemplatesModal: React.FC = () => {
     });
 
     const handleSelect = (template: WorkflowTemplate) => {
-        if (confirm('This will replace your current workflow. Continue?')) {
+        setTemplateToLoad(template);
+    };
+
+    const handleConfirmLoad = () => {
+        if (templateToLoad) {
             // Deep copy to ensure unique references
-            const nodesCopy = JSON.parse(JSON.stringify(template.nodes));
-            const edgesCopy = JSON.parse(JSON.stringify(template.edges));
+            const nodesCopy = JSON.parse(JSON.stringify(templateToLoad.nodes));
+            const edgesCopy = JSON.parse(JSON.stringify(templateToLoad.edges));
             loadGraph(nodesCopy, edgesCopy);
             setActiveModal(null);
         }
+        setTemplateToLoad(null);
     };
 
     return (
@@ -1169,6 +1175,17 @@ export const TemplatesModal: React.FC = () => {
                 </div>
 
             </div>
+
+            {/* Confirm Load Template Modal */}
+            <ConfirmModal
+                isOpen={!!templateToLoad}
+                onClose={() => setTemplateToLoad(null)}
+                onConfirm={handleConfirmLoad}
+                title="Load Template"
+                message="This will replace your current workflow. Any unsaved changes will be lost. Continue?"
+                confirmText="Load Template"
+                variant="warning"
+            />
         </div>
     );
 };

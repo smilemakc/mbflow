@@ -70,6 +70,7 @@ interface DAGState {
   updateEdge: (edgeId: string, updates: Partial<AppEdge>) => void;
   deleteEdge: (edgeId: string) => void;
   loadGraph: (nodes: AppNode[], edges: AppEdge[]) => void;
+  applyLayoutedNodes: (nodes: AppNode[]) => void;
 
   // === Variables ===
   variables: Variable[];
@@ -84,10 +85,11 @@ interface DAGState {
   setDAGName: (name: string) => void;
 
   // === Persistence & Execution ===
-  saveDAG: () => Promise<void>;
+  saveDAG: () => Promise<string | null>;
   createNewWorkflow: (name: string) => Promise<void>;
   fetchWorkflow: (id: string) => Promise<void>;
   fetchWorkflowList: () => Promise<{ id: string; name: string }[]>;
+  resetToNew: () => void;
   runWorkflow: () => Promise<void>;
   undo: () => void;
   redo: () => void;
@@ -304,6 +306,16 @@ export const useDagStore = create<DAGState>((set, get) => ({
     });
   },
 
+  applyLayoutedNodes: (layoutedNodes) => {
+    const { edges, history, historyIndex } = get();
+    set({ nodes: layoutedNodes, isDirty: true });
+
+    // Add to history for undo support
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push({ nodes: layoutedNodes, edges });
+    set({ history: newHistory, historyIndex: newHistory.length - 1 });
+  },
+
   addVariable: (variable) => {
     set({ variables: [...get().variables, variable] });
   },
@@ -355,10 +367,10 @@ export const useDagStore = create<DAGState>((set, get) => ({
 
   saveDAG: async () => {
     const { nodes, edges, dagId, dagName } = get();
+    const isNew = !dagId;
 
     try {
-      // Optimistic UI update
-      set({ isDirty: false, lastSavedAt: new Date() });
+      set({ isSaving: true });
 
       // Attempt to save to backend
       const payload = {
@@ -366,17 +378,29 @@ export const useDagStore = create<DAGState>((set, get) => ({
         name: dagName,
         nodes,
         edges,
-      variables: get().workflowVariables
+        variables: get().workflowVariables
       };
 
       console.log('Saving to backend...', payload);
-      await workflowService.save(payload);
-      console.log('Backend save successful');
+      const savedWorkflow = await workflowService.save(payload);
+      console.log('Backend save successful', savedWorkflow);
+
+      // Update state with new ID if it was a new workflow
+      set({
+        dagId: savedWorkflow.id,
+        isDirty: false,
+        lastSavedAt: new Date(),
+        isSaving: false
+      });
+
+      // Return the ID (new ID if created, existing if updated)
+      return isNew ? savedWorkflow.id : null;
 
     } catch (error) {
       console.error('Failed to save to backend:', error);
-      // Fallback: If network fails, we still consider it "saved" locally for the session,
-      // but in a real app you might show an error toast here.
+      set({ isSaving: false });
+      toast.error('Save Failed', 'Failed to save workflow. Please try again.');
+      return null;
     }
   },
 
@@ -439,6 +463,25 @@ export const useDagStore = create<DAGState>((set, get) => ({
       console.error('Failed to fetch workflow list:', error);
       return [];
     }
+  },
+
+  resetToNew: () => {
+    set({
+      dagId: '',
+      dagName: 'New Workflow',
+      nodes: [],
+      edges: [],
+      workflowVariables: {},
+      isDirty: false,
+      isLoading: false,
+      history: [{ nodes: [], edges: [] }],
+      historyIndex: 0,
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      logs: [],
+      executionResults: {},
+      isRunning: false
+    });
   },
 
   undo: () => {
@@ -733,6 +776,17 @@ export const useDagStore = create<DAGState>((set, get) => ({
             }
           }));
 
+          // Update edges: incoming → failed (red), stop animation
+          const incomingEdges = edges.filter(e => e.target === execEvent.node_id);
+          set(state => ({
+            edges: state.edges.map(e => {
+              if (incomingEdges.some(ie => ie.id === e.id)) {
+                return { ...e, animated: false, style: { stroke: '#ef4444', strokeWidth: 2 } };
+              }
+              return e;
+            })
+          }));
+
           addLog(execEvent.node_id, 'error', `Node "${execEvent.node_name || execEvent.node_id}" failed: ${execEvent.error || 'Unknown error'}`);
         }
         break;
@@ -760,14 +814,29 @@ export const useDagStore = create<DAGState>((set, get) => ({
         break;
 
       case 'execution.completed':
-        // Mark all edges as completed (green)
-        set(state => ({
-          edges: state.edges.map(e => ({
-            ...e,
-            animated: false,
-            style: { ...e.style, stroke: '#22c55e', strokeWidth: 2 }
-          }))
-        }));
+        // Stop all animations and finalize edge colors
+        // Only mark edges green if both source and target nodes succeeded
+        set(state => {
+          const nodeStatusMap = new Map(state.nodes.map(n => [n.id, n.data.status]));
+
+          return {
+            edges: state.edges.map(e => {
+              const sourceStatus = nodeStatusMap.get(e.source);
+              const targetStatus = nodeStatusMap.get(e.target);
+
+              // If both nodes completed successfully, edge is green
+              if (sourceStatus === NodeStatus.SUCCESS && targetStatus === NodeStatus.SUCCESS) {
+                return { ...e, animated: false, style: { stroke: '#22c55e', strokeWidth: 2 } };
+              }
+              // If target failed, edge is red
+              if (targetStatus === NodeStatus.ERROR) {
+                return { ...e, animated: false, style: { stroke: '#ef4444', strokeWidth: 2 } };
+              }
+              // Otherwise reset to default
+              return { ...e, animated: false, style: { ...e.style, stroke: undefined, strokeWidth: undefined } };
+            })
+          };
+        });
 
         addLog(null, 'success', 'Workflow completed successfully');
         set({ isRunning: false });
@@ -775,12 +844,39 @@ export const useDagStore = create<DAGState>((set, get) => ({
         break;
 
       case 'execution.failed':
+        // Stop all animations but DON'T change node statuses -
+        // rely on node.completed/node.failed events for accurate node states
+        // The backend sends node events before execution.failed, so we should have accurate states
+        set(state => ({
+          edges: state.edges.map(e => ({
+            ...e,
+            animated: false,
+            // Keep existing colors: green for completed, red for failed, reset blue (in-progress) to default
+            style: e.style?.stroke === '#10b981' || e.style?.stroke === '#22c55e' || e.style?.stroke === '#ef4444'
+              ? e.style
+              : { ...e.style, stroke: undefined, strokeWidth: undefined }
+          }))
+        }));
+
         addLog(null, 'error', `Workflow failed: ${execEvent.error || 'Unknown error'}`);
         set({ isRunning: false });
         get().disconnectFromExecution();
         break;
 
       case 'execution.cancelled':
+        // Stop all animations but DON'T change node statuses -
+        // rely on individual node events for accurate states
+        set(state => ({
+          edges: state.edges.map(e => ({
+            ...e,
+            animated: false,
+            // Keep existing colors for completed/failed edges, reset others
+            style: e.style?.stroke === '#10b981' || e.style?.stroke === '#22c55e' || e.style?.stroke === '#ef4444'
+              ? e.style
+              : { ...e.style, stroke: undefined, strokeWidth: undefined }
+          }))
+        }));
+
         addLog(null, 'warning', 'Workflow was cancelled');
         set({ isRunning: false });
         get().disconnectFromExecution();

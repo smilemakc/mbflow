@@ -23,6 +23,7 @@ type FileModel struct {
 	Metadata     JSONBMap    `bun:"metadata,type:jsonb,default:'{}'" json:"metadata,omitempty"`
 	TTLSeconds   *int        `bun:"ttl_seconds" json:"ttl_seconds,omitempty"`
 	ExpiresAt    *time.Time  `bun:"expires_at" json:"expires_at,omitempty"`
+	ResourceID   *uuid.UUID  `bun:"resource_id,type:uuid" json:"resource_id,omitempty"`
 	WorkflowID   *uuid.UUID  `bun:"workflow_id,type:uuid" json:"workflow_id,omitempty"`
 	ExecutionID  *uuid.UUID  `bun:"execution_id,type:uuid" json:"execution_id,omitempty"`
 	SourceNodeID *string     `bun:"source_node_id" json:"source_node_id,omitempty"`
@@ -30,6 +31,7 @@ type FileModel struct {
 	UpdatedAt    time.Time   `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 
 	// Relationships
+	Resource  *ResourceModel  `bun:"rel:belongs-to,join:resource_id=id" json:"resource,omitempty"`
 	Workflow  *WorkflowModel  `bun:"rel:belongs-to,join:workflow_id=id" json:"workflow,omitempty"`
 	Execution *ExecutionModel `bun:"rel:belongs-to,join:execution_id=id" json:"execution,omitempty"`
 }

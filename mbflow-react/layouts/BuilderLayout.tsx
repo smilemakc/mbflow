@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ReactFlowProvider } from 'reactflow';
 import { useUIStore } from '@/store/uiStore';
 import { useDagStore } from '@/store/dagStore';
@@ -16,16 +16,27 @@ import { WorkflowVariablesEditor } from '@/components/builder/WorkflowVariablesE
 
 export const BuilderLayout: React.FC = () => {
   const { isFullscreen, activeModal, setActiveModal, toggleFullscreen } = useUIStore();
-  const { saveDAG, undo, redo, runWorkflow, fetchWorkflow } = useDagStore();
-  const [searchParams] = useSearchParams();
+  const { saveDAG, undo, redo, runWorkflow, fetchWorkflow, resetToNew } = useDagStore();
+  const { workflowId } = useParams<{ workflowId: string }>();
+  const navigate = useNavigate();
 
-  // Load workflow from URL parameter
+  // Load workflow from URL parameter or reset for new workflow
   useEffect(() => {
-    const workflowId = searchParams.get('id');
     if (workflowId) {
       fetchWorkflow(workflowId);
+    } else {
+      resetToNew();
     }
-  }, [searchParams, fetchWorkflow]);
+  }, [workflowId, fetchWorkflow, resetToNew]);
+
+  // Save with redirect for new workflows
+  const handleSave = useCallback(async () => {
+    const newWorkflowId = await saveDAG();
+    if (newWorkflowId) {
+      // New workflow was created, redirect to its URL
+      navigate(`/builder/${newWorkflowId}`, { replace: true });
+    }
+  }, [saveDAG, navigate]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -36,7 +47,7 @@ export const BuilderLayout: React.FC = () => {
 
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        saveDAG();
+        handleSave();
       } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
         runWorkflow();
@@ -61,7 +72,7 @@ export const BuilderLayout: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saveDAG, undo, redo, runWorkflow, activeModal, setActiveModal, toggleFullscreen]);
+  }, [handleSave, undo, redo, runWorkflow, activeModal, setActiveModal, toggleFullscreen]);
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
@@ -79,7 +90,7 @@ export const BuilderLayout: React.FC = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col h-full min-w-0">
-          <Header />
+          <Header onSave={handleSave} />
 
           {/* Workspace */}
           <div className="flex-1 flex overflow-hidden relative">

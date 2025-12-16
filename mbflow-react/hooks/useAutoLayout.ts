@@ -5,13 +5,12 @@ import dagre from 'dagre';
 export type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
 export interface UseAutoLayoutOptions {
-  direction?: LayoutDirection;
   nodeSpacing?: number;
   rankSpacing?: number;
 }
 
 export interface UseAutoLayout {
-  applyLayout: (nodes: Node[], edges: Edge[]) => { nodes: Node[]; edges: Edge[] };
+  applyLayout: (nodes: Node[], edges: Edge[], direction?: LayoutDirection) => { nodes: Node[]; edges: Edge[] };
   isLayouting: boolean;
 }
 
@@ -24,13 +23,12 @@ export function useAutoLayout(options: UseAutoLayoutOptions = {}): UseAutoLayout
   const [isLayouting, setIsLayouting] = useState(false);
 
   const {
-    direction = 'TB',
     nodeSpacing = DEFAULT_NODE_SPACING,
     rankSpacing = DEFAULT_RANK_SPACING,
   } = options;
 
   const applyLayout = useCallback(
-    (nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge[] } => {
+    (nodes: Node[], edges: Edge[], direction: LayoutDirection = 'TB'): { nodes: Node[]; edges: Edge[] } => {
       setIsLayouting(true);
 
       try {
@@ -84,7 +82,7 @@ export function useAutoLayout(options: UseAutoLayoutOptions = {}): UseAutoLayout
         setIsLayouting(false);
       }
     },
-    [direction, nodeSpacing, rankSpacing]
+    [nodeSpacing, rankSpacing]
   );
 
   return {

@@ -75,25 +75,64 @@ func setupWorkflowRepoTest(t *testing.T) (*WorkflowRepository, *bun.DB, func()) 
 	return repo, db, cleanup
 }
 
-func setupTestDB(t *testing.T) *bun.DB {
-	dsn := "postgres://mbflow:mbflow@localhost:5566/mbflow?sslmode=disable"
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New())
-
-	// Clean up any existing test data
+// setupTestDBWithContainer creates a test database using Docker container (safe, isolated)
+func setupTestDBWithContainer(t *testing.T) (*bun.DB, func()) {
 	ctx := context.Background()
-	_, _ = db.NewDelete().Model((*models.NodeExecutionModel)(nil)).Where("1=1").Exec(ctx)
-	_, _ = db.NewDelete().Model((*models.ExecutionModel)(nil)).Where("1=1").Exec(ctx)
-	_, _ = db.NewDelete().Model((*models.EdgeModel)(nil)).Where("1=1").Exec(ctx)
-	_, _ = db.NewDelete().Model((*models.NodeModel)(nil)).Where("1=1").Exec(ctx)
-	_, _ = db.NewDelete().Model((*models.WorkflowModel)(nil)).Where("name LIKE 'test_%'").Exec(ctx)
 
-	return db
+	// Start PostgreSQL container
+	req := testcontainers.ContainerRequest{
+		Image:        "postgres:16-alpine",
+		ExposedPorts: []string{"5432/tcp"},
+		Env: map[string]string{
+			"POSTGRES_USER":     "test",
+			"POSTGRES_PASSWORD": "test",
+			"POSTGRES_DB":       "mbflow_test",
+		},
+		WaitingFor: wait.ForLog("database system is ready to accept connections"),
+	}
+
+	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	host, err := postgres.Host(ctx)
+	require.NoError(t, err)
+
+	port, err := postgres.MappedPort(ctx, "5432")
+	require.NoError(t, err)
+
+	// Connect to database
+	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
+
+	// Wait for DB to be ready
+	time.Sleep(500 * time.Millisecond)
+
+	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
+	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
+
+	// Run migrations
+	migrator, err := NewMigrator(db, "../../../migrations")
+	require.NoError(t, err)
+
+	err = migrator.Init(ctx)
+	require.NoError(t, err)
+
+	err = migrator.Up(ctx)
+	require.NoError(t, err)
+
+	cleanup := func() {
+		db.Close()
+		postgres.Terminate(ctx)
+	}
+
+	return db, cleanup
 }
 
 func TestWorkflowRepository_SyncNodesWithExecutionHistory(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
+	db, cleanup := setupTestDBWithContainer(t)
+	defer cleanup()
 
 	repo := NewWorkflowRepository(db)
 	ctx := context.Background()

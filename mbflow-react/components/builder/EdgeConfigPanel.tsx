@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {useDagStore} from '@/store/dagStore.ts';
 import {VariableAutocomplete} from "@/components/builder";
 import {ArrowRight, Check, Trash2, X, XCircle} from 'lucide-react';
-import {Button} from '../ui';
+import {Button, ConfirmModal} from '../ui';
 
 export const EdgeConfigPanel: React.FC = () => {
     const {
@@ -19,6 +19,7 @@ export const EdgeConfigPanel: React.FC = () => {
 
     const [sourceHandle, setSourceHandle] = useState<string>('');
     const [condition, setCondition] = useState<string>('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
         if (selectedEdge) {
@@ -56,10 +57,8 @@ export const EdgeConfigPanel: React.FC = () => {
 
     const handleDelete = () => {
         if (!selectedEdge) return;
-
-        if (confirm('Are you sure you want to delete this edge?')) {
-            deleteEdge(selectedEdge.id);
-        }
+        deleteEdge(selectedEdge.id);
+        setShowDeleteConfirm(false);
     };
 
     const handleClose = () => {
@@ -216,13 +215,24 @@ export const EdgeConfigPanel: React.FC = () => {
                             variant="danger"
                             fullWidth
                             icon={<Trash2 size={16} />}
-                            onClick={handleDelete}
+                            onClick={() => setShowDeleteConfirm(true)}
                         >
                             Delete Edge
                         </Button>
                     </div>
                 </div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={handleDelete}
+                title="Delete Edge"
+                message="Are you sure you want to delete this edge? This action cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
 
             {/* Backdrop */}
             {isOpen && (

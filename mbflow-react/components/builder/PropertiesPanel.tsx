@@ -4,7 +4,7 @@ import {useTranslation} from '@/store/translations.ts';
 import {Trash2, X} from 'lucide-react';
 import {NodeType} from '@/types.ts';
 import {VariableAutocomplete} from '@/components';
-import {Button} from '../ui';
+import {Button, ConfirmModal} from '../ui';
 
 // Import all node config components
 import {HTTPNodeConfigComponent} from '@/components/nodes/config/HTTPNodeConfig.tsx';
@@ -43,6 +43,7 @@ export const PropertiesPanel: React.FC = () => {
 
     const selectedNode = nodes.find((n) => n.id === selectedNodeId);
     const [formData, setFormData] = useState<Record<string, any>>({});
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
         if (selectedNode) {
@@ -87,8 +88,9 @@ export const PropertiesPanel: React.FC = () => {
     };
 
     const handleDelete = () => {
-        if (selectedNode && confirm(t.common.delete + '?')) {
+        if (selectedNode) {
             deleteNode(selectedNode.id);
+            setShowDeleteConfirm(false);
         }
     };
 
@@ -175,13 +177,25 @@ export const PropertiesPanel: React.FC = () => {
                             variant="danger"
                             fullWidth
                             icon={<Trash2 size={16}/>}
-                            onClick={handleDelete}
+                            onClick={() => setShowDeleteConfirm(true)}
                         >
                             {t.builder.deleteNode}
                         </Button>
                     </div>
                 </div>
             )}
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={handleDelete}
+                title={t.builder.deleteNode}
+                message="Are you sure you want to delete this node? This action cannot be undone."
+                confirmText={t.common.delete}
+                cancelText={t.common.cancel}
+                variant="danger"
+            />
         </div>
     );
 };

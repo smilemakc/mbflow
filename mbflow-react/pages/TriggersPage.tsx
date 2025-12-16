@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import {triggerService} from '@/services/triggerService';
 import type {Trigger, TriggerStatus, TriggerType,} from '@/types/triggers';
-import { Button } from '@/components/ui';
+import {Button, ConfirmModal} from '@/components/ui';
 
 export const TriggersPage: React.FC = () => {
     const [triggers, setTriggers] = useState<Trigger[]>([]);
@@ -28,6 +28,7 @@ export const TriggersPage: React.FC = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [triggerToDelete, setTriggerToDelete] = useState<string | null>(null);
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [executingId, setExecutingId] = useState<string | null>(null);
 
@@ -96,19 +97,18 @@ export const TriggersPage: React.FC = () => {
         }
     };
 
-    const handleDelete = async (triggerId: string) => {
-        if (!confirm('Are you sure you want to delete this trigger?')) {
-            return;
-        }
+    const handleDelete = async () => {
+        if (!triggerToDelete) return;
 
-        setDeletingId(triggerId);
+        setDeletingId(triggerToDelete);
         try {
-            await triggerService.deleteTrigger(triggerId);
-            setTriggers((prev) => prev.filter((t) => t.id !== triggerId));
+            await triggerService.deleteTrigger(triggerToDelete);
+            setTriggers((prev) => prev.filter((t) => t.id !== triggerToDelete));
         } catch (error) {
             console.error('Failed to delete trigger:', error);
         } finally {
             setDeletingId(null);
+            setTriggerToDelete(null);
         }
     };
 
@@ -174,7 +174,7 @@ export const TriggersPage: React.FC = () => {
                         onClick={() => setShowCreateModal(true)}
                         variant="primary"
                         size="sm"
-                        icon={<Plus size={16} />}
+                        icon={<Plus size={16}/>}
                     >
                         Create Trigger
                     </Button>
@@ -341,7 +341,9 @@ export const TriggersPage: React.FC = () => {
                                                             disabled={isExecuting}
                                                             variant="ghost"
                                                             size="sm"
-                                                            icon={isExecuting ? <Loader2 size={16} className="animate-spin"/> : <Play size={16}/>}
+                                                            icon={isExecuting ?
+                                                                <Loader2 size={16} className="animate-spin"/> :
+                                                                <Play size={16}/>}
                                                             title="Execute Now"
                                                         />
                                                     )}
@@ -353,11 +355,13 @@ export const TriggersPage: React.FC = () => {
                                                         title="Edit"
                                                     />
                                                     <Button
-                                                        onClick={() => handleDelete(trigger.id)}
+                                                        onClick={() => setTriggerToDelete(trigger.id)}
                                                         disabled={isDeleting}
                                                         variant="ghost"
                                                         size="sm"
-                                                        icon={isDeleting ? <Loader2 size={16} className="animate-spin"/> : <Trash2 size={16}/>}
+                                                        icon={isDeleting ?
+                                                            <Loader2 size={16} className="animate-spin"/> :
+                                                            <Trash2 size={16}/>}
                                                         title="Delete"
                                                         className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                                                     />
@@ -426,6 +430,17 @@ export const TriggersPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={!!triggerToDelete}
+                onClose={() => setTriggerToDelete(null)}
+                onConfirm={handleDelete}
+                title="Delete Trigger"
+                message="Are you sure you want to delete this trigger? This action cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
         </div>
     );
 };

@@ -333,7 +333,8 @@ func (de *DAGExecutor) executeNode(
 
 	execErr = retryPolicy.Execute(nodeCtx, func() error {
 		result, err := de.nodeExecutor.Execute(nodeCtx, nodeExecCtx)
-		if err == nil {
+		// Always store result (even on error) for debugging purposes
+		if result != nil {
 			execResult = result
 		}
 		return err
@@ -346,6 +347,13 @@ func (de *DAGExecutor) executeNode(
 		execState.SetNodeError(node.ID, execErr)
 		execState.SetNodeStatus(node.ID, models.NodeExecutionStatusFailed)
 		execState.SetNodeEndTime(node.ID, nodeEndTime)
+
+		// Store input and config even on error (for debugging)
+		if execResult != nil {
+			execState.SetNodeInput(node.ID, execResult.Input)
+			execState.SetNodeConfig(node.ID, execResult.Config)
+			execState.SetNodeResolvedConfig(node.ID, execResult.ResolvedConfig)
+		}
 
 		// Notify node failed
 		nodeDuration := time.Since(nodeStartTime).Milliseconds()

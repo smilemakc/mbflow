@@ -180,13 +180,21 @@ func (e *Engine) resolveComplex(data interface{}) (interface{}, error) {
 //   - "env.userName" -> ("env", "userName")
 //   - "input.data.user.email" -> ("input", "data.user.email")
 //   - "env.items[0].name" -> ("env", "items[0].name")
+//   - "input" -> ("input", "") - returns entire input object
 func (e *Engine) parseVariableRef(ref string) (string, string) {
 	parts := strings.SplitN(ref, ".", 2)
+
+	varType := strings.TrimSpace(parts[0])
+
+	// Support {{input}} and {{env}} without path - returns entire object
 	if len(parts) < 2 {
+		// Only allow "input" without path (returns entire input object)
+		if varType == "input" {
+			return varType, ""
+		}
 		return "", ""
 	}
 
-	varType := strings.TrimSpace(parts[0])
 	path := strings.TrimSpace(parts[1])
 
 	return varType, path
@@ -255,18 +263,26 @@ func ValidateTemplate(template string) error {
 
 	for _, varRef := range vars {
 		parts := strings.SplitN(varRef, ".", 2)
-		if len(parts) < 2 {
-			return fmt.Errorf("%w: invalid variable reference '{{%s}}' (expected format: {{type.path}})", ErrInvalidTemplate, varRef)
-		}
 
 		varType := strings.TrimSpace(parts[0])
-		path := strings.TrimSpace(parts[1])
 
+		// Validate variable type
 		if varType != "env" && varType != "input" {
 			return fmt.Errorf("%w: unknown variable type '%s' (supported: env, input)", ErrInvalidTemplate, varType)
 		}
 
-		if path == "" {
+		// {{input}} without path is allowed (returns entire input object)
+		if len(parts) < 2 {
+			if varType == "input" {
+				continue // Valid: {{input}} returns entire input
+			}
+			return fmt.Errorf("%w: invalid variable reference '{{%s}}' (expected format: {{type.path}})", ErrInvalidTemplate, varRef)
+		}
+
+		path := strings.TrimSpace(parts[1])
+
+		// env always requires a path
+		if varType == "env" && path == "" {
 			return fmt.Errorf("%w: empty path for variable type '%s'", ErrInvalidTemplate, varType)
 		}
 	}

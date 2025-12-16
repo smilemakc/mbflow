@@ -15,6 +15,8 @@ const (
 	ScopeEdge AccessScope = "edge"
 	// ScopeResult - file is stored as node execution result
 	ScopeResult AccessScope = "result"
+	// ScopeResource - file belongs to a FileStorage resource
+	ScopeResource AccessScope = "resource"
 )
 
 // ValidAccessScopes contains all valid access scope values
@@ -22,6 +24,7 @@ var ValidAccessScopes = map[AccessScope]bool{
 	ScopeWorkflow: true,
 	ScopeEdge:     true,
 	ScopeResult:   true,
+	ScopeResource: true,
 }
 
 // IsValid checks if the access scope is valid

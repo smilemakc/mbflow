@@ -1,6 +1,6 @@
 import React from 'react';
 import {Activity, AlertTriangle, Cpu, Download, Filter, HardDrive, Search, Server, Terminal} from 'lucide-react';
-import { Button } from '@/components/ui';
+import {Button} from '@/components/ui';
 
 export const MonitoringPage: React.FC = () => {
     return (
@@ -18,14 +18,14 @@ export const MonitoringPage: React.FC = () => {
                         <Button
                             variant="outline"
                             size="sm"
-                            icon={<Filter size={16} />}
+                            icon={<Filter size={16}/>}
                         >
                             Filter
                         </Button>
                         <Button
                             variant="primary"
                             size="sm"
-                            icon={<Download size={16} />}
+                            icon={<Download size={16}/>}
                         >
                             Export Logs
                         </Button>
