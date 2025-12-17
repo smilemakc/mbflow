@@ -28,7 +28,7 @@ import { formatShortDate } from '@/utils/formatters';
 import { useTranslation } from '@/store/translations';
 import { authService } from '@/services/authService';
 import { getErrorMessage } from '@/lib/api';
-import { toast } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import type { User as UserType } from '@/types/auth';
 
 interface RentalKeyAdminListProps {
@@ -248,7 +248,7 @@ export const RentalKeyAdminList: React.FC<RentalKeyAdminListProps> = ({ classNam
           onChange={(value) =>
             table.setFilters({
               ...table.filters,
-              provider: value || undefined,
+              provider: (value as LLMProviderType) || undefined,
             })
           }
           options={[

@@ -6,7 +6,7 @@ import {Button} from './Button';
 export interface ModalProps {
     isOpen: boolean;
     onClose: () => void;
-    title?: string;
+    title?: React.ReactNode;
     size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
     closeOnBackdrop?: boolean;
     closeOnEscape?: boolean;

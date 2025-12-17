@@ -79,7 +79,8 @@ const dictionaries = {
       name: "Name",
       description: "Description",
       deleteNode: "Delete Node",
-      nodeConfig: "Config"
+      nodeConfig: "Config",
+      noConfigAvailable: "No specific configuration available for this node type."
     },
     monitoring: {
       title: "Execution Monitor",
@@ -307,6 +308,7 @@ const dictionaries = {
       allStatuses: "All Statuses",
       filterByOwner: "Filter by Owner ID...",
       noRentalKeys: "No rental keys found",
+      createFirstKey: "Create your first rental key to get started",
       showingOf: "Showing",
       of: "of",
       usage: "Usage",
@@ -1175,7 +1177,8 @@ const dictionaries = {
       name: "Название",
       description: "Описание",
       deleteNode: "Удалить узел",
-      nodeConfig: "Конфигурация"
+      nodeConfig: "Конфигурация",
+      noConfigAvailable: "Нет доступных настроек для этого типа узла."
     },
     monitoring: {
       title: "Монитор выполнения",
@@ -1403,6 +1406,7 @@ const dictionaries = {
       allStatuses: "Все статусы",
       filterByOwner: "Фильтр по ID владельца...",
       noRentalKeys: "Арендные ключи не найдены",
+      createFirstKey: "Создайте первый арендный ключ для начала работы",
       showingOf: "Показано",
       of: "из",
       usage: "Использование",
