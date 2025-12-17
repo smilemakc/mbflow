@@ -24,6 +24,7 @@ import {
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import UsersPage from '@/pages/UsersPage';
+import RentalKeysAdminPage from '@/pages/RentalKeysAdminPage';
 
 const App: React.FC = () => {
     const {theme} = useUIStore();
@@ -117,6 +118,11 @@ const App: React.FC = () => {
                 <Route path="/admin/users" element={
                     <ProtectedRoute requireAdmin>
                         <UsersPage/>
+                    </ProtectedRoute>
+                }/>
+                <Route path="/admin/rental-keys" element={
+                    <ProtectedRoute requireAdmin>
+                        <RentalKeysAdminPage/>
                     </ProtectedRoute>
                 }/>
 

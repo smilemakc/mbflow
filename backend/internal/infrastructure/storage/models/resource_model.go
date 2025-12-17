@@ -14,7 +14,7 @@ type ResourceModel struct {
 	bun.BaseModel `bun:"table:resources,alias:r"`
 
 	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
-	Type        string     `bun:"type,notnull" json:"type" validate:"required,oneof=file_storage credentials"`
+	Type        string     `bun:"type,notnull" json:"type" validate:"required,oneof=file_storage credentials rental_key"`
 	OwnerID     uuid.UUID  `bun:"owner_id,notnull,type:uuid" json:"owner_id" validate:"required"`
 	Name        string     `bun:"name,notnull" json:"name" validate:"required,max=255"`
 	Description string     `bun:"description" json:"description,omitempty" validate:"max=1000"`
@@ -28,6 +28,7 @@ type ResourceModel struct {
 	Owner       *UserModel        `bun:"rel:belongs-to,join:owner_id=id" json:"owner,omitempty"`
 	FileStorage *FileStorageModel `bun:"rel:has-one,join:id=resource_id" json:"file_storage,omitempty"`
 	Credentials *CredentialsModel `bun:"rel:has-one,join:id=resource_id" json:"credentials,omitempty"`
+	RentalKey   *RentalKeyModel   `bun:"rel:has-one,join:id=resource_id" json:"rental_key,omitempty"`
 }
 
 // TableName returns the table name for ResourceModel
@@ -466,4 +467,377 @@ func FromCredentialsResourceDomain(cred *pkgmodels.CredentialsResource) (*Resour
 	}
 
 	return resourceModel, credentialsModel
+}
+
+// ============================================================================
+// Rental Key Model
+// ============================================================================
+
+// RentalKeyModel represents rental key specific data in the database
+type RentalKeyModel struct {
+	bun.BaseModel `bun:"table:resource_rental_key,alias:rrk"`
+
+	ResourceID      uuid.UUID `bun:"resource_id,pk,type:uuid" json:"resource_id" validate:"required"`
+	Provider        string    `bun:"provider,notnull" json:"provider" validate:"required,oneof=openai anthropic google_ai"`
+	EncryptedAPIKey string    `bun:"encrypted_api_key,notnull" json:"-"` // Never exposed in JSON
+	ProviderConfig  JSONBMap  `bun:"provider_config,type:jsonb,default:'{}'" json:"provider_config"`
+
+	// Limits
+	DailyRequestLimit *int   `bun:"daily_request_limit" json:"daily_request_limit"`
+	MonthlyTokenLimit *int64 `bun:"monthly_token_limit" json:"monthly_token_limit"`
+
+	// Current usage
+	RequestsToday    int       `bun:"requests_today,notnull,default:0" json:"requests_today"`
+	TokensThisMonth  int64     `bun:"tokens_this_month,notnull,default:0" json:"tokens_this_month"`
+	LastUsageResetAt time.Time `bun:"last_usage_reset_at,notnull,default:current_timestamp" json:"last_usage_reset_at"`
+
+	// Total statistics - Text
+	TotalRequests         int64 `bun:"total_requests,notnull,default:0" json:"total_requests"`
+	TotalPromptTokens     int64 `bun:"total_prompt_tokens,notnull,default:0" json:"total_prompt_tokens"`
+	TotalCompletionTokens int64 `bun:"total_completion_tokens,notnull,default:0" json:"total_completion_tokens"`
+
+	// Total statistics - Image
+	TotalImageInputTokens  int64 `bun:"total_image_input_tokens,notnull,default:0" json:"total_image_input_tokens"`
+	TotalImageOutputTokens int64 `bun:"total_image_output_tokens,notnull,default:0" json:"total_image_output_tokens"`
+
+	// Total statistics - Audio
+	TotalAudioInputTokens  int64 `bun:"total_audio_input_tokens,notnull,default:0" json:"total_audio_input_tokens"`
+	TotalAudioOutputTokens int64 `bun:"total_audio_output_tokens,notnull,default:0" json:"total_audio_output_tokens"`
+
+	// Total statistics - Video
+	TotalVideoInputTokens  int64 `bun:"total_video_input_tokens,notnull,default:0" json:"total_video_input_tokens"`
+	TotalVideoOutputTokens int64 `bun:"total_video_output_tokens,notnull,default:0" json:"total_video_output_tokens"`
+
+	// Cost
+	TotalCost float64 `bun:"total_cost,notnull,default:0" json:"total_cost"`
+
+	// Timestamps and relations
+	LastUsedAt      *time.Time `bun:"last_used_at" json:"last_used_at"`
+	PricingPlanID   *uuid.UUID `bun:"pricing_plan_id,type:uuid" json:"pricing_plan_id"`
+	CreatedBy       *uuid.UUID `bun:"created_by,type:uuid" json:"created_by"`
+	ProvisionerType string     `bun:"provisioner_type,notnull,default:'manual'" json:"provisioner_type" validate:"required,oneof=manual auto_openai auto_anthropic auto_google"`
+
+	// Relations
+	Resource    *ResourceModel    `bun:"rel:belongs-to,join:resource_id=id" json:"resource,omitempty"`
+	PricingPlan *PricingPlanModel `bun:"rel:belongs-to,join:pricing_plan_id=id" json:"pricing_plan,omitempty"`
+	Creator     *UserModel        `bun:"rel:belongs-to,join:created_by=id" json:"creator,omitempty"`
+}
+
+// TableName returns the table name for RentalKeyModel
+func (RentalKeyModel) TableName() string {
+	return "resource_rental_key"
+}
+
+// RentalKeyUsageModel represents a usage log entry for rental keys
+type RentalKeyUsageModel struct {
+	bun.BaseModel `bun:"table:rental_key_usage,alias:rku"`
+
+	ID          uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
+	RentalKeyID uuid.UUID `bun:"rental_key_id,notnull,type:uuid" json:"rental_key_id" validate:"required"`
+	Model       string    `bun:"model,notnull" json:"model" validate:"required,max=100"`
+
+	// Text tokens
+	PromptTokens     int `bun:"prompt_tokens,notnull,default:0" json:"prompt_tokens"`
+	CompletionTokens int `bun:"completion_tokens,notnull,default:0" json:"completion_tokens"`
+
+	// Image tokens
+	ImageInputTokens  int `bun:"image_input_tokens,notnull,default:0" json:"image_input_tokens"`
+	ImageOutputTokens int `bun:"image_output_tokens,notnull,default:0" json:"image_output_tokens"`
+
+	// Audio tokens
+	AudioInputTokens  int `bun:"audio_input_tokens,notnull,default:0" json:"audio_input_tokens"`
+	AudioOutputTokens int `bun:"audio_output_tokens,notnull,default:0" json:"audio_output_tokens"`
+
+	// Video tokens
+	VideoInputTokens  int `bun:"video_input_tokens,notnull,default:0" json:"video_input_tokens"`
+	VideoOutputTokens int `bun:"video_output_tokens,notnull,default:0" json:"video_output_tokens"`
+
+	// Cost and context
+	EstimatedCost float64    `bun:"estimated_cost,notnull,default:0" json:"estimated_cost"`
+	ExecutionID   *uuid.UUID `bun:"execution_id,type:uuid" json:"execution_id"`
+	WorkflowID    *uuid.UUID `bun:"workflow_id,type:uuid" json:"workflow_id"`
+	NodeID        *string    `bun:"node_id" json:"node_id"`
+
+	// Status
+	Status         string  `bun:"status,notnull,default:'success'" json:"status" validate:"required,oneof=success failed rate_limited"`
+	ErrorMessage   *string `bun:"error_message" json:"error_message"`
+	ResponseTimeMs *int    `bun:"response_time_ms" json:"response_time_ms"`
+
+	CreatedAt time.Time `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
+
+	// Relations
+	RentalKey *RentalKeyModel `bun:"rel:belongs-to,join:rental_key_id=resource_id" json:"rental_key,omitempty"`
+}
+
+// TableName returns the table name for RentalKeyUsageModel
+func (RentalKeyUsageModel) TableName() string {
+	return "rental_key_usage"
+}
+
+// GetTotalTokens returns the sum of all token types
+func (r *RentalKeyUsageModel) GetTotalTokens() int {
+	return r.PromptTokens + r.CompletionTokens +
+		r.ImageInputTokens + r.ImageOutputTokens +
+		r.AudioInputTokens + r.AudioOutputTokens +
+		r.VideoInputTokens + r.VideoOutputTokens
+}
+
+// ToRentalKeyResourceDomain converts ResourceModel and RentalKeyModel to domain RentalKeyResource
+func ToRentalKeyResourceDomain(r *ResourceModel, rk *RentalKeyModel) *pkgmodels.RentalKeyResource {
+	if r == nil || rk == nil {
+		return nil
+	}
+
+	var metadata map[string]interface{}
+	if r.Metadata != nil {
+		metadata = r.Metadata
+	}
+
+	var providerConfig map[string]interface{}
+	if rk.ProviderConfig != nil {
+		providerConfig = rk.ProviderConfig
+	}
+
+	var pricingPlanID string
+	if rk.PricingPlanID != nil {
+		pricingPlanID = rk.PricingPlanID.String()
+	}
+
+	var createdBy string
+	if rk.CreatedBy != nil {
+		createdBy = rk.CreatedBy.String()
+	}
+
+	return &pkgmodels.RentalKeyResource{
+		BaseResource: pkgmodels.BaseResource{
+			ID:          r.ID.String(),
+			Type:        pkgmodels.ResourceType(r.Type),
+			OwnerID:     r.OwnerID.String(),
+			Name:        r.Name,
+			Description: r.Description,
+			Status:      pkgmodels.ResourceStatus(r.Status),
+			Metadata:    metadata,
+			CreatedAt:   r.CreatedAt,
+			UpdatedAt:   r.UpdatedAt,
+		},
+		Provider:          pkgmodels.LLMProviderType(rk.Provider),
+		ProviderConfig:    providerConfig,
+		EncryptedAPIKey:   rk.EncryptedAPIKey,
+		DailyRequestLimit: rk.DailyRequestLimit,
+		MonthlyTokenLimit: rk.MonthlyTokenLimit,
+		RequestsToday:     rk.RequestsToday,
+		TokensThisMonth:   rk.TokensThisMonth,
+		LastUsageResetAt:  rk.LastUsageResetAt,
+		TotalRequests:     rk.TotalRequests,
+		TotalUsage: pkgmodels.MultimodalUsage{
+			PromptTokens:      rk.TotalPromptTokens,
+			CompletionTokens:  rk.TotalCompletionTokens,
+			ImageInputTokens:  rk.TotalImageInputTokens,
+			ImageOutputTokens: rk.TotalImageOutputTokens,
+			AudioInputTokens:  rk.TotalAudioInputTokens,
+			AudioOutputTokens: rk.TotalAudioOutputTokens,
+			VideoInputTokens:  rk.TotalVideoInputTokens,
+			VideoOutputTokens: rk.TotalVideoOutputTokens,
+		},
+		TotalCost:       rk.TotalCost,
+		LastUsedAt:      rk.LastUsedAt,
+		PricingPlanID:   pricingPlanID,
+		CreatedBy:       createdBy,
+		ProvisionerType: pkgmodels.ProvisionerType(rk.ProvisionerType),
+	}
+}
+
+// FromRentalKeyResourceDomain converts domain RentalKeyResource to ResourceModel and RentalKeyModel
+func FromRentalKeyResourceDomain(rental *pkgmodels.RentalKeyResource) (*ResourceModel, *RentalKeyModel) {
+	if rental == nil {
+		return nil, nil
+	}
+
+	var resourceID uuid.UUID
+	if rental.ID != "" {
+		resourceID = uuid.MustParse(rental.ID)
+	}
+
+	var ownerID uuid.UUID
+	if rental.OwnerID != "" {
+		ownerID = uuid.MustParse(rental.OwnerID)
+	}
+
+	var metadata JSONBMap
+	if rental.Metadata != nil {
+		metadata = JSONBMap(rental.Metadata)
+	}
+
+	resourceModel := &ResourceModel{
+		ID:          resourceID,
+		Type:        string(rental.Type),
+		OwnerID:     ownerID,
+		Name:        rental.Name,
+		Description: rental.Description,
+		Status:      string(rental.Status),
+		Metadata:    metadata,
+		CreatedAt:   rental.CreatedAt,
+		UpdatedAt:   rental.UpdatedAt,
+	}
+
+	var providerConfig JSONBMap
+	if rental.ProviderConfig != nil {
+		providerConfig = JSONBMap(rental.ProviderConfig)
+	}
+
+	var pricingPlanID *uuid.UUID
+	if rental.PricingPlanID != "" {
+		planID := uuid.MustParse(rental.PricingPlanID)
+		pricingPlanID = &planID
+	}
+
+	var createdBy *uuid.UUID
+	if rental.CreatedBy != "" {
+		creatorID := uuid.MustParse(rental.CreatedBy)
+		createdBy = &creatorID
+	}
+
+	rentalKeyModel := &RentalKeyModel{
+		ResourceID:             resourceID,
+		Provider:               string(rental.Provider),
+		EncryptedAPIKey:        rental.EncryptedAPIKey,
+		ProviderConfig:         providerConfig,
+		DailyRequestLimit:      rental.DailyRequestLimit,
+		MonthlyTokenLimit:      rental.MonthlyTokenLimit,
+		RequestsToday:          rental.RequestsToday,
+		TokensThisMonth:        rental.TokensThisMonth,
+		LastUsageResetAt:       rental.LastUsageResetAt,
+		TotalRequests:          rental.TotalRequests,
+		TotalPromptTokens:      rental.TotalUsage.PromptTokens,
+		TotalCompletionTokens:  rental.TotalUsage.CompletionTokens,
+		TotalImageInputTokens:  rental.TotalUsage.ImageInputTokens,
+		TotalImageOutputTokens: rental.TotalUsage.ImageOutputTokens,
+		TotalAudioInputTokens:  rental.TotalUsage.AudioInputTokens,
+		TotalAudioOutputTokens: rental.TotalUsage.AudioOutputTokens,
+		TotalVideoInputTokens:  rental.TotalUsage.VideoInputTokens,
+		TotalVideoOutputTokens: rental.TotalUsage.VideoOutputTokens,
+		TotalCost:              rental.TotalCost,
+		LastUsedAt:             rental.LastUsedAt,
+		PricingPlanID:          pricingPlanID,
+		CreatedBy:              createdBy,
+		ProvisionerType:        string(rental.ProvisionerType),
+	}
+
+	return resourceModel, rentalKeyModel
+}
+
+// ToRentalKeyUsageRecordDomain converts RentalKeyUsageModel to domain RentalKeyUsageRecord
+func ToRentalKeyUsageRecordDomain(m *RentalKeyUsageModel) *pkgmodels.RentalKeyUsageRecord {
+	if m == nil {
+		return nil
+	}
+
+	var executionID, workflowID, nodeID string
+	if m.ExecutionID != nil {
+		executionID = m.ExecutionID.String()
+	}
+	if m.WorkflowID != nil {
+		workflowID = m.WorkflowID.String()
+	}
+	if m.NodeID != nil {
+		nodeID = *m.NodeID
+	}
+
+	var errorMessage string
+	if m.ErrorMessage != nil {
+		errorMessage = *m.ErrorMessage
+	}
+
+	var responseTimeMs int
+	if m.ResponseTimeMs != nil {
+		responseTimeMs = *m.ResponseTimeMs
+	}
+
+	return &pkgmodels.RentalKeyUsageRecord{
+		ID:          m.ID.String(),
+		RentalKeyID: m.RentalKeyID.String(),
+		Model:       m.Model,
+		Usage: pkgmodels.MultimodalUsage{
+			PromptTokens:      int64(m.PromptTokens),
+			CompletionTokens:  int64(m.CompletionTokens),
+			ImageInputTokens:  int64(m.ImageInputTokens),
+			ImageOutputTokens: int64(m.ImageOutputTokens),
+			AudioInputTokens:  int64(m.AudioInputTokens),
+			AudioOutputTokens: int64(m.AudioOutputTokens),
+			VideoInputTokens:  int64(m.VideoInputTokens),
+			VideoOutputTokens: int64(m.VideoOutputTokens),
+		},
+		EstimatedCost:  m.EstimatedCost,
+		ExecutionID:    executionID,
+		WorkflowID:     workflowID,
+		NodeID:         nodeID,
+		Status:         m.Status,
+		ErrorMessage:   errorMessage,
+		ResponseTimeMs: responseTimeMs,
+		CreatedAt:      m.CreatedAt,
+	}
+}
+
+// FromRentalKeyUsageRecordDomain converts domain RentalKeyUsageRecord to RentalKeyUsageModel
+func FromRentalKeyUsageRecordDomain(r *pkgmodels.RentalKeyUsageRecord) *RentalKeyUsageModel {
+	if r == nil {
+		return nil
+	}
+
+	var id uuid.UUID
+	if r.ID != "" {
+		id = uuid.MustParse(r.ID)
+	}
+
+	var rentalKeyID uuid.UUID
+	if r.RentalKeyID != "" {
+		rentalKeyID = uuid.MustParse(r.RentalKeyID)
+	}
+
+	var executionID, workflowID *uuid.UUID
+	if r.ExecutionID != "" {
+		execID := uuid.MustParse(r.ExecutionID)
+		executionID = &execID
+	}
+	if r.WorkflowID != "" {
+		wfID := uuid.MustParse(r.WorkflowID)
+		workflowID = &wfID
+	}
+
+	var nodeID *string
+	if r.NodeID != "" {
+		nodeID = &r.NodeID
+	}
+
+	var errorMessage *string
+	if r.ErrorMessage != "" {
+		errorMessage = &r.ErrorMessage
+	}
+
+	var responseTimeMs *int
+	if r.ResponseTimeMs > 0 {
+		responseTimeMs = &r.ResponseTimeMs
+	}
+
+	return &RentalKeyUsageModel{
+		ID:                id,
+		RentalKeyID:       rentalKeyID,
+		Model:             r.Model,
+		PromptTokens:      int(r.Usage.PromptTokens),
+		CompletionTokens:  int(r.Usage.CompletionTokens),
+		ImageInputTokens:  int(r.Usage.ImageInputTokens),
+		ImageOutputTokens: int(r.Usage.ImageOutputTokens),
+		AudioInputTokens:  int(r.Usage.AudioInputTokens),
+		AudioOutputTokens: int(r.Usage.AudioOutputTokens),
+		VideoInputTokens:  int(r.Usage.VideoInputTokens),
+		VideoOutputTokens: int(r.Usage.VideoOutputTokens),
+		EstimatedCost:     r.EstimatedCost,
+		ExecutionID:       executionID,
+		WorkflowID:        workflowID,
+		NodeID:            nodeID,
+		Status:            r.Status,
+		ErrorMessage:      errorMessage,
+		ResponseTimeMs:    responseTimeMs,
+		CreatedAt:         r.CreatedAt,
+	}
 }

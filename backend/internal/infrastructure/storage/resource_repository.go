@@ -79,6 +79,7 @@ func (r *ResourceRepositoryImpl) GetByID(ctx context.Context, id string) (pkgmod
 		Model(resourceModel).
 		Relation("FileStorage").
 		Relation("Credentials").
+		Relation("RentalKey").
 		Where("r.id = ? AND r.deleted_at IS NULL", resourceID).
 		Scan(ctx)
 
@@ -103,6 +104,7 @@ func (r *ResourceRepositoryImpl) GetByOwner(ctx context.Context, ownerID string)
 		Model(&resourceModels).
 		Relation("FileStorage").
 		Relation("Credentials").
+		Relation("RentalKey").
 		Where("r.owner_id = ? AND r.deleted_at IS NULL", ownerUUID).
 		Order("r.created_at DESC").
 		Scan(ctx)
@@ -132,6 +134,7 @@ func (r *ResourceRepositoryImpl) GetByOwnerAndType(ctx context.Context, ownerID 
 		Model(&resourceModels).
 		Relation("FileStorage").
 		Relation("Credentials").
+		Relation("RentalKey").
 		Where("r.owner_id = ? AND r.type = ? AND r.deleted_at IS NULL", ownerUUID, string(resourceType)).
 		Order("r.created_at DESC").
 		Scan(ctx)
@@ -311,6 +314,10 @@ func (r *ResourceRepositoryImpl) toResourceDomain(rm *models.ResourceModel) pkgm
 	case pkgmodels.ResourceTypeCredentials:
 		if rm.Credentials != nil {
 			return models.ToCredentialsResourceDomain(rm, rm.Credentials)
+		}
+	case pkgmodels.ResourceTypeRentalKey:
+		if rm.RentalKey != nil {
+			return models.ToRentalKeyResourceDomain(rm, rm.RentalKey)
 		}
 	}
 

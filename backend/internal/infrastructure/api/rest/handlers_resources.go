@@ -145,6 +145,17 @@ func (h *ResourceHandlers) resourceToResponse(r models.Resource) gin.H {
 		resp["usage_count"] = res.UsageCount
 		resp["created_at"] = res.CreatedAt
 		resp["updated_at"] = res.UpdatedAt
+	case *models.RentalKeyResource:
+		resp["provider"] = res.Provider
+		resp["daily_request_limit"] = res.DailyRequestLimit
+		resp["monthly_token_limit"] = res.MonthlyTokenLimit
+		resp["requests_today"] = res.RequestsToday
+		resp["tokens_this_month"] = res.TokensThisMonth
+		resp["total_requests"] = res.TotalRequests
+		resp["total_cost"] = res.TotalCost
+		resp["last_used_at"] = res.LastUsedAt
+		resp["created_at"] = res.CreatedAt
+		resp["updated_at"] = res.UpdatedAt
 	}
 
 	return resp
@@ -244,6 +255,10 @@ func (h *ResourceHandlers) UpdateResource(c *gin.Context) {
 		}
 		res.Description = req.Description
 		res.UpdatedAt = time.Now()
+	case *models.RentalKeyResource:
+		// Rental keys should be updated via admin endpoints
+		respondError(c, http.StatusForbidden, "rental keys must be updated via admin endpoints")
+		return
 	default:
 		respondError(c, http.StatusInternalServerError, "unsupported resource type")
 		return

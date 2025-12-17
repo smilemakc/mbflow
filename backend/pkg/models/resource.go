@@ -8,6 +8,7 @@ type ResourceType string
 const (
 	ResourceTypeFileStorage ResourceType = "file_storage"
 	ResourceTypeCredentials ResourceType = "credentials"
+	ResourceTypeRentalKey   ResourceType = "rental_key"
 )
 
 // ResourceStatus статус ресурса

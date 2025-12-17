@@ -172,7 +172,7 @@ export const UsersPage: React.FC = () => {
                             Admin
                           </span>
                                             )}
-                                            {user.roles.map((role) => (
+                                            {(user.roles || []).map((role) => (
                                                 <span
                                                     key={role}
                                                     className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded"

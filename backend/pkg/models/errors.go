@@ -75,6 +75,13 @@ var (
 	ErrPricingPlanNotFound   = errors.New("pricing plan not found")
 	ErrInvalidResourceType   = errors.New("invalid resource type")
 	ErrInvalidID             = errors.New("invalid ID format")
+
+	// Rental key errors
+	ErrRentalKeyNotFound         = errors.New("rental key not found")
+	ErrRentalKeySuspended        = errors.New("rental key is suspended")
+	ErrDailyLimitExceeded        = errors.New("daily request limit exceeded")
+	ErrMonthlyTokenLimitExceeded = errors.New("monthly token limit exceeded")
+	ErrRentalKeyAccessDenied     = errors.New("rental key access denied")
 )
 
 // WorkflowError represents an error that occurred during workflow operations.

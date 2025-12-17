@@ -16,6 +16,7 @@ import {Loader2} from 'lucide-react';
 import {useResources} from '@/hooks/resources/useResources.ts';
 import {useFileStorage} from '@/hooks/resources/useFileStorage.ts';
 import {useCredentials} from '@/hooks/resources/useCredentials.ts';
+import {useRentalKeys} from '@/hooks/resources/useRentalKeys.ts';
 
 // Components
 import {
@@ -28,6 +29,7 @@ import {
   CredentialList,
   CreateCredentialModal,
   ViewSecretsModal,
+  RentalKeyList,
 } from '@/components/resources';
 import {ConfirmModal} from '@/components/ui';
 import { useTranslation } from '@/store/translations';
@@ -57,6 +59,12 @@ export const ResourcesPage: React.FC = () => {
         createCredential,
         deleteCredential,
     } = useCredentials();
+
+    // Rental Keys hook
+    const {
+        rentalKeys,
+        loading: rentalKeysLoading,
+    } = useRentalKeys();
 
     // File Storage Modal states
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -101,7 +109,7 @@ export const ResourcesPage: React.FC = () => {
         setCredentialToDelete(null);
     };
 
-    const isLoading = loading || credentialsLoading;
+    const isLoading = loading || credentialsLoading || rentalKeysLoading;
 
     return (
         <div className="flex-1 h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 md:p-8">
@@ -130,6 +138,9 @@ export const ResourcesPage: React.FC = () => {
                             onViewSecrets={setViewingCredential}
                             onDelete={setCredentialToDelete}
                         />
+
+                        {/* Rental Keys Section */}
+                        <RentalKeyList />
 
                         {/* Transactions Section */}
                         <TransactionHistory

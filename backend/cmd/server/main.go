@@ -16,6 +16,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/internal/application/observer"
+	"github.com/smilemakc/mbflow/internal/application/rentalkey"
 	"github.com/smilemakc/mbflow/internal/application/trigger"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/api/rest"
@@ -200,13 +201,22 @@ func main() {
 
 	appLogger.Info("Repositories initialized")
 
-	// Initialize encryption service for credentials
+	// Initialize encryption service for credentials and rental keys
 	encryptionService, err := crypto.GetDefaultService()
 	if err != nil {
-		appLogger.Warn("Encryption service not available - credentials feature disabled", "error", err)
+		appLogger.Warn("Encryption service not available - credentials and rental keys features disabled", "error", err)
 		encryptionService = nil
 	} else {
 		appLogger.Info("Encryption service initialized")
+	}
+
+	// Initialize rental key repository and provider (requires encryption service)
+	var rentalKeyRepo *storage.RentalKeyRepositoryImpl
+	var rentalKeyProvider *rentalkey.Provider
+	if encryptionService != nil {
+		rentalKeyRepo = storage.NewRentalKeyRepository(db, encryptionService)
+		rentalKeyProvider = rentalkey.NewProvider(rentalKeyRepo, encryptionService)
+		appLogger.Info("Rental key provider initialized")
 	}
 
 	// Initialize auth system
@@ -582,6 +592,41 @@ func main() {
 			appLogger.Info("Credentials endpoints registered")
 		} else {
 			appLogger.Warn("Credentials endpoints disabled - encryption key not configured")
+		}
+
+		// Rental Keys endpoints (require authentication and encryption service)
+		if rentalKeyProvider != nil {
+			rentalKeyHandlers := rest.NewRentalKeyHandlers(rentalKeyProvider, appLogger)
+			rentalKeyAdminHandlers := rest.NewRentalKeyAdminHandlers(rentalkey.NewAdminService(rentalKeyRepo, encryptionService), appLogger)
+
+			// User endpoints - can only view their own rental keys (never see the actual key value)
+			rentalKeys := apiV1.Group("/rental-keys")
+			rentalKeys.Use(authMiddleware.RequireAuth())
+			{
+				rentalKeys.GET("", rentalKeyHandlers.ListRentalKeys)
+				rentalKeys.GET("/:id", rentalKeyHandlers.GetRentalKey)
+				rentalKeys.GET("/:id/usage", rentalKeyHandlers.GetRentalKeyUsage)
+				rentalKeys.GET("/:id/summary", rentalKeyHandlers.GetRentalKeyUsageSummary)
+			}
+
+			// Admin endpoints - full CRUD access to all rental keys
+			adminRentalKeys := apiV1.Group("/admin/rental-keys")
+			adminRentalKeys.Use(authMiddleware.RequireAuth())
+			adminRentalKeys.Use(authMiddleware.RequireAdmin())
+			{
+				adminRentalKeys.POST("", rentalKeyAdminHandlers.CreateRentalKey)
+				adminRentalKeys.GET("", rentalKeyAdminHandlers.ListAllRentalKeys)
+				adminRentalKeys.GET("/:id", rentalKeyAdminHandlers.GetRentalKey)
+				adminRentalKeys.PUT("/:id", rentalKeyAdminHandlers.UpdateRentalKey)
+				adminRentalKeys.DELETE("/:id", rentalKeyAdminHandlers.DeleteRentalKey)
+				adminRentalKeys.POST("/:id/rotate-key", rentalKeyAdminHandlers.RotateRentalKeyAPIKey)
+				adminRentalKeys.POST("/reset-daily", rentalKeyAdminHandlers.ResetDailyUsage)
+				adminRentalKeys.POST("/reset-monthly", rentalKeyAdminHandlers.ResetMonthlyUsage)
+			}
+
+			appLogger.Info("Rental Keys endpoints registered")
+		} else {
+			appLogger.Warn("Rental Keys endpoints disabled - encryption key not configured")
 		}
 
 		// Webhook endpoints

@@ -15,3 +15,6 @@ export { CredentialCard } from './CredentialCard.tsx';
 export { CredentialList } from './CredentialList.tsx';
 export { CreateCredentialModal } from './CreateCredentialModal.tsx';
 export { ViewSecretsModal } from './ViewSecretsModal.tsx';
+
+// Rental Keys components
+export { RentalKeyCard, RentalKeyList, RentalKeyUsageModal } from './rental-keys';

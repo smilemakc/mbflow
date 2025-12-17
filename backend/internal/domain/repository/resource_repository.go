@@ -76,3 +76,42 @@ type CredentialsRepository interface {
 	// LogCredentialAccess logs an access event to the audit log
 	LogCredentialAccess(ctx context.Context, resourceID, action, actorID, actorType string, metadata map[string]interface{}) error
 }
+
+// RentalKeyRepository defines the interface for rental key resource operations
+type RentalKeyRepository interface {
+	// CRUD operations
+	CreateRentalKey(ctx context.Context, key *models.RentalKeyResource, plainAPIKey string) error
+	GetRentalKey(ctx context.Context, resourceID string) (*models.RentalKeyResource, error)
+	GetRentalKeysByOwner(ctx context.Context, ownerID string) ([]*models.RentalKeyResource, error)
+	GetRentalKeysByProvider(ctx context.Context, ownerID string, provider models.LLMProviderType) ([]*models.RentalKeyResource, error)
+	UpdateRentalKey(ctx context.Context, key *models.RentalKeyResource) error
+	DeleteRentalKey(ctx context.Context, resourceID string) error
+
+	// API key management (internal use only)
+	GetDecryptedAPIKey(ctx context.Context, resourceID string) (string, error)
+	RotateAPIKey(ctx context.Context, resourceID string, newPlainAPIKey string) error
+
+	// Usage tracking
+	RecordUsage(ctx context.Context, resourceID string, usage *models.RentalKeyUsageRecord) error
+	GetUsageHistory(ctx context.Context, resourceID string, limit int, offset int) ([]*models.RentalKeyUsageRecord, error)
+	GetUsageHistoryByTimeRange(ctx context.Context, resourceID string, from, to string) ([]*models.RentalKeyUsageRecord, error)
+	GetUsageSummary(ctx context.Context, resourceID string) (*models.MultimodalUsage, int64, float64, error)
+
+	// Usage reset (for scheduled jobs)
+	ResetDailyUsage(ctx context.Context) error
+	ResetMonthlyUsage(ctx context.Context) error
+
+	// Admin operations
+	GetAllRentalKeys(ctx context.Context, filter RentalKeyFilter) ([]*models.RentalKeyResource, int64, error)
+	GetAllRentalKeysCount(ctx context.Context, filter RentalKeyFilter) (int64, error)
+}
+
+// RentalKeyFilter defines filter options for admin queries
+type RentalKeyFilter struct {
+	Provider  *models.LLMProviderType
+	Status    *models.ResourceStatus
+	OwnerID   *string
+	CreatedBy *string
+	Limit     int
+	Offset    int
+}
