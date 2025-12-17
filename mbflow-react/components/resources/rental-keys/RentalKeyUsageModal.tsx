@@ -27,6 +27,7 @@ import {
   formatTokenCount,
 } from '@/services/rentalKeyService';
 import { useTranslation } from '@/store/translations';
+import { getErrorMessage } from '@/lib/api';
 
 interface RentalKeyUsageModalProps {
   isOpen: boolean;
@@ -52,8 +53,8 @@ export const RentalKeyUsageModal: React.FC<RentalKeyUsageModalProps> = ({
     try {
       const response = await rentalKeyApi.getUsageHistory(rentalKey.id, limit, offset);
       setUsageRecords(response.data.usage || []);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load usage history');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

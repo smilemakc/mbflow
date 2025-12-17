@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { resourcesApi, FileStorageResource, Account, Transaction } from '@/services/resources.ts';
 import { toast } from '@/lib/toast.ts';
+import { getErrorMessage } from '@/lib/api';
 
 export interface ResourcesState {
   resources: FileStorageResource[];
@@ -45,11 +46,9 @@ export const useResources = (): ResourcesState & ResourcesActions => {
       setAccount(accountRes.data);
       setTransactions(transactionsRes.data.transactions || []);
       setTransactionsTotal(transactionsRes.data.total || 0);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load data:', error);
-      if (error.response?.status !== 404) {
-        toast.error('Load Failed', 'Failed to load resources data. Please try again.');
-      }
+      toast.error('Load Failed', getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -65,9 +64,9 @@ export const useResources = (): ResourcesState & ResourcesActions => {
       toast.success('Success', 'File storage created successfully.');
       await loadData();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create storage:', error);
-      toast.error('Create Failed', error.response?.data?.message || 'Failed to create storage.');
+      toast.error('Create Failed', getErrorMessage(error));
       return false;
     }
   }, [loadData]);
@@ -78,9 +77,9 @@ export const useResources = (): ResourcesState & ResourcesActions => {
       toast.success('Success', 'Resource deleted successfully.');
       await loadData();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete resource:', error);
-      toast.error('Delete Failed', error.response?.data?.message || 'Failed to delete resource.');
+      toast.error('Delete Failed', getErrorMessage(error));
       return false;
     }
   }, [loadData]);
@@ -92,9 +91,9 @@ export const useResources = (): ResourcesState & ResourcesActions => {
       toast.success('Success', `Deposited ${amount.toFixed(2)} successfully.`);
       await loadData();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to deposit:', error);
-      toast.error('Deposit Failed', error.response?.data?.message || 'Failed to process deposit.');
+      toast.error('Deposit Failed', getErrorMessage(error));
       return false;
     }
   }, [loadData]);

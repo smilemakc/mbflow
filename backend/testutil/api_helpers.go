@@ -90,6 +90,7 @@ func AssertJSONResponse(t *testing.T, w *httptest.ResponseRecorder, expectedStat
 }
 
 // AssertErrorResponse asserts an error response with expected status and message
+// Supports both legacy format (field "error") and new APIError format (field "message")
 func AssertErrorResponse(t *testing.T, w *httptest.ResponseRecorder, expectedStatus int, expectedMessage string) {
 	t.Helper()
 
@@ -99,7 +100,12 @@ func AssertErrorResponse(t *testing.T, w *httptest.ResponseRecorder, expectedSta
 	ParseResponse(t, w, &errorResp)
 
 	if expectedMessage != "" {
-		require.Contains(t, errorResp["error"], expectedMessage,
+		// Support both new APIError format (message) and legacy format (error)
+		message, ok := errorResp["message"]
+		if !ok {
+			message = errorResp["error"]
+		}
+		require.Contains(t, message, expectedMessage,
 			"Error message doesn't contain expected text")
 	}
 }

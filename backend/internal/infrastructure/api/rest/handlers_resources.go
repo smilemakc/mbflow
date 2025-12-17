@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -54,7 +53,7 @@ type CreateFileStorageResponse struct {
 func (h *ResourceHandlers) CreateFileStorage(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
@@ -67,8 +66,8 @@ func (h *ResourceHandlers) CreateFileStorage(c *gin.Context) {
 	fsResource.Description = req.Description
 
 	if err := h.resourceRepo.Create(c.Request.Context(), fsResource); err != nil {
-		h.logger.Error("Failed to create file storage resource", "error", err, "user_id", userID)
-		respondError(c, http.StatusInternalServerError, "failed to create resource")
+		h.logger.Error("Failed to create file storage resource", "error", err, "user_id", userID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -76,6 +75,7 @@ func (h *ResourceHandlers) CreateFileStorage(c *gin.Context) {
 		"resource_id", fsResource.ID,
 		"user_id", userID,
 		"name", fsResource.Name,
+		"request_id", GetRequestID(c),
 	)
 
 	respondJSON(c, http.StatusCreated, CreateFileStorageResponse{
@@ -96,14 +96,14 @@ func (h *ResourceHandlers) CreateFileStorage(c *gin.Context) {
 func (h *ResourceHandlers) ListResources(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
 	resources, err := h.resourceRepo.GetByOwner(c.Request.Context(), userID)
 	if err != nil {
-		h.logger.Error("Failed to get resources", "error", err, "user_id", userID)
-		respondError(c, http.StatusInternalServerError, "failed to get resources")
+		h.logger.Error("Failed to get resources", "error", err, "user_id", userID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -115,7 +115,7 @@ func (h *ResourceHandlers) ListResources(c *gin.Context) {
 		response = append(response, h.resourceToResponse(r))
 	}
 
-	c.JSON(http.StatusOK, gin.H{"resources": response})
+	respondJSON(c, http.StatusOK, gin.H{"resources": response})
 }
 
 // resourceToResponse converts a Resource to a gin.H response with type-specific fields
@@ -166,7 +166,7 @@ func (h *ResourceHandlers) resourceToResponse(r models.Resource) gin.H {
 func (h *ResourceHandlers) GetResource(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
@@ -177,17 +177,13 @@ func (h *ResourceHandlers) GetResource(c *gin.Context) {
 
 	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
 	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to get resource", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to get resource")
+		h.logger.Error("Failed to get resource", "error", err, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
 	if resource.GetOwnerID() != userID {
-		respondError(c, http.StatusForbidden, "access denied")
+		respondAPIError(c, ErrForbidden)
 		return
 	}
 
@@ -197,7 +193,7 @@ func (h *ResourceHandlers) GetResource(c *gin.Context) {
 		resp["available_space"] = fs.GetAvailableSpace()
 	}
 
-	c.JSON(http.StatusOK, resp)
+	respondJSON(c, http.StatusOK, resp)
 }
 
 // UpdateResourceRequest represents request to update resource
@@ -211,7 +207,7 @@ type UpdateResourceRequest struct {
 func (h *ResourceHandlers) UpdateResource(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
@@ -227,17 +223,13 @@ func (h *ResourceHandlers) UpdateResource(c *gin.Context) {
 
 	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
 	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to get resource for update", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to get resource")
+		h.logger.Error("Failed to get resource for update", "error", err, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
 	if resource.GetOwnerID() != userID {
-		respondError(c, http.StatusForbidden, "access denied")
+		respondAPIError(c, ErrForbidden)
 		return
 	}
 
@@ -257,27 +249,27 @@ func (h *ResourceHandlers) UpdateResource(c *gin.Context) {
 		res.UpdatedAt = time.Now()
 	case *models.RentalKeyResource:
 		// Rental keys should be updated via admin endpoints
-		respondError(c, http.StatusForbidden, "rental keys must be updated via admin endpoints")
+		respondAPIError(c, NewAPIError("FORBIDDEN_OPERATION", "rental keys must be updated via admin endpoints", http.StatusForbidden))
 		return
 	default:
-		respondError(c, http.StatusInternalServerError, "unsupported resource type")
+		respondAPIError(c, NewAPIError("UNSUPPORTED_RESOURCE_TYPE", "unsupported resource type", http.StatusInternalServerError))
 		return
 	}
 
 	if err := h.resourceRepo.Update(c.Request.Context(), resource); err != nil {
-		h.logger.Error("Failed to update resource", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to update resource")
+		h.logger.Error("Failed to update resource", "error", err, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
-	h.logger.Info("Resource updated", "resource_id", resourceID, "user_id", userID)
+	h.logger.Info("Resource updated", "resource_id", resourceID, "user_id", userID, "request_id", GetRequestID(c))
 
 	resp := h.resourceToResponse(resource)
 	if fs, ok := resource.(*models.FileStorageResource); ok {
 		resp["available_space"] = fs.GetAvailableSpace()
 	}
 
-	c.JSON(http.StatusOK, resp)
+	respondJSON(c, http.StatusOK, resp)
 }
 
 // DeleteResource soft-deletes a resource
@@ -285,7 +277,7 @@ func (h *ResourceHandlers) UpdateResource(c *gin.Context) {
 func (h *ResourceHandlers) DeleteResource(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
@@ -296,48 +288,44 @@ func (h *ResourceHandlers) DeleteResource(c *gin.Context) {
 
 	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
 	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to get resource for deletion", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to get resource")
+		h.logger.Error("Failed to get resource for deletion", "error", err, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
 	if resource.GetOwnerID() != userID {
-		respondError(c, http.StatusForbidden, "access denied")
+		respondAPIError(c, ErrForbidden)
 		return
 	}
 
 	// First, detach resource from all workflows
 	resourceUUID, err := uuid.Parse(resourceID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid resource ID")
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	detachedCount, err := h.workflowRepo.UnassignResourceFromAllWorkflows(c.Request.Context(), resourceUUID)
 	if err != nil {
-		h.logger.Error("Failed to detach resource from workflows", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to detach resource from workflows")
+		h.logger.Error("Failed to detach resource from workflows", "error", err, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
 	if detachedCount > 0 {
-		h.logger.Info("Resource detached from workflows", "resource_id", resourceID, "workflows_count", detachedCount)
+		h.logger.Info("Resource detached from workflows", "resource_id", resourceID, "workflows_count", detachedCount, "request_id", GetRequestID(c))
 	}
 
 	// Then delete the resource
 	if err := h.resourceRepo.Delete(c.Request.Context(), resourceID); err != nil {
-		h.logger.Error("Failed to delete resource", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to delete resource")
+		h.logger.Error("Failed to delete resource", "error", err, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
-	h.logger.Info("Resource deleted", "resource_id", resourceID, "user_id", userID, "detached_from_workflows", detachedCount)
+	h.logger.Info("Resource deleted", "resource_id", resourceID, "user_id", userID, "detached_from_workflows", detachedCount, "request_id", GetRequestID(c))
 
-	c.JSON(http.StatusOK, gin.H{"message": "resource deleted successfully"})
+	respondJSON(c, http.StatusOK, gin.H{"message": "resource deleted successfully"})
 }
 
 // ListPricingPlans returns available pricing plans for file storage
@@ -347,8 +335,8 @@ func (h *ResourceHandlers) ListPricingPlans(c *gin.Context) {
 
 	plans, err := h.planRepo.GetByResourceType(c.Request.Context(), models.ResourceType(resourceType))
 	if err != nil {
-		h.logger.Error("Failed to get pricing plans", "error", err, "resource_type", resourceType)
-		respondError(c, http.StatusInternalServerError, "failed to get pricing plans")
+		h.logger.Error("Failed to get pricing plans", "error", err, "resource_type", resourceType, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -371,5 +359,5 @@ func (h *ResourceHandlers) ListPricingPlans(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"plans": response})
+	respondJSON(c, http.StatusOK, gin.H{"plans": response})
 }

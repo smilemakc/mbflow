@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,7 +56,6 @@ func NewService(
 // RegisterRequest contains registration data
 type RegisterRequest struct {
 	Email    string
-	Username string
 	Password string
 	FullName string
 }
@@ -75,6 +75,13 @@ type AuthResult struct {
 	TokenType    string          `json:"token_type"`
 }
 
+// normalizeEmail normalizes email for consistent storage
+// - trims whitespace
+// - converts to lowercase
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
 // Register creates a new user account
 func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*AuthResult, error) {
 	// Check if registration is allowed
@@ -82,27 +89,21 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*AuthResu
 		return nil, ErrRegistrationDisabled
 	}
 
+	// Normalize email
+	email := normalizeEmail(req.Email)
+
 	// Validate password
 	if err := s.passwordService.ValidatePassword(req.Password); err != nil {
 		return nil, err
 	}
 
 	// Check if email is taken
-	exists, err := s.userRepo.ExistsByEmail(ctx, req.Email)
+	exists, err := s.userRepo.ExistsByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check email: %w", err)
 	}
 	if exists {
 		return nil, ErrEmailAlreadyTaken
-	}
-
-	// Check if username is taken
-	exists, err = s.userRepo.ExistsByUsername(ctx, req.Username)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check username: %w", err)
-	}
-	if exists {
-		return nil, ErrUsernameAlreadyTaken
 	}
 
 	// Hash password
@@ -111,11 +112,11 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*AuthResu
 		return nil, err
 	}
 
-	// Create user
+	// Create user - username is auto-generated from email
 	user := &models.UserModel{
 		ID:           uuid.New(),
-		Email:        req.Email,
-		Username:     req.Username,
+		Email:        email,
+		Username:     email, // Use email as username
 		PasswordHash: passwordHash,
 		FullName:     req.FullName,
 		IsActive:     true,
@@ -148,8 +149,9 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*AuthResu
 
 // Login authenticates a user and returns tokens
 func (s *Service) Login(ctx context.Context, req *LoginRequest, ipAddress, userAgent string) (*AuthResult, error) {
-	// Find user by email
-	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	// Normalize email and find user
+	email := normalizeEmail(req.Email)
+	user, err := s.userRepo.FindByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find user: %w", err)
 	}
@@ -431,27 +433,21 @@ func (s *Service) logAuditEvent(ctx context.Context, userID uuid.UUID, action, e
 
 // CreateUser creates a new user (admin operation)
 func (s *Service) CreateUser(ctx context.Context, req *RegisterRequest, isAdmin bool) (*pkgmodels.User, error) {
+	// Normalize email
+	email := normalizeEmail(req.Email)
+
 	// Validate password
 	if err := s.passwordService.ValidatePassword(req.Password); err != nil {
 		return nil, err
 	}
 
 	// Check if email is taken
-	exists, err := s.userRepo.ExistsByEmail(ctx, req.Email)
+	exists, err := s.userRepo.ExistsByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check email: %w", err)
 	}
 	if exists {
 		return nil, ErrEmailAlreadyTaken
-	}
-
-	// Check if username is taken
-	exists, err = s.userRepo.ExistsByUsername(ctx, req.Username)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check username: %w", err)
-	}
-	if exists {
-		return nil, ErrUsernameAlreadyTaken
 	}
 
 	// Hash password
@@ -460,11 +456,11 @@ func (s *Service) CreateUser(ctx context.Context, req *RegisterRequest, isAdmin 
 		return nil, err
 	}
 
-	// Create user
+	// Create user - username is auto-generated from email
 	user := &models.UserModel{
 		ID:           uuid.New(),
-		Email:        req.Email,
-		Username:     req.Username,
+		Email:        email,
+		Username:     email, // Use email as username
 		PasswordHash: passwordHash,
 		FullName:     req.FullName,
 		IsActive:     true,

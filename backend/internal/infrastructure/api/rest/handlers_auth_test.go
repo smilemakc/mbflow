@@ -402,7 +402,6 @@ func TestHandleRegister_Success(t *testing.T) {
 
 	req := RegisterRequest{
 		Email:    "test@example.com",
-		Username: "testuser",
 		Password: "Password123!",
 		FullName: "Test User",
 	}
@@ -442,33 +441,6 @@ func TestHandleRegister_DuplicateEmail(t *testing.T) {
 
 	req := RegisterRequest{
 		Email:    "test@example.com",
-		Username: "newuser",
-		Password: "Password123!",
-	}
-
-	w := performAuthRequest(router, "POST", "/api/v1/auth/register", req)
-
-	if w.Code != http.StatusConflict {
-		t.Errorf("expected status 409, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-func TestHandleRegister_DuplicateUsername(t *testing.T) {
-	authService, mockRepo := setupAuthTestService()
-
-	// Pre-create user with same username
-	existingUser := &models.UserModel{
-		ID:       uuid.New(),
-		Email:    "existing@example.com",
-		Username: "testuser",
-	}
-	mockRepo.Create(context.Background(), existingUser)
-
-	router := setupAuthTestRouter(authService, nil)
-
-	req := RegisterRequest{
-		Email:    "test@example.com",
-		Username: "testuser",
 		Password: "Password123!",
 	}
 
@@ -485,7 +457,6 @@ func TestHandleRegister_InvalidEmail(t *testing.T) {
 
 	req := RegisterRequest{
 		Email:    "invalid-email",
-		Username: "testuser",
 		Password: "Password123!",
 	}
 
@@ -502,25 +473,7 @@ func TestHandleRegister_ShortPassword(t *testing.T) {
 
 	req := RegisterRequest{
 		Email:    "test@example.com",
-		Username: "testuser",
 		Password: "short",
-	}
-
-	w := performAuthRequest(router, "POST", "/api/v1/auth/register", req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-func TestHandleRegister_ShortUsername(t *testing.T) {
-	authService, _ := setupAuthTestService()
-	router := setupAuthTestRouter(authService, nil)
-
-	req := RegisterRequest{
-		Email:    "test@example.com",
-		Username: "ab",
-		Password: "Password123!",
 	}
 
 	w := performAuthRequest(router, "POST", "/api/v1/auth/register", req)
@@ -537,7 +490,6 @@ func TestHandleLogin_Success(t *testing.T) {
 	ctx := context.Background()
 	registerReq := &auth.RegisterRequest{
 		Email:    "test@example.com",
-		Username: "testuser",
 		Password: "Password123!",
 	}
 	_, err := authService.Register(ctx, registerReq)
@@ -597,7 +549,6 @@ func TestHandleLogin_InvalidPassword(t *testing.T) {
 	ctx := context.Background()
 	registerReq := &auth.RegisterRequest{
 		Email:    "test@example.com",
-		Username: "testuser",
 		Password: "Password123!",
 	}
 	_, _ = authService.Register(ctx, registerReq)
@@ -623,7 +574,6 @@ func TestHandleLogin_InactiveAccount(t *testing.T) {
 	ctx := context.Background()
 	registerReq := &auth.RegisterRequest{
 		Email:    "test@example.com",
-		Username: "testuser",
 		Password: "Password123!",
 	}
 	_, _ = authService.Register(ctx, registerReq)
@@ -656,7 +606,6 @@ func TestHandleRefresh_Success(t *testing.T) {
 	ctx := context.Background()
 	registerReq := &auth.RegisterRequest{
 		Email:    "test@example.com",
-		Username: "testuser",
 		Password: "Password123!",
 	}
 	_, _ = authService.Register(ctx, registerReq)
@@ -790,7 +739,6 @@ func TestHandleRegister_RegistrationDisabled(t *testing.T) {
 
 	req := RegisterRequest{
 		Email:    "test@example.com",
-		Username: "testuser",
 		Password: "Password123!",
 	}
 
@@ -841,7 +789,6 @@ func BenchmarkHandleLogin(b *testing.B) {
 	ctx := context.Background()
 	registerReq := &auth.RegisterRequest{
 		Email:    "bench@example.com",
-		Username: "benchuser",
 		Password: "Password123!",
 	}
 	_, _ = authService.Register(ctx, registerReq)
@@ -873,26 +820,15 @@ func TestHandleRegister_ValidationErrors(t *testing.T) {
 		{
 			name: "missing email",
 			request: map[string]string{
-				"username": "testuser",
 				"password": "Password123!",
 			},
 			expectedStatus: http.StatusBadRequest,
 			description:    "should fail when email is missing",
 		},
 		{
-			name: "missing username",
-			request: map[string]string{
-				"email":    "test@example.com",
-				"password": "Password123!",
-			},
-			expectedStatus: http.StatusBadRequest,
-			description:    "should fail when username is missing",
-		},
-		{
 			name: "missing password",
 			request: map[string]string{
-				"email":    "test@example.com",
-				"username": "testuser",
+				"email": "test@example.com",
 			},
 			expectedStatus: http.StatusBadRequest,
 			description:    "should fail when password is missing",
@@ -952,7 +888,6 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 		ctx := context.Background()
 		registerReq := &auth.RegisterRequest{
 			Email:    "test@example.com",
-			Username: "testuser",
 			Password: "Password123!",
 		}
 		_, _ = authService.Register(ctx, registerReq)
@@ -1032,7 +967,6 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 		ctx := context.Background()
 		registerReq := &auth.RegisterRequest{
 			Email:    "optional@example.com",
-			Username: "optionaluser",
 			Password: "Password123!",
 		}
 		_, _ = authService.Register(ctx, registerReq)
@@ -1085,7 +1019,6 @@ func TestAuthMiddleware_RequireAdmin(t *testing.T) {
 	ctx := context.Background()
 	registerReq := &auth.RegisterRequest{
 		Email:    "user@example.com",
-		Username: "regularuser",
 		Password: "Password123!",
 	}
 	_, _ = authService.Register(ctx, registerReq)
@@ -1093,7 +1026,6 @@ func TestAuthMiddleware_RequireAdmin(t *testing.T) {
 	// Register an admin user
 	adminReq := &auth.RegisterRequest{
 		Email:    "admin@example.com",
-		Username: "adminuser",
 		Password: "Password123!",
 	}
 	_, _ = authService.Register(ctx, adminReq)

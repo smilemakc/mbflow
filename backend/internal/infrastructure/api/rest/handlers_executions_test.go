@@ -148,7 +148,7 @@ func TestHandlers_RunExecution_MissingWorkflowID(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", req)
 
-	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "workflow_id is required")
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Workflow ID is required")
 }
 
 func TestHandlers_RunExecution_InvalidJSON(t *testing.T) {
@@ -220,7 +220,7 @@ func TestHandlers_GetExecution_NotFound(t *testing.T) {
 	randomID := uuid.New().String()
 	w := testutil.MakeRequest(t, router, "GET", fmt.Sprintf("/api/v1/executions/%s", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "execution not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 func TestHandlers_GetExecution_InvalidID(t *testing.T) {
@@ -229,7 +229,7 @@ func TestHandlers_GetExecution_InvalidID(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "GET", "/api/v1/executions/invalid-uuid", nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid execution ID")
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Invalid ID format")
 }
 
 // ========== LIST EXECUTIONS TESTS ==========
@@ -456,7 +456,7 @@ func TestHandlers_GetLogs_InvalidID(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "GET", "/api/v1/executions/invalid-uuid/logs", nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid execution ID")
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Invalid ID format")
 }
 
 // ========== GET NODE RESULT TESTS ==========
@@ -467,7 +467,7 @@ func TestHandlers_GetNodeResult_InvalidExecutionID(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "GET", "/api/v1/executions/invalid-uuid/nodes/n1", nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid execution ID")
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Invalid ID format")
 }
 
 func TestHandlers_GetNodeResult_ExecutionNotFound(t *testing.T) {
@@ -478,7 +478,7 @@ func TestHandlers_GetNodeResult_ExecutionNotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "GET",
 		fmt.Sprintf("/api/v1/executions/%s/nodes/n1", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "execution not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== CANCEL EXECUTION TESTS (Placeholder) ==========

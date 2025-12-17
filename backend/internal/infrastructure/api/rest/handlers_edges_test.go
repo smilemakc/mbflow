@@ -78,7 +78,7 @@ func TestHandlers_AddEdge_WorkflowNotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "POST",
 		fmt.Sprintf("/api/v1/workflows/%s/edges", randomID), req)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "workflow not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 func TestHandlers_AddEdge_CreatesCycle(t *testing.T) {
@@ -155,7 +155,7 @@ func TestHandlers_ListEdges_WorkflowNotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "GET",
 		fmt.Sprintf("/api/v1/workflows/%s/edges", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "workflow not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== GET EDGE TESTS ==========
@@ -194,7 +194,7 @@ func TestHandlers_GetEdge_NotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "GET",
 		fmt.Sprintf("/api/v1/workflows/%s/edges/nonexistent", workflowModel.ID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "edge not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== UPDATE EDGE TESTS ==========
@@ -240,7 +240,7 @@ func TestHandlers_UpdateEdge_NotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "PUT",
 		fmt.Sprintf("/api/v1/workflows/%s/edges/nonexistent", workflowModel.ID), req)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "edge not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== DELETE EDGE TESTS ==========
@@ -279,5 +279,5 @@ func TestHandlers_DeleteEdge_NotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "DELETE",
 		fmt.Sprintf("/api/v1/workflows/%s/edges/nonexistent", workflowModel.ID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "edge not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }

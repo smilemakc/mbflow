@@ -17,6 +17,7 @@ import {
 import { useTranslation } from '@/store/translations';
 import { authService } from '@/services/authService';
 import type { User } from '@/types/auth';
+import { getErrorMessage } from '@/lib/api';
 
 interface CreateRentalKeyModalProps {
   isOpen: boolean;
@@ -123,8 +124,8 @@ export const CreateRentalKeyModal: React.FC<CreateRentalKeyModalProps> = ({
       });
       setSelectedUser(null);
       setUserSearch('');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to create rental key');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

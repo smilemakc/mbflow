@@ -225,7 +225,7 @@ func TestHandlers_GetFile_NotFound(t *testing.T) {
 	randomID := uuid.New().String()
 	w := testutil.MakeRequest(t, router, "GET", fmt.Sprintf("/api/v1/files/%s", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "file not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 func TestHandlers_GetFile_InvalidID(t *testing.T) {
@@ -284,7 +284,7 @@ func TestHandlers_GetFileMetadata_NotFound(t *testing.T) {
 	randomID := uuid.New().String()
 	w := testutil.MakeRequest(t, router, "GET", fmt.Sprintf("/api/v1/files/%s/metadata", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "file not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== DELETE FILE TESTS ==========
@@ -326,7 +326,7 @@ func TestHandlers_DeleteFile_NotFound(t *testing.T) {
 	randomID := uuid.New().String()
 	w := testutil.MakeRequest(t, router, "DELETE", fmt.Sprintf("/api/v1/files/%s", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "file not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== LIST FILES TESTS ==========

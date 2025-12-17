@@ -27,7 +27,6 @@ func NewAuthHandlers(authService *auth.Service, pm *auth.ProviderManager, rateLi
 // RegisterRequest represents a registration request
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
-	Username string `json:"username" binding:"required,min=3,max=50"`
 	Password string `json:"password" binding:"required,min=8"`
 	FullName string `json:"full_name"`
 }
@@ -68,25 +67,11 @@ func (h *AuthHandlers) HandleRegister(c *gin.Context) {
 
 	result, err := h.authService.Register(c.Request.Context(), &auth.RegisterRequest{
 		Email:    req.Email,
-		Username: req.Username,
 		Password: req.Password,
 		FullName: req.FullName,
 	})
 	if err != nil {
-		switch err {
-		case auth.ErrEmailAlreadyTaken:
-			respondError(c, http.StatusConflict, "email is already taken")
-		case auth.ErrUsernameAlreadyTaken:
-			respondError(c, http.StatusConflict, "username is already taken")
-		case auth.ErrRegistrationDisabled:
-			respondError(c, http.StatusForbidden, "registration is disabled")
-		default:
-			if _, ok := err.(*auth.PasswordError); ok {
-				respondError(c, http.StatusBadRequest, err.Error())
-			} else {
-				respondError(c, http.StatusInternalServerError, "registration failed")
-			}
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -123,26 +108,21 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 	}, clientIP, c.GetHeader("User-Agent"))
 
 	if err != nil {
-		// Record failed attempt
 		if h.rateLimiter != nil {
 			h.rateLimiter.RecordFailedAttempt(clientIP)
 		}
 
-		switch err {
-		case auth.ErrInvalidCredentials:
-			remaining := 0
-			if h.rateLimiter != nil {
-				remaining = h.rateLimiter.GetRemainingAttempts(clientIP)
+		if err == auth.ErrInvalidCredentials && h.rateLimiter != nil {
+			remaining := h.rateLimiter.GetRemainingAttempts(clientIP)
+			apiErr := TranslateError(err)
+			if apiErr.Details == nil {
+				apiErr.Details = make(map[string]interface{})
 			}
-			respondErrorWithDetails(c, http.StatusUnauthorized, "invalid email or password", "INVALID_CREDENTIALS", map[string]interface{}{
-				"remaining_attempts": remaining,
-			})
-		case auth.ErrAccountLocked:
-			respondError(c, http.StatusForbidden, "account is locked")
-		case auth.ErrAccountInactive:
-			respondError(c, http.StatusForbidden, "account is inactive")
-		default:
-			respondError(c, http.StatusInternalServerError, "login failed")
+			apiErr.Details["remaining_attempts"] = remaining
+			apiErr.Details["request_id"] = GetRequestID(c)
+			c.JSON(apiErr.HTTPStatus, apiErr)
+		} else {
+			respondAPIErrorWithRequestID(c, err)
 		}
 		return
 	}
@@ -161,17 +141,15 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 	})
 }
 
-// HandleLogout handles user logout
-// POST /api/v1/auth/logout
 func (h *AuthHandlers) HandleLogout(c *gin.Context) {
 	token, ok := GetToken(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "not authenticated")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
 	if err := h.authService.Logout(c.Request.Context(), token); err != nil {
-		respondError(c, http.StatusInternalServerError, "logout failed")
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -188,14 +166,7 @@ func (h *AuthHandlers) HandleRefresh(c *gin.Context) {
 
 	result, err := h.authService.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		switch err {
-		case auth.ErrInvalidRefreshToken:
-			respondError(c, http.StatusUnauthorized, "invalid refresh token")
-		case auth.ErrRefreshTokenExpired:
-			respondError(c, http.StatusUnauthorized, "refresh token expired")
-		default:
-			respondError(c, http.StatusInternalServerError, "token refresh failed")
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -208,18 +179,16 @@ func (h *AuthHandlers) HandleRefresh(c *gin.Context) {
 	})
 }
 
-// HandleGetMe handles getting current user info
-// GET /api/v1/auth/me
 func (h *AuthHandlers) HandleGetMe(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "not authenticated")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
 	user, err := h.authService.GetCurrentUser(c.Request.Context(), userID)
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "failed to get user")
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -231,7 +200,7 @@ func (h *AuthHandlers) HandleGetMe(c *gin.Context) {
 func (h *AuthHandlers) HandleChangePassword(c *gin.Context) {
 	userID, ok := GetUserIDAsUUID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "not authenticated")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
@@ -242,16 +211,7 @@ func (h *AuthHandlers) HandleChangePassword(c *gin.Context) {
 
 	err := h.authService.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword)
 	if err != nil {
-		switch err {
-		case auth.ErrInvalidCredentials:
-			respondError(c, http.StatusBadRequest, "current password is incorrect")
-		default:
-			if _, ok := err.(*auth.PasswordError); ok {
-				respondError(c, http.StatusBadRequest, err.Error())
-			} else {
-				respondError(c, http.StatusInternalServerError, "password change failed")
-			}
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -282,19 +242,19 @@ func (h *AuthHandlers) HandleGetAuthInfo(c *gin.Context) {
 // GET /api/v1/auth/oauth/authorize
 func (h *AuthHandlers) HandleOAuthAuthorize(c *gin.Context) {
 	if !h.providerManager.IsGatewayAvailable() {
-		respondError(c, http.StatusNotFound, "OAuth not available")
+		respondAPIError(c, NewAPIError("OAUTH_NOT_AVAILABLE", "OAuth is not configured", http.StatusNotFound))
 		return
 	}
 
 	state, err := auth.GenerateState()
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "failed to generate state")
+		respondAPIErrorWithRequestID(c, NewAPIError("STATE_GENERATION_FAILED", "Failed to generate state", http.StatusInternalServerError))
 		return
 	}
 
 	nonce, err := auth.GenerateNonce()
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "failed to generate nonce")
+		respondAPIErrorWithRequestID(c, NewAPIError("NONCE_GENERATION_FAILED", "Failed to generate nonce", http.StatusInternalServerError))
 		return
 	}
 
@@ -304,15 +264,13 @@ func (h *AuthHandlers) HandleOAuthAuthorize(c *gin.Context) {
 
 	authURL := h.providerManager.GetAuthorizationURL(state, nonce)
 	if authURL == "" {
-		respondError(c, http.StatusInternalServerError, "failed to generate authorization URL")
+		respondAPIErrorWithRequestID(c, NewAPIError("AUTH_URL_GENERATION_FAILED", "Failed to generate authorization URL", http.StatusInternalServerError))
 		return
 	}
 
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
 }
 
-// HandleOAuthCallback handles OAuth provider callback
-// GET /api/v1/auth/oauth/callback
 func (h *AuthHandlers) HandleOAuthCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
@@ -320,29 +278,30 @@ func (h *AuthHandlers) HandleOAuthCallback(c *gin.Context) {
 
 	if errorParam != "" {
 		errorDesc := c.Query("error_description")
-		respondError(c, http.StatusBadRequest, "OAuth error: "+errorParam+": "+errorDesc)
+		respondAPIError(c, NewAPIErrorWithDetails("OAUTH_ERROR", "OAuth authentication failed", http.StatusBadRequest, map[string]interface{}{
+			"error":             errorParam,
+			"error_description": errorDesc,
+		}))
 		return
 	}
 
 	if code == "" || state == "" {
-		respondError(c, http.StatusBadRequest, "missing code or state")
+		respondAPIError(c, NewAPIError("MISSING_OAUTH_PARAMS", "Missing code or state parameter", http.StatusBadRequest))
 		return
 	}
 
-	// Verify state
 	savedState, err := c.Cookie("oauth_state")
 	if err != nil || savedState != state {
-		respondError(c, http.StatusBadRequest, "invalid state parameter")
+		respondAPIError(c, NewAPIError("INVALID_STATE", "Invalid or expired state parameter", http.StatusBadRequest))
 		return
 	}
 
-	// Clear OAuth cookies
 	c.SetCookie("oauth_state", "", -1, "/", "", true, true)
 	c.SetCookie("oauth_nonce", "", -1, "/", "", true, true)
 
 	result, err := h.providerManager.HandleOAuthCallback(c.Request.Context(), code, state)
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "OAuth callback failed: "+err.Error())
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -362,7 +321,6 @@ func (h *AuthHandlers) HandleOAuthCallback(c *gin.Context) {
 // AdminCreateUserRequest represents admin user creation request
 type AdminCreateUserRequest struct {
 	Email    string `json:"email" binding:"required,email"`
-	Username string `json:"username" binding:"required,min=3,max=50"`
 	Password string `json:"password" binding:"required,min=8"`
 	FullName string `json:"full_name"`
 	IsAdmin  bool   `json:"is_admin"`
@@ -371,21 +329,18 @@ type AdminCreateUserRequest struct {
 // AdminUpdateUserRequest represents admin user update request
 type AdminUpdateUserRequest struct {
 	Email    string `json:"email" binding:"required,email"`
-	Username string `json:"username" binding:"required,min=3,max=50"`
 	FullName string `json:"full_name"`
 	IsActive bool   `json:"is_active"`
 	IsAdmin  bool   `json:"is_admin"`
 }
 
-// HandleAdminListUsers lists all users (admin only)
-// GET /api/v1/admin/users
 func (h *AuthHandlers) HandleAdminListUsers(c *gin.Context) {
 	limit := getQueryInt(c, "limit", 50)
 	offset := getQueryInt(c, "offset", 0)
 
 	users, total, err := h.authService.ListUsers(c.Request.Context(), limit, offset)
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "failed to list users")
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -406,17 +361,13 @@ func (h *AuthHandlers) HandleAdminGetUser(c *gin.Context) {
 
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid user ID")
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	user, err := h.authService.GetUser(c.Request.Context(), userID)
 	if err != nil {
-		if err == auth.ErrUserNotFound {
-			respondError(c, http.StatusNotFound, "user not found")
-		} else {
-			respondError(c, http.StatusInternalServerError, "failed to get user")
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -433,20 +384,12 @@ func (h *AuthHandlers) HandleAdminCreateUser(c *gin.Context) {
 
 	user, err := h.authService.CreateUser(c.Request.Context(), &auth.RegisterRequest{
 		Email:    req.Email,
-		Username: req.Username,
 		Password: req.Password,
 		FullName: req.FullName,
 	}, req.IsAdmin)
 
 	if err != nil {
-		switch err {
-		case auth.ErrEmailAlreadyTaken:
-			respondError(c, http.StatusConflict, "email is already taken")
-		case auth.ErrUsernameAlreadyTaken:
-			respondError(c, http.StatusConflict, "username is already taken")
-		default:
-			respondError(c, http.StatusInternalServerError, "failed to create user")
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -463,7 +406,7 @@ func (h *AuthHandlers) HandleAdminUpdateUser(c *gin.Context) {
 
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid user ID")
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
@@ -472,18 +415,9 @@ func (h *AuthHandlers) HandleAdminUpdateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.UpdateUser(c.Request.Context(), userID, req.Email, req.Username, req.FullName, req.IsActive, req.IsAdmin)
+	user, err := h.authService.UpdateUser(c.Request.Context(), userID, req.Email, req.Email, req.FullName, req.IsActive, req.IsAdmin)
 	if err != nil {
-		switch err {
-		case auth.ErrUserNotFound:
-			respondError(c, http.StatusNotFound, "user not found")
-		case auth.ErrEmailAlreadyTaken:
-			respondError(c, http.StatusConflict, "email is already taken")
-		case auth.ErrUsernameAlreadyTaken:
-			respondError(c, http.StatusConflict, "username is already taken")
-		default:
-			respondError(c, http.StatusInternalServerError, "failed to update user")
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -500,23 +434,18 @@ func (h *AuthHandlers) HandleAdminDeleteUser(c *gin.Context) {
 
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid user ID")
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
-	// Prevent self-deletion
 	currentUserID, _ := GetUserIDAsUUID(c)
 	if userID == currentUserID {
-		respondError(c, http.StatusBadRequest, "cannot delete your own account")
+		respondAPIError(c, NewAPIError("SELF_DELETION_FORBIDDEN", "Cannot delete your own account", http.StatusBadRequest))
 		return
 	}
 
 	if err := h.authService.DeleteUser(c.Request.Context(), userID); err != nil {
-		if err == auth.ErrUserNotFound {
-			respondError(c, http.StatusNotFound, "user not found")
-		} else {
-			respondError(c, http.StatusInternalServerError, "failed to delete user")
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -533,7 +462,7 @@ func (h *AuthHandlers) HandleAdminResetPassword(c *gin.Context) {
 
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid user ID")
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
@@ -545,11 +474,7 @@ func (h *AuthHandlers) HandleAdminResetPassword(c *gin.Context) {
 	}
 
 	if err := h.authService.ResetUserPassword(c.Request.Context(), userID, req.NewPassword); err != nil {
-		if err == auth.ErrUserNotFound {
-			respondError(c, http.StatusNotFound, "user not found")
-		} else {
-			respondError(c, http.StatusInternalServerError, "failed to reset password")
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -560,12 +485,10 @@ func (h *AuthHandlers) HandleAdminResetPassword(c *gin.Context) {
 // Role Management Handlers
 // ============================================================================
 
-// HandleListRoles lists all roles
-// GET /api/v1/admin/roles
 func (h *AuthHandlers) HandleListRoles(c *gin.Context) {
 	roles, err := h.authService.ListRoles(c.Request.Context())
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "failed to list roles")
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -582,7 +505,7 @@ func (h *AuthHandlers) HandleAssignRole(c *gin.Context) {
 
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid user ID")
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
@@ -595,19 +518,13 @@ func (h *AuthHandlers) HandleAssignRole(c *gin.Context) {
 
 	roleID, err := uuid.Parse(req.RoleID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid role ID")
+		respondAPIError(c, NewAPIError("INVALID_ROLE_ID", "Invalid role ID format", http.StatusBadRequest))
 		return
 	}
 
 	currentUserID, _ := GetUserIDAsUUID(c)
 	if err := h.authService.AssignRoleToUser(c.Request.Context(), userID, roleID, &currentUserID); err != nil {
-		if err == auth.ErrUserNotFound {
-			respondError(c, http.StatusNotFound, "user not found")
-		} else if err == auth.ErrRoleNotFound {
-			respondError(c, http.StatusNotFound, "role not found")
-		} else {
-			respondError(c, http.StatusInternalServerError, "failed to assign role")
-		}
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
@@ -624,7 +541,7 @@ func (h *AuthHandlers) HandleRemoveRole(c *gin.Context) {
 
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid user ID")
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
@@ -635,20 +552,18 @@ func (h *AuthHandlers) HandleRemoveRole(c *gin.Context) {
 
 	roleID, err := uuid.Parse(roleIDStr)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid role ID")
+		respondAPIError(c, NewAPIError("INVALID_ROLE_ID", "Invalid role ID format", http.StatusBadRequest))
 		return
 	}
 
 	if err := h.authService.RemoveRoleFromUser(c.Request.Context(), userID, roleID); err != nil {
-		respondError(c, http.StatusInternalServerError, "failed to remove role")
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 
 	respondJSON(c, http.StatusOK, gin.H{"message": "role removed successfully"})
 }
 
-// HandleGetUserRoles gets all roles for a user
-// GET /api/v1/admin/users/:id/roles
 func (h *AuthHandlers) HandleGetUserRoles(c *gin.Context) {
 	idStr, ok := getParam(c, "id")
 	if !ok {
@@ -657,13 +572,13 @@ func (h *AuthHandlers) HandleGetUserRoles(c *gin.Context) {
 
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid user ID")
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	roles, err := h.authService.GetUserRoles(c.Request.Context(), userID)
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "failed to get user roles")
+		respondAPIErrorWithRequestID(c, err)
 		return
 	}
 

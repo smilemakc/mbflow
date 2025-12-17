@@ -7,6 +7,9 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslations } from '@/store/translations';
+import { FormField, TextInput } from '@/components/ui/form';
+import { Button } from '@/components/ui';
+import { configStyles } from '@/styles/configStyles';
 
 export const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
@@ -15,16 +18,14 @@ export const RegisterForm: React.FC = () => {
 
   const [formData, setFormData] = useState({
     email: '',
-    username: '',
     password: '',
     confirmPassword: '',
     fullName: '',
   });
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const handleFieldChange = (field: string) => (value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     setValidationError(null);
   };
 
@@ -45,15 +46,8 @@ export const RegisterForm: React.FC = () => {
       return;
     }
 
-    // Validate username
-    if (formData.username.length < 3) {
-      setValidationError(t('auth.usernameTooShort', 'Username must be at least 3 characters'));
-      return;
-    }
-
     const success = await register({
       email: formData.email,
-      username: formData.username,
       password: formData.password,
       full_name: formData.fullName || undefined,
     });
@@ -79,134 +73,96 @@ export const RegisterForm: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {displayError && (
-            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className={configStyles.authError}>
               <p className="text-sm text-red-600 dark:text-red-400">{displayError}</p>
             </div>
           )}
 
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              {t('auth.email', 'Email')} *
-            </label>
-            <input
+          <FormField
+            label={t('auth.email', 'Email')}
+            htmlFor="email"
+            required
+            labelClassName={configStyles.authLabel}
+          >
+            <TextInput
               id="email"
               name="email"
               type="email"
               value={formData.email}
-              onChange={handleChange}
+              onChange={handleFieldChange('email')}
               required
               autoComplete="email"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
               placeholder="you@example.com"
+              className={configStyles.authInput}
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label
-              htmlFor="username"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              {t('auth.username', 'Username')} *
-            </label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              autoComplete="username"
-              minLength={3}
-              maxLength={50}
-              pattern="[a-zA-Z0-9_-]+"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
-              placeholder="johndoe"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {t('auth.usernameHint', 'Letters, numbers, underscores and hyphens only')}
-            </p>
-          </div>
-
-          <div>
-            <label
-              htmlFor="fullName"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              {t('auth.fullName', 'Full Name')}
-            </label>
-            <input
+          <FormField
+            label={t('auth.fullName', 'Full Name')}
+            htmlFor="fullName"
+            labelClassName={configStyles.authLabel}
+          >
+            <TextInput
               id="fullName"
               name="fullName"
-              type="text"
               value={formData.fullName}
-              onChange={handleChange}
+              onChange={handleFieldChange('fullName')}
               autoComplete="name"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
               placeholder="John Doe"
+              className={configStyles.authInput}
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              {t('auth.password', 'Password')} *
-            </label>
-            <input
+          <FormField
+            label={t('auth.password', 'Password')}
+            htmlFor="password"
+            required
+            hint={t('auth.passwordHint', 'At least 8 characters with uppercase, lowercase, and number')}
+            labelClassName={configStyles.authLabel}
+          >
+            <TextInput
               id="password"
               name="password"
               type="password"
               value={formData.password}
-              onChange={handleChange}
+              onChange={handleFieldChange('password')}
               required
               autoComplete="new-password"
               minLength={8}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
               placeholder="********"
+              className={configStyles.authInput}
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {t('auth.passwordHint', 'At least 8 characters with uppercase, lowercase, and number')}
-            </p>
-          </div>
+          </FormField>
 
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              {t('auth.confirmPassword', 'Confirm Password')} *
-            </label>
-            <input
+          <FormField
+            label={t('auth.confirmPassword', 'Confirm Password')}
+            htmlFor="confirmPassword"
+            required
+            labelClassName={configStyles.authLabel}
+          >
+            <TextInput
               id="confirmPassword"
               name="confirmPassword"
               type="password"
               value={formData.confirmPassword}
-              onChange={handleChange}
+              onChange={handleFieldChange('confirmPassword')}
               required
               autoComplete="new-password"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
               placeholder="********"
+              className={configStyles.authInput}
             />
-          </div>
+          </FormField>
 
-          <button
+          <Button
             type="submit"
-            disabled={isLoading}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            loading={isLoading}
+            fullWidth
+            size="lg"
           >
-            {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                {t('auth.creatingAccount', 'Creating account...')}
-              </>
-            ) : (
-              t('auth.createAccount', 'Create Account')
-            )}
-          </button>
+            {isLoading
+              ? t('auth.creatingAccount', 'Creating account...')
+              : t('auth.createAccount', 'Create Account')}
+          </Button>
         </form>
 
         <div className="mt-6 text-center">

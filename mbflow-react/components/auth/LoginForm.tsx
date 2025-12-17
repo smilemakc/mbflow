@@ -7,6 +7,9 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslations } from '@/store/translations';
+import { FormField, TextInput } from '@/components/ui/form';
+import { Button } from '@/components/ui';
+import { configStyles } from '@/styles/configStyles';
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
@@ -43,63 +46,53 @@ export const LoginForm: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className={configStyles.authError}>
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
 
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              {t('auth.email', 'Email')}
-            </label>
-            <input
+          <FormField
+            label={t('auth.email', 'Email')}
+            htmlFor="email"
+            labelClassName={configStyles.authLabel}
+          >
+            <TextInput
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={setEmail}
               required
               autoComplete="email"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
               placeholder="you@example.com"
+              className={configStyles.authInput}
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              {t('auth.password', 'Password')}
-            </label>
-            <input
+          <FormField
+            label={t('auth.password', 'Password')}
+            htmlFor="password"
+            labelClassName={configStyles.authLabel}
+          >
+            <TextInput
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={setPassword}
               required
               autoComplete="current-password"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
               placeholder="********"
+              className={configStyles.authInput}
             />
-          </div>
+          </FormField>
 
-          <button
+          <Button
             type="submit"
-            disabled={isLoading}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+            loading={isLoading}
+            fullWidth
+            size="lg"
           >
-            {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                {t('auth.signingIn', 'Signing in...')}
-              </>
-            ) : (
-              t('auth.signIn', 'Sign In')
-            )}
-          </button>
+            {isLoading ? t('auth.signingIn', 'Signing in...') : t('auth.signIn', 'Sign In')}
+          </Button>
         </form>
 
         <div className="mt-6 text-center">

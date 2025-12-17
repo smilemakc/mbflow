@@ -353,7 +353,14 @@ func (r *UserRepository) CreateSession(ctx context.Context, session *models.Sess
 	session.CreatedAt = now
 	session.LastActivityAt = now
 
-	_, err := r.db.NewInsert().Model(session).Exec(ctx)
+	// Build insert query with conditional IP address handling
+	// PostgreSQL INET type doesn't accept empty strings, so we use NULL for empty IPs
+	insertQuery := r.db.NewInsert().Model(session)
+	if session.IPAddress == "" {
+		insertQuery = insertQuery.ExcludeColumn("ip_address")
+	}
+
+	_, err := insertQuery.Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}

@@ -14,6 +14,7 @@ import {
   credentialsApi,
   getCredentialTypeLabel,
 } from '@/services/credentialsService';
+import { getErrorMessage } from '@/lib/api';
 
 const CredentialTypeIcon: React.FC<{ type: CredentialType; size?: number; className?: string }> = ({ type, size = 20, className = '' }) => {
   const iconProps = { size, className };
@@ -63,12 +64,8 @@ export const ViewSecretsModal: React.FC<ViewSecretsModalProps> = ({
     try {
       const response = await credentialsApi.getCredentialSecrets(credential.id);
       setSecrets(response.data.data);
-    } catch (err: any) {
-      if (err.response?.status === 410) {
-        setError(t.credentials.expiredError);
-      } else {
-        setError(err.response?.data?.error || 'Failed to load secrets');
-      }
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

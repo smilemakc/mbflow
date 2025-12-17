@@ -11,14 +11,15 @@ interface ContextMenuProps {
     onAction: (action: string, payload?: any) => void;
 }
 
-export const ContextMenu: React.FC<ContextMenuProps> = ({
-                                                            x,
-                                                            y,
-                                                            type,
-                                                            targetId,
-                                                            onClose,
-                                                            onAction
-                                                        }) => {
+export const ContextMenu: React.FC<ContextMenuProps> = (
+    {
+        x,
+        y,
+        type,
+        targetId,
+        onClose,
+        onAction
+    }) => {
     const t = useTranslation();
     const menuRef = useRef<HTMLDivElement>(null);
 

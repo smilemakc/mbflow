@@ -1,10 +1,8 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useNavigate, useParams} from 'react-router-dom';
 import {
     AlertCircle,
     ArrowLeft,
-    Calendar,
-    CheckCircle,
     FileJson,
     Hash,
     Info,
@@ -12,28 +10,25 @@ import {
     Loader2,
     Play,
     RefreshCw,
-    Timer,
-    Wifi,
-    WifiOff,
     Workflow,
     XCircle
 } from 'lucide-react';
 import {useTranslation} from '@/store/translations';
 import {executionService} from '@/services/executionService';
-import {workflowService} from '@/services/workflowService';
-import {Execution, ExecutionEvent, ExecutionStatus, NodeExecution} from '@/types/execution';
-import {DAG} from '@/types';
+import {Execution, NodeExecution} from '@/types/execution';
 import {useToast} from '@/hooks/useToast';
-import {executionWS} from '@/services/executionWebSocket';
+import {useExecutionData} from '@/hooks/useExecutionData';
+import {useExecutionWebSocket} from '@/hooks/useExecutionWebSocket';
 import {
     calculateStats,
     CopyButton,
+    ExecutionStatsGrid,
     formatDate,
-    formatDuration,
     getStatusBadgeClass,
     getStatusIcon,
     JsonViewer,
-    NodeExecutionCard
+    NodeExecutionCard,
+    WebSocketStatusBadge
 } from '@/components/execution';
 import {Button} from '@/components/ui';
 
@@ -43,135 +38,44 @@ export const ExecutionDetailPage: React.FC = () => {
     const t = useTranslation();
     const {showToast} = useToast();
 
-    const [execution, setExecution] = useState<Execution | null>(null);
-    const [workflow, setWorkflow] = useState<DAG | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
     const [isRetrying, setIsRetrying] = useState(false);
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [activeTab, setActiveTab] = useState<'nodes' | 'overview'>('nodes');
-    const [wsConnected, setWsConnected] = useState(false);
 
-    // Refs for tracking
-    const hasShownCompletionToastRef = useRef(false);
-    const unsubscribeRef = useRef<(() => void) | null>(null);
+    const {execution, workflow, isLoading, refetch, setExecution} = useExecutionData(id);
 
-    // Handle WebSocket event
-    const handleWsEvent = useCallback((event: ExecutionEvent) => {
-        if (event.type === 'control') {
-            console.log('[ExecutionDetailPage] Control message:', event.control);
-            return;
-        }
+    const handleExecutionUpdate = useCallback((updates: Partial<Execution>) => {
+        setExecution(prev => prev ? {...prev, ...updates} : prev);
+    }, [setExecution]);
 
-        if (event.type !== 'event' || !event.event) return;
+    const handleNodeUpdate = useCallback((nodeId: string, nodeExec: NodeExecution) => {
+        setExecution(prev => {
+            if (!prev) return prev;
 
-        const execEvent = event.event;
-        console.log('[ExecutionDetailPage] Event:', execEvent.event_type, execEvent);
+            const existingIndex = prev.node_executions?.findIndex(ne => ne.node_id === nodeId) ?? -1;
+            const updatedNodeExecs = [...(prev.node_executions || [])];
 
-        switch (execEvent.event_type) {
-            case 'execution.completed':
-                setExecution(prev => prev ? {...prev, status: 'completed' as ExecutionStatus} : prev);
-                if (!hasShownCompletionToastRef.current) {
-                    hasShownCompletionToastRef.current = true;
-                    showToast({type: 'success', title: 'Execution completed'});
-                }
-                break;
-
-            case 'execution.failed':
-                setExecution(prev => prev ? {
-                    ...prev,
-                    status: 'failed' as ExecutionStatus,
-                    error: execEvent.error
-                } : prev);
-                if (!hasShownCompletionToastRef.current) {
-                    hasShownCompletionToastRef.current = true;
-                    showToast({type: 'error', title: `Execution failed: ${execEvent.error || 'Unknown error'}`});
-                }
-                break;
-
-            case 'node.started':
-            case 'node.completed':
-            case 'node.failed':
-                if (execEvent.node_id) {
-                    setExecution(prev => {
-                        if (!prev) return prev;
-
-                        const nodeExec: NodeExecution = {
-                            id: `${execEvent.execution_id}_${execEvent.node_id}`,
-                            execution_id: execEvent.execution_id,
-                            node_id: execEvent.node_id,
-                            node_name: execEvent.node_name,
-                            node_type: execEvent.node_type,
-                            status: (execEvent.event_type === 'node.started' ? 'running' :
-                                execEvent.event_type === 'node.completed' ? 'completed' : 'failed') as ExecutionStatus,
-                            started_at: execEvent.timestamp,
-                            completed_at: execEvent.event_type !== 'node.started' ? execEvent.timestamp : undefined,
-                            duration: execEvent.duration_ms,
-                            error: execEvent.error,
-                            input: execEvent.input,
-                            output: execEvent.output
-                        };
-
-                        const existingIndex = prev.node_executions?.findIndex(ne => ne.node_id === execEvent.node_id) ?? -1;
-                        const updatedNodeExecs = [...(prev.node_executions || [])];
-
-                        if (existingIndex >= 0) {
-                            updatedNodeExecs[existingIndex] = {
-                                ...updatedNodeExecs[existingIndex],
-                                ...nodeExec,
-                                input: nodeExec.input || updatedNodeExecs[existingIndex].input,
-                                output: nodeExec.output || updatedNodeExecs[existingIndex].output
-                            };
-                        } else {
-                            updatedNodeExecs.push(nodeExec);
-                        }
-
-                        return {...prev, node_executions: updatedNodeExecs};
-                    });
-                }
-                break;
-        }
-    }, [showToast]);
-
-    // Connect to WebSocket using centralized service
-    const connectWs = useCallback((executionId: string) => {
-        // Cleanup previous subscription
-        if (unsubscribeRef.current) {
-            unsubscribeRef.current();
-        }
-
-        setWsConnected(true);
-        unsubscribeRef.current = executionWS.connect(executionId, handleWsEvent);
-
-        // Poll connection status
-        const checkInterval = setInterval(() => {
-            const connected = executionWS.isConnected(executionId);
-            setWsConnected(connected);
-            if (!connected) {
-                clearInterval(checkInterval);
+            if (existingIndex >= 0) {
+                updatedNodeExecs[existingIndex] = {
+                    ...updatedNodeExecs[existingIndex],
+                    ...nodeExec,
+                    input: nodeExec.input || updatedNodeExecs[existingIndex].input,
+                    output: nodeExec.output || updatedNodeExecs[existingIndex].output
+                };
+            } else {
+                updatedNodeExecs.push(nodeExec);
             }
-        }, 2000);
 
-        // Store cleanup
-        const originalUnsubscribe = unsubscribeRef.current;
-        unsubscribeRef.current = () => {
-            clearInterval(checkInterval);
-            originalUnsubscribe();
-        };
-    }, [handleWsEvent]);
+            return {...prev, node_executions: updatedNodeExecs};
+        });
+    }, [setExecution]);
 
-    // Disconnect from WebSocket
-    const disconnectWs = useCallback(() => {
-        if (unsubscribeRef.current) {
-            unsubscribeRef.current();
-            unsubscribeRef.current = null;
-        }
-        if (id) {
-            executionWS.disconnect(id);
-        }
-        setWsConnected(false);
-    }, [id]);
+    const {wsConnected, connect, disconnect} = useExecutionWebSocket({
+        executionId: id,
+        onExecutionUpdate: handleExecutionUpdate,
+        onNodeUpdate: handleNodeUpdate
+    });
 
-    // Sort node executions by started_at (first to last)
     const sortedNodeExecutions = useMemo(() => {
         if (!execution?.node_executions) return [];
 
@@ -182,59 +86,17 @@ export const ExecutionDetailPage: React.FC = () => {
         });
     }, [execution?.node_executions]);
 
-    // Fetch execution data
-    const fetchExecution = useCallback(async (showLoadingState = true) => {
-        if (!id) return;
-
-        if (showLoadingState) {
-            setIsLoading(true);
-        }
-        try {
-            const data = await executionService.getStatus(id);
-            setExecution(data);
-
-            // Fetch workflow info (only on initial load)
-            if (showLoadingState && data.workflow_id) {
-                try {
-                    const wf = await workflowService.getById(data.workflow_id);
-                    setWorkflow(wf);
-                } catch (err) {
-                    console.error('Failed to fetch workflow:', err);
+    useEffect(() => {
+        if (execution) {
+            if (execution.status === 'running' || execution.status === 'pending') {
+                if (id) {
+                    connect(id);
                 }
-            }
-
-            // Connect to WebSocket if execution is running
-            if (data.status === 'running' || data.status === 'pending') {
-                hasShownCompletionToastRef.current = false; // Reset toast flag
-                connectWs(id);
             } else {
-                disconnectWs();
-            }
-        } catch (error) {
-            console.error('Failed to fetch execution:', error);
-            if (showLoadingState) {
-                showToast({type: 'error', title: 'Failed to load execution details'});
-            }
-        } finally {
-            if (showLoadingState) {
-                setIsLoading(false);
+                disconnect();
             }
         }
-    }, [id, showToast, connectWs, disconnectWs]);
-
-    useEffect(() => {
-        fetchExecution(true);
-        return () => {
-            disconnectWs();
-        };
-    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Disconnect WebSocket when execution completes
-    useEffect(() => {
-        if (execution && execution.status !== 'running' && execution.status !== 'pending') {
-            disconnectWs();
-        }
-    }, [execution?.status, disconnectWs]);
+    }, [execution?.status, id, connect, disconnect]);
 
     const handleRetry = async () => {
         if (!execution) return;
@@ -243,7 +105,7 @@ export const ExecutionDetailPage: React.FC = () => {
         try {
             await executionService.retry(execution.id);
             showToast({type: 'success', title: t.executionDetail?.retryStarted || 'Retry started'});
-            await fetchExecution();
+            await refetch();
         } catch (error) {
             console.error('Failed to retry execution:', error);
             showToast({type: 'error', title: t.executionDetail?.retryFailed || 'Failed to retry execution'});
@@ -350,29 +212,12 @@ export const ExecutionDetailPage: React.FC = () => {
 
                     {/* Actions */}
                     <div className="flex items-center gap-3">
-                        {/* WebSocket Status Indicator */}
                         {(execution.status === 'running' || execution.status === 'pending') && (
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
-                                wsConnected
-                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                            }`}>
-                                {wsConnected ? (
-                                    <>
-                                        <Wifi size={14} className="animate-pulse"/>
-                                        <span>Live Updates</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <WifiOff size={14}/>
-                                        <span>Connecting...</span>
-                                    </>
-                                )}
-                            </div>
+                            <WebSocketStatusBadge connected={wsConnected}/>
                         )}
 
                         <Button
-                            onClick={() => fetchExecution(true)}
+                            onClick={() => refetch(true)}
                             variant="outline"
                             size="sm"
                             icon={<RefreshCw size={16}/>}
@@ -394,67 +239,7 @@ export const ExecutionDetailPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div
-                        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                            <Layers size={16}/>
-                            <span className="text-xs font-medium uppercase tracking-wider">
-                {t.executionDetail?.totalNodes || 'Total Nodes'}
-              </span>
-                        </div>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
-                    </div>
-
-                    <div
-                        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                        <div className="flex items-center gap-2 text-green-500 mb-1">
-                            <CheckCircle size={16}/>
-                            <span className="text-xs font-medium uppercase tracking-wider">
-                {t.executions?.status?.completed || 'Completed'}
-              </span>
-                        </div>
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completed}</p>
-                    </div>
-
-                    <div
-                        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                        <div className="flex items-center gap-2 text-red-500 mb-1">
-                            <XCircle size={16}/>
-                            <span className="text-xs font-medium uppercase tracking-wider">
-                {t.executions?.status?.failed || 'Failed'}
-              </span>
-                        </div>
-                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.failed}</p>
-                    </div>
-
-                    <div
-                        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                            <Calendar size={16}/>
-                            <span className="text-xs font-medium uppercase tracking-wider">
-                {t.executionDetail?.startedAt || 'Started'}
-              </span>
-                        </div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-white">
-                            {formatDate(execution.started_at)}
-                        </p>
-                    </div>
-
-                    <div
-                        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
-                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                            <Timer size={16}/>
-                            <span className="text-xs font-medium uppercase tracking-wider">
-                {t.executions?.table?.duration || 'Duration'}
-              </span>
-                        </div>
-                        <p className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-                            {formatDuration(execution.started_at, execution.completed_at)}
-                        </p>
-                    </div>
-                </div>
+                <ExecutionStatsGrid execution={execution}/>
 
                 {/* Execution Error Banner */}
                 {execution.error && (

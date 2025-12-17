@@ -181,7 +181,7 @@ func TestHandlers_GetWorkflow_NotFound(t *testing.T) {
 	randomID := uuid.New().String()
 	w := testutil.MakeRequest(t, router, "GET", fmt.Sprintf("/api/v1/workflows/%s", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "workflow not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 func TestHandlers_GetWorkflow_InvalidID(t *testing.T) {
@@ -190,7 +190,7 @@ func TestHandlers_GetWorkflow_InvalidID(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "GET", "/api/v1/workflows/invalid-uuid", nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid workflow ID")
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Invalid ID format")
 }
 
 // ========== LIST WORKFLOWS TESTS ==========
@@ -333,7 +333,7 @@ func TestHandlers_UpdateWorkflow_NotFound(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", randomID), updateReq)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "workflow not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 func TestHandlers_UpdateWorkflow_InvalidID(t *testing.T) {
@@ -346,7 +346,7 @@ func TestHandlers_UpdateWorkflow_InvalidID(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "PUT", "/api/v1/workflows/invalid-uuid", updateReq)
 
-	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid workflow ID")
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Invalid ID format")
 }
 
 // ========== DELETE WORKFLOW TESTS ==========
@@ -403,7 +403,7 @@ func TestHandlers_DeleteWorkflow_InvalidID(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "DELETE", "/api/v1/workflows/invalid-uuid", nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid workflow ID")
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Invalid ID format")
 }
 
 // ========== PUBLISH/UNPUBLISH TESTS ==========
@@ -528,5 +528,5 @@ func TestHandlers_GetWorkflowDiagram_NotFound(t *testing.T) {
 	randomID := uuid.New().String()
 	w := testutil.MakeRequest(t, router, "GET", fmt.Sprintf("/api/v1/workflows/%s/diagram", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "workflow not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }

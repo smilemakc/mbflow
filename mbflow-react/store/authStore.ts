@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { authService } from '@/services/authService';
 import { toast } from '@/lib/toast';
+import { getErrorMessage, isErrorCode, ErrorCodes } from '@/lib/api';
 import type {
   User,
   LoginCredentials,
@@ -63,10 +64,20 @@ export const useAuthStore = create<AuthState>()(
           });
           toast.success('Welcome back!');
           return true;
-        } catch (error: any) {
-          const message = error.response?.data?.error || 'Login failed';
+        } catch (error: unknown) {
+          const message = getErrorMessage(error);
           set({ isLoading: false, error: message });
-          toast.error(message);
+
+          // Специфичные сообщения для разных ошибок
+          if (isErrorCode(error, ErrorCodes.INVALID_CREDENTIALS)) {
+            toast.error('Login Failed', 'Invalid email or password');
+          } else if (isErrorCode(error, ErrorCodes.ACCOUNT_LOCKED)) {
+            toast.error('Account Locked', 'Your account has been locked. Please contact support.');
+          } else if (isErrorCode(error, ErrorCodes.ACCOUNT_INACTIVE)) {
+            toast.error('Account Inactive', 'Your account is not active.');
+          } else {
+            toast.error('Login Failed', message);
+          }
           return false;
         }
       },
@@ -84,10 +95,17 @@ export const useAuthStore = create<AuthState>()(
           });
           toast.success('Registration successful!');
           return true;
-        } catch (error: any) {
-          const message = error.response?.data?.error || 'Registration failed';
+        } catch (error: unknown) {
+          const message = getErrorMessage(error);
           set({ isLoading: false, error: message });
-          toast.error(message);
+
+          if (isErrorCode(error, ErrorCodes.EMAIL_ALREADY_TAKEN)) {
+            toast.error('Registration Failed', 'This email is already registered');
+          } else if (isErrorCode(error, ErrorCodes.VALIDATION_FAILED)) {
+            toast.error('Validation Error', message);
+          } else {
+            toast.error('Registration Failed', message);
+          }
           return false;
         }
       },
@@ -170,10 +188,10 @@ export const useAuthStore = create<AuthState>()(
           // After password change, user needs to re-login
           await get().logout();
           return true;
-        } catch (error: any) {
-          const message = error.response?.data?.error || 'Failed to change password';
+        } catch (error: unknown) {
+          const message = getErrorMessage(error);
           set({ isLoading: false, error: message });
-          toast.error(message);
+          toast.error('Password Change Failed', message);
           return false;
         }
       },

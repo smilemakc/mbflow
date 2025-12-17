@@ -15,6 +15,7 @@ import {
   LLM_PROVIDERS,
 } from '@/services/rentalKeyService';
 import { useTranslation } from '@/store/translations';
+import { getErrorMessage } from '@/lib/api';
 
 interface RentalKeyListProps {
   className?: string;
@@ -37,8 +38,8 @@ export const RentalKeyList: React.FC<RentalKeyListProps> = ({ className }) => {
         providerFilter || undefined
       );
       setRentalKeys(response.data.rental_keys || []);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load rental keys');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

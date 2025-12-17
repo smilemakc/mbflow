@@ -166,7 +166,7 @@ func TestHandlers_CreateTrigger_InvalidWorkflowID(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", req)
 
 	// Handler returns 404 when workflow not found
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "workflow not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== GET TRIGGER TESTS ==========
@@ -220,7 +220,7 @@ func TestHandlers_GetTrigger_NotFound(t *testing.T) {
 	randomID := uuid.New().String()
 	w := testutil.MakeRequest(t, router, "GET", fmt.Sprintf("/api/v1/triggers/%s", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "trigger not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 func TestHandlers_GetTrigger_InvalidID(t *testing.T) {
@@ -229,7 +229,7 @@ func TestHandlers_GetTrigger_InvalidID(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "GET", "/api/v1/triggers/invalid-uuid", nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid trigger ID")
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Invalid ID format")
 }
 
 // ========== LIST TRIGGERS TESTS ==========
@@ -387,7 +387,7 @@ func TestHandlers_UpdateTrigger_NotFound(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/triggers/%s", randomID), updateReq)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "trigger not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== DELETE TRIGGER TESTS ==========

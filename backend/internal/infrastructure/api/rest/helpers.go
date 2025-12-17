@@ -19,30 +19,32 @@ func parseIntQuery(value string, defaultValue int) int {
 	return i
 }
 
-// respondJSON writes JSON response using Gin
 func respondJSON(c *gin.Context, status int, data interface{}) {
 	c.JSON(status, data)
 }
 
-// respondError writes error response using Gin
 func respondError(c *gin.Context, status int, message string) {
-	c.JSON(status, gin.H{"error": message})
+	apiErr := NewAPIError("ERROR", message, status)
+	c.JSON(status, apiErr)
 }
 
-// ErrorResponse represents a structured error response
-type ErrorResponse struct {
-	Error   string                 `json:"error"`
-	Code    string                 `json:"code,omitempty"`
-	Details map[string]interface{} `json:"details,omitempty"`
-}
-
-// respondErrorWithDetails writes a detailed error response
 func respondErrorWithDetails(c *gin.Context, status int, message, code string, details map[string]interface{}) {
-	c.JSON(status, ErrorResponse{
-		Error:   message,
-		Code:    code,
-		Details: details,
-	})
+	apiErr := NewAPIErrorWithDetails(code, message, status, details)
+	c.JSON(status, apiErr)
+}
+
+func respondAPIError(c *gin.Context, err error) {
+	apiErr := TranslateError(err)
+	c.JSON(apiErr.HTTPStatus, apiErr)
+}
+
+func respondAPIErrorWithRequestID(c *gin.Context, err error) {
+	apiErr := TranslateError(err)
+	if apiErr.Details == nil {
+		apiErr.Details = make(map[string]interface{})
+	}
+	apiErr.Details["request_id"] = GetRequestID(c)
+	c.JSON(apiErr.HTTPStatus, apiErr)
 }
 
 // SuccessResponse represents a successful response with metadata
@@ -70,20 +72,18 @@ func respondSuccess(c *gin.Context, status int, data interface{}, meta *MetaInfo
 	}
 }
 
-// bindJSON is a helper to bind JSON request body
 func bindJSON(c *gin.Context, obj interface{}) error {
 	if err := c.ShouldBindJSON(obj); err != nil {
-		respondError(c, http.StatusBadRequest, "invalid request body")
+		respondAPIError(c, ErrInvalidJSON)
 		return err
 	}
 	return nil
 }
 
-// getParam gets a path parameter and validates it's not empty
 func getParam(c *gin.Context, name string) (string, bool) {
 	value := c.Param(name)
 	if value == "" {
-		respondError(c, http.StatusBadRequest, name+" is required")
+		respondAPIErrorWithRequestID(c, NewAPIError("MISSING_PARAMETER", name+" is required", http.StatusBadRequest))
 		return "", false
 	}
 	return value, true

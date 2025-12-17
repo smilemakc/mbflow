@@ -17,6 +17,7 @@ import {
   credentialsApi,
   getCredentialTypeLabel,
 } from '@/services/credentialsService';
+import { getErrorMessage } from '@/lib/api';
 
 interface CredentialListProps {
   className?: string;
@@ -52,8 +53,8 @@ export const CredentialList: React.FC<CredentialListProps> = ({ className = '' }
       }
 
       setCredentials(filtered);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load credentials');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -84,8 +85,8 @@ export const CredentialList: React.FC<CredentialListProps> = ({ className = '' }
       }
       await loadCredentials();
       return true;
-    } catch (err: any) {
-      console.error('Failed to create credential:', err);
+    } catch (error: unknown) {
+      console.error('Failed to create credential:', error);
       return false;
     }
   };
@@ -95,8 +96,8 @@ export const CredentialList: React.FC<CredentialListProps> = ({ className = '' }
       await credentialsApi.deleteCredential(credential.id);
       await loadCredentials();
       setDeletingCredential(null);
-    } catch (err: any) {
-      console.error('Failed to delete credential:', err);
+    } catch (error: unknown) {
+      console.error('Failed to delete credential:', error);
     }
   };
 
@@ -105,8 +106,8 @@ export const CredentialList: React.FC<CredentialListProps> = ({ className = '' }
       await credentialsApi.updateCredential(id, { name, description });
       await loadCredentials();
       return true;
-    } catch (err: any) {
-      console.error('Failed to update credential:', err);
+    } catch (error: unknown) {
+      console.error('Failed to update credential:', error);
       return false;
     }
   };

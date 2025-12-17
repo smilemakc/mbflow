@@ -37,7 +37,6 @@ export interface LoginCredentials {
 // Registration data
 export interface RegisterData {
   email: string;
-  username: string;
   password: string;
   full_name?: string;
 }
@@ -65,7 +64,6 @@ export interface ChangePasswordRequest {
 // Admin user create request
 export interface AdminCreateUserRequest {
   email: string;
-  username: string;
   password: string;
   full_name?: string;
   is_admin?: boolean;

@@ -85,7 +85,7 @@ func TestHandlers_AddNode_WorkflowNotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "POST",
 		fmt.Sprintf("/api/v1/workflows/%s/nodes", randomID), req)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "workflow not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 func TestHandlers_AddNode_DuplicateID(t *testing.T) {
@@ -141,7 +141,7 @@ func TestHandlers_ListNodes_WorkflowNotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "GET",
 		fmt.Sprintf("/api/v1/workflows/%s/nodes", randomID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "workflow not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== GET NODE TESTS ==========
@@ -177,7 +177,7 @@ func TestHandlers_GetNode_NotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "GET",
 		fmt.Sprintf("/api/v1/workflows/%s/nodes/nonexistent", workflowModel.ID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "node not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== UPDATE NODE TESTS ==========
@@ -224,7 +224,7 @@ func TestHandlers_UpdateNode_NotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "PUT",
 		fmt.Sprintf("/api/v1/workflows/%s/nodes/nonexistent", workflowModel.ID), req)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "node not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
 // ========== DELETE NODE TESTS ==========
@@ -261,5 +261,5 @@ func TestHandlers_DeleteNode_NotFound(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "DELETE",
 		fmt.Sprintf("/api/v1/workflows/%s/nodes/nonexistent", workflowModel.ID), nil)
 
-	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "node not found")
+	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }

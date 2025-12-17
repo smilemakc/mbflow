@@ -27,6 +27,7 @@ import { workflowService } from '@/services/workflowService';
 import { executionService } from '@/services/executionService';
 import { executionWS } from '@/services/executionWebSocket';
 import { toast } from '../lib/toast';
+import { getErrorMessage } from '@/lib/api';
 
 interface DAGState {
   // === Graph State ===
@@ -517,10 +518,10 @@ export const useDagStore = create<DAGState>((set, get) => ({
       // Return the ID (new ID if created, existing if updated)
       return isNew ? savedWorkflow.id : null;
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to save to backend:', error);
       set({ isSaving: false });
-      toast.error('Save Failed', 'Failed to save workflow. Please try again.');
+      toast.error('Save Failed', getErrorMessage(error));
       return null;
     }
   },

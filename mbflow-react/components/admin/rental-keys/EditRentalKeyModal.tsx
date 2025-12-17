@@ -13,6 +13,7 @@ import {
   rentalKeyAdminApi,
 } from '@/services/rentalKeyService';
 import { useTranslation } from '@/store/translations';
+import { getErrorMessage } from '@/lib/api';
 
 interface EditRentalKeyModalProps {
   isOpen: boolean;
@@ -71,8 +72,8 @@ export const EditRentalKeyModal: React.FC<EditRentalKeyModalProps> = ({
       await rentalKeyAdminApi.updateRentalKey(rentalKey.id, updateReq);
       onUpdated();
       onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update rental key');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

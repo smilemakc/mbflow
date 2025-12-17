@@ -22,3 +22,12 @@ export {default as RSSParserNodeConfig, RSSParserNodeConfigComponent} from "./RS
 export {default as CSVToJSONNodeConfig, CSVToJSONNodeConfigComponent} from "./CSVToJSONNodeConfig";
 export {default as GoogleSheetsNodeConfig, GoogleSheetsNodeConfigComponent} from "./GoogleSheetsNodeConfig";
 export {default as GoogleDriveNodeConfig, GoogleDriveNodeConfigComponent} from "./GoogleDriveNodeConfig";
+
+export {
+    registerNodeConfig,
+    getNodeConfigComponent,
+    hasNodeConfig,
+    getAllRegisteredNodeTypes,
+} from './nodeConfigRegistry';
+export type { NodeConfigProps, NodeConfigEntry } from './nodeConfigRegistry';
+export { DefaultNodeConfig } from './DefaultNodeConfig';

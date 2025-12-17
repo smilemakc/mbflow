@@ -12,6 +12,7 @@ import {
   getProviderLabel,
 } from '@/services/rentalKeyService';
 import { useTranslation } from '@/store/translations';
+import { getErrorMessage } from '@/lib/api';
 
 interface RotateKeyModalProps {
   isOpen: boolean;
@@ -46,8 +47,8 @@ export const RotateKeyModal: React.FC<RotateKeyModalProps> = ({
       onRotated();
       onClose();
       setNewAPIKey('');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to rotate API key');
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

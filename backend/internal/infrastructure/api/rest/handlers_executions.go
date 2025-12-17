@@ -44,9 +44,7 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 		Async      bool                   `json:"async"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in RunExecution", "error", err)
-		respondError(c, http.StatusBadRequest, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
@@ -55,25 +53,19 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	}
 
 	if req.WorkflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow_id is required")
+		respondAPIError(c, NewAPIError("WORKFLOW_ID_REQUIRED", "Workflow ID is required", http.StatusBadRequest))
 		return
 	}
 
-	// Execute workflow asynchronously
-	// This creates the execution record and returns immediately,
-	// while the actual execution happens in the background
 	opts := engine.DefaultExecutionOptions()
 	execution, err := h.executionManager.ExecuteAsync(c.Request.Context(), req.WorkflowID, req.Input, opts)
 	if err != nil {
-		h.logger.Error("Failed to start workflow execution", "error", err, "workflow_id", req.WorkflowID)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to start workflow execution", "error", err, "workflow_id", req.WorkflowID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
-	h.logger.Info("Workflow execution started", "execution_id", execution.ID, "workflow_id", req.WorkflowID)
-
-	// Return execution record immediately
-	// Client can monitor progress via WebSocket at /ws/executions
+	h.logger.Info("Workflow execution started", "execution_id", execution.ID, "workflow_id", req.WorkflowID, "request_id", GetRequestID(c))
 	respondJSON(c, http.StatusAccepted, execution)
 }
 
@@ -81,21 +73,21 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 func (h *ExecutionHandlers) HandleGetExecution(c *gin.Context) {
 	executionID := c.Param("id")
 	if executionID == "" {
-		respondError(c, http.StatusBadRequest, "execution ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	execUUID, err := uuid.Parse(executionID)
 	if err != nil {
-		h.logger.Error("Invalid execution ID in GetExecution", "error", err, "execution_id", executionID)
-		respondError(c, http.StatusBadRequest, "invalid execution ID")
+		h.logger.Error("Invalid execution ID", "error", err, "execution_id", executionID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	execModel, err := h.executionRepo.FindByIDWithRelations(c.Request.Context(), execUUID)
 	if err != nil {
-		h.logger.Error("Failed to find execution", "error", err, "execution_id", execUUID)
-		respondError(c, http.StatusNotFound, "execution not found")
+		h.logger.Error("Failed to find execution", "error", err, "execution_id", execUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -153,8 +145,8 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 	if workflowID != "" {
 		wfUUID, parseErr := uuid.Parse(workflowID)
 		if parseErr != nil {
-			h.logger.Error("Invalid workflow ID in ListExecutions", "error", parseErr, "workflow_id", workflowID)
-			respondError(c, http.StatusBadRequest, "invalid workflow_id")
+			h.logger.Error("Invalid workflow ID in ListExecutions", "error", parseErr, "workflow_id", workflowID, "request_id", GetRequestID(c))
+			respondAPIError(c, ErrInvalidID)
 			return
 		}
 		execModels, err = h.executionRepo.FindByWorkflowID(c.Request.Context(), wfUUID, limit, offset)
@@ -165,8 +157,8 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 	}
 
 	if err != nil {
-		h.logger.Error("Failed to list executions", "error", err, "workflow_id", workflowID, "status", status, "limit", limit, "offset", offset)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to list executions", "error", err, "workflow_id", workflowID, "status", status, "limit", limit, "offset", offset, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -188,23 +180,23 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 func (h *ExecutionHandlers) HandleGetLogs(c *gin.Context) {
 	executionID := c.Param("id")
 	if executionID == "" {
-		respondError(c, http.StatusBadRequest, "execution ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	execUUID, err := uuid.Parse(executionID)
 	if err != nil {
-		h.logger.Error("Invalid execution ID in GetLogs", "error", err, "execution_id", executionID)
-		respondError(c, http.StatusBadRequest, "invalid execution ID")
+		h.logger.Error("Invalid execution ID in GetLogs", "error", err, "execution_id", executionID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	// Get events from repository
 	events, err := h.executionRepo.GetEvents(c.Request.Context(), execUUID)
 	if err != nil {
-		h.logger.Error("Failed to get execution events", "error", err, "execution_id", execUUID)
+		h.logger.Error("Failed to get execution events", "error", err, "execution_id", execUUID, "request_id", GetRequestID(c))
 		// Return empty array instead of error for better UX
-		c.JSON(http.StatusOK, gin.H{
+		respondJSON(c, http.StatusOK, gin.H{
 			"logs":  []interface{}{},
 			"total": 0,
 		})
@@ -224,7 +216,7 @@ func (h *ExecutionHandlers) HandleGetLogs(c *gin.Context) {
 		logs = append(logs, logEntry)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	respondJSON(c, http.StatusOK, gin.H{
 		"logs":  logs,
 		"total": len(logs),
 	})
@@ -311,28 +303,28 @@ func (h *ExecutionHandlers) HandleGetNodeResult(c *gin.Context) {
 	nodeID := c.Param("nodeId")
 
 	if executionID == "" || nodeID == "" {
-		respondError(c, http.StatusBadRequest, "execution ID and node ID are required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	execUUID, err := uuid.Parse(executionID)
 	if err != nil {
-		h.logger.Error("Invalid execution ID in GetNodeResult", "error", err, "execution_id", executionID)
-		respondError(c, http.StatusBadRequest, "invalid execution ID")
+		h.logger.Error("Invalid execution ID in GetNodeResult", "error", err, "execution_id", executionID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	execModel, err := h.executionRepo.FindByIDWithRelations(c.Request.Context(), execUUID)
 	if err != nil {
-		h.logger.Error("Failed to find execution in GetNodeResult", "error", err, "execution_id", execUUID)
-		respondError(c, http.StatusNotFound, "execution not found")
+		h.logger.Error("Failed to find execution in GetNodeResult", "error", err, "execution_id", execUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
 	workflowModel, err := h.workflowRepo.FindByIDWithRelations(c.Request.Context(), execModel.WorkflowID)
 	if err != nil {
-		h.logger.Error("Failed to find workflow in GetNodeResult", "error", err, "workflow_id", execModel.WorkflowID, "execution_id", execUUID)
-		respondError(c, http.StatusNotFound, "workflow not found")
+		h.logger.Error("Failed to find workflow in GetNodeResult", "error", err, "workflow_id", execModel.WorkflowID, "execution_id", execUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -352,25 +344,25 @@ func (h *ExecutionHandlers) HandleGetNodeResult(c *gin.Context) {
 		}
 	}
 
-	respondError(c, http.StatusNotFound, "node execution not found")
+	respondAPIError(c, NewAPIError("NODE_EXECUTION_NOT_FOUND", "Node execution not found", http.StatusNotFound))
 }
 
 // HandleCancelExecution handles POST /api/v1/executions/{id}/cancel (deferred)
 func (h *ExecutionHandlers) HandleCancelExecution(c *gin.Context) {
-	respondError(c, http.StatusNotImplemented, "execution cancellation not yet implemented")
+	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "execution cancellation not yet implemented", http.StatusNotImplemented))
 }
 
 // HandleRetryExecution handles POST /api/v1/executions/{id}/retry (deferred)
 func (h *ExecutionHandlers) HandleRetryExecution(c *gin.Context) {
-	respondError(c, http.StatusNotImplemented, "execution retry not yet implemented")
+	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "execution retry not yet implemented", http.StatusNotImplemented))
 }
 
 // HandleWatchExecution handles GET /api/v1/executions/{id}/watch (deferred)
 func (h *ExecutionHandlers) HandleWatchExecution(c *gin.Context) {
-	respondError(c, http.StatusNotImplemented, "real-time execution watching not yet implemented")
+	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "real-time execution watching not yet implemented", http.StatusNotImplemented))
 }
 
 // HandleStreamLogs handles GET /api/v1/executions/{id}/logs/stream (deferred)
 func (h *ExecutionHandlers) HandleStreamLogs(c *gin.Context) {
-	respondError(c, http.StatusNotImplemented, "log streaming not yet implemented")
+	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "log streaming not yet implemented", http.StatusNotImplemented))
 }

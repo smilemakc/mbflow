@@ -1,463 +1,236 @@
-import React, {useEffect, useState} from 'react';
-import {
-    AlertCircle,
-    Archive,
-    BookOpen,
-    Calendar,
-    CheckCircle2,
-    Clock,
-    Copy,
-    Edit,
-    FileText,
-    Filter,
-    GitBranch,
-    Loader2,
-    Plus,
-    Search,
-    Trash2
-} from 'lucide-react';
-import {useNavigate} from 'react-router-dom';
-import {workflowService} from '@/services/workflowService';
-import {WorkflowStatus} from '@/types';
-import {WorkflowVariablesGuide} from '@/components/builder/WorkflowVariablesGuide.tsx';
-import {toast} from '../lib/toast';
-import {Button, ConfirmModal} from '@/components/ui';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, GitBranch, Plus, Search, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { WorkflowStatus } from '@/types';
+import { WorkflowVariablesGuide } from '@/components/builder/WorkflowVariablesGuide.tsx';
+import { Button, ConfirmModal } from '@/components/ui';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { Pagination } from '@/components/ui/Pagination';
+import { FilterBar, FilterSearch, FilterSelect } from '@/components/ui/FilterBar';
+import { WorkflowCard } from '@/components/workflows/WorkflowCard';
 import { useTranslation } from '../store/translations';
-
-interface Workflow {
-    id: string;
-    name: string;
-    description: string;
-    status?: WorkflowStatus;
-    nodes: any[];
-    edges: any[];
-    createdAt: string;
-    updatedAt: string;
-}
-
-const STATUS_COLORS = {
-    draft: {
-        bg: 'bg-slate-100 dark:bg-slate-800',
-        text: 'text-slate-700 dark:text-slate-300',
-        border: 'border-slate-200 dark:border-slate-700',
-        icon: FileText
-    },
-    active: {
-        bg: 'bg-green-50 dark:bg-green-900/20',
-        text: 'text-green-700 dark:text-green-400',
-        border: 'border-green-200 dark:border-green-900/30',
-        icon: CheckCircle2
-    },
-    inactive: {
-        bg: 'bg-orange-50 dark:bg-orange-900/20',
-        text: 'text-orange-700 dark:text-orange-400',
-        border: 'border-orange-200 dark:border-orange-900/30',
-        icon: AlertCircle
-    },
-    archived: {
-        bg: 'bg-slate-50 dark:bg-slate-900/20',
-        text: 'text-slate-600 dark:text-slate-500',
-        border: 'border-slate-200 dark:border-slate-800',
-        icon: Archive
-    }
-};
+import { useWorkflows } from '@/hooks/useWorkflows';
+import { useWorkflowFilters } from '@/hooks/useWorkflowFilters';
+import { usePagination } from '@/hooks/usePagination';
 
 export const WorkflowsPage: React.FC = () => {
-    const t = useTranslation();
-    const navigate = useNavigate();
-    const [workflows, setWorkflows] = useState<Workflow[]>([]);
-    const [filteredWorkflows, setFilteredWorkflows] = useState<Workflow[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<WorkflowStatus | 'all'>('all');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [showVariablesGuide, setShowVariablesGuide] = useState(false);
-    const [workflowToDelete, setWorkflowToDelete] = useState<{id: string, name: string} | null>(null);
-    const itemsPerPage = 12;
+  const t = useTranslation();
+  const navigate = useNavigate();
+  const [showVariablesGuide, setShowVariablesGuide] = useState(false);
+  const [workflowToDelete, setWorkflowToDelete] = useState<{ id: string; name: string } | null>(
+    null
+  );
 
-    useEffect(() => {
-        loadWorkflows();
-    }, []);
+  const { workflows, isLoading, error, loadWorkflows, cloneWorkflow, deleteWorkflow } =
+    useWorkflows({
+      translations: {
+        cloneFailed: t.workflows.errors.cloneFailed,
+        cloneMessage: t.workflows.errors.cloneMessage,
+        deleteFailed: t.workflows.errors.deleteFailed,
+        deleteMessage: t.workflows.errors.deleteMessage,
+      },
+    });
 
-    useEffect(() => {
-        filterWorkflows();
-    }, [workflows, searchQuery, statusFilter]);
+  const { filteredWorkflows, searchQuery, setSearchQuery, statusFilter, setStatusFilter } =
+    useWorkflowFilters(workflows);
 
-    const loadWorkflows = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const data = await workflowService.getAll();
-            setWorkflows(data);
-        } catch (err) {
-            console.error('Failed to load workflows:', err);
-            setError('Failed to load workflows. Please try again.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const pagination = usePagination(filteredWorkflows, 12);
 
-    const filterWorkflows = () => {
-        let filtered = [...workflows];
+  const handleCreateNew = () => {
+    navigate('/builder');
+  };
 
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            filtered = filtered.filter(w =>
-                w.name.toLowerCase().includes(query) ||
-                (w.description && w.description.toLowerCase().includes(query))
-            );
-        }
+  const handleEdit = (workflowId: string) => {
+    navigate(`/builder/${workflowId}`);
+  };
 
-        if (statusFilter !== 'all') {
-            filtered = filtered.filter(w => (w.status || 'draft') === statusFilter);
-        }
+  const handleDelete = async () => {
+    if (!workflowToDelete) return;
 
-        setFilteredWorkflows(filtered);
-    };
+    await deleteWorkflow(workflowToDelete.id);
+    setWorkflowToDelete(null);
+  };
 
-    // Reset page to 1 when search/filter changes (separate effect to avoid loops)
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery, statusFilter]);
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    const handleCreateNew = () => {
-        navigate('/builder');
-    };
+    if (diffDays === 0) return t.workflows.today;
+    if (diffDays === 1) return t.workflows.yesterday;
+    if (diffDays < 7) return `${diffDays} ${t.workflows.daysAgo}`;
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
 
-    const handleEdit = (workflowId: string) => {
-        navigate(`/builder/${workflowId}`);
-    };
+  const statusOptions = [
+    { label: t.workflows.allStatus, value: 'all' as const },
+    { label: t.workflows.draft, value: 'draft' as const },
+    { label: t.workflows.active, value: 'active' as const },
+    { label: t.workflows.inactive, value: 'inactive' as const },
+    { label: t.workflows.archived, value: 'archived' as const },
+  ];
 
-    const handleClone = async (workflow: Workflow) => {
-        try {
-            const cloned = await workflowService.create(
-                `${workflow.name} (Copy)`,
-                workflow.description
-            );
+  return (
+    <div className="flex-1 h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex justify-between items-end">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              {t.workflows.title}
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">{t.workflows.subtitle}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setShowVariablesGuide(!showVariablesGuide)}
+              variant={showVariablesGuide ? 'primary' : 'outline'}
+              size="sm"
+              icon={<BookOpen size={16} />}
+            >
+              {t.workflows.variablesGuide}
+            </Button>
+            <Button
+              onClick={handleCreateNew}
+              variant="primary"
+              size="sm"
+              icon={<Plus size={16} />}
+            >
+              {t.workflows.createNew}
+            </Button>
+          </div>
+        </div>
 
-            if (workflow.nodes.length > 0 || workflow.edges.length > 0) {
-                await workflowService.save({
-                    id: cloned.id,
-                    name: cloned.name,
-                    description: cloned.description,
-                    nodes: workflow.nodes,
-                    edges: workflow.edges
-                });
+        {showVariablesGuide && (
+          <WorkflowVariablesGuide isModal={true} onClose={() => setShowVariablesGuide(false)} />
+        )}
+
+        <FilterBar>
+          <div className="flex-1 relative">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <FilterSearch
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder={t.workflows.searchPlaceholder}
+              className="w-full pl-10"
+            />
+          </div>
+          <FilterSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={statusOptions}
+          />
+        </FilterBar>
+
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {t.workflows.showing}{' '}
+            <span className="font-medium text-slate-900 dark:text-white">
+              {filteredWorkflows.length}
+            </span>{' '}
+            {filteredWorkflows.length !== 1 ? t.workflows.workflowsCount : t.workflows.workflow}
+            {searchQuery && (
+              <>
+                {' '}
+                {t.workflows.matching} "
+                <span className="font-medium">{searchQuery}</span>"
+              </>
+            )}
+          </p>
+        </div>
+
+        {isLoading && <LoadingState />}
+
+        {error && !isLoading && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-xl p-6 text-center">
+            <AlertCircle size={32} className="mx-auto mb-3 text-red-600 dark:text-red-400" />
+            <p className="text-red-800 dark:text-red-400 font-medium">{error}</p>
+            <div className="mt-4">
+              <Button onClick={loadWorkflows} variant="danger" size="sm">
+                {t.workflows.tryAgain}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!isLoading && !error && filteredWorkflows.length === 0 && (
+          <EmptyState
+            icon={GitBranch}
+            title={
+              searchQuery || statusFilter !== 'all'
+                ? t.workflows.noWorkflowsFound
+                : t.workflows.noWorkflowsYet
             }
+            description={
+              searchQuery || statusFilter !== 'all'
+                ? t.workflows.adjustFilters
+                : t.workflows.getStarted
+            }
+            action={
+              !searchQuery && statusFilter === 'all'
+                ? {
+                    label: t.workflows.createFirst,
+                    onClick: handleCreateNew,
+                    icon: <Plus size={16} />,
+                  }
+                : undefined
+            }
+          />
+        )}
 
-            await loadWorkflows();
-        } catch (err) {
-            console.error('Failed to clone workflow:', err);
-            toast.error(t.workflows.errors.cloneFailed, t.workflows.errors.cloneMessage);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!workflowToDelete) return;
-
-        try {
-            await workflowService.delete(workflowToDelete.id);
-            await loadWorkflows();
-        } catch (err) {
-            console.error('Failed to delete workflow:', err);
-            toast.error(t.workflows.errors.deleteFailed, t.workflows.errors.deleteMessage);
-        } finally {
-            setWorkflowToDelete(null);
-        }
-    };
-
-    const formatDate = (dateStr: string): string => {
-        const date = new Date(dateStr);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) return t.workflows.today;
-        if (diffDays === 1) return t.workflows.yesterday;
-        if (diffDays < 7) return `${diffDays} ${t.workflows.daysAgo}`;
-        return date.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
-    };
-
-    const totalPages = Math.ceil(filteredWorkflows.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const currentWorkflows = filteredWorkflows.slice(startIndex, endIndex);
-
-    return (
-        <div className="flex-1 h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 md:p-8">
-            <div className="max-w-7xl mx-auto space-y-6">
-
-                {/* Header */}
-                <div className="flex justify-between items-end">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t.workflows.title}</h1>
-                        <p className="text-slate-500 dark:text-slate-400 mt-1">
-                            {t.workflows.subtitle}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Button
-                            onClick={() => setShowVariablesGuide(!showVariablesGuide)}
-                            variant={showVariablesGuide ? 'primary' : 'outline'}
-                            size="sm"
-                            icon={<BookOpen size={16}/>}
-                        >
-                            {t.workflows.variablesGuide}
-                        </Button>
-                        <Button
-                            onClick={handleCreateNew}
-                            variant="primary"
-                            size="sm"
-                            icon={<Plus size={16}/>}
-                        >
-                            {t.workflows.createNew}
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Variables Guide Modal */}
-                {showVariablesGuide && (
-                    <WorkflowVariablesGuide
-                        isModal={true}
-                        onClose={() => setShowVariablesGuide(false)}
-                    />
-                )}
-
-                {/* Filters and Search */}
-                <div
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
-                    <div className="flex flex-col md:flex-row gap-4">
-                        {/* Search */}
-                        <div className="flex-1 relative">
-                            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                            <input
-                                type="text"
-                                placeholder={t.workflows.searchPlaceholder}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                            />
-                        </div>
-
-                        {/* Status Filter */}
-                        <div className="flex items-center gap-2">
-                            <Filter size={16} className="text-slate-400"/>
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value as WorkflowStatus | 'all')}
-                                className="px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                            >
-                                <option value="all">{t.workflows.allStatus}</option>
-                                <option value="draft">{t.workflows.draft}</option>
-                                <option value="active">{t.workflows.active}</option>
-                                <option value="inactive">{t.workflows.inactive}</option>
-                                <option value="archived">{t.workflows.archived}</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Results Count */}
-                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                            {t.workflows.showing} <span
-                            className="font-medium text-slate-900 dark:text-white">{filteredWorkflows.length}</span> {filteredWorkflows.length !== 1 ? t.workflows.workflowsCount : t.workflows.workflow}
-                            {searchQuery && <> {t.workflows.matching} "<span className="font-medium">{searchQuery}</span>"</>}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Loading State */}
-                {isLoading && (
-                    <div className="flex items-center justify-center py-20">
-                        <Loader2 size={32} className="animate-spin text-blue-600"/>
-                    </div>
-                )}
-
-                {/* Error State */}
-                {error && !isLoading && (
-                    <div
-                        className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-xl p-6 text-center">
-                        <AlertCircle size={32} className="mx-auto mb-3 text-red-600 dark:text-red-400"/>
-                        <p className="text-red-800 dark:text-red-400 font-medium">{error}</p>
-                        <div className="mt-4">
-                            <Button
-                                onClick={loadWorkflows}
-                                variant="danger"
-                                size="sm"
-                            >
-                                {t.workflows.tryAgain}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Empty State */}
-                {!isLoading && !error && filteredWorkflows.length === 0 && (
-                    <div
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-12 text-center">
-                        <GitBranch size={48} className="mx-auto mb-4 text-slate-300 dark:text-slate-700"/>
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-                            {searchQuery || statusFilter !== 'all' ? t.workflows.noWorkflowsFound : t.workflows.noWorkflowsYet}
-                        </h3>
-                        <p className="text-slate-500 dark:text-slate-400 mb-6">
-                            {searchQuery || statusFilter !== 'all'
-                                ? t.workflows.adjustFilters
-                                : t.workflows.getStarted}
-                        </p>
-                        {!searchQuery && statusFilter === 'all' && (
-                            <Button
-                                onClick={handleCreateNew}
-                                variant="primary"
-                                size="sm"
-                                icon={<Plus size={16}/>}
-                            >
-                                {t.workflows.createFirst}
-                            </Button>
-                        )}
-                    </div>
-                )}
-
-                {/* Workflow Cards Grid */}
-                {!isLoading && !error && currentWorkflows.length > 0 && (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {currentWorkflows.map((workflow) => {
-                                const status = (workflow.status || 'draft') as WorkflowStatus;
-                                const statusConfig = STATUS_COLORS[status];
-                                const StatusIcon = statusConfig.icon;
-
-                                return (
-                                    <div
-                                        key={workflow.id}
-                                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm hover:shadow-md transition-all group"
-                                    >
-                                        {/* Card Header */}
-                                        <div className="p-5 border-b border-slate-100 dark:border-slate-800">
-                                            <div className="flex items-start justify-between mb-3">
-                                                <h3 className="text-lg font-bold text-slate-900 dark:text-white line-clamp-1 flex-1 pr-2">
-                                                    {workflow.name}
-                                                </h3>
-                                                <span
-                                                    className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border} shrink-0`}>
-                          <StatusIcon size={12} className="mr-1"/>
-                                                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </span>
-                                            </div>
-
-                                            {workflow.description && (
-                                                <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-                                                    {workflow.description}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        {/* Card Body */}
-                                        <div className="p-5 space-y-3">
-                                            {/* Stats */}
-                                            <div className="flex items-center gap-4 text-sm">
-                                                <div className="flex items-center text-slate-600 dark:text-slate-400">
-                                                    <GitBranch size={14} className="mr-1.5"/>
-                                                    <span className="font-medium">{workflow.nodes?.length || 0}</span>
-                                                    <span
-                                                        className="ml-1">{workflow.nodes?.length !== 1 ? t.workflows.nodesCount : t.workflows.node}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Dates */}
-                                            <div className="space-y-1.5 text-xs">
-                                                <div className="flex items-center text-slate-500 dark:text-slate-500">
-                                                    <Calendar size={12} className="mr-1.5"/>
-                                                    <span>{t.workflows.created} {formatDate(workflow.createdAt)}</span>
-                                                </div>
-                                                <div className="flex items-center text-slate-500 dark:text-slate-500">
-                                                    <Clock size={12} className="mr-1.5"/>
-                                                    <span>{t.workflows.updated} {formatDate(workflow.updatedAt)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Card Actions */}
-                                        <div
-                                            className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-                                            <Button
-                                                onClick={() => handleEdit(workflow.id)}
-                                                variant="primary"
-                                                size="sm"
-                                                icon={<Edit size={14}/>}
-                                                className="flex-1"
-                                            >
-                                                {t.workflows.edit}
-                                            </Button>
-                                            <Button
-                                                onClick={() => handleClone(workflow)}
-                                                variant="outline"
-                                                size="sm"
-                                                icon={<Copy size={14}/>}
-                                                title={t.workflows.cloneTooltip}
-                                            />
-                                            <Button
-                                                onClick={() => setWorkflowToDelete({id: workflow.id, name: workflow.name})}
-                                                variant="danger"
-                                                size="sm"
-                                                icon={<Trash2 size={14}/>}
-                                                title={t.workflows.deleteTooltip}
-                                            />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-center gap-2 pt-4">
-                                <Button
-                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                    disabled={currentPage === 1}
-                                    variant="outline"
-                                    size="sm"
-                                >
-                                    {t.workflows.previous}
-                                </Button>
-
-                                <div className="flex items-center gap-1">
-                                    {Array.from({length: totalPages}, (_, i) => i + 1).map(page => (
-                                        <Button
-                                            key={page}
-                                            onClick={() => setCurrentPage(page)}
-                                            variant={currentPage === page ? 'primary' : 'outline'}
-                                            size="sm"
-                                        >
-                                            {page}
-                                        </Button>
-                                    ))}
-                                </div>
-
-                                <Button
-                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={currentPage === totalPages}
-                                    variant="outline"
-                                    size="sm"
-                                >
-                                    {t.workflows.next}
-                                </Button>
-                            </div>
-                        )}
-                    </>
-                )}
+        {!isLoading && !error && pagination.currentItems.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pagination.currentItems.map((workflow) => (
+                <WorkflowCard
+                  key={workflow.id}
+                  workflow={workflow}
+                  onEdit={handleEdit}
+                  onClone={cloneWorkflow}
+                  onDelete={(id, name) => setWorkflowToDelete({ id, name })}
+                  formatDate={formatDate}
+                  translations={{
+                    edit: t.workflows.edit,
+                    cloneTooltip: t.workflows.cloneTooltip,
+                    deleteTooltip: t.workflows.deleteTooltip,
+                    created: t.workflows.created,
+                    updated: t.workflows.updated,
+                    nodesCount: t.workflows.nodesCount,
+                    node: t.workflows.node,
+                  }}
+                />
+              ))}
             </div>
 
-            {/* Delete Workflow Confirmation Modal */}
-            <ConfirmModal
-                isOpen={!!workflowToDelete}
-                onClose={() => setWorkflowToDelete(null)}
-                onConfirm={handleDelete}
-                title={t.workflows.deleteModal.title}
-                message={t.workflows.deleteModal.message}
-                confirmText={t.workflows.deleteModal.confirm}
-                variant="danger"
-            />
-        </div>
-    );
+            {pagination.totalPages > 1 && (
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={pagination.goToPage}
+                size="sm"
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      <ConfirmModal
+        isOpen={!!workflowToDelete}
+        onClose={() => setWorkflowToDelete(null)}
+        onConfirm={handleDelete}
+        title={t.workflows.deleteModal.title}
+        message={t.workflows.deleteModal.message}
+        confirmText={t.workflows.deleteModal.confirm}
+        variant="danger"
+      />
+    </div>
+  );
 };

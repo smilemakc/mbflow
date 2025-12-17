@@ -15,6 +15,13 @@ func init() {
 	gin.SetMode(gin.TestMode)
 }
 
+// ErrorResponse represents an error response for testing (new APIError format)
+type ErrorResponse struct {
+	Message string                 `json:"message"`
+	Code    string                 `json:"code"`
+	Details map[string]interface{} `json:"details"`
+}
+
 // Helper functions for testing
 
 func performRequest(r http.Handler, method, path string, body interface{}) *httptest.ResponseRecorder {
@@ -72,8 +79,9 @@ func TestRespondError(t *testing.T) {
 	var response map[string]string
 	parseJSON(t, w.Body.String(), &response)
 
-	if response["error"] != "invalid request" {
-		t.Errorf("expected error message, got %s", response["error"])
+	// New APIError format uses "message" field
+	if response["message"] != "invalid request" {
+		t.Errorf("expected error message 'invalid request', got %s", response["message"])
 	}
 }
 
@@ -400,8 +408,13 @@ func TestRespondErrorWithDetails(t *testing.T) {
 	var response ErrorResponse
 	parseJSON(t, w.Body.String(), &response)
 
-	if response.Error != "validation failed" {
-		t.Errorf("expected error 'validation failed', got %s", response.Error)
+	// New APIError format uses Message field instead of Error
+	// The ErrorResponse struct is for testing and needs to check the right field
+	var rawResponse map[string]interface{}
+	parseJSON(t, w.Body.String(), &rawResponse)
+
+	if rawResponse["message"] != "validation failed" {
+		t.Errorf("expected message 'validation failed', got %v", rawResponse["message"])
 	}
 
 	if response.Code != "VAL_001" {

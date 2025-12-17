@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react';
 import { resourcesApi, FileMetadata, FileStorageResource } from '@/services/resources.ts';
 import { toast } from '@/lib/toast.ts';
+import { getErrorMessage } from '@/lib/api';
 
 export interface FileStorageState {
   files: FileMetadata[];
@@ -35,9 +36,9 @@ export const useFileStorage = (onResourceUpdate?: () => Promise<void>): FileStor
       const response = await resourcesApi.listFiles(resource.id);
       setFiles(response.data.files || []);
       setFilesTotal(response.data.total || 0);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load files:', error);
-      toast.error('Load Failed', 'Failed to load files.');
+      toast.error('Load Failed', getErrorMessage(error));
     } finally {
       setFilesLoading(false);
     }
@@ -57,9 +58,9 @@ export const useFileStorage = (onResourceUpdate?: () => Promise<void>): FileStor
         await onResourceUpdate();
       }
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to upload file:', error);
-      toast.error('Upload Failed', error.response?.data?.message || 'Failed to upload file.');
+      toast.error('Upload Failed', getErrorMessage(error));
       return false;
     }
   }, [selectedResource, loadFiles, onResourceUpdate]);
@@ -78,9 +79,9 @@ export const useFileStorage = (onResourceUpdate?: () => Promise<void>): FileStor
         await onResourceUpdate();
       }
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete file:', error);
-      toast.error('Delete Failed', error.response?.data?.message || 'Failed to delete file.');
+      toast.error('Delete Failed', getErrorMessage(error));
       return false;
     }
   }, [selectedResource, loadFiles, onResourceUpdate]);
@@ -93,9 +94,9 @@ export const useFileStorage = (onResourceUpdate?: () => Promise<void>): FileStor
 
     try {
       resourcesApi.downloadFile(selectedResource.id, fileId);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to download file:', error);
-      toast.error('Download Failed', 'Failed to download file.');
+      toast.error('Download Failed', getErrorMessage(error));
     }
   }, [selectedResource]);
 

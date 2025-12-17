@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -42,18 +41,15 @@ func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 		Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in CreateWorkflow", "error", err)
-		respondError(c, http.StatusBadRequest, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
 	if req.Name == "" {
-		respondError(c, http.StatusBadRequest, "name is required")
+		respondAPIError(c, NewAPIError("NAME_REQUIRED", "Workflow name is required", http.StatusBadRequest))
 		return
 	}
 
-	// Create workflow model
 	workflowModel := &storagemodels.WorkflowModel{
 		ID:          uuid.New(),
 		Name:        req.Name,
@@ -67,12 +63,11 @@ func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 	}
 
 	if err := h.workflowRepo.Create(c.Request.Context(), workflowModel); err != nil {
-		h.logger.Error("Failed to create workflow", "error", err, "workflow_name", req.Name)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to create workflow", "error", err, "workflow_name", req.Name, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
-	// Convert to domain model
 	workflow := engine.WorkflowModelToDomain(workflowModel)
 	respondJSON(c, http.StatusCreated, workflow)
 }
@@ -81,21 +76,21 @@ func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 func (h *WorkflowHandlers) HandleGetWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		h.logger.Error("Invalid workflow ID format in GetWorkflow", "error", err, "workflow_id", workflowID)
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	workflowModel, err := h.workflowRepo.FindByIDWithRelations(c.Request.Context(), workflowUUID)
 	if err != nil {
-		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusNotFound, "workflow not found")
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -119,18 +114,16 @@ func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 	}
 
 	if err != nil {
-		h.logger.Error("Failed to list workflows", "error", err, "status", status, "limit", limit, "offset", offset)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to list workflows", "error", err, "status", status, "limit", limit, "offset", offset, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
-	// Convert to domain models
 	workflows := make([]*models.Workflow, len(workflowModels))
 	for i, wm := range workflowModels {
 		workflows[i] = engine.WorkflowModelToDomain(wm)
 	}
 
-	// Get total count
 	var total int
 	if status != "" {
 		total, err = h.workflowRepo.CountByStatus(c.Request.Context(), status)
@@ -193,42 +186,41 @@ type EdgeRequest struct {
 func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	var req UpdateWorkflowRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in UpdateWorkflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
 	// Validate nodes if provided
 	if err := h.validateNodes(req.Nodes); err != nil {
-		h.logger.Error("Node validation failed in UpdateWorkflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusBadRequest, err.Error())
+		h.logger.Error("Node validation failed in UpdateWorkflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIError(c, NewAPIError("NODE_VALIDATION_FAILED", err.Error(), http.StatusBadRequest))
 		return
 	}
 
 	// Validate edges if provided
 	if err := h.validateEdges(req.Edges, req.Nodes); err != nil {
-		h.logger.Error("Edge validation failed in UpdateWorkflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusBadRequest, err.Error())
+		h.logger.Error("Edge validation failed in UpdateWorkflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIError(c, NewAPIError("EDGE_VALIDATION_FAILED", err.Error(), http.StatusBadRequest))
 		return
 	}
 
 	// Fetch existing workflow
 	workflowModel, err := h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
-		h.logger.Error("Failed to find workflow for update", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusNotFound, "workflow not found")
+		h.logger.Error("Failed to find workflow for update", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -281,7 +273,7 @@ func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 		for i, resReq := range req.Resources {
 			resourceUUID, err := uuid.Parse(resReq.ResourceID)
 			if err != nil {
-				respondError(c, http.StatusBadRequest, fmt.Sprintf("invalid resource_id: %s", resReq.ResourceID))
+				respondAPIError(c, NewAPIError("INVALID_RESOURCE_ID", fmt.Sprintf("invalid resource_id: %s", resReq.ResourceID), http.StatusBadRequest))
 				return
 			}
 
@@ -301,16 +293,16 @@ func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 
 	// Update workflow (repository handles smart merge of nodes and edges)
 	if err := h.workflowRepo.Update(c.Request.Context(), workflowModel); err != nil {
-		h.logger.Error("Failed to update workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to update workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
 	// Fetch updated workflow with relations to return complete data
 	updatedWorkflow, err := h.workflowRepo.FindByIDWithRelations(c.Request.Context(), workflowUUID)
 	if err != nil {
-		h.logger.Error("Failed to fetch updated workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, "failed to fetch updated workflow")
+		h.logger.Error("Failed to fetch updated workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -427,24 +419,25 @@ func (h *WorkflowHandlers) validateEdges(edges []EdgeRequest, nodes []NodeReques
 func (h *WorkflowHandlers) HandleDeleteWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	// Soft delete
 	if err := h.workflowRepo.Delete(c.Request.Context(), workflowUUID); err != nil {
-		h.logger.Error("Failed to delete workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to delete workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	respondJSON(c, http.StatusOK, gin.H{
 		"message": "workflow deleted successfully",
 	})
 }
@@ -453,21 +446,22 @@ func (h *WorkflowHandlers) HandleDeleteWorkflow(c *gin.Context) {
 func (h *WorkflowHandlers) HandlePublishWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	// Fetch workflow
 	workflowModel, err := h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
-		h.logger.Error("Failed to find workflow for publish", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusNotFound, "workflow not found")
+		h.logger.Error("Failed to find workflow for publish", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -475,8 +469,8 @@ func (h *WorkflowHandlers) HandlePublishWorkflow(c *gin.Context) {
 	workflowModel.Status = "active"
 
 	if err := h.workflowRepo.Update(c.Request.Context(), workflowModel); err != nil {
-		h.logger.Error("Failed to publish workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to publish workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -488,21 +482,22 @@ func (h *WorkflowHandlers) HandlePublishWorkflow(c *gin.Context) {
 func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	// Fetch workflow
 	workflowModel, err := h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
-		h.logger.Error("Failed to find workflow for unpublish", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusNotFound, "workflow not found")
+		h.logger.Error("Failed to find workflow for unpublish", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -510,8 +505,8 @@ func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
 	workflowModel.Status = "draft"
 
 	if err := h.workflowRepo.Update(c.Request.Context(), workflowModel); err != nil {
-		h.logger.Error("Failed to unpublish workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to unpublish workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -524,21 +519,22 @@ func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
 func (h *WorkflowHandlers) HandleGetWorkflowDiagram(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	// Fetch workflow with relations (nodes and edges)
 	workflowModel, err := h.workflowRepo.FindByIDWithRelations(c.Request.Context(), workflowUUID)
 	if err != nil {
-		h.logger.Error("Failed to find workflow for diagram", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusNotFound, "workflow not found")
+		h.logger.Error("Failed to find workflow for diagram", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -565,8 +561,8 @@ func (h *WorkflowHandlers) HandleGetWorkflowDiagram(c *gin.Context) {
 	// Render diagram
 	diagram, err := visualization.RenderWorkflow(workflow, format, opts)
 	if err != nil {
-		h.logger.Error("Failed to render workflow diagram", "error", err, "workflow_id", workflowUUID, "format", format)
-		respondError(c, http.StatusInternalServerError, err.Error())
+		h.logger.Error("Failed to render workflow diagram", "error", err, "workflow_id", workflowUUID, "format", format, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -587,19 +583,20 @@ type AttachResourceRequest struct {
 func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
@@ -611,12 +608,8 @@ func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
 	// Verify workflow exists and user has access
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
-		if errors.Is(err, models.ErrWorkflowNotFound) {
-			respondError(c, http.StatusNotFound, "workflow not found")
-			return
-		}
-		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, "failed to find workflow")
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -634,13 +627,13 @@ func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
 	}
 
 	if err := workflowResource.Validate(); err != nil {
-		respondError(c, http.StatusBadRequest, err.Error())
+		respondAPIError(c, NewAPIError("VALIDATION_FAILED", err.Error(), http.StatusBadRequest))
 		return
 	}
 
 	resourceUUID, err := uuid.Parse(req.ResourceID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid resource ID")
+		respondAPIError(c, NewAPIError("INVALID_RESOURCE_ID", "Invalid resource ID format", http.StatusBadRequest))
 		return
 	}
 
@@ -664,12 +657,8 @@ func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
 	}
 
 	if err := h.workflowRepo.AssignResource(c.Request.Context(), workflowUUID, workflowResourceModel, assignedBy); err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to attach resource", "error", err, "workflow_id", workflowUUID, "resource_id", req.ResourceID)
-		respondError(c, http.StatusInternalServerError, "failed to attach resource")
+		h.logger.Error("Failed to attach resource", "error", err, "workflow_id", workflowUUID, "resource_id", req.ResourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -677,9 +666,10 @@ func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
 		"workflow_id", workflowUUID,
 		"resource_id", req.ResourceID,
 		"alias", req.Alias,
+		"request_id", GetRequestID(c),
 	)
 
-	c.JSON(http.StatusCreated, gin.H{
+	respondJSON(c, http.StatusCreated, gin.H{
 		"resource_id": req.ResourceID,
 		"alias":       req.Alias,
 		"access_type": accessType,
@@ -691,64 +681,59 @@ func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
 func (h *WorkflowHandlers) DetachWorkflowResource(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	resourceID := c.Param("resource_id")
 	if resourceID == "" {
-		respondError(c, http.StatusBadRequest, "resource ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	resourceUUID, err := uuid.Parse(resourceID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid resource ID")
+		h.logger.Error("Invalid resource ID format", "error", err, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	// Verify workflow exists
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
-		if errors.Is(err, models.ErrWorkflowNotFound) {
-			respondError(c, http.StatusNotFound, "workflow not found")
-			return
-		}
-		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, "failed to find workflow")
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
 	_ = userID // suppress unused variable (for future auth)
 
 	if err := h.workflowRepo.UnassignResource(c.Request.Context(), workflowUUID, resourceUUID); err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "resource not attached to this workflow")
-			return
-		}
-		h.logger.Error("Failed to detach resource", "error", err, "workflow_id", workflowUUID, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to detach resource")
+		h.logger.Error("Failed to detach resource", "error", err, "workflow_id", workflowUUID, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
 	h.logger.Info("Resource detached from workflow",
 		"workflow_id", workflowUUID,
 		"resource_id", resourceID,
+		"request_id", GetRequestID(c),
 	)
 
-	c.JSON(http.StatusOK, gin.H{"message": "resource detached successfully"})
+	respondJSON(c, http.StatusOK, gin.H{"message": "resource detached successfully"})
 }
 
 // GetWorkflowResources returns all resources attached to a workflow
@@ -756,31 +741,28 @@ func (h *WorkflowHandlers) DetachWorkflowResource(c *gin.Context) {
 func (h *WorkflowHandlers) GetWorkflowResources(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	// Verify workflow exists
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
-		if errors.Is(err, models.ErrWorkflowNotFound) {
-			respondError(c, http.StatusNotFound, "workflow not found")
-			return
-		}
-		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, "failed to find workflow")
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -788,8 +770,8 @@ func (h *WorkflowHandlers) GetWorkflowResources(c *gin.Context) {
 
 	resources, err := h.workflowRepo.GetWorkflowResources(c.Request.Context(), workflowUUID)
 	if err != nil {
-		h.logger.Error("Failed to get workflow resources", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, "failed to get resources")
+		h.logger.Error("Failed to get workflow resources", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -802,7 +784,7 @@ func (h *WorkflowHandlers) GetWorkflowResources(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"resources": response})
+	respondJSON(c, http.StatusOK, gin.H{"resources": response})
 }
 
 // UpdateResourceAliasRequest represents request to update resource alias
@@ -815,31 +797,33 @@ type UpdateResourceAliasRequest struct {
 func (h *WorkflowHandlers) UpdateWorkflowResourceAlias(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized")
+		respondAPIError(c, ErrUnauthorized)
 		return
 	}
 
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
-		respondError(c, http.StatusBadRequest, "workflow ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid workflow ID")
+		h.logger.Error("Invalid workflow ID format", "error", err, "workflow_id", workflowID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
 	resourceID := c.Param("resource_id")
 	if resourceID == "" {
-		respondError(c, http.StatusBadRequest, "resource ID is required")
+		respondAPIError(c, ErrMissingParameter)
 		return
 	}
 
 	resourceUUID, err := uuid.Parse(resourceID)
 	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid resource ID")
+		h.logger.Error("Invalid resource ID format", "error", err, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIError(c, ErrInvalidID)
 		return
 	}
 
@@ -851,12 +835,8 @@ func (h *WorkflowHandlers) UpdateWorkflowResourceAlias(c *gin.Context) {
 	// Verify workflow exists
 	_, err = h.workflowRepo.FindByID(c.Request.Context(), workflowUUID)
 	if err != nil {
-		if errors.Is(err, models.ErrWorkflowNotFound) {
-			respondError(c, http.StatusNotFound, "workflow not found")
-			return
-		}
-		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusInternalServerError, "failed to find workflow")
+		h.logger.Error("Failed to find workflow", "error", err, "workflow_id", workflowUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -865,17 +845,13 @@ func (h *WorkflowHandlers) UpdateWorkflowResourceAlias(c *gin.Context) {
 	// Validate alias format
 	tempResource := &models.WorkflowResource{ResourceID: resourceID, Alias: req.Alias, AccessType: "read"}
 	if err := tempResource.Validate(); err != nil {
-		respondError(c, http.StatusBadRequest, err.Error())
+		respondAPIError(c, NewAPIError("VALIDATION_FAILED", err.Error(), http.StatusBadRequest))
 		return
 	}
 
 	if err := h.workflowRepo.UpdateResourceAlias(c.Request.Context(), workflowUUID, resourceUUID, req.Alias); err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "resource not attached to this workflow")
-			return
-		}
-		h.logger.Error("Failed to update resource alias", "error", err, "workflow_id", workflowUUID, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to update alias")
+		h.logger.Error("Failed to update resource alias", "error", err, "workflow_id", workflowUUID, "resource_id", resourceID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
@@ -883,9 +859,10 @@ func (h *WorkflowHandlers) UpdateWorkflowResourceAlias(c *gin.Context) {
 		"workflow_id", workflowUUID,
 		"resource_id", resourceID,
 		"new_alias", req.Alias,
+		"request_id", GetRequestID(c),
 	)
 
-	c.JSON(http.StatusOK, gin.H{
+	respondJSON(c, http.StatusOK, gin.H{
 		"resource_id": resourceID,
 		"alias":       req.Alias,
 	})

@@ -285,31 +285,15 @@ func main() {
 	// Create Gin router
 	router := gin.New()
 
-	// Add middleware
-	router.Use(gin.Recovery())
-	router.Use(func(c *gin.Context) {
-		start := time.Now()
-		path := c.Request.URL.Path
-		raw := c.Request.URL.RawQuery
+	// Initialize middleware
+	loggingMiddleware := rest.NewLoggingMiddleware(appLogger)
+	recoveryMiddleware := rest.NewRecoveryMiddleware(appLogger)
 
-		c.Next()
-
-		latency := time.Since(start)
-		statusCode := c.Writer.Status()
-		method := c.Request.Method
-
-		if raw != "" {
-			path = path + "?" + raw
-		}
-
-		appLogger.Info("HTTP request",
-			"method", method,
-			"path", path,
-			"status", statusCode,
-			"latency", latency,
-			"ip", c.ClientIP(),
-		)
-	})
+	// Add middleware in correct order:
+	// 1. Recovery (catches panics)
+	// 2. Logging (logs all requests with request_id)
+	router.Use(recoveryMiddleware.Recovery())
+	router.Use(loggingMiddleware.RequestLogger())
 
 	// CORS middleware (if enabled)
 	if cfg.Server.CORS {

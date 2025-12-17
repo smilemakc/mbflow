@@ -16,6 +16,7 @@ import {
   CreateCustomCredentialRequest,
 } from '@/services/credentialsService';
 import { toast } from '@/lib/toast';
+import { getErrorMessage } from '@/lib/api';
 
 export interface CredentialsState {
   credentials: Credential[];
@@ -42,13 +43,11 @@ export const useCredentials = (): CredentialsState & CredentialsActions => {
     try {
       const response = await credentialsApi.listCredentials(provider);
       setCredentials(response.data.credentials || []);
-    } catch (err: any) {
-      console.error('Failed to load credentials:', err);
-      const errorMsg = err.response?.data?.error || 'Failed to load credentials';
+    } catch (error: unknown) {
+      console.error('Failed to load credentials:', error);
+      const errorMsg = getErrorMessage(error);
       setError(errorMsg);
-      if (err.response?.status !== 404) {
-        toast.error('Load Failed', errorMsg);
-      }
+      toast.error('Load Failed', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -82,9 +81,9 @@ export const useCredentials = (): CredentialsState & CredentialsActions => {
       toast.success('Success', 'Credential created successfully.');
       await loadCredentials();
       return true;
-    } catch (err: any) {
-      console.error('Failed to create credential:', err);
-      toast.error('Create Failed', err.response?.data?.error || 'Failed to create credential.');
+    } catch (error: unknown) {
+      console.error('Failed to create credential:', error);
+      toast.error('Create Failed', getErrorMessage(error));
       return false;
     }
   }, [loadCredentials]);
@@ -99,9 +98,9 @@ export const useCredentials = (): CredentialsState & CredentialsActions => {
       toast.success('Success', 'Credential updated successfully.');
       await loadCredentials();
       return true;
-    } catch (err: any) {
-      console.error('Failed to update credential:', err);
-      toast.error('Update Failed', err.response?.data?.error || 'Failed to update credential.');
+    } catch (error: unknown) {
+      console.error('Failed to update credential:', error);
+      toast.error('Update Failed', getErrorMessage(error));
       return false;
     }
   }, [loadCredentials]);
@@ -112,9 +111,9 @@ export const useCredentials = (): CredentialsState & CredentialsActions => {
       toast.success('Success', 'Credential deleted successfully.');
       await loadCredentials();
       return true;
-    } catch (err: any) {
-      console.error('Failed to delete credential:', err);
-      toast.error('Delete Failed', err.response?.data?.error || 'Failed to delete credential.');
+    } catch (error: unknown) {
+      console.error('Failed to delete credential:', error);
+      toast.error('Delete Failed', getErrorMessage(error));
       return false;
     }
   }, [loadCredentials]);
@@ -123,13 +122,9 @@ export const useCredentials = (): CredentialsState & CredentialsActions => {
     try {
       const response = await credentialsApi.getCredentialSecrets(id);
       return response.data;
-    } catch (err: any) {
-      console.error('Failed to get credential secrets:', err);
-      if (err.response?.status === 410) {
-        toast.error('Expired', 'This credential has expired.');
-      } else {
-        toast.error('Failed', err.response?.data?.error || 'Failed to get secrets.');
-      }
+    } catch (error: unknown) {
+      console.error('Failed to get credential secrets:', error);
+      toast.error('Failed', getErrorMessage(error));
       return null;
     }
   }, []);

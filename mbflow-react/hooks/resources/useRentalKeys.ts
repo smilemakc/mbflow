@@ -12,6 +12,7 @@ import {
   UsageSummary,
 } from '@/services/rentalKeyService';
 import { toast } from '@/lib/toast';
+import { getErrorMessage } from '@/lib/api';
 
 export interface RentalKeysState {
   rentalKeys: RentalKey[];
@@ -42,13 +43,11 @@ export const useRentalKeys = (initialProvider?: LLMProviderType): RentalKeysStat
     try {
       const response = await rentalKeyApi.listRentalKeys(provider ?? providerFilter);
       setRentalKeys(response.data.rental_keys || []);
-    } catch (err: any) {
-      console.error('Failed to load rental keys:', err);
-      const errorMsg = err.response?.data?.error || 'Failed to load rental keys';
+    } catch (error: unknown) {
+      console.error('Failed to load rental keys:', error);
+      const errorMsg = getErrorMessage(error);
       setError(errorMsg);
-      if (err.response?.status !== 404) {
-        toast.error('Load Failed', errorMsg);
-      }
+      toast.error('Load Failed', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -62,9 +61,9 @@ export const useRentalKeys = (initialProvider?: LLMProviderType): RentalKeysStat
     try {
       const response = await rentalKeyApi.getRentalKey(id);
       return response.data;
-    } catch (err: any) {
-      console.error('Failed to get rental key:', err);
-      toast.error('Failed', err.response?.data?.error || 'Failed to get rental key.');
+    } catch (error: unknown) {
+      console.error('Failed to get rental key:', error);
+      toast.error('Failed', getErrorMessage(error));
       return null;
     }
   }, []);
@@ -77,9 +76,9 @@ export const useRentalKeys = (initialProvider?: LLMProviderType): RentalKeysStat
     try {
       const response = await rentalKeyApi.getUsageHistory(id, limit, offset);
       return response.data.usage || [];
-    } catch (err: any) {
-      console.error('Failed to get usage history:', err);
-      toast.error('Failed', err.response?.data?.error || 'Failed to get usage history.');
+    } catch (error: unknown) {
+      console.error('Failed to get usage history:', error);
+      toast.error('Failed', getErrorMessage(error));
       return [];
     }
   }, []);
@@ -88,9 +87,9 @@ export const useRentalKeys = (initialProvider?: LLMProviderType): RentalKeysStat
     try {
       const response = await rentalKeyApi.getUsageSummary(id);
       return response.data.summary;
-    } catch (err: any) {
-      console.error('Failed to get usage summary:', err);
-      toast.error('Failed', err.response?.data?.error || 'Failed to get usage summary.');
+    } catch (error: unknown) {
+      console.error('Failed to get usage summary:', error);
+      toast.error('Failed', getErrorMessage(error));
       return null;
     }
   }, []);
