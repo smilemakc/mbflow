@@ -7,6 +7,13 @@ import (
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 )
 
+// WorkflowFilters represents optional filters for workflow queries
+type WorkflowFilters struct {
+	Status         *string    // Filter by status (optional)
+	CreatedBy      *uuid.UUID // Filter by creator user_id (optional)
+	IncludeUnowned bool       // When true, also includes workflows with created_by IS NULL
+}
+
 // WorkflowRepository defines the interface for workflow persistence
 type WorkflowRepository interface {
 	// Create creates a new workflow with its nodes and edges
@@ -41,6 +48,12 @@ type WorkflowRepository interface {
 
 	// CountByStatus returns the count of workflows by status
 	CountByStatus(ctx context.Context, status string) (int, error)
+
+	// FindAllWithFilters retrieves workflows with optional filters for status and user_id
+	FindAllWithFilters(ctx context.Context, filters WorkflowFilters, limit, offset int) ([]*models.WorkflowModel, error)
+
+	// CountWithFilters returns the count of workflows matching the filters
+	CountWithFilters(ctx context.Context, filters WorkflowFilters) (int, error)
 
 	// CreateNode creates a new node for a workflow
 	CreateNode(ctx context.Context, node *models.NodeModel) error

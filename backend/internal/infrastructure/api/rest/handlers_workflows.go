@@ -62,6 +62,11 @@ func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 		UpdatedAt:   time.Now(),
 	}
 
+	// Set created_by if user is authenticated (optional auth)
+	if userID, ok := GetUserIDAsUUID(c); ok {
+		workflowModel.CreatedBy = &userID
+	}
+
 	if err := h.workflowRepo.Create(c.Request.Context(), workflowModel); err != nil {
 		h.logger.Error("Failed to create workflow", "error", err, "workflow_name", req.Name, "request_id", GetRequestID(c))
 		respondAPIErrorWithRequestID(c, TranslateError(err))
@@ -99,22 +104,61 @@ func (h *WorkflowHandlers) HandleGetWorkflow(c *gin.Context) {
 }
 
 // HandleListWorkflows handles GET /api/v1/workflows
+// Query parameters:
+//   - limit: int (default 50)
+//   - offset: int (default 0)
+//   - status: string (optional)
+//   - user_id: uuid (optional, filter by creator)
 func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 	limit := getQueryInt(c, "limit", 50)
 	offset := getQueryInt(c, "offset", 0)
 	status := c.Query("status")
+	userIDParam := c.Query("user_id")
 
-	var workflowModels []*storagemodels.WorkflowModel
-	var err error
+	// Get current user info (may be empty if not authenticated)
+	currentUserID, isAuthenticated := GetUserIDAsUUID(c)
+	isAdmin := IsAdmin(c)
 
-	if status != "" {
-		workflowModels, err = h.workflowRepo.FindByStatus(c.Request.Context(), status, limit, offset)
-	} else {
-		workflowModels, err = h.workflowRepo.FindAll(c.Request.Context(), limit, offset)
+	// Build filters
+	filters := repository.WorkflowFilters{
+		IncludeUnowned: true, // Include legacy workflows without owner by default
 	}
 
+	// Apply status filter if provided
+	if status != "" {
+		filters.Status = &status
+	}
+
+	// Handle user_id filter with authorization
+	if userIDParam != "" {
+		requestedUserID, err := uuid.Parse(userIDParam)
+		if err != nil {
+			respondAPIError(c, NewAPIError("INVALID_USER_ID", "Invalid user_id format", http.StatusBadRequest))
+			return
+		}
+
+		// Authorization check:
+		// - Admins can query any user's workflows
+		// - Non-admins can only query their own workflows
+		if !isAdmin && isAuthenticated && requestedUserID != currentUserID {
+			respondAPIError(c, NewAPIError("FORBIDDEN", "You can only view your own workflows", http.StatusForbidden))
+			return
+		}
+
+		filters.CreatedBy = &requestedUserID
+		filters.IncludeUnowned = false // When filtering by specific user, don't include unowned
+	} else if isAuthenticated && !isAdmin {
+		// Non-admin authenticated user without user_id filter:
+		// Show only their own workflows + unowned (legacy) workflows
+		filters.CreatedBy = &currentUserID
+		filters.IncludeUnowned = true
+	}
+	// Admins and unauthenticated users without user_id filter see all workflows
+
+	// Execute query
+	workflowModels, err := h.workflowRepo.FindAllWithFilters(c.Request.Context(), filters, limit, offset)
 	if err != nil {
-		h.logger.Error("Failed to list workflows", "error", err, "status", status, "limit", limit, "offset", offset, "request_id", GetRequestID(c))
+		h.logger.Error("Failed to list workflows", "error", err, "filters", filters, "limit", limit, "offset", offset, "request_id", GetRequestID(c))
 		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
@@ -124,12 +168,8 @@ func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 		workflows[i] = engine.WorkflowModelToDomain(wm)
 	}
 
-	var total int
-	if status != "" {
-		total, err = h.workflowRepo.CountByStatus(c.Request.Context(), status)
-	} else {
-		total, err = h.workflowRepo.Count(c.Request.Context())
-	}
+	// Get total count with same filters
+	total, err := h.workflowRepo.CountWithFilters(c.Request.Context(), filters)
 	if err != nil {
 		total = len(workflows)
 	}

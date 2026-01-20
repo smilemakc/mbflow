@@ -182,6 +182,19 @@ func (m *mockWorkflowRepo) CountByStatus(ctx context.Context, status string) (in
 	return args.Int(0), args.Error(1)
 }
 
+func (m *mockWorkflowRepo) FindAllWithFilters(ctx context.Context, filters repository.WorkflowFilters, limit, offset int) ([]*storagemodels.WorkflowModel, error) {
+	args := m.Called(ctx, filters, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*storagemodels.WorkflowModel), args.Error(1)
+}
+
+func (m *mockWorkflowRepo) CountWithFilters(ctx context.Context, filters repository.WorkflowFilters) (int, error) {
+	args := m.Called(ctx, filters)
+	return args.Int(0), args.Error(1)
+}
+
 func (m *mockWorkflowRepo) CreateNode(ctx context.Context, node *storagemodels.NodeModel) error {
 	args := m.Called(ctx, node)
 	return args.Error(0)

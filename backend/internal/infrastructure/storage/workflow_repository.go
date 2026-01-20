@@ -454,6 +454,58 @@ func (r *WorkflowRepository) CountByStatus(ctx context.Context, status string) (
 	return count, err
 }
 
+// FindAllWithFilters retrieves workflows with optional filters for status and user_id
+func (r *WorkflowRepository) FindAllWithFilters(ctx context.Context, filters repository.WorkflowFilters, limit, offset int) ([]*models.WorkflowModel, error) {
+	var workflows []*models.WorkflowModel
+	query := r.db.NewSelect().
+		Model(&workflows).
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC")
+
+	// Apply status filter
+	if filters.Status != nil && *filters.Status != "" {
+		query = query.Where("status = ?", *filters.Status)
+	}
+
+	// Apply user filter
+	if filters.CreatedBy != nil {
+		if filters.IncludeUnowned {
+			query = query.Where("(created_by = ? OR created_by IS NULL)", *filters.CreatedBy)
+		} else {
+			query = query.Where("created_by = ?", *filters.CreatedBy)
+		}
+	}
+
+	err := query.Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return workflows, nil
+}
+
+// CountWithFilters returns the count of workflows matching the filters
+func (r *WorkflowRepository) CountWithFilters(ctx context.Context, filters repository.WorkflowFilters) (int, error) {
+	query := r.db.NewSelect().
+		Model((*models.WorkflowModel)(nil))
+
+	// Apply status filter
+	if filters.Status != nil && *filters.Status != "" {
+		query = query.Where("status = ?", *filters.Status)
+	}
+
+	// Apply user filter
+	if filters.CreatedBy != nil {
+		if filters.IncludeUnowned {
+			query = query.Where("(created_by = ? OR created_by IS NULL)", *filters.CreatedBy)
+		} else {
+			query = query.Where("created_by = ?", *filters.CreatedBy)
+		}
+	}
+
+	return query.Count(ctx)
+}
+
 // CreateNode creates a new node for a workflow
 func (r *WorkflowRepository) CreateNode(ctx context.Context, node *models.NodeModel) error {
 	if node.ID == uuid.Nil {

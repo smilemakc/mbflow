@@ -183,3 +183,13 @@ func AssertExecutionStarted(t *testing.T, w *httptest.ResponseRecorder) map[stri
 	require.NotEmpty(t, result["id"], "Execution ID should not be empty")
 	return result
 }
+
+// MockAuthMiddleware creates a middleware that sets user context for testing
+// Use this to add authentication context to test routes
+func MockAuthMiddleware(userID string, isAdmin bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("user_id", userID)
+		c.Set("is_admin", isAdmin)
+		c.Next()
+	}
+}

@@ -530,3 +530,175 @@ func TestHandlers_GetWorkflowDiagram_NotFound(t *testing.T) {
 
 	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
+
+// ========== USER FILTER TESTS ==========
+
+func setupWorkflowHandlersTestWithAuth(t *testing.T, userID string, isAdmin bool) (*WorkflowHandlers, *gin.Engine, func()) {
+	t.Helper()
+
+	// Setup test database
+	testDB := testutil.SetupTestDB(t)
+
+	// Create repository
+	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
+
+	// Create logger with minimal config
+	log := logger.New(config.LoggingConfig{
+		Level:  "error",
+		Format: "text",
+	})
+
+	// Create executor manager and register executors
+	executorManager := executor.NewManager()
+	if err := builtin.RegisterBuiltins(executorManager); err != nil {
+		t.Fatalf("Failed to register builtins: %v", err)
+	}
+	if err := builtin.RegisterAdapters(executorManager); err != nil {
+		t.Fatalf("Failed to register adapters: %v", err)
+	}
+
+	// Create handlers
+	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
+
+	// Setup router with auth middleware
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	// Add mock auth middleware
+	router.Use(testutil.MockAuthMiddleware(userID, isAdmin))
+
+	api := router.Group("/api/v1")
+	{
+		api.POST("/workflows", handlers.HandleCreateWorkflow)
+		api.GET("/workflows/:workflow_id", handlers.HandleGetWorkflow)
+		api.GET("/workflows", handlers.HandleListWorkflows)
+		api.PUT("/workflows/:workflow_id", handlers.HandleUpdateWorkflow)
+		api.DELETE("/workflows/:workflow_id", handlers.HandleDeleteWorkflow)
+		api.POST("/workflows/:workflow_id/publish", handlers.HandlePublishWorkflow)
+		api.POST("/workflows/:workflow_id/unpublish", handlers.HandleUnpublishWorkflow)
+		api.GET("/workflows/:workflow_id/diagram", handlers.HandleGetWorkflowDiagram)
+	}
+
+	cleanup := func() {
+		testDB.Cleanup(t)
+	}
+
+	return handlers, router, cleanup
+}
+
+func TestHandlers_CreateWorkflow_WithoutAuthentication(t *testing.T) {
+	// No auth middleware - created_by should be empty
+	_, router, cleanup := setupWorkflowHandlersTest(t)
+	defer cleanup()
+
+	req := map[string]interface{}{
+		"name": "Anonymous Workflow",
+	}
+
+	w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var result map[string]interface{}
+	testutil.ParseResponse(t, w, &result)
+
+	assert.NotEmpty(t, result["id"])
+	// created_by should be empty for unauthenticated requests
+	createdBy, exists := result["created_by"]
+	assert.True(t, !exists || createdBy == "" || createdBy == nil,
+		"created_by should be empty for unauthenticated requests, got: %v", createdBy)
+}
+
+func TestHandlers_ListWorkflows_FilterByUserID_InvalidFormat(t *testing.T) {
+	_, router, cleanup := setupWorkflowHandlersTest(t)
+	defer cleanup()
+
+	w := testutil.MakeRequest(t, router, "GET", "/api/v1/workflows?user_id=invalid-uuid", nil)
+
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "Invalid user_id format")
+}
+
+func TestHandlers_ListWorkflows_FilterByUserID_Admin(t *testing.T) {
+	adminUserID := uuid.New().String()
+	otherUserID := uuid.New()
+
+	// Setup as admin
+	_, adminRouter, cleanup := setupWorkflowHandlersTestWithAuth(t, adminUserID, true)
+	defer cleanup()
+
+	// Admin can filter by any user_id without error
+	w := testutil.MakeRequest(t, adminRouter, "GET",
+		fmt.Sprintf("/api/v1/workflows?user_id=%s", otherUserID.String()), nil)
+
+	// Admin should be able to filter by any user_id
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var result map[string]interface{}
+	testutil.ParseResponse(t, w, &result)
+
+	// Should return empty list (no workflows for that user)
+	workflows := result["workflows"].([]interface{})
+	assert.Empty(t, workflows)
+}
+
+func TestHandlers_ListWorkflows_FilterByUserID_Forbidden(t *testing.T) {
+	userID := uuid.New().String()
+	otherUserID := uuid.New().String()
+
+	// Setup as regular user
+	_, userRouter, cleanup := setupWorkflowHandlersTestWithAuth(t, userID, false)
+	defer cleanup()
+
+	// Try to filter by another user's ID
+	w := testutil.MakeRequest(t, userRouter, "GET",
+		fmt.Sprintf("/api/v1/workflows?user_id=%s", otherUserID), nil)
+
+	// Non-admin should get forbidden
+	testutil.AssertErrorResponse(t, w, http.StatusForbidden, "You can only view your own workflows")
+}
+
+func TestHandlers_ListWorkflows_FilterByOwnUserID_Empty(t *testing.T) {
+	userID := uuid.New().String()
+
+	// Setup as regular user
+	_, userRouter, cleanup := setupWorkflowHandlersTestWithAuth(t, userID, false)
+	defer cleanup()
+
+	// Filter by own user_id - should return empty list (no workflows created)
+	w := testutil.MakeRequest(t, userRouter, "GET",
+		fmt.Sprintf("/api/v1/workflows?user_id=%s", userID), nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var result map[string]interface{}
+	testutil.ParseResponse(t, w, &result)
+
+	workflows := result["workflows"].([]interface{})
+	assert.Empty(t, workflows)
+}
+
+func TestHandlers_ListWorkflows_UnauthenticatedSeeAll(t *testing.T) {
+	// No auth - unauthenticated users see all workflows (backward compatibility)
+	_, router, cleanup := setupWorkflowHandlersTest(t)
+	defer cleanup()
+
+	// Create some workflows without auth (created_by = NULL)
+	for i := 1; i <= 3; i++ {
+		req := map[string]interface{}{
+			"name": fmt.Sprintf("Workflow %d", i),
+		}
+		w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", req)
+		require.Equal(t, http.StatusCreated, w.Code)
+	}
+
+	// List without auth - should see all workflows
+	w := testutil.MakeRequest(t, router, "GET", "/api/v1/workflows", nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var result map[string]interface{}
+	testutil.ParseResponse(t, w, &result)
+
+	workflows := result["workflows"].([]interface{})
+	assert.Len(t, workflows, 3)
+}
