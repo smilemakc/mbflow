@@ -34,6 +34,9 @@ func NewProviderManager(cfg *config.AuthConfig, authService *Service) (*Provider
 
 	// Determine primary provider based on mode
 	switch cfg.Mode {
+	case "grpc":
+		pm.primaryType = ProviderTypeGRPC
+		pm.fallbackType = ProviderTypeBuiltin
 	case "gateway", "oidc":
 		pm.primaryType = ProviderTypeGateway
 		pm.fallbackType = ProviderTypeBuiltin
@@ -60,6 +63,17 @@ func NewProviderManager(cfg *config.AuthConfig, authService *Service) (*Provider
 			fmt.Printf("Warning: Failed to initialize gateway provider: %v\n", err)
 		} else if gatewayProvider.IsAvailable() {
 			pm.providers[ProviderTypeGateway] = gatewayProvider
+		}
+	}
+
+	// Initialize gRPC provider if configured
+	if cfg.GRPCAddress != "" {
+		grpcProvider, err := NewGRPCProvider(cfg)
+		if err != nil {
+			// Log warning but don't fail - gRPC provider might not be available
+			fmt.Printf("Warning: Failed to initialize gRPC provider: %v\n", err)
+		} else if grpcProvider.IsAvailable() {
+			pm.providers[ProviderTypeGRPC] = grpcProvider
 		}
 	}
 

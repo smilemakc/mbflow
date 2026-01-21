@@ -111,6 +111,9 @@ type AuthConfig struct {
 	JWKSURL      string
 	RedirectURL  string
 
+	GRPCAddress string
+	GRPCTimeout time.Duration
+
 	EnableFallback bool
 	FallbackMode   string
 }
@@ -192,6 +195,8 @@ func Load() (*Config, error) {
 			IssuerURL:           getEnv("MBFLOW_AUTH_ISSUER_URL", ""),
 			JWKSURL:             getEnv("MBFLOW_AUTH_JWKS_URL", ""),
 			RedirectURL:         getEnv("MBFLOW_AUTH_REDIRECT_URL", ""),
+			GRPCAddress:         getEnv("MBFLOW_AUTH_GRPC_ADDRESS", ""),
+			GRPCTimeout:         getEnvAsDuration("MBFLOW_AUTH_GRPC_TIMEOUT", 10*time.Second),
 			EnableFallback:      getEnvAsBool("MBFLOW_AUTH_ENABLE_FALLBACK", false),
 			FallbackMode:        getEnv("MBFLOW_AUTH_FALLBACK_MODE", "builtin"),
 		},
@@ -258,8 +263,8 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) validateAuth() error {
-	if c.Auth.Mode != "builtin" && c.Auth.Mode != "gateway" && c.Auth.Mode != "hybrid" {
-		return fmt.Errorf("invalid MBFLOW_AUTH_MODE: %s (must be builtin, gateway, or hybrid)", c.Auth.Mode)
+	if c.Auth.Mode != "builtin" && c.Auth.Mode != "gateway" && c.Auth.Mode != "hybrid" && c.Auth.Mode != "grpc" {
+		return fmt.Errorf("invalid MBFLOW_AUTH_MODE: %s (must be builtin, gateway, hybrid, or grpc)", c.Auth.Mode)
 	}
 
 	if c.Auth.Mode == "builtin" || c.Auth.Mode == "hybrid" {
@@ -274,6 +279,12 @@ func (c *Config) validateAuth() error {
 	if c.Auth.Mode == "gateway" || c.Auth.Mode == "hybrid" {
 		if c.Auth.GatewayURL == "" || c.Auth.ClientID == "" {
 			return fmt.Errorf("MBFLOW_AUTH_GATEWAY_URL and MBFLOW_AUTH_CLIENT_ID are required for %s mode", c.Auth.Mode)
+		}
+	}
+
+	if c.Auth.Mode == "grpc" {
+		if c.Auth.GRPCAddress == "" {
+			return fmt.Errorf("MBFLOW_AUTH_GRPC_ADDRESS is required for grpc mode")
 		}
 	}
 

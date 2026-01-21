@@ -13,6 +13,7 @@ const (
 	ProviderTypeBuiltin ProviderType = "builtin"
 	ProviderTypeGateway ProviderType = "gateway"
 	ProviderTypeOIDC    ProviderType = "oidc"
+	ProviderTypeGRPC    ProviderType = "grpc"
 )
 
 // Credentials represents authentication credentials
