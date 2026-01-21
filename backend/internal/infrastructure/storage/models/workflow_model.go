@@ -9,7 +9,7 @@ import (
 
 // WorkflowModel represents a workflow definition in the database
 type WorkflowModel struct {
-	bun.BaseModel `bun:"table:workflows,alias:w"`
+	bun.BaseModel `bun:"table:mbflow_workflows,alias:w"`
 
 	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	Name        string     `bun:"name,notnull" json:"name" validate:"required,max=255"`
@@ -32,7 +32,7 @@ type WorkflowModel struct {
 
 // TableName returns the table name for WorkflowModel
 func (WorkflowModel) TableName() string {
-	return "workflows"
+	return "mbflow_workflows"
 }
 
 // BeforeInsert hook to set timestamps

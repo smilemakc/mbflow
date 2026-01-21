@@ -306,7 +306,7 @@ func (r *CredentialsRepositoryImpl) LogCredentialAccess(ctx context.Context, res
 
 // CredentialAuditLogModel represents the audit log entry
 type CredentialAuditLogModel struct {
-	bun.BaseModel `bun:"table:credential_audit_log,alias:cal"`
+	bun.BaseModel `bun:"table:mbflow_credential_audit_log,alias:cal"`
 
 	ID           uuid.UUID       `bun:"id,pk,type:uuid,default:uuid_generate_v4()"`
 	CredentialID uuid.UUID       `bun:"credential_id,type:uuid,notnull"`

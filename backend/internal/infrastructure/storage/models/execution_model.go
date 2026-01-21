@@ -9,7 +9,7 @@ import (
 
 // ExecutionModel represents a workflow execution instance in the database
 type ExecutionModel struct {
-	bun.BaseModel `bun:"table:executions,alias:ex"`
+	bun.BaseModel `bun:"table:mbflow_executions,alias:ex"`
 
 	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	WorkflowID  uuid.UUID  `bun:"workflow_id,notnull,type:uuid" json:"workflow_id" validate:"required"`
@@ -35,7 +35,7 @@ type ExecutionModel struct {
 
 // TableName returns the table name for ExecutionModel
 func (ExecutionModel) TableName() string {
-	return "executions"
+	return "mbflow_executions"
 }
 
 // BeforeInsert hook to set timestamps

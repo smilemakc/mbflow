@@ -11,7 +11,7 @@ import (
 
 // ServiceKeyModel represents service_keys table
 type ServiceKeyModel struct {
-	bun.BaseModel `bun:"table:service_keys,alias:sk"`
+	bun.BaseModel `bun:"table:mbflow_service_keys,alias:sk"`
 
 	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:gen_random_uuid()"`
 	UserID      uuid.UUID  `bun:"user_id,notnull,type:uuid"`
@@ -35,7 +35,7 @@ type ServiceKeyModel struct {
 
 // TableName returns the table name for ServiceKeyModel
 func (ServiceKeyModel) TableName() string {
-	return "service_keys"
+	return "mbflow_service_keys"
 }
 
 // BeforeInsert hook to set timestamps and defaults

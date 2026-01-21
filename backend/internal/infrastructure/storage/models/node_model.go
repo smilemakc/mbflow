@@ -9,7 +9,7 @@ import (
 
 // NodeModel represents a workflow node in the database
 type NodeModel struct {
-	bun.BaseModel `bun:"table:nodes,alias:n"`
+	bun.BaseModel `bun:"table:mbflow_nodes,alias:n"`
 
 	ID         uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"-"`
 	NodeID     string    `bun:"node_id,notnull" json:"id" validate:"required,max=100"`
@@ -30,7 +30,7 @@ type NodeModel struct {
 
 // TableName returns the table name for NodeModel
 func (NodeModel) TableName() string {
-	return "nodes"
+	return "mbflow_nodes"
 }
 
 // BeforeInsert hook to set timestamps

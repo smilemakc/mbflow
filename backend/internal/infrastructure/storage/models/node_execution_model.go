@@ -9,7 +9,7 @@ import (
 
 // NodeExecutionModel represents a node execution instance in the database
 type NodeExecutionModel struct {
-	bun.BaseModel `bun:"table:node_executions,alias:ne"`
+	bun.BaseModel `bun:"table:mbflow_node_executions,alias:ne"`
 
 	ID             uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	ExecutionID    uuid.UUID  `bun:"execution_id,notnull,type:uuid" json:"execution_id" validate:"required"`
@@ -34,7 +34,7 @@ type NodeExecutionModel struct {
 
 // TableName returns the table name for NodeExecutionModel
 func (NodeExecutionModel) TableName() string {
-	return "node_executions"
+	return "mbflow_node_executions"
 }
 
 // BeforeInsert hook to set timestamps

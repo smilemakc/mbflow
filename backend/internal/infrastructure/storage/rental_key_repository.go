@@ -560,7 +560,7 @@ func (r *RentalKeyRepositoryImpl) GetAllRentalKeys(ctx context.Context, filter r
 func (r *RentalKeyRepositoryImpl) GetAllRentalKeysCount(ctx context.Context, filter repository.RentalKeyFilter) (int64, error) {
 	query := r.db.NewSelect().
 		Model((*models.ResourceModel)(nil)).
-		Join("JOIN resource_rental_key AS rrk ON rrk.resource_id = r.id").
+		Join("JOIN mbflow_resource_rental_key AS rrk ON rrk.resource_id = r.id").
 		Where("r.type = ?", string(pkgmodels.ResourceTypeRentalKey)).
 		Where("r.deleted_at IS NULL")
 

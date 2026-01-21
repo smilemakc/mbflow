@@ -9,7 +9,7 @@ import (
 
 // TriggerModel represents a workflow trigger configuration in the database
 type TriggerModel struct {
-	bun.BaseModel `bun:"table:triggers,alias:t"`
+	bun.BaseModel `bun:"table:mbflow_triggers,alias:t"`
 
 	ID              uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	WorkflowID      uuid.UUID  `bun:"workflow_id,notnull,type:uuid" json:"workflow_id" validate:"required"`
@@ -26,7 +26,7 @@ type TriggerModel struct {
 
 // TableName returns the table name for TriggerModel
 func (TriggerModel) TableName() string {
-	return "triggers"
+	return "mbflow_triggers"
 }
 
 // BeforeInsert hook to set timestamps

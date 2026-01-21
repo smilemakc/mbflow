@@ -9,7 +9,7 @@ import (
 
 // EventModel represents an immutable event in the event sourcing log
 type EventModel struct {
-	bun.BaseModel `bun:"table:events,alias:ev"`
+	bun.BaseModel `bun:"table:mbflow_events,alias:ev"`
 
 	ID          uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	ExecutionID uuid.UUID `bun:"execution_id,notnull,type:uuid" json:"execution_id" validate:"required"`
@@ -24,7 +24,7 @@ type EventModel struct {
 
 // TableName returns the table name for EventModel
 func (EventModel) TableName() string {
-	return "events"
+	return "mbflow_events"
 }
 
 // BeforeInsert hook to set timestamp

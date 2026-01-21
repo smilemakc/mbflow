@@ -11,7 +11,7 @@ import (
 
 // UserModel represents a user account in the database
 type UserModel struct {
-	bun.BaseModel `bun:"table:users,alias:u"`
+	bun.BaseModel `bun:"table:mbflow_users,alias:u"`
 
 	ID                  uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	Email               string     `bun:"email,notnull,unique" json:"email" validate:"required,email,max=255"`
@@ -30,13 +30,13 @@ type UserModel struct {
 	DeletedAt           *time.Time `bun:"deleted_at" json:"deleted_at,omitempty"`
 
 	// Relations
-	Roles    []*RoleModel    `bun:"m2m:user_roles,join:User=Role" json:"roles,omitempty"`
+	Roles    []*RoleModel    `bun:"m2m:mbflow_user_roles,join:User=Role" json:"roles,omitempty"`
 	Sessions []*SessionModel `bun:"rel:has-many,join:id=user_id" json:"sessions,omitempty"`
 }
 
 // TableName returns the table name for UserModel
 func (UserModel) TableName() string {
-	return "users"
+	return "mbflow_users"
 }
 
 // BeforeInsert hook to set timestamps and defaults
@@ -79,7 +79,7 @@ func (u *UserModel) CanLogin() bool {
 
 // SessionModel represents an authentication session in the database
 type SessionModel struct {
-	bun.BaseModel `bun:"table:sessions,alias:s"`
+	bun.BaseModel `bun:"table:mbflow_sessions,alias:s"`
 
 	ID             uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	UserID         uuid.UUID `bun:"user_id,notnull,type:uuid" json:"user_id" validate:"required"`
@@ -98,7 +98,7 @@ type SessionModel struct {
 
 // TableName returns the table name for SessionModel
 func (SessionModel) TableName() string {
-	return "sessions"
+	return "mbflow_sessions"
 }
 
 // BeforeInsert hook to set timestamps
@@ -127,7 +127,7 @@ func (s *SessionModel) IsValid() bool {
 
 // RoleModel represents a user role in the database
 type RoleModel struct {
-	bun.BaseModel `bun:"table:roles,alias:r"`
+	bun.BaseModel `bun:"table:mbflow_roles,alias:r"`
 
 	ID          uuid.UUID   `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	Name        string      `bun:"name,notnull,unique" json:"name" validate:"required,min=2,max=100"`
@@ -139,12 +139,12 @@ type RoleModel struct {
 	UpdatedAt   time.Time   `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 
 	// Relations
-	Users []*UserModel `bun:"m2m:user_roles,join:Role=User" json:"users,omitempty"`
+	Users []*UserModel `bun:"m2m:mbflow_user_roles,join:Role=User" json:"users,omitempty"`
 }
 
 // TableName returns the table name for RoleModel
 func (RoleModel) TableName() string {
-	return "roles"
+	return "mbflow_roles"
 }
 
 // BeforeInsert hook to set timestamps and defaults
@@ -182,7 +182,7 @@ func (r *RoleModel) HasPermission(permission string) bool {
 
 // UserRoleModel represents the many-to-many relationship between users and roles
 type UserRoleModel struct {
-	bun.BaseModel `bun:"table:user_roles,alias:ur"`
+	bun.BaseModel `bun:"table:mbflow_user_roles,alias:ur"`
 
 	UserID     uuid.UUID  `bun:"user_id,pk,type:uuid" json:"user_id" validate:"required"`
 	RoleID     uuid.UUID  `bun:"role_id,pk,type:uuid" json:"role_id" validate:"required"`
@@ -196,7 +196,7 @@ type UserRoleModel struct {
 
 // TableName returns the table name for UserRoleModel
 func (UserRoleModel) TableName() string {
-	return "user_roles"
+	return "mbflow_user_roles"
 }
 
 // BeforeInsert hook to set timestamps
@@ -207,7 +207,7 @@ func (ur *UserRoleModel) BeforeInsert(ctx interface{}) error {
 
 // AuditLogModel represents an audit log entry for security tracking
 type AuditLogModel struct {
-	bun.BaseModel `bun:"table:audit_logs,alias:al"`
+	bun.BaseModel `bun:"table:mbflow_audit_logs,alias:al"`
 
 	ID           uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	UserID       *uuid.UUID `bun:"user_id,type:uuid" json:"user_id,omitempty"`
@@ -222,7 +222,7 @@ type AuditLogModel struct {
 
 // TableName returns the table name for AuditLogModel
 func (AuditLogModel) TableName() string {
-	return "audit_logs"
+	return "mbflow_audit_logs"
 }
 
 // BeforeInsert hook to set timestamps

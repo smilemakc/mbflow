@@ -164,15 +164,19 @@ func (td *TestDB) Reset(t *testing.T) {
 
 	// Truncate all tables except migrations
 	tables := []string{
-		"workflow_variables",
-		"workflow_edges",
-		"workflow_nodes",
-		"node_executions",
-		"executions",
-		"workflows",
-		"events",
-		"triggers",
-		"files",
+		"mbflow_node_executions",
+		"mbflow_executions",
+		"mbflow_edges",
+		"mbflow_nodes",
+		"mbflow_workflows",
+		"mbflow_triggers",
+		"mbflow_events",
+		"mbflow_files",
+		"mbflow_workflow_resources",
+		"mbflow_resource_credentials",
+		"mbflow_credential_audit_log",
+		"mbflow_resource_rental_key",
+		"mbflow_rental_key_usage",
 	}
 
 	for _, table := range tables {

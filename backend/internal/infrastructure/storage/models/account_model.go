@@ -11,7 +11,7 @@ import (
 
 // BillingAccountModel represents a billing account in the database
 type BillingAccountModel struct {
-	bun.BaseModel `bun:"table:billing_accounts,alias:ba"`
+	bun.BaseModel `bun:"table:mbflow_billing_accounts,alias:ba"`
 
 	ID        uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	UserID    uuid.UUID `bun:"user_id,notnull,type:uuid" json:"user_id" validate:"required"`
@@ -28,7 +28,7 @@ type BillingAccountModel struct {
 
 // TableName returns the table name for BillingAccountModel
 func (BillingAccountModel) TableName() string {
-	return "billing_accounts"
+	return "mbflow_billing_accounts"
 }
 
 // BeforeInsert hook to set timestamps and defaults
@@ -71,7 +71,7 @@ func (b *BillingAccountModel) CanCharge(amount float64) bool {
 
 // TransactionModel represents a financial transaction in the database
 type TransactionModel struct {
-	bun.BaseModel `bun:"table:transactions,alias:t"`
+	bun.BaseModel `bun:"table:mbflow_transactions,alias:t"`
 
 	ID             uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	AccountID      uuid.UUID  `bun:"account_id,notnull,type:uuid" json:"account_id" validate:"required"`
@@ -94,7 +94,7 @@ type TransactionModel struct {
 
 // TableName returns the table name for TransactionModel
 func (TransactionModel) TableName() string {
-	return "transactions"
+	return "mbflow_transactions"
 }
 
 // BeforeInsert hook to set timestamps and defaults

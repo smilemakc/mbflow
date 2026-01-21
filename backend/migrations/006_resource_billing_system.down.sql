@@ -2,12 +2,12 @@
 -- Removes all resource and billing tables in reverse dependency order
 
 -- Drop triggers
-DROP TRIGGER IF EXISTS trigger_resources_updated_at ON resources;
-DROP TRIGGER IF EXISTS trigger_billing_accounts_updated_at ON billing_accounts;
+DROP TRIGGER IF EXISTS trigger_mbflow_resources_updated_at ON mbflow_resources;
+DROP TRIGGER IF EXISTS trigger_mbflow_billing_accounts_updated_at ON mbflow_billing_accounts;
 
 -- Drop tables in reverse dependency order
-DROP TABLE IF EXISTS transactions;
-DROP TABLE IF EXISTS billing_accounts;
-DROP TABLE IF EXISTS resource_file_storage;
-DROP TABLE IF EXISTS resources;
-DROP TABLE IF EXISTS pricing_plans;
+DROP TABLE IF EXISTS mbflow_transactions;
+DROP TABLE IF EXISTS mbflow_billing_accounts;
+DROP TABLE IF EXISTS mbflow_resource_file_storage;
+DROP TABLE IF EXISTS mbflow_resources;
+DROP TABLE IF EXISTS mbflow_pricing_plans;

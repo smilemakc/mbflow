@@ -9,7 +9,7 @@ import (
 
 // EdgeModel represents a workflow edge (connection between nodes) in the database
 type EdgeModel struct {
-	bun.BaseModel `bun:"table:edges,alias:e"`
+	bun.BaseModel `bun:"table:mbflow_edges,alias:e"`
 
 	ID         uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"-"`
 	EdgeID     string    `bun:"edge_id,notnull" json:"id" validate:"required,max=100"`
@@ -28,7 +28,7 @@ type EdgeModel struct {
 
 // TableName returns the table name for EdgeModel
 func (EdgeModel) TableName() string {
-	return "edges"
+	return "mbflow_edges"
 }
 
 // BeforeInsert hook to set timestamps and validate

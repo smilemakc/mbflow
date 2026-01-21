@@ -9,7 +9,7 @@ import (
 
 // WorkflowResourceModel represents the workflow_resources table
 type WorkflowResourceModel struct {
-	bun.BaseModel `bun:"table:workflow_resources,alias:wr"`
+	bun.BaseModel `bun:"table:mbflow_workflow_resources,alias:wr"`
 
 	WorkflowID uuid.UUID  `bun:"workflow_id,pk,type:uuid" json:"workflow_id"`
 	ResourceID uuid.UUID  `bun:"resource_id,pk,type:uuid" json:"resource_id"`
@@ -25,7 +25,7 @@ type WorkflowResourceModel struct {
 
 // TableName returns the table name for WorkflowResourceModel
 func (WorkflowResourceModel) TableName() string {
-	return "workflow_resources"
+	return "mbflow_workflow_resources"
 }
 
 // BeforeInsert hook to set timestamps and defaults

@@ -9,7 +9,7 @@ import (
 
 // FileModel represents a file entry in the database
 type FileModel struct {
-	bun.BaseModel `bun:"table:files,alias:f"`
+	bun.BaseModel `bun:"table:mbflow_files,alias:f"`
 
 	ID           uuid.UUID   `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	StorageID    string      `bun:"storage_id,notnull" json:"storage_id" validate:"required"`
@@ -38,7 +38,7 @@ type FileModel struct {
 
 // TableName returns the table name
 func (FileModel) TableName() string {
-	return "files"
+	return "mbflow_files"
 }
 
 // BeforeInsert hook to set timestamps
@@ -71,7 +71,7 @@ func (f *FileModel) IsExpired() bool {
 
 // StorageConfigModel represents a storage configuration in the database
 type StorageConfigModel struct {
-	bun.BaseModel `bun:"table:storage_configs,alias:sc"`
+	bun.BaseModel `bun:"table:mbflow_storage_configs,alias:sc"`
 
 	ID                uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	StorageID         string    `bun:"storage_id,notnull,unique" json:"storage_id" validate:"required"`
@@ -86,7 +86,7 @@ type StorageConfigModel struct {
 
 // TableName returns the table name
 func (StorageConfigModel) TableName() string {
-	return "storage_configs"
+	return "mbflow_storage_configs"
 }
 
 // BeforeInsert hook to set timestamps

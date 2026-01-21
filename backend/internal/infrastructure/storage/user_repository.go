@@ -614,7 +614,7 @@ func (r *UserRepository) GetUserRoles(ctx context.Context, userID uuid.UUID) ([]
 	var roles []*models.RoleModel
 	err := r.db.NewSelect().
 		Model(&roles).
-		Join("JOIN user_roles ur ON ur.role_id = r.id").
+		Join("JOIN mbflow_user_roles ur ON ur.role_id = r.id").
 		Where("ur.user_id = ?", userID).
 		Order("r.name ASC").
 		Scan(ctx)
@@ -644,9 +644,9 @@ func (r *UserRepository) GetUserPermissions(ctx context.Context, userID uuid.UUI
 	var permissions []string
 	err = r.db.NewSelect().
 		ColumnExpr("DISTINCT unnest(r.permissions) AS permission").
-		Table("roles").
+		Table("mbflow_roles").
 		TableExpr("r").
-		Join("JOIN user_roles ur ON ur.role_id = r.id").
+		Join("JOIN mbflow_user_roles ur ON ur.role_id = r.id").
 		Where("ur.user_id = ?", userID).
 		Scan(ctx, &permissions)
 	if err != nil {
@@ -671,9 +671,9 @@ func (r *UserRepository) HasPermission(ctx context.Context, userID uuid.UUID, pe
 
 	// Check permission through roles
 	exists, err := r.db.NewSelect().
-		Table("roles").
+		Table("mbflow_roles").
 		TableExpr("r").
-		Join("JOIN user_roles ur ON ur.role_id = r.id").
+		Join("JOIN mbflow_user_roles ur ON ur.role_id = r.id").
 		Where("ur.user_id = ?", userID).
 		Where("? = ANY(r.permissions)", permission).
 		Exists(ctx)

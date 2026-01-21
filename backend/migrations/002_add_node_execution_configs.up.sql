@@ -10,19 +10,19 @@
 -- - Troubleshooting: Identify issues in template resolution vs execution
 
 -- Add config column (original node configuration)
-ALTER TABLE node_executions
+ALTER TABLE mbflow_node_executions
 ADD COLUMN config JSONB DEFAULT '{}';
 
 -- Add resolved_config column (configuration after template resolution)
-ALTER TABLE node_executions
+ALTER TABLE mbflow_node_executions
 ADD COLUMN resolved_config JSONB DEFAULT '{}';
 
 -- Create GIN index for config queries
-CREATE INDEX idx_node_executions_config ON node_executions USING GIN (config);
+CREATE INDEX idx_mbflow_node_executions_config ON mbflow_node_executions USING GIN (config);
 
 -- Create GIN index for resolved_config queries
-CREATE INDEX idx_node_executions_resolved_config ON node_executions USING GIN (resolved_config);
+CREATE INDEX idx_mbflow_node_executions_resolved_config ON mbflow_node_executions USING GIN (resolved_config);
 
 -- Add comments
-COMMENT ON COLUMN node_executions.config IS 'Original node configuration before template resolution';
-COMMENT ON COLUMN node_executions.resolved_config IS 'Final configuration after template resolution (actually used by executor)';
+COMMENT ON COLUMN mbflow_node_executions.config IS 'Original node configuration before template resolution';
+COMMENT ON COLUMN mbflow_node_executions.resolved_config IS 'Final configuration after template resolution (actually used by executor)';

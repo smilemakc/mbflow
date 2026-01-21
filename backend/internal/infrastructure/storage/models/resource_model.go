@@ -11,7 +11,7 @@ import (
 
 // ResourceModel represents a base resource in the database
 type ResourceModel struct {
-	bun.BaseModel `bun:"table:resources,alias:r"`
+	bun.BaseModel `bun:"table:mbflow_resources,alias:r"`
 
 	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	Type        string     `bun:"type,notnull" json:"type" validate:"required,oneof=file_storage credentials rental_key"`
@@ -33,7 +33,7 @@ type ResourceModel struct {
 
 // TableName returns the table name for ResourceModel
 func (ResourceModel) TableName() string {
-	return "resources"
+	return "mbflow_resources"
 }
 
 // BeforeInsert hook to set timestamps and defaults
@@ -71,7 +71,7 @@ func (r *ResourceModel) IsDeleted() bool {
 
 // FileStorageModel represents file storage specific data in the database
 type FileStorageModel struct {
-	bun.BaseModel `bun:"table:resource_file_storage,alias:rfs"`
+	bun.BaseModel `bun:"table:mbflow_resource_file_storage,alias:rfs"`
 
 	ResourceID        uuid.UUID  `bun:"resource_id,pk,type:uuid" json:"resource_id" validate:"required"`
 	StorageLimitBytes int64      `bun:"storage_limit_bytes,notnull,default:5242880" json:"storage_limit_bytes" validate:"required,min=0"`
@@ -86,7 +86,7 @@ type FileStorageModel struct {
 
 // TableName returns the table name for FileStorageModel
 func (FileStorageModel) TableName() string {
-	return "resource_file_storage"
+	return "mbflow_resource_file_storage"
 }
 
 // BeforeInsert hook to set defaults
@@ -121,7 +121,7 @@ func (f *FileStorageModel) GetAvailableSpace() int64 {
 
 // PricingPlanModel represents a pricing plan in the database
 type PricingPlanModel struct {
-	bun.BaseModel `bun:"table:pricing_plans,alias:pp"`
+	bun.BaseModel `bun:"table:mbflow_pricing_plans,alias:pp"`
 
 	ID                uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	ResourceType      string    `bun:"resource_type,notnull" json:"resource_type" validate:"required,oneof=file_storage"`
@@ -139,7 +139,7 @@ type PricingPlanModel struct {
 
 // TableName returns the table name for PricingPlanModel
 func (PricingPlanModel) TableName() string {
-	return "pricing_plans"
+	return "mbflow_pricing_plans"
 }
 
 // BeforeInsert hook to set timestamps and defaults
@@ -333,7 +333,7 @@ func ToFileStorageResourceDomain(r *ResourceModel, fs *FileStorageModel) pkgmode
 
 // CredentialsModel represents credentials-specific data in the database
 type CredentialsModel struct {
-	bun.BaseModel `bun:"table:resource_credentials,alias:rc"`
+	bun.BaseModel `bun:"table:mbflow_resource_credentials,alias:rc"`
 
 	ResourceID     uuid.UUID  `bun:"resource_id,pk,type:uuid" json:"resource_id" validate:"required"`
 	CredentialType string     `bun:"credential_type,notnull" json:"credential_type" validate:"required,oneof=api_key basic_auth oauth2 service_account custom"`
@@ -351,7 +351,7 @@ type CredentialsModel struct {
 
 // TableName returns the table name for CredentialsModel
 func (CredentialsModel) TableName() string {
-	return "resource_credentials"
+	return "mbflow_resource_credentials"
 }
 
 // ToCredentialsResourceDomain converts ResourceModel and CredentialsModel to domain CredentialsResource
@@ -475,7 +475,7 @@ func FromCredentialsResourceDomain(cred *pkgmodels.CredentialsResource) (*Resour
 
 // RentalKeyModel represents rental key specific data in the database
 type RentalKeyModel struct {
-	bun.BaseModel `bun:"table:resource_rental_key,alias:rrk"`
+	bun.BaseModel `bun:"table:mbflow_resource_rental_key,alias:rrk"`
 
 	ResourceID      uuid.UUID `bun:"resource_id,pk,type:uuid" json:"resource_id" validate:"required"`
 	Provider        string    `bun:"provider,notnull" json:"provider" validate:"required,oneof=openai anthropic google_ai"`
@@ -525,12 +525,12 @@ type RentalKeyModel struct {
 
 // TableName returns the table name for RentalKeyModel
 func (RentalKeyModel) TableName() string {
-	return "resource_rental_key"
+	return "mbflow_resource_rental_key"
 }
 
 // RentalKeyUsageModel represents a usage log entry for rental keys
 type RentalKeyUsageModel struct {
-	bun.BaseModel `bun:"table:rental_key_usage,alias:rku"`
+	bun.BaseModel `bun:"table:mbflow_rental_key_usage,alias:rku"`
 
 	ID          uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	RentalKeyID uuid.UUID `bun:"rental_key_id,notnull,type:uuid" json:"rental_key_id" validate:"required"`
@@ -571,7 +571,7 @@ type RentalKeyUsageModel struct {
 
 // TableName returns the table name for RentalKeyUsageModel
 func (RentalKeyUsageModel) TableName() string {
-	return "rental_key_usage"
+	return "mbflow_rental_key_usage"
 }
 
 // GetTotalTokens returns the sum of all token types
