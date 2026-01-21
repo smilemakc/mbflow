@@ -129,3 +129,13 @@ func WithLogger(logger Logger) ClientOption {
 		return nil
 	}
 }
+
+// WithWebhookBaseURL sets the base URL for webhook endpoints in embedded mode.
+// This is used when generating webhook URLs for triggers.
+// Example: "http://localhost:8585" or "https://api.example.com"
+func WithWebhookBaseURL(baseURL string) ClientOption {
+	return func(c *ClientConfig) error {
+		c.WebhookBaseURL = baseURL
+		return nil
+	}
+}

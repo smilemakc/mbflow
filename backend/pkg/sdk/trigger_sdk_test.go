@@ -44,8 +44,8 @@ func TestTriggerAPI_Create_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Create_NotImplemented tests that Create returns not implemented
-func TestTriggerAPI_Create_NotImplemented(t *testing.T) {
+// TestTriggerAPI_Create_NoRepository tests that Create returns error when no repository configured
+func TestTriggerAPI_Create_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
@@ -54,14 +54,14 @@ func TestTriggerAPI_Create_NotImplemented(t *testing.T) {
 
 	trigger := &models.Trigger{
 		Name:       "Test Trigger",
-		WorkflowID: "test-workflow-id",
+		WorkflowID: "550e8400-e29b-41d4-a716-446655440000",
 		Type:       models.TriggerTypeManual,
 		Enabled:    true,
 	}
 
 	_, err = client.Triggers().Create(ctx, trigger)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_Get_EmptyID tests that empty trigger ID is rejected
@@ -89,17 +89,17 @@ func TestTriggerAPI_Get_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Get_NotImplemented tests that Get returns not implemented
-func TestTriggerAPI_Get_NotImplemented(t *testing.T) {
+// TestTriggerAPI_Get_NoRepository tests that Get returns error when no repository configured
+func TestTriggerAPI_Get_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
 
 	ctx := context.Background()
 
-	_, err = client.Triggers().Get(ctx, "test-trigger-id")
+	_, err = client.Triggers().Get(ctx, "550e8400-e29b-41d4-a716-446655440000")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_List_ClosedClient tests that closed client returns error
@@ -114,8 +114,8 @@ func TestTriggerAPI_List_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_List_NotImplemented tests that List returns not implemented
-func TestTriggerAPI_List_NotImplemented(t *testing.T) {
+// TestTriggerAPI_List_NoRepository tests that List returns error when no repository configured
+func TestTriggerAPI_List_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
@@ -124,7 +124,7 @@ func TestTriggerAPI_List_NotImplemented(t *testing.T) {
 
 	_, err = client.Triggers().List(ctx, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_List_WithOptions tests listing with filter options
@@ -137,7 +137,7 @@ func TestTriggerAPI_List_WithOptions(t *testing.T) {
 
 	enabled := true
 	opts := &TriggerListOptions{
-		WorkflowID: "test-workflow",
+		WorkflowID: "550e8400-e29b-41d4-a716-446655440000",
 		Type:       string(models.TriggerTypeCron),
 		Enabled:    &enabled,
 		Limit:      10,
@@ -146,7 +146,7 @@ func TestTriggerAPI_List_WithOptions(t *testing.T) {
 
 	_, err = client.Triggers().List(ctx, opts)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_Update_EmptyID tests that empty trigger ID is rejected
@@ -208,8 +208,8 @@ func TestTriggerAPI_Update_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Update_NotImplemented tests that Update returns not implemented
-func TestTriggerAPI_Update_NotImplemented(t *testing.T) {
+// TestTriggerAPI_Update_NoRepository tests that Update returns error when no repository configured
+func TestTriggerAPI_Update_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
@@ -217,16 +217,16 @@ func TestTriggerAPI_Update_NotImplemented(t *testing.T) {
 	ctx := context.Background()
 
 	trigger := &models.Trigger{
-		ID:         "test-trigger-id",
+		ID:         "550e8400-e29b-41d4-a716-446655440000",
 		Name:       "Updated Trigger",
-		WorkflowID: "test-workflow-id",
+		WorkflowID: "550e8400-e29b-41d4-a716-446655440001",
 		Type:       models.TriggerTypeManual,
 		Enabled:    true,
 	}
 
 	_, err = client.Triggers().Update(ctx, trigger)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_Delete_EmptyID tests that empty trigger ID is rejected
@@ -254,17 +254,17 @@ func TestTriggerAPI_Delete_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Delete_NotImplemented tests that Delete returns not implemented
-func TestTriggerAPI_Delete_NotImplemented(t *testing.T) {
+// TestTriggerAPI_Delete_NoRepository tests that Delete returns error when no repository configured
+func TestTriggerAPI_Delete_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
 
 	ctx := context.Background()
 
-	err = client.Triggers().Delete(ctx, "test-trigger-id")
+	err = client.Triggers().Delete(ctx, "550e8400-e29b-41d4-a716-446655440000")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_Enable_EmptyID tests that empty trigger ID is rejected
@@ -292,17 +292,17 @@ func TestTriggerAPI_Enable_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Enable_NotImplemented tests that Enable returns not implemented
-func TestTriggerAPI_Enable_NotImplemented(t *testing.T) {
+// TestTriggerAPI_Enable_NoRepository tests that Enable returns error when no repository configured
+func TestTriggerAPI_Enable_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
 
 	ctx := context.Background()
 
-	err = client.Triggers().Enable(ctx, "test-trigger-id")
+	err = client.Triggers().Enable(ctx, "550e8400-e29b-41d4-a716-446655440000")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_Disable_EmptyID tests that empty trigger ID is rejected
@@ -330,17 +330,17 @@ func TestTriggerAPI_Disable_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Disable_NotImplemented tests that Disable returns not implemented
-func TestTriggerAPI_Disable_NotImplemented(t *testing.T) {
+// TestTriggerAPI_Disable_NoRepository tests that Disable returns error when no repository configured
+func TestTriggerAPI_Disable_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
 
 	ctx := context.Background()
 
-	err = client.Triggers().Disable(ctx, "test-trigger-id")
+	err = client.Triggers().Disable(ctx, "550e8400-e29b-41d4-a716-446655440000")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_Trigger_EmptyID tests that empty trigger ID is rejected
@@ -368,8 +368,8 @@ func TestTriggerAPI_Trigger_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Trigger_NotImplemented tests that Trigger returns not implemented
-func TestTriggerAPI_Trigger_NotImplemented(t *testing.T) {
+// TestTriggerAPI_Trigger_NoRepository tests that Trigger returns error when no repository configured
+func TestTriggerAPI_Trigger_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
@@ -380,9 +380,9 @@ func TestTriggerAPI_Trigger_NotImplemented(t *testing.T) {
 		"key": "value",
 	}
 
-	_, err = client.Triggers().Trigger(ctx, "test-trigger-id", input)
+	_, err = client.Triggers().Trigger(ctx, "550e8400-e29b-41d4-a716-446655440000", input)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_GetWebhookURL_EmptyID tests that empty trigger ID is rejected
@@ -435,8 +435,8 @@ func TestTriggerAPI_GetHistory_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_GetHistory_NotImplemented tests that GetHistory returns not implemented
-func TestTriggerAPI_GetHistory_NotImplemented(t *testing.T) {
+// TestTriggerAPI_GetHistory_NoRepository tests that GetHistory returns error when no repository configured
+func TestTriggerAPI_GetHistory_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
@@ -449,9 +449,9 @@ func TestTriggerAPI_GetHistory_NotImplemented(t *testing.T) {
 		Status: "completed",
 	}
 
-	_, err = client.Triggers().GetHistory(ctx, "test-trigger-id", opts)
+	_, err = client.Triggers().GetHistory(ctx, "550e8400-e29b-41d4-a716-446655440000", opts)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded mode not implemented yet")
+	assert.Contains(t, err.Error(), "no repository configured")
 }
 
 // TestTriggerAPI_TriggerListOptions_Creation tests TriggerListOptions struct

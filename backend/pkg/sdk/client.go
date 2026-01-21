@@ -53,6 +53,7 @@ type Client struct {
 	workflowRepo     repository.WorkflowRepository
 	executionRepo    repository.ExecutionRepository
 	eventRepo        repository.EventRepository
+	triggerRepo      repository.TriggerRepository
 
 	// Lifecycle
 	closed bool
@@ -70,8 +71,9 @@ type ClientConfig struct {
 	Timeout    time.Duration
 
 	// Embedded mode settings
-	DatabaseURL string
-	RedisURL    string
+	DatabaseURL    string
+	RedisURL       string
+	WebhookBaseURL string // Base URL for webhook endpoints (e.g., "http://localhost:8585")
 
 	// Executor configuration
 	ExecutorManager executor.Manager
@@ -275,6 +277,7 @@ func (c *Client) initializeEmbedded() error {
 		// Create repositories
 		c.workflowRepo = storage.NewWorkflowRepository(db)
 		c.executionRepo = storage.NewExecutionRepository(db)
+		c.triggerRepo = storage.NewTriggerRepository(db)
 		// Note: eventRepo is deferred for MVP
 
 		// Create execution manager
