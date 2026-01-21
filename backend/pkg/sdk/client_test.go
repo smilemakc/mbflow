@@ -386,3 +386,37 @@ func (m *mockExecutor) Validate(config map[string]interface{}) error {
 func (m *mockExecutor) Type() string {
 	return m.nodeType
 }
+
+// TestClient_WithAutoMigrate tests auto-migrate option
+func TestClient_WithAutoMigrate(t *testing.T) {
+	client, err := NewClient(
+		WithStandaloneMode(),
+		WithAutoMigrate("migrations"),
+	)
+	require.NoError(t, err)
+	defer client.Close()
+
+	assert.Equal(t, "migrations", client.config.MigrationsDir)
+}
+
+// TestClient_WithAutoMigrate_Empty tests that empty migrations dir is rejected
+func TestClient_WithAutoMigrate_Empty(t *testing.T) {
+	_, err := NewClient(
+		WithStandaloneMode(),
+		WithAutoMigrate(""),
+	)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "migrations directory cannot be empty")
+}
+
+// TestClient_WithWebhookBaseURL tests webhook base URL option
+func TestClient_WithWebhookBaseURL(t *testing.T) {
+	client, err := NewClient(
+		WithStandaloneMode(),
+		WithWebhookBaseURL("https://api.example.com"),
+	)
+	require.NoError(t, err)
+	defer client.Close()
+
+	assert.Equal(t, "https://api.example.com", client.config.WebhookBaseURL)
+}

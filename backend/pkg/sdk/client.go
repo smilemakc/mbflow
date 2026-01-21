@@ -31,6 +31,7 @@ import (
 	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/executor/builtin"
 	"github.com/smilemakc/mbflow/pkg/models"
+	"github.com/uptrace/bun"
 )
 
 // Client is the main entry point for the MBFlow SDK.
@@ -74,6 +75,7 @@ type ClientConfig struct {
 	DatabaseURL    string
 	RedisURL       string
 	WebhookBaseURL string // Base URL for webhook endpoints (e.g., "http://localhost:8585")
+	MigrationsDir  string // Directory with migration files (enables auto-migrate if set)
 
 	// Executor configuration
 	ExecutorManager executor.Manager
@@ -274,6 +276,13 @@ func (c *Client) initializeEmbedded() error {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}
 
+		// Run migrations if configured
+		if c.config.MigrationsDir != "" {
+			if err := c.runMigrations(db); err != nil {
+				return fmt.Errorf("failed to run migrations: %w", err)
+			}
+		}
+
 		// Create repositories
 		c.workflowRepo = storage.NewWorkflowRepository(db)
 		c.executionRepo = storage.NewExecutionRepository(db)
@@ -289,6 +298,28 @@ func (c *Client) initializeEmbedded() error {
 			nil, // resourceRepo - will be nil for SDK
 			nil, // observerManager - optional for SDK
 		)
+	}
+
+	return nil
+}
+
+// runMigrations runs database migrations using the configured migrations directory.
+func (c *Client) runMigrations(db *bun.DB) error {
+	ctx := context.Background()
+
+	migrator, err := storage.NewMigrator(db, c.config.MigrationsDir)
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+
+	// Initialize migration tables (creates bun_migrations table if not exists)
+	if err := migrator.Init(ctx); err != nil {
+		return fmt.Errorf("failed to initialize migrations: %w", err)
+	}
+
+	// Run pending migrations
+	if err := migrator.Up(ctx); err != nil {
+		return fmt.Errorf("failed to apply migrations: %w", err)
 	}
 
 	return nil

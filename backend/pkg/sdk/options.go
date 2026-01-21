@@ -139,3 +139,23 @@ func WithWebhookBaseURL(baseURL string) ClientOption {
 		return nil
 	}
 }
+
+// WithAutoMigrate enables automatic database migrations on client initialization.
+// The migrationsDir should point to the directory containing migration SQL files.
+// Migrations are only run in embedded mode when DatabaseURL is configured.
+//
+// Example:
+//
+//	client, err := sdk.NewClient(
+//	    sdk.WithEmbeddedMode(dbURL, ""),
+//	    sdk.WithAutoMigrate("migrations"),
+//	)
+func WithAutoMigrate(migrationsDir string) ClientOption {
+	return func(c *ClientConfig) error {
+		if migrationsDir == "" {
+			return fmt.Errorf("migrations directory cannot be empty")
+		}
+		c.MigrationsDir = migrationsDir
+		return nil
+	}
+}
