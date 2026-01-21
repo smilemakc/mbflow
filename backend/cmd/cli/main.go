@@ -51,7 +51,7 @@ ADMIN CREATE OPTIONS:
     -full-name <name>     Admin full name (optional)
 
 CONNECTION OPTIONS:
-    -endpoint <url>       MBFlow server endpoint (default: http://localhost:8181)
+    -endpoint <url>       MBFlow server endpoint (default: http://localhost:8585)
     -api-key <key>        API key for authentication
     -timeout <duration>   Request timeout (default: 30s)
 
@@ -152,7 +152,7 @@ func handleWorkflowShow(args []string) {
 	compact := fs.Bool("compact", false, "Compact mode for ASCII")
 	useColor := fs.Bool("color", true, "Use colors in ASCII")
 	output := fs.String("output", "", "Save to file instead of stdout")
-	endpoint := fs.String("endpoint", getEnv("MBFLOW_ENDPOINT", "http://localhost:8181"), "MBFlow server endpoint")
+	endpoint := fs.String("endpoint", getEnv("MBFLOW_ENDPOINT", "http://localhost:8585"), "MBFlow server endpoint")
 	apiKey := fs.String("api-key", getEnv("MBFLOW_API_KEY", ""), "API key for authentication")
 	timeout := fs.Duration("timeout", 30*time.Second, "Request timeout")
 
@@ -223,7 +223,7 @@ func handleWorkflowShow(args []string) {
 func handleWorkflowList(args []string) {
 	// Parse flags
 	fs := flag.NewFlagSet("workflow list", flag.ExitOnError)
-	endpoint := fs.String("endpoint", getEnv("MBFLOW_ENDPOINT", "http://localhost:8181"), "MBFlow server endpoint")
+	endpoint := fs.String("endpoint", getEnv("MBFLOW_ENDPOINT", "http://localhost:8585"), "MBFlow server endpoint")
 	apiKey := fs.String("api-key", getEnv("MBFLOW_API_KEY", ""), "API key for authentication")
 	timeout := fs.Duration("timeout", 30*time.Second, "Request timeout")
 

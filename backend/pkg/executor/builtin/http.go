@@ -99,8 +99,28 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{
 	}
 
 	// Check status code
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+	isErrorStatus := resp.StatusCode >= 400
+	if isErrorStatus {
+		// Check if we should ignore status errors or use custom success codes
+		ignoreStatusErrors := e.GetBoolDefault(config, "ignore_status_errors", false)
+		successStatusCodes := e.getIntSlice(config, "success_status_codes")
+
+		if len(successStatusCodes) > 0 {
+			// Use explicit success status codes if provided
+			isAllowed := false
+			for _, code := range successStatusCodes {
+				if resp.StatusCode == code {
+					isAllowed = true
+					break
+				}
+			}
+			if !isAllowed {
+				return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+			}
+		} else if !ignoreStatusErrors {
+			// Default behavior: error on 4xx/5xx
+			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
+		}
 	}
 
 	// Get content type
@@ -114,6 +134,7 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{
 		"status":       resp.StatusCode,
 		"headers":      resp.Header,
 		"content_type": contentType,
+		"is_error":     isErrorStatus,
 	}
 
 	if isBinary {
@@ -134,6 +155,32 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{
 	}
 
 	return result, nil
+}
+
+// getIntSlice retrieves a slice of integers from config.
+func (e *HTTPExecutor) getIntSlice(config map[string]interface{}, key string) []int {
+	val, ok := config[key]
+	if !ok {
+		return nil
+	}
+
+	switch v := val.(type) {
+	case []int:
+		return v
+	case []interface{}:
+		result := make([]int, 0, len(v))
+		for _, item := range v {
+			switch n := item.(type) {
+			case float64:
+				result = append(result, int(n))
+			case int:
+				result = append(result, n)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
 }
 
 // isBinaryContentType checks if content type indicates binary data
@@ -190,6 +237,26 @@ func (e *HTTPExecutor) Validate(config map[string]interface{}) error {
 
 	if url == "" {
 		return fmt.Errorf("URL cannot be empty")
+	}
+
+	// Validate ignore_status_errors if provided
+	if val, ok := config["ignore_status_errors"]; ok {
+		if _, isBool := val.(bool); !isBool {
+			return fmt.Errorf("ignore_status_errors must be a boolean")
+		}
+	}
+
+	// Validate success_status_codes if provided
+	if val, ok := config["success_status_codes"]; ok {
+		codes := e.getIntSlice(config, "success_status_codes")
+		if codes == nil {
+			return fmt.Errorf("success_status_codes must be an array of integers, got: %T", val)
+		}
+		for _, code := range codes {
+			if code < 100 || code > 599 {
+				return fmt.Errorf("invalid HTTP status code in success_status_codes: %d", code)
+			}
+		}
 	}
 
 	return nil

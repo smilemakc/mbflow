@@ -1,0 +1,242 @@
+# MBFlow Workflow Configuration v1.0
+# Webhook with Conditional Routing
+#
+# This workflow receives webhook events and routes them based on
+# event type and payload content to different processing branches.
+
+metadata:
+  name: "Webhook Conditional Router"
+  description: "Process incoming webhooks with conditional routing based on event type"
+  version: 1
+  tags: ["webhook", "routing", "conditional", "events"]
+
+variables:
+  slack_webhook_url: "{{env.SLACK_WEBHOOK_URL}}"
+  error_notification_email: "{{env.ERROR_EMAIL}}"
+  api_base_url: "https://api.example.com"
+
+nodes:
+  - id: webhook_input
+    name: "Webhook Entry Point"
+    type: transform
+    config:
+      mapping:
+        event_type: "$.event_type"
+        payload: "$.payload"
+        timestamp: "$.timestamp"
+        source: "$.source"
+      output_format: "json"
+    position:
+      x: 100
+      y: 200
+
+  - id: route_by_event
+    name: "Route by Event Type"
+    type: conditional
+    config:
+      expression: "data.event_type"
+      branches:
+        - condition: "== 'user.created'"
+          output: "new_user"
+        - condition: "== 'order.completed'"
+          output: "new_order"
+        - condition: "== 'payment.failed'"
+          output: "payment_error"
+        - condition: "default"
+          output: "unknown"
+    position:
+      x: 300
+      y: 200
+
+  # New User Branch
+  - id: process_new_user
+    name: "Process New User"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/users/onboard"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        user_id: "{{input.payload.user_id}}"
+        email: "{{input.payload.email}}"
+        source: "{{input.source}}"
+      timeout: 30
+    position:
+      x: 550
+      y: 50
+
+  - id: notify_user_created
+    name: "Notify Team - New User"
+    type: http
+    config:
+      url: "{{variables.slack_webhook_url}}"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        text: "🎉 New user registered: {{input.payload.email}}"
+        channel: "#new-users"
+    position:
+      x: 800
+      y: 50
+
+  # Order Completed Branch
+  - id: process_order
+    name: "Process Order"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/orders/{{input.payload.order_id}}/fulfill"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      timeout: 60
+    position:
+      x: 550
+      y: 150
+
+  - id: update_inventory
+    name: "Update Inventory"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/inventory/update"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        order_id: "{{input.payload.order_id}}"
+        items: "{{input.payload.items}}"
+    position:
+      x: 800
+      y: 150
+
+  # Payment Failed Branch
+  - id: handle_payment_error
+    name: "Handle Payment Error"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/payments/{{input.payload.payment_id}}/retry"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      timeout: 30
+    position:
+      x: 550
+      y: 250
+
+  - id: check_retry_result
+    name: "Check Retry Result"
+    type: conditional
+    config:
+      expression: "data.status == 'success'"
+      true_output: "retry_success"
+      false_output: "retry_failed"
+    position:
+      x: 800
+      y: 250
+
+  - id: notify_payment_success
+    name: "Notify Payment Success"
+    type: http
+    config:
+      url: "{{variables.slack_webhook_url}}"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        text: "✅ Payment retry successful for order {{input.payload.order_id}}"
+        channel: "#payments"
+    position:
+      x: 1050
+      y: 200
+
+  - id: escalate_payment_failure
+    name: "Escalate Payment Failure"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/notifications/email"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        to: "{{variables.error_notification_email}}"
+        subject: "Payment Retry Failed - Order {{input.payload.order_id}}"
+        body: "Payment for order {{input.payload.order_id}} failed after retry. Customer: {{input.payload.customer_email}}"
+    position:
+      x: 1050
+      y: 300
+
+  # Unknown Event Branch
+  - id: log_unknown_event
+    name: "Log Unknown Event"
+    type: transform
+    config:
+      mapping:
+        status: "'unknown_event'"
+        event_type: "$.event_type"
+        logged_at: "now()"
+      output_format: "json"
+    position:
+      x: 550
+      y: 350
+
+edges:
+  - id: e1
+    from: webhook_input
+    to: route_by_event
+
+  # New User Branch
+  - id: e2
+    from: route_by_event
+    to: process_new_user
+    condition: "output == 'new_user'"
+
+  - id: e3
+    from: process_new_user
+    to: notify_user_created
+
+  # Order Branch
+  - id: e4
+    from: route_by_event
+    to: process_order
+    condition: "output == 'new_order'"
+
+  - id: e5
+    from: process_order
+    to: update_inventory
+
+  # Payment Error Branch
+  - id: e6
+    from: route_by_event
+    to: handle_payment_error
+    condition: "output == 'payment_error'"
+
+  - id: e7
+    from: handle_payment_error
+    to: check_retry_result
+
+  - id: e8
+    from: check_retry_result
+    to: notify_payment_success
+    condition: "output == 'retry_success'"
+
+  - id: e9
+    from: check_retry_result
+    to: escalate_payment_failure
+    condition: "output == 'retry_failed'"
+
+  # Unknown Event Branch
+  - id: e10
+    from: route_by_event
+    to: log_unknown_event
+    condition: "output == 'unknown'"
+
+trigger:
+  name: "Event Webhook"
+  type: webhook
+  enabled: true
+  config:
+    path: "/webhooks/events"
+    method: "POST"
+    secret: "{{env.WEBHOOK_SECRET}}"
+    validate_signature: true

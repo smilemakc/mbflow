@@ -863,7 +863,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 	}
 	pm, _ := auth.NewProviderManager(cfg, authService)
 
-	authMiddleware := NewAuthMiddleware(pm, authService)
+	authMiddleware := NewAuthMiddleware(pm, authService, nil)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -932,7 +932,7 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 	}
 	pm, _ := auth.NewProviderManager(cfg, authService)
 
-	authMiddleware := NewAuthMiddleware(pm, authService)
+	authMiddleware := NewAuthMiddleware(pm, authService, nil)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -1005,7 +1005,7 @@ func TestAuthMiddleware_RequireAdmin(t *testing.T) {
 	}
 	pm, _ := auth.NewProviderManager(cfg, authService)
 
-	authMiddleware := NewAuthMiddleware(pm, authService)
+	authMiddleware := NewAuthMiddleware(pm, authService, nil)
 
 	router := gin.New()
 	router.Use(gin.Recovery())

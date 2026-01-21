@@ -45,7 +45,7 @@ Once you have workflows in the server:
 
 ```bash
 # List all workflows
-./bin/mbflow-cli workflow list -endpoint http://localhost:8181
+./bin/mbflow-cli workflow list -endpoint http://localhost:8585
 
 # Show workflow as Mermaid diagram
 ./bin/mbflow-cli workflow show <workflow-id> -format mermaid
@@ -62,7 +62,7 @@ Once you have workflows in the server:
 You can set default connection parameters:
 
 ```bash
-export MBFLOW_ENDPOINT=http://localhost:8181
+export MBFLOW_ENDPOINT=http://localhost:8585
 export MBFLOW_API_KEY=your-api-key
 
 # Now you can use CLI without specifying endpoint

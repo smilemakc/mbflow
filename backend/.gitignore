@@ -53,3 +53,4 @@ mbflow-server
 postgres_data/
 redis_data/
 data/
+docker-compose-prod.yml

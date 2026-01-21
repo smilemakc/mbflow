@@ -50,7 +50,7 @@ done
 # Wait for API
 echo -n "Waiting for MBFlow API..."
 for i in {1..30}; do
-    if curl -s http://localhost:8181/health &> /dev/null; then
+    if curl -s http://localhost:8585/health &> /dev/null; then
         echo " Ready!"
         break
     fi
@@ -62,9 +62,9 @@ echo ""
 echo "MBFlow is now running!"
 echo ""
 echo "Services:"
-echo "  API:        http://localhost:8181"
-echo "  Health:     http://localhost:8181/health"
-echo "  Metrics:    http://localhost:8181/metrics"
+echo "  API:        http://localhost:8585"
+echo "  Health:     http://localhost:8585/health"
+echo "  Metrics:    http://localhost:8585/metrics"
 echo "  PostgreSQL: localhost:5432 (user: mbflow, password: mbflow, db: mbflow)"
 echo "  Redis:      localhost:6379"
 echo ""

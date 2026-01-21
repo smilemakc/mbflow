@@ -1,0 +1,458 @@
+# MBFlow Workflow Configuration v1.0
+# Stage 8: Analytics Agent - Замыкание цикла
+
+metadata:
+  name: "Analytics Agent"
+  description: "Сбор метрик, анализ эффективности, автокоррекция стратегии"
+  version: 1
+  tags: ["analytics", "content-pipeline", "llm", "metrics", "optimization"]
+
+variables:
+  # OpenAI Configuration
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  openai_model: "gpt-4-turbo"
+
+  # RAG Backend
+  rag_endpoint: "{{env.RAG_ENDPOINT}}"
+  rag_api_key: "{{env.RAG_API_KEY}}"
+
+  # Auto-action threshold
+  confidence_threshold: 0.8
+
+nodes:
+  # ============================================
+  # DATA COLLECTION
+  # ============================================
+
+  - id: fetch_performance_metrics
+    name: "Fetch Performance Metrics"
+    type: http
+    description: "Получение метрик эффективности за период"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/metrics/brand/{{input.brand_id}}?period={{input.period}}"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 100
+
+  - id: fetch_published_content
+    name: "Fetch Published Content"
+    type: http
+    description: "Получение опубликованного контента за период"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/content/brand/{{input.brand_id}}/published?period={{input.period}}"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 200
+
+  - id: fetch_pipeline_traces
+    name: "Fetch Pipeline Traces"
+    type: http
+    description: "Получение трасс пайплайна для анализа"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/agent-runs?brand_id={{input.brand_id}}&period={{input.period}}"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 300
+
+  - id: fetch_brand_goals
+    name: "Fetch Brand Goals"
+    type: http
+    description: "Получение целей бренда для сравнения"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/brands/{{input.brand_id}}/goals"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 400
+
+  - id: merge_analytics_data
+    name: "Merge Analytics Data"
+    type: merge
+    description: "Объединение всех данных для анализа"
+    config:
+      strategy: combine
+      output_key: analytics_context
+    position:
+      x: 350
+      y: 250
+
+  # ============================================
+  # ANALYTICS AGENT
+  # ============================================
+
+  - id: analytics_agent
+    name: "Analytics Agent LLM"
+    type: llm
+    description: "Анализ эффективности и генерация рекомендаций"
+    config:
+      provider: openai
+      model: "{{variables.openai_model}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.5
+      max_tokens: 5000
+      system_prompt: |
+        Ты — Analytics Agent. Проанализируй эффективность контента и сгенерируй actionable insights.
+
+        ## Задачи:
+
+        ### 1. Pattern Analysis
+        - Какие topics/formats/channels/CTA дают лучшие метрики
+        - Какие показывают низкий engagement/reach
+        - Аномалии: неожиданные провалы/успехи
+
+        ### 2. Hypothesis Generation
+        - Почему (корреляции между TOV/length/timing и метриками)
+        - A/B идеи для тестирования
+
+        ### 3. Recommendations
+        - Как менять ToneOfVoice/CTA/длину
+        - Как перераспределить усилия между каналами
+        - Какие темы добавить/убрать
+
+        ### 4. Auto-actions (если confidence > {{variables.confidence_threshold}})
+        - Скорректировать частоту по каналам
+        - Перелить бюджет между форматами
+        - Добавить/убрать темы из templates
+
+        ### 5. Pipeline Performance
+        - Анализ работы агентов (latency, cost, quality)
+        - Выявление bottlenecks
+        - Рекомендации по оптимизации
+
+        Выведи JSON:
+        {
+          "report": {
+            "period": "analyzed_period",
+            "summary": "краткое резюме на 2-3 предложения",
+            "key_metrics": {
+              "total_posts": 50,
+              "avg_engagement_rate": 0.045,
+              "total_reach": 150000,
+              "goal_achievement": 0.85
+            }
+          },
+          "pattern_analysis": {
+            "top_performers": [
+              {
+                "item_id": "...",
+                "topic": "...",
+                "format": "...",
+                "channel": "...",
+                "engagement_rate": 0.08,
+                "success_factors": ["factor1", "factor2"]
+              }
+            ],
+            "underperformers": [...],
+            "anomalies": [
+              {
+                "item_id": "...",
+                "type": "unexpected_success|unexpected_failure",
+                "description": "описание",
+                "possible_causes": ["причина1", "причина2"]
+              }
+            ],
+            "patterns": [
+              {
+                "pattern": "описание паттерна",
+                "evidence": ["evidence1", "evidence2"],
+                "confidence": 0.85
+              }
+            ]
+          },
+          "hypotheses": [
+            {
+              "hypothesis": "гипотеза",
+              "supporting_data": ["data1", "data2"],
+              "test_suggestion": "как проверить",
+              "confidence": 0.7
+            }
+          ],
+          "recommendations": [
+            {
+              "category": "tov|cta|timing|channel|topic|format",
+              "recommendation": "конкретная рекомендация",
+              "expected_impact": "high|medium|low",
+              "effort": "high|medium|low",
+              "priority": 1
+            }
+          ],
+          "auto_actions": [
+            {
+              "action_type": "adjust_frequency|reallocate_budget|modify_template",
+              "description": "описание действия",
+              "parameters": {...},
+              "confidence": 0.85,
+              "can_auto_apply": true
+            }
+          ],
+          "pipeline_performance": {
+            "total_runs": 100,
+            "avg_latency_ms": 45000,
+            "total_cost": 25.50,
+            "cost_per_item": 0.255,
+            "agent_stats": {
+              "planner": {"avg_latency": 5000, "avg_cost": 0.02},
+              "brief_builder": {...},
+              ...
+            },
+            "bottlenecks": ["описание узких мест"],
+            "optimization_suggestions": ["предложения по оптимизации"]
+          },
+          "next_period_focus": ["фокус на следующий период"]
+        }
+      user_prompt: |
+        ## Период анализа: {{input.period}}
+
+        ## Performance Metrics:
+        {{input.analytics_context.metrics | json}}
+
+        ## Published Content:
+        {{input.analytics_context.published_content | json}}
+
+        ## Pipeline Traces:
+        {{input.analytics_context.pipeline_traces | json}}
+
+        ## Brand Goals:
+        {{input.analytics_context.brand_goals | json}}
+
+        ---
+
+        Проведи полный анализ и сгенерируй actionable insights.
+        Для auto_actions укажи confidence и можно ли применить автоматически.
+    position:
+      x: 550
+      y: 250
+
+  # ============================================
+  # PROCESSING
+  # ============================================
+
+  - id: parse_analytics
+    name: "Parse Analytics Report"
+    type: transform
+    description: "Парсинг отчёта"
+    config:
+      mode: expression
+      expression: |
+        let parsed = input | fromjson;
+        {
+          "report": parsed.report,
+          "pattern_analysis": parsed.pattern_analysis,
+          "hypotheses": parsed.hypotheses,
+          "recommendations": parsed.recommendations,
+          "auto_actions": parsed.auto_actions,
+          "pipeline_performance": parsed.pipeline_performance,
+          "next_period_focus": parsed.next_period_focus
+        }
+    position:
+      x: 800
+      y: 250
+
+  - id: filter_auto_actions
+    name: "Filter Auto-Applicable Actions"
+    type: transform
+    description: "Фильтрация действий для автоприменения"
+    config:
+      mode: expression
+      expression: |
+        let threshold = 0.8;
+        let auto_applicable = input.auto_actions | filter(.can_auto_apply && .confidence >= threshold);
+        {
+          "auto_applicable_actions": auto_applicable,
+          "manual_actions": input.auto_actions | filter(!.can_auto_apply || .confidence < threshold),
+          "report": input.report,
+          "recommendations": input.recommendations,
+          "pipeline_performance": input.pipeline_performance
+        }
+    position:
+      x: 1000
+      y: 250
+
+  - id: check_auto_actions
+    name: "Check Auto Actions"
+    type: conditional
+    description: "Проверка наличия авто-действий"
+    config:
+      conditions:
+        - expression: "(input.auto_applicable_actions | len) > 0"
+          output: "has_auto_actions"
+        - expression: "true"
+          output: "no_auto_actions"
+    position:
+      x: 1200
+      y: 250
+
+  # ============================================
+  # AUTO-APPLY ACTIONS
+  # ============================================
+
+  - id: apply_auto_actions
+    name: "Apply Auto Actions"
+    type: http
+    description: "Применение автоматических корректировок"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/auto-actions/apply"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        brand_id: "{{input.brand_id}}"
+        actions: "{{input.auto_applicable_actions}}"
+        applied_by: "system:analytics_agent"
+        confidence_threshold: "{{variables.confidence_threshold}}"
+    position:
+      x: 1400
+      y: 150
+
+  - id: log_auto_actions
+    name: "Log Auto Actions"
+    type: http
+    description: "Логирование применённых действий"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/auto-actions/log"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        brand_id: "{{input.brand_id}}"
+        actions_applied: "{{input.applied_actions}}"
+        timestamp: "{{now}}"
+    position:
+      x: 1600
+      y: 150
+
+  # ============================================
+  # SAVE REPORT
+  # ============================================
+
+  - id: merge_final
+    name: "Merge Final Results"
+    type: merge
+    description: "Объединение всех результатов"
+    config:
+      strategy: combine
+      output_key: final_results
+    position:
+      x: 1600
+      y: 250
+
+  - id: save_analytics_report
+    name: "Save Analytics Report"
+    type: http
+    description: "Сохранение аналитического отчёта"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/analytics-reports"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        brand_id: "{{input.brand_id}}"
+        period: "{{input.period}}"
+        report: "{{input.final_results.report}}"
+        recommendations: "{{input.final_results.recommendations}}"
+        auto_actions_applied: "{{input.final_results.auto_actions_applied}}"
+        pipeline_performance: "{{input.final_results.pipeline_performance}}"
+    position:
+      x: 1800
+      y: 250
+
+  - id: output_result
+    name: "Output Result"
+    type: transform
+    description: "Формирование выходных данных"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "success",
+          "report": {{input.final_results.report | json}},
+          "recommendations_count": {{input.final_results.recommendations | len}},
+          "auto_actions_applied": {{input.final_results.auto_actions_applied | len}},
+          "pipeline_performance": {{input.final_results.pipeline_performance | json}},
+          "next_period_focus": {{input.next_period_focus | json}}
+        }
+    position:
+      x: 2000
+      y: 250
+
+edges:
+  # Data collection
+  - id: e1
+    from: fetch_performance_metrics
+    to: merge_analytics_data
+  - id: e2
+    from: fetch_published_content
+    to: merge_analytics_data
+  - id: e3
+    from: fetch_pipeline_traces
+    to: merge_analytics_data
+  - id: e4
+    from: fetch_brand_goals
+    to: merge_analytics_data
+
+  # Processing
+  - id: e5
+    from: merge_analytics_data
+    to: analytics_agent
+  - id: e6
+    from: analytics_agent
+    to: parse_analytics
+  - id: e7
+    from: parse_analytics
+    to: filter_auto_actions
+  - id: e8
+    from: filter_auto_actions
+    to: check_auto_actions
+
+  # Auto-actions path
+  - id: e9
+    from: check_auto_actions
+    to: apply_auto_actions
+    source_handle: "has_auto_actions"
+  - id: e10
+    from: apply_auto_actions
+    to: log_auto_actions
+  - id: e11
+    from: log_auto_actions
+    to: merge_final
+
+  # No auto-actions path
+  - id: e12
+    from: check_auto_actions
+    to: merge_final
+    source_handle: "no_auto_actions"
+
+  # Save and output
+  - id: e13
+    from: merge_final
+    to: save_analytics_report
+  - id: e14
+    from: save_analytics_report
+    to: output_result
+
+trigger:
+  name: "Analytics Agent Trigger"
+  description: "Запуск аналитики по расписанию или вручную"
+  type: cron
+  enabled: true
+  config:
+    schedule: "0 6 * * 1"  # Каждый понедельник в 6:00
+    timezone: "Europe/Moscow"

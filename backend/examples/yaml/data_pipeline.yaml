@@ -1,0 +1,380 @@
+# MBFlow Workflow Configuration v1.0
+# Data Pipeline: CSV → JSON → Google Sheets ETL
+#
+# This workflow downloads CSV data from an SFTP/HTTP source, transforms it,
+# and loads it into Google Sheets for reporting and analysis.
+
+metadata:
+  name: "CSV to Google Sheets ETL Pipeline"
+  description: "Extract CSV data, transform to JSON, and load into Google Sheets"
+  version: 1
+  tags: ["etl", "csv", "google-sheets", "data-pipeline", "automation"]
+
+variables:
+  data_source_url: "{{env.DATA_SOURCE_URL}}"
+  data_source_api_key: "{{env.DATA_SOURCE_API_KEY}}"
+  google_credentials: "{{env.GOOGLE_CREDENTIALS}}"
+  spreadsheet_id: "{{env.GOOGLE_SPREADSHEET_ID}}"
+  sheet_name: "Imported Data"
+  archive_sheet_name: "Archive"
+  notification_email: "{{env.NOTIFICATION_EMAIL}}"
+
+nodes:
+  - id: prepare_request
+    name: "Prepare Data Request"
+    type: transform
+    config:
+      mapping:
+        timestamp: "now()"
+        date_filter: "today().subtract(1, 'day').format('YYYY-MM-DD')"
+        request_id: "uuid()"
+      output_format: "json"
+    position:
+      x: 100
+      y: 200
+
+  - id: fetch_csv
+    name: "Fetch CSV Data"
+    type: http
+    config:
+      url: "{{variables.data_source_url}}/export"
+      method: "GET"
+      headers:
+        Authorization: "Bearer {{variables.data_source_api_key}}"
+        Accept: "text/csv"
+      query_params:
+        format: "csv"
+        date: "{{input.date_filter}}"
+      timeout: 120
+      response_type: "text"
+    position:
+      x: 300
+      y: 200
+
+  - id: check_data
+    name: "Check Data Retrieved"
+    type: conditional
+    config:
+      expression: "data != null && data.length > 0"
+      true_output: "has_data"
+      false_output: "no_data"
+    position:
+      x: 500
+      y: 200
+
+  - id: parse_csv
+    name: "Parse CSV to JSON"
+    type: csv_to_json
+    config:
+      delimiter: ","
+      has_header: true
+      skip_empty_rows: true
+      trim_values: true
+      type_inference: true
+      column_mapping:
+        id: "record_id"
+        date: "transaction_date"
+        amount: "amount"
+        customer: "customer_name"
+        product: "product_name"
+        quantity: "qty"
+        status: "status"
+    position:
+      x: 700
+      y: 150
+
+  - id: validate_data
+    name: "Validate Data"
+    type: transform
+    config:
+      mapping:
+        valid_records: "$.records[?(@.amount > 0 && @.qty > 0)]"
+        invalid_records: "$.records[?(@.amount <= 0 || @.qty <= 0)]"
+        total_records: "$.records.length()"
+        valid_count: "$.records[?(@.amount > 0 && @.qty > 0)].length()"
+        invalid_count: "$.records[?(@.amount <= 0 || @.qty <= 0)].length()"
+      output_format: "json"
+    position:
+      x: 900
+      y: 150
+
+  - id: check_validation
+    name: "Check Validation Results"
+    type: conditional
+    config:
+      expression: "data.valid_count > 0"
+      true_output: "valid"
+      false_output: "all_invalid"
+    position:
+      x: 1100
+      y: 150
+
+  - id: transform_for_sheets
+    name: "Transform for Google Sheets"
+    type: transform
+    config:
+      mapping:
+        values: |
+          $.valid_records.map(r => [
+            r.record_id,
+            r.transaction_date,
+            r.customer_name,
+            r.product_name,
+            r.qty,
+            r.amount,
+            r.status,
+            now().format('YYYY-MM-DD HH:mm:ss')
+          ])
+        headers:
+          - "Record ID"
+          - "Transaction Date"
+          - "Customer"
+          - "Product"
+          - "Quantity"
+          - "Amount"
+          - "Status"
+          - "Imported At"
+        summary:
+          total_amount: "$.valid_records.sum('amount')"
+          total_quantity: "$.valid_records.sum('qty')"
+          record_count: "$.valid_count"
+      output_format: "json"
+    position:
+      x: 1300
+      y: 100
+
+  - id: clear_sheet
+    name: "Clear Existing Data"
+    type: google_sheets
+    config:
+      operation: "clear"
+      credentials: "{{variables.google_credentials}}"
+      spreadsheet_id: "{{variables.spreadsheet_id}}"
+      range: "{{variables.sheet_name}}!A2:H"
+    position:
+      x: 1500
+      y: 100
+
+  - id: write_headers
+    name: "Write Headers"
+    type: google_sheets
+    config:
+      operation: "update"
+      credentials: "{{variables.google_credentials}}"
+      spreadsheet_id: "{{variables.spreadsheet_id}}"
+      range: "{{variables.sheet_name}}!A1:H1"
+      values:
+        - "{{input.headers}}"
+      value_input_option: "RAW"
+    position:
+      x: 1700
+      y: 100
+
+  - id: write_data
+    name: "Write Data Rows"
+    type: google_sheets
+    config:
+      operation: "append"
+      credentials: "{{variables.google_credentials}}"
+      spreadsheet_id: "{{variables.spreadsheet_id}}"
+      range: "{{variables.sheet_name}}!A:H"
+      values: "{{input.values}}"
+      value_input_option: "USER_ENTERED"
+    position:
+      x: 1900
+      y: 100
+
+  - id: archive_data
+    name: "Archive to History Sheet"
+    type: google_sheets
+    config:
+      operation: "append"
+      credentials: "{{variables.google_credentials}}"
+      spreadsheet_id: "{{variables.spreadsheet_id}}"
+      range: "{{variables.archive_sheet_name}}!A:H"
+      values: "{{input.values}}"
+      value_input_option: "USER_ENTERED"
+    position:
+      x: 2100
+      y: 100
+
+  - id: create_summary
+    name: "Create Import Summary"
+    type: transform
+    config:
+      mapping:
+        status: "'success'"
+        imported_at: "now().format('YYYY-MM-DD HH:mm:ss')"
+        records_imported: "$.summary.record_count"
+        total_amount: "$.summary.total_amount"
+        total_quantity: "$.summary.total_quantity"
+        spreadsheet_url: "'https://docs.google.com/spreadsheets/d/' + variables.spreadsheet_id"
+      output_format: "json"
+    position:
+      x: 2300
+      y: 100
+
+  - id: send_success_notification
+    name: "Send Success Notification"
+    type: http
+    config:
+      url: "https://api.sendgrid.com/v3/mail/send"
+      method: "POST"
+      headers:
+        Authorization: "Bearer {{env.SENDGRID_API_KEY}}"
+        Content-Type: "application/json"
+      body:
+        personalizations:
+          - to:
+              - email: "{{variables.notification_email}}"
+        from:
+          email: "etl@company.com"
+        subject: "ETL Pipeline Success - {{input.records_imported}} records imported"
+        content:
+          - type: "text/plain"
+            value: |
+              ETL Pipeline completed successfully.
+
+              Summary:
+              - Records Imported: {{input.records_imported}}
+              - Total Amount: ${{input.total_amount}}
+              - Total Quantity: {{input.total_quantity}}
+              - Imported At: {{input.imported_at}}
+
+              View the data: {{input.spreadsheet_url}}
+    position:
+      x: 2500
+      y: 100
+
+  # Error handling branches
+  - id: log_no_data
+    name: "Log No Data"
+    type: transform
+    config:
+      mapping:
+        status: "'no_data'"
+        message: "'No data available for the specified date range'"
+        timestamp: "now()"
+      output_format: "json"
+    position:
+      x: 700
+      y: 300
+
+  - id: log_validation_failure
+    name: "Log Validation Failure"
+    type: transform
+    config:
+      mapping:
+        status: "'validation_failed'"
+        message: "'All records failed validation'"
+        invalid_count: "$.invalid_count"
+        timestamp: "now()"
+      output_format: "json"
+    position:
+      x: 1300
+      y: 250
+
+  - id: send_error_notification
+    name: "Send Error Notification"
+    type: http
+    config:
+      url: "https://api.sendgrid.com/v3/mail/send"
+      method: "POST"
+      headers:
+        Authorization: "Bearer {{env.SENDGRID_API_KEY}}"
+        Content-Type: "application/json"
+      body:
+        personalizations:
+          - to:
+              - email: "{{variables.notification_email}}"
+        from:
+          email: "etl@company.com"
+        subject: "ETL Pipeline Issue - {{input.status}}"
+        content:
+          - type: "text/plain"
+            value: |
+              ETL Pipeline encountered an issue.
+
+              Status: {{input.status}}
+              Message: {{input.message}}
+              Timestamp: {{input.timestamp}}
+    position:
+      x: 1500
+      y: 300
+
+edges:
+  - id: e1
+    from: prepare_request
+    to: fetch_csv
+
+  - id: e2
+    from: fetch_csv
+    to: check_data
+
+  - id: e3
+    from: check_data
+    to: parse_csv
+    condition: "output == 'has_data'"
+
+  - id: e4
+    from: check_data
+    to: log_no_data
+    condition: "output == 'no_data'"
+
+  - id: e5
+    from: parse_csv
+    to: validate_data
+
+  - id: e6
+    from: validate_data
+    to: check_validation
+
+  - id: e7
+    from: check_validation
+    to: transform_for_sheets
+    condition: "output == 'valid'"
+
+  - id: e8
+    from: check_validation
+    to: log_validation_failure
+    condition: "output == 'all_invalid'"
+
+  - id: e9
+    from: transform_for_sheets
+    to: clear_sheet
+
+  - id: e10
+    from: clear_sheet
+    to: write_headers
+
+  - id: e11
+    from: write_headers
+    to: write_data
+
+  - id: e12
+    from: write_data
+    to: archive_data
+
+  - id: e13
+    from: archive_data
+    to: create_summary
+
+  - id: e14
+    from: create_summary
+    to: send_success_notification
+
+  - id: e15
+    from: log_no_data
+    to: send_error_notification
+
+  - id: e16
+    from: log_validation_failure
+    to: send_error_notification
+
+trigger:
+  name: "Daily ETL Schedule"
+  type: cron
+  enabled: true
+  config:
+    schedule: "0 6 * * *"  # 6 AM daily
+    timezone: "UTC"

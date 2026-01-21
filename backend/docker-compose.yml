@@ -46,12 +46,12 @@ services:
     environment:
       DATABASE_URL: postgres://mbflow:mbflow@postgres:5432/mbflow?sslmode=disable
       REDIS_URL: redis://redis:6379
-      PORT: 8181
+      PORT: 8585
       LOG_LEVEL: info
       LOG_FORMAT: json
       CORS_ENABLED: "true"
     ports:
-      - "8181:8181"
+      - "8585:8585"
     depends_on:
       postgres:
         condition: service_healthy

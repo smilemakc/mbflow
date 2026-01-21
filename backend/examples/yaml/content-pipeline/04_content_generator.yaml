@@ -1,0 +1,347 @@
+# MBFlow Workflow Configuration v1.0
+# Stage 4: Content Generator Agent - Генерация вариантов
+
+metadata:
+  name: "Content Generator Agent"
+  description: "Генерация N вариантов контента с разными angles, CTA и storytelling"
+  version: 1
+  tags: ["generator", "content-pipeline", "llm", "variants"]
+
+variables:
+  # OpenAI Configuration
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  openai_model: "gpt-4-turbo"
+
+  # Generation settings
+  default_variants_count: 3
+
+  # RAG Backend
+  rag_endpoint: "{{env.RAG_ENDPOINT}}"
+  rag_api_key: "{{env.RAG_API_KEY}}"
+
+nodes:
+  # ============================================
+  # PREPARATION
+  # ============================================
+
+  - id: prepare_context
+    name: "Prepare Generation Context"
+    type: transform
+    description: "Подготовка контекста для генератора"
+    config:
+      mode: expression
+      expression: |
+        {
+          "brief": input.brief,
+          "evidence_bundle": input.evidence_bundle,
+          "requirements_snapshot": input.requirements_snapshot,
+          "variants_count": input.variants_count ?? 3,
+          "has_evidence": (input.evidence_bundle.facts | len) > 0
+        }
+    position:
+      x: 100
+      y: 200
+
+  - id: check_evidence
+    name: "Check Evidence Availability"
+    type: conditional
+    description: "Проверка наличия доказательной базы"
+    config:
+      conditions:
+        - expression: "input.has_evidence == true"
+          output: "full_generation"
+        - expression: "true"
+          output: "limited_generation"
+    position:
+      x: 300
+      y: 200
+
+  # ============================================
+  # FULL GENERATION (with evidence)
+  # ============================================
+
+  - id: content_generator_full
+    name: "Content Generator (Full)"
+    type: llm
+    description: "Полная генерация с verified claims"
+    config:
+      provider: openai
+      model: "{{variables.openai_model}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.8
+      max_tokens: 6000
+      system_prompt: |
+        Ты — ContentGenerator Agent. Создай {{input.variants_count}} уникальных варианта контента.
+
+        КРИТИЧЕСКИЕ ПРАВИЛА:
+        1. Используй ТОЛЬКО verified_claims из EvidenceBundle
+        2. НЕ придумывай факты, статистику, цитаты
+        3. Каждый вариант должен иметь уникальный angle
+        4. Соблюдай все constraints из RequirementsSnapshot
+
+        Обеспечь diversity между вариантами:
+        - Разные storytelling подходы (emotional, rational, social_proof)
+        - Разные CTA (buy, learn, engage, share)
+        - Разные lengths (в рамках constraints)
+        - Разные hooks (вопрос, статистика, история)
+
+        Для каждого варианта:
+        - Явно укажи использованные claims
+        - Добавь metadata для анализа
+        - Предложи hashtags
+        - Определи target emotion
+
+        Выведи JSON:
+        {
+          "variants": [
+            {
+              "id": "variant_1",
+              "content": "полный текст контента",
+              "metadata": {
+                "angle": "emotional_story|rational_benefits|social_proof|expert_opinion",
+                "primary_emotion": "curiosity|trust|excitement|urgency|joy|fomo",
+                "secondary_emotion": "...",
+                "cta_type": "buy|learn|engage|share|save|comment",
+                "cta_text": "текст призыва к действию",
+                "storytelling": "problem_solution|before_after|testimonial|how_to|listicle",
+                "hook_type": "question|statistic|story|challenge|bold_statement",
+                "length": 250,
+                "readability_score": 0.85
+              },
+              "used_claims": ["claim_1", "claim_2"],
+              "used_facts": ["fact_1", "fact_3"],
+              "hashtags": ["#tag1", "#tag2", "#tag3"],
+              "mentions": ["@mention1"],
+              "emoji_count": 3,
+              "structure": {
+                "hook": "первое предложение",
+                "body": "основная часть",
+                "cta": "призыв к действию"
+              },
+              "predicted_performance": {
+                "engagement": "high|medium|low",
+                "shareability": "high|medium|low",
+                "conversion_potential": "high|medium|low"
+              }
+            }
+          ],
+          "generation_notes": "заметки о процессе генерации",
+          "diversity_check": {
+            "angles_used": ["angle1", "angle2"],
+            "emotions_covered": ["emotion1", "emotion2"],
+            "cta_types_used": ["cta1", "cta2"]
+          },
+          "claims_coverage": {
+            "total_claims": 5,
+            "used_claims": 4,
+            "unused_claims": ["claim_5"],
+            "coverage_percent": 80
+          }
+        }
+      user_prompt: |
+        ## Brief:
+        {{input.brief | json}}
+
+        ## EvidenceBundle:
+        {{input.evidence_bundle | json}}
+
+        ## Requirements Snapshot:
+        {{input.requirements_snapshot | json}}
+
+        ## Количество вариантов: {{input.variants_count}}
+
+        ---
+
+        Создай {{input.variants_count}} уникальных варианта контента.
+        Обеспечь максимальное разнообразие подходов.
+    position:
+      x: 500
+      y: 100
+
+  # ============================================
+  # LIMITED GENERATION (no evidence)
+  # ============================================
+
+  - id: content_generator_limited
+    name: "Content Generator (Limited)"
+    type: llm
+    description: "Ограниченная генерация без factual claims"
+    config:
+      provider: openai
+      model: "{{variables.openai_model}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.8
+      max_tokens: 4000
+      system_prompt: |
+        Ты — ContentGenerator Agent в LIMITED режиме.
+
+        КРИТИЧЕСКОЕ ОГРАНИЧЕНИЕ:
+        EvidenceBundle пуст или недостаточен. Ты НЕ МОЖЕШЬ делать:
+        - Конкретные factual claims
+        - Упоминать статистику
+        - Цитировать источники
+        - Делать утверждения о продукте, которые требуют подтверждения
+
+        ЧТО МОЖНО:
+        - Общие эмоциональные послания
+        - Вопросы к аудитории
+        - Приглашения узнать больше
+        - Soft CTA без конкретных обещаний
+
+        Выведи JSON того же формата, но с пометкой "limited_generation": true
+      user_prompt: |
+        ## Brief:
+        {{input.brief | json}}
+
+        ## Requirements Snapshot:
+        {{input.requirements_snapshot | json}}
+
+        ## Количество вариантов: {{input.variants_count}}
+
+        ---
+
+        ВНИМАНИЕ: EvidenceBundle пуст. Генерируй только общий контент без factual claims.
+    position:
+      x: 500
+      y: 300
+
+  # ============================================
+  # OUTPUT
+  # ============================================
+
+  - id: merge_variants
+    name: "Merge Variants"
+    type: merge
+    description: "Объединение результатов генерации"
+    config:
+      strategy: first_available
+      output_key: generation_result
+    position:
+      x: 700
+      y: 200
+
+  - id: parse_variants
+    name: "Parse Variants"
+    type: transform
+    description: "Парсинг и валидация вариантов"
+    config:
+      mode: expression
+      expression: |
+        let parsed = input.generation_result | fromjson;
+        {
+          "variants": parsed.variants,
+          "generation_notes": parsed.generation_notes,
+          "diversity_check": parsed.diversity_check,
+          "claims_coverage": parsed.claims_coverage,
+          "limited_generation": parsed.limited_generation ?? false
+        }
+    position:
+      x: 900
+      y: 200
+
+  - id: validate_constraints
+    name: "Validate Constraints"
+    type: transform
+    description: "Проверка соответствия constraints"
+    config:
+      mode: expression
+      expression: |
+        let constraints = input.requirements_snapshot.channel_constraints;
+        let validated = input.variants | map({
+          variant: .,
+          length_ok: .metadata.length <= constraints.max_length,
+          hashtags_ok: (.hashtags | len) <= constraints.hashtag_limit,
+          valid: true
+        });
+        {
+          "variants": input.variants,
+          "validation_results": validated,
+          "all_valid": validated | all(.valid)
+        }
+    position:
+      x: 1100
+      y: 200
+
+  - id: save_variants
+    name: "Save Variants"
+    type: http
+    description: "Сохранение вариантов в базу"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/content-variants"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        brief_id: "{{input.brief.id}}"
+        pipeline_id: "{{input.pipeline_id}}"
+        variants: "{{input.variants}}"
+        generation_notes: "{{input.generation_notes}}"
+        limited_generation: "{{input.limited_generation}}"
+    position:
+      x: 1300
+      y: 200
+
+  - id: output_result
+    name: "Output Result"
+    type: transform
+    description: "Формирование выходных данных"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "success",
+          "variants": {{input.variants | json}},
+          "variants_count": {{input.variants | len}},
+          "limited_generation": {{input.limited_generation}},
+          "diversity_check": {{input.diversity_check | json}},
+          "claims_coverage": {{input.claims_coverage | json}}
+        }
+    position:
+      x: 1500
+      y: 200
+
+edges:
+  # Preparation
+  - id: e1
+    from: prepare_context
+    to: check_evidence
+
+  # Full generation path
+  - id: e2
+    from: check_evidence
+    to: content_generator_full
+    source_handle: "full_generation"
+  - id: e3
+    from: content_generator_full
+    to: merge_variants
+
+  # Limited generation path
+  - id: e4
+    from: check_evidence
+    to: content_generator_limited
+    source_handle: "limited_generation"
+  - id: e5
+    from: content_generator_limited
+    to: merge_variants
+
+  # Output chain
+  - id: e6
+    from: merge_variants
+    to: parse_variants
+  - id: e7
+    from: parse_variants
+    to: validate_constraints
+  - id: e8
+    from: validate_constraints
+    to: save_variants
+  - id: e9
+    from: save_variants
+    to: output_result
+
+trigger:
+  name: "Content Generator Sub-workflow"
+  description: "Вызывается из оркестратора"
+  type: manual
+  enabled: true
+  config: {}

@@ -1,0 +1,155 @@
+# MBFlow Workflow Configuration v1.0
+# RSS Feed → AI Analysis → Telegram Notifications
+#
+# This workflow monitors an RSS feed, analyzes new entries with AI,
+# and sends formatted notifications to a Telegram channel.
+
+metadata:
+  name: "RSS AI Telegram Pipeline"
+  description: "Monitor RSS feeds, analyze content with AI, and send Telegram notifications"
+  version: 1
+  tags: ["rss", "ai", "telegram", "notifications"]
+
+variables:
+  rss_feed_url: "https://feeds.example.com/news.xml"
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  telegram_bot_token: "{{env.TELEGRAM_BOT_TOKEN}}"
+  telegram_chat_id: "{{env.TELEGRAM_CHAT_ID}}"
+
+nodes:
+  - id: fetch_rss
+    name: "Fetch RSS Feed"
+    type: rss_parser
+    config:
+      url: "{{variables.rss_feed_url}}"
+      max_items: 10
+      include_content: true
+    position:
+      x: 100
+      y: 200
+
+  - id: transform_items
+    name: "Extract Items"
+    type: transform
+    config:
+      mapping:
+        items: "$.items"
+        count: "$.items.length()"
+      output_format: "json"
+    position:
+      x: 300
+      y: 200
+
+  - id: check_new_items
+    name: "Check for New Items"
+    type: conditional
+    config:
+      expression: "data.count > 0"
+      true_output: "has_items"
+      false_output: "no_items"
+    position:
+      x: 500
+      y: 200
+
+  - id: ai_analyze
+    name: "AI Content Analysis"
+    type: llm
+    config:
+      provider: "openai"
+      model: "gpt-4"
+      api_key: "{{variables.openai_api_key}}"
+      prompt: |
+        Analyze the following RSS feed items and provide a brief summary for each.
+        Focus on key insights and actionable information.
+
+        Items:
+        {{input.items}}
+
+        Provide output as JSON with format:
+        {
+          "summaries": [
+            {"title": "...", "summary": "...", "importance": "high|medium|low"}
+          ]
+        }
+      max_tokens: 2000
+      temperature: 0.3
+    position:
+      x: 700
+      y: 150
+
+  - id: format_message
+    name: "Format Telegram Message"
+    type: transform
+    config:
+      template: |
+        🗞️ <b>RSS Feed Update</b>
+
+        {{#each input.summaries}}
+        {{#if (eq importance "high")}}🔴{{/if}}{{#if (eq importance "medium")}}🟡{{/if}}{{#if (eq importance "low")}}🟢{{/if}} <b>{{title}}</b>
+        {{summary}}
+
+        {{/each}}
+      output_format: "string"
+    position:
+      x: 900
+      y: 150
+
+  - id: send_telegram
+    name: "Send Telegram Notification"
+    type: telegram
+    config:
+      bot_token: "{{variables.telegram_bot_token}}"
+      chat_id: "{{variables.telegram_chat_id}}"
+      message: "{{input}}"
+      parse_mode: "HTML"
+      disable_web_page_preview: true
+    position:
+      x: 1100
+      y: 150
+
+  - id: log_no_items
+    name: "Log No New Items"
+    type: transform
+    config:
+      mapping:
+        status: "'no_new_items'"
+        timestamp: "now()"
+      output_format: "json"
+    position:
+      x: 700
+      y: 300
+
+edges:
+  - id: e1
+    from: fetch_rss
+    to: transform_items
+
+  - id: e2
+    from: transform_items
+    to: check_new_items
+
+  - id: e3
+    from: check_new_items
+    to: ai_analyze
+    condition: "output == 'has_items'"
+
+  - id: e4
+    from: check_new_items
+    to: log_no_items
+    condition: "output == 'no_items'"
+
+  - id: e5
+    from: ai_analyze
+    to: format_message
+
+  - id: e6
+    from: format_message
+    to: send_telegram
+
+trigger:
+  name: "RSS Check Schedule"
+  type: cron
+  enabled: true
+  config:
+    schedule: "0 */2 * * *"  # Every 2 hours
+    timezone: "Europe/Moscow"

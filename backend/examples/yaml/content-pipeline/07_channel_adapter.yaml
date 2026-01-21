@@ -1,0 +1,345 @@
+# MBFlow Workflow Configuration v1.0
+# Stage 7: Channel Adapter Agent - Адаптация под платформы
+
+metadata:
+  name: "Channel Adapter Agent"
+  description: "Адаптация контента под разные платформы и placements"
+  version: 1
+  tags: ["adapter", "content-pipeline", "llm", "channels", "publishing"]
+
+variables:
+  # OpenAI Configuration
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  openai_model: "gpt-3.5-turbo"  # Cheaper model for adaptation
+
+  # RAG Backend
+  rag_endpoint: "{{env.RAG_ENDPOINT}}"
+  rag_api_key: "{{env.RAG_API_KEY}}"
+
+  # Publishing APIs
+  telegram_bot_token: "{{env.TELEGRAM_BOT_TOKEN}}"
+  telegram_channel_id: "{{env.TELEGRAM_CHANNEL_ID}}"
+
+nodes:
+  # ============================================
+  # CHANNEL ADAPTATION
+  # ============================================
+
+  - id: channel_adapter_agent
+    name: "Channel Adapter Agent LLM"
+    type: llm
+    description: "Адаптация контента под разные платформы"
+    config:
+      provider: openai
+      model: "{{variables.openai_model}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.4
+      max_tokens: 5000
+      system_prompt: |
+        Ты — ChannelAdapter Agent. Адаптируй утверждённый контент под разные платформы.
+
+        ## Платформы и их особенности:
+
+        ### Instagram
+        - **Post (лента):** до 2200 символов, до 30 hashtags, alt-text обязателен
+        - **Story:** до 200 символов, можно стикеры, polls
+        - **Reels:** короткий caption до 150 символов, trending audio
+
+        ### Telegram
+        - **Long post:** до 4096 символов, HTML форматирование, inline buttons
+        - **Short post:** до 300 символов для быстрого чтения
+
+        ### Email
+        - **Subject:** до 60 символов, персонализация
+        - **Preview:** до 100 символов
+        - **Body:** HTML, структурированный layout
+
+        ### VK
+        - **Post:** до 15000 символов, прикреплённые ссылки
+
+        ## Правила адаптации:
+        1. Сохраняй ключевой message и CTA
+        2. Адаптируй length под платформу
+        3. Используй platform-specific элементы (hashtags, emojis, formatting)
+        4. Добавляй UTM-параметры для аналитики
+        5. Создавай alt-тексты для accessibility
+
+        Выведи JSON:
+        {
+          "adaptations": {
+            "instagram": {
+              "post": {
+                "text": "текст для ленты",
+                "hashtags": ["#tag1", "#tag2"],
+                "mentions": ["@mention"],
+                "alt_text": "описание для скринридеров",
+                "suggested_image_style": "описание визуала"
+              },
+              "story": {
+                "text": "короткий текст",
+                "sticker_suggestions": ["poll", "question", "countdown"],
+                "link_sticker": true
+              },
+              "reels": {
+                "caption": "короткий caption",
+                "audio_suggestion": "trending audio type",
+                "hook_text": "текст на первых кадрах"
+              }
+            },
+            "telegram": {
+              "long": {
+                "text": "форматированный текст с <b>HTML</b>",
+                "buttons": [
+                  {"text": "Кнопка", "url": "https://..."}
+                ],
+                "preview_enabled": true
+              },
+              "short": {
+                "text": "краткая версия"
+              }
+            },
+            "email": {
+              "subject": "тема письма",
+              "preview_text": "превью в inbox",
+              "body_html": "<html>...</html>",
+              "cta_button": {
+                "text": "Текст кнопки",
+                "url": "https://..."
+              }
+            },
+            "vk": {
+              "post": {
+                "text": "текст для VK",
+                "attachments": ["link", "photo"]
+              }
+            }
+          },
+          "utm_params": {
+            "source": "{{channel}}",
+            "medium": "social|email",
+            "campaign": "campaign_name",
+            "content": "variant_id"
+          },
+          "scheduling_recommendations": {
+            "instagram": {"best_time": "18:00", "best_day": "Tuesday"},
+            "telegram": {"best_time": "10:00", "best_day": "Monday"},
+            "email": {"best_time": "09:00", "best_day": "Wednesday"}
+          },
+          "cross_posting_notes": "заметки о кросс-постинге"
+        }
+      user_prompt: |
+        ## Утверждённый контент:
+        {{input.approved_variant.corrected_content}}
+
+        ## Metadata варианта:
+        {{input.approved_variant.metadata | json}}
+
+        ## Brief:
+        {{input.brief | json}}
+
+        ## Целевой канал из Brief: {{input.brief.channel}}
+
+        ---
+
+        Адаптируй контент под все релевантные платформы.
+        Основной фокус на канале: {{input.brief.channel}}
+    position:
+      x: 100
+      y: 200
+
+  - id: parse_adaptations
+    name: "Parse Adaptations"
+    type: transform
+    description: "Парсинг адаптаций"
+    config:
+      mode: expression
+      expression: |
+        let parsed = input | fromjson;
+        {
+          "adaptations": parsed.adaptations,
+          "utm_params": parsed.utm_params,
+          "scheduling_recommendations": parsed.scheduling_recommendations,
+          "cross_posting_notes": parsed.cross_posting_notes
+        }
+    position:
+      x: 350
+      y: 200
+
+  # ============================================
+  # SAVE & SCHEDULE
+  # ============================================
+
+  - id: save_adaptations
+    name: "Save Adaptations"
+    type: http
+    description: "Сохранение адаптированного контента"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/content-adaptations"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        pipeline_id: "{{input.pipeline_id}}"
+        planned_item_id: "{{input.brief.planned_item_id}}"
+        variant_id: "{{input.approved_variant.variant_id}}"
+        adaptations: "{{input.adaptations}}"
+        utm_params: "{{input.utm_params}}"
+        scheduling_recommendations: "{{input.scheduling_recommendations}}"
+    position:
+      x: 550
+      y: 200
+
+  - id: create_scheduled_posts
+    name: "Create Scheduled Posts"
+    type: http
+    description: "Создание записей для публикации"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/scheduled-posts"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        planned_item_id: "{{input.brief.planned_item_id}}"
+        scheduled_date: "{{input.brief.scheduled_date}}"
+        scheduled_time: "{{input.brief.scheduled_time}}"
+        channels:
+          - channel: "{{input.brief.channel}}"
+            adaptation: "{{input.adaptations[input.brief.channel]}}"
+            status: "scheduled"
+        utm_params: "{{input.utm_params}}"
+    position:
+      x: 750
+      y: 200
+
+  # ============================================
+  # OPTIONAL: IMMEDIATE PUBLISH TO TELEGRAM
+  # ============================================
+
+  - id: check_immediate_publish
+    name: "Check Immediate Publish"
+    type: conditional
+    description: "Проверка необходимости немедленной публикации"
+    config:
+      conditions:
+        - expression: "input.brief.immediate_publish == true && input.brief.channel == 'telegram'"
+          output: "publish_now"
+        - expression: "true"
+          output: "schedule_only"
+    position:
+      x: 950
+      y: 200
+
+  - id: publish_telegram
+    name: "Publish to Telegram"
+    type: telegram
+    description: "Немедленная публикация в Telegram"
+    config:
+      bot_token: "{{variables.telegram_bot_token}}"
+      chat_id: "{{variables.telegram_channel_id}}"
+      message: "{{input.adaptations.telegram.long.text}}"
+      parse_mode: HTML
+      disable_notification: false
+    position:
+      x: 1150
+      y: 100
+
+  - id: log_telegram_publish
+    name: "Log Telegram Publish"
+    type: http
+    description: "Логирование публикации"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/publication-logs"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        planned_item_id: "{{input.brief.planned_item_id}}"
+        channel: "telegram"
+        message_id: "{{input.message_id}}"
+        published_at: "{{now}}"
+        status: "published"
+    position:
+      x: 1350
+      y: 100
+
+  # ============================================
+  # OUTPUT
+  # ============================================
+
+  - id: merge_output
+    name: "Merge Output"
+    type: merge
+    description: "Объединение результатов"
+    config:
+      strategy: combine
+      output_key: final_result
+    position:
+      x: 1350
+      y: 200
+
+  - id: output_result
+    name: "Output Result"
+    type: transform
+    description: "Формирование выходных данных"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "success",
+          "adaptations": {{input.adaptations | json}},
+          "scheduled_posts": {{input.scheduled_posts | json}},
+          "utm_params": {{input.utm_params | json}},
+          "immediate_published": {{input.telegram_published ?? false}},
+          "scheduling_recommendations": {{input.scheduling_recommendations | json}}
+        }
+    position:
+      x: 1550
+      y: 200
+
+edges:
+  # Main flow
+  - id: e1
+    from: channel_adapter_agent
+    to: parse_adaptations
+  - id: e2
+    from: parse_adaptations
+    to: save_adaptations
+  - id: e3
+    from: save_adaptations
+    to: create_scheduled_posts
+  - id: e4
+    from: create_scheduled_posts
+    to: check_immediate_publish
+
+  # Immediate publish path
+  - id: e5
+    from: check_immediate_publish
+    to: publish_telegram
+    source_handle: "publish_now"
+  - id: e6
+    from: publish_telegram
+    to: log_telegram_publish
+  - id: e7
+    from: log_telegram_publish
+    to: merge_output
+
+  # Schedule only path
+  - id: e8
+    from: check_immediate_publish
+    to: merge_output
+    source_handle: "schedule_only"
+
+  # Output
+  - id: e9
+    from: merge_output
+    to: output_result
+
+trigger:
+  name: "Channel Adapter Sub-workflow"
+  description: "Вызывается из оркестратора"
+  type: manual
+  enabled: true
+  config: {}

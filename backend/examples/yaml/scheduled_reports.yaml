@@ -1,0 +1,312 @@
+# MBFlow Workflow Configuration v1.0
+# Scheduled Sales Reports with AI Analysis
+#
+# This workflow runs daily, fetches sales data, generates AI insights,
+# and sends formatted reports via email.
+
+metadata:
+  name: "Daily Sales Report"
+  description: "Automated daily sales report generation with AI-powered insights"
+  version: 1
+  tags: ["reports", "sales", "ai", "email", "scheduled"]
+
+variables:
+  sales_api_url: "{{env.SALES_API_URL}}"
+  sales_api_key: "{{env.SALES_API_KEY}}"
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  smtp_host: "{{env.SMTP_HOST}}"
+  smtp_port: "{{env.SMTP_PORT}}"
+  smtp_user: "{{env.SMTP_USER}}"
+  smtp_password: "{{env.SMTP_PASSWORD}}"
+  report_recipients: "{{env.REPORT_RECIPIENTS}}"
+  company_name: "Acme Corp"
+
+nodes:
+  - id: get_date_range
+    name: "Calculate Date Range"
+    type: transform
+    config:
+      mapping:
+        start_date: "yesterday().format('YYYY-MM-DD')"
+        end_date: "today().format('YYYY-MM-DD')"
+        report_date: "today().format('MMMM DD, YYYY')"
+      output_format: "json"
+    position:
+      x: 100
+      y: 200
+
+  - id: fetch_sales_data
+    name: "Fetch Sales Data"
+    type: http
+    config:
+      url: "{{variables.sales_api_url}}/sales"
+      method: "GET"
+      headers:
+        Authorization: "Bearer {{variables.sales_api_key}}"
+        Content-Type: "application/json"
+      query_params:
+        start_date: "{{input.start_date}}"
+        end_date: "{{input.end_date}}"
+        include_details: "true"
+      timeout: 60
+    position:
+      x: 300
+      y: 200
+
+  - id: fetch_previous_period
+    name: "Fetch Previous Period Data"
+    type: http
+    config:
+      url: "{{variables.sales_api_url}}/sales"
+      method: "GET"
+      headers:
+        Authorization: "Bearer {{variables.sales_api_key}}"
+        Content-Type: "application/json"
+      query_params:
+        start_date: "{{input.start_date | subtract_days(7)}}"
+        end_date: "{{input.start_date}}"
+        include_details: "false"
+      timeout: 60
+    position:
+      x: 300
+      y: 350
+
+  - id: merge_data
+    name: "Merge Sales Data"
+    type: merge
+    config:
+      strategy: "object"
+      keys:
+        current_period: "sales_current"
+        previous_period: "sales_previous"
+        date_range: "dates"
+    position:
+      x: 500
+      y: 275
+
+  - id: calculate_metrics
+    name: "Calculate Metrics"
+    type: transform
+    config:
+      mapping:
+        total_revenue: "$.sales_current.total_revenue"
+        total_orders: "$.sales_current.total_orders"
+        average_order_value: "$.sales_current.total_revenue / $.sales_current.total_orders"
+        top_products: "$.sales_current.top_products[:5]"
+        revenue_change_percent: "(($.sales_current.total_revenue - $.sales_previous.total_revenue) / $.sales_previous.total_revenue) * 100"
+        orders_change_percent: "(($.sales_current.total_orders - $.sales_previous.total_orders) / $.sales_previous.total_orders) * 100"
+        report_date: "$.dates.report_date"
+      output_format: "json"
+    position:
+      x: 700
+      y: 275
+
+  - id: ai_insights
+    name: "Generate AI Insights"
+    type: llm
+    config:
+      provider: "openai"
+      model: "gpt-4"
+      api_key: "{{variables.openai_api_key}}"
+      prompt: |
+        As a sales analyst, analyze the following sales metrics and provide actionable insights:
+
+        Report Date: {{input.report_date}}
+
+        Current Period Metrics:
+        - Total Revenue: ${{input.total_revenue}}
+        - Total Orders: {{input.total_orders}}
+        - Average Order Value: ${{input.average_order_value}}
+        - Revenue Change vs Previous Period: {{input.revenue_change_percent}}%
+        - Orders Change vs Previous Period: {{input.orders_change_percent}}%
+
+        Top Products:
+        {{#each input.top_products}}
+        - {{name}}: ${{revenue}} ({{quantity}} units)
+        {{/each}}
+
+        Provide:
+        1. Executive Summary (2-3 sentences)
+        2. Key Highlights (3 bullet points)
+        3. Areas of Concern (if any)
+        4. Recommendations (2-3 actionable items)
+
+        Format the response as JSON:
+        {
+          "executive_summary": "...",
+          "highlights": ["...", "...", "..."],
+          "concerns": ["..."],
+          "recommendations": ["...", "...", "..."]
+        }
+      max_tokens: 1500
+      temperature: 0.4
+    position:
+      x: 900
+      y: 200
+
+  - id: format_html_report
+    name: "Format HTML Report"
+    type: transform
+    config:
+      template: |
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+            .header { background: #2563eb; color: white; padding: 20px; border-radius: 8px; }
+            .metric-card { background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 10px 0; }
+            .positive { color: #16a34a; }
+            .negative { color: #dc2626; }
+            .section { margin: 20px 0; }
+            .insight-box { background: #fef3c7; padding: 15px; border-left: 4px solid #f59e0b; margin: 10px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>📊 Daily Sales Report</h1>
+            <p>{{variables.company_name}} - {{input.metrics.report_date}}</p>
+          </div>
+
+          <div class="section">
+            <h2>Executive Summary</h2>
+            <p>{{input.insights.executive_summary}}</p>
+          </div>
+
+          <div class="section">
+            <h2>Key Metrics</h2>
+            <div class="metric-card">
+              <strong>Total Revenue:</strong> ${{input.metrics.total_revenue | number_format}}
+              <span class="{{#if (gt input.metrics.revenue_change_percent 0)}}positive{{else}}negative{{/if}}">
+                ({{input.metrics.revenue_change_percent | number_format(1)}}% vs previous period)
+              </span>
+            </div>
+            <div class="metric-card">
+              <strong>Total Orders:</strong> {{input.metrics.total_orders}}
+              <span class="{{#if (gt input.metrics.orders_change_percent 0)}}positive{{else}}negative{{/if}}">
+                ({{input.metrics.orders_change_percent | number_format(1)}}% vs previous period)
+              </span>
+            </div>
+            <div class="metric-card">
+              <strong>Average Order Value:</strong> ${{input.metrics.average_order_value | number_format(2)}}
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Key Highlights</h2>
+            <ul>
+            {{#each input.insights.highlights}}
+              <li>{{this}}</li>
+            {{/each}}
+            </ul>
+          </div>
+
+          {{#if input.insights.concerns.length}}
+          <div class="section">
+            <h2>Areas of Concern</h2>
+            <div class="insight-box">
+              <ul>
+              {{#each input.insights.concerns}}
+                <li>{{this}}</li>
+              {{/each}}
+              </ul>
+            </div>
+          </div>
+          {{/if}}
+
+          <div class="section">
+            <h2>Recommendations</h2>
+            <ul>
+            {{#each input.insights.recommendations}}
+              <li>{{this}}</li>
+            {{/each}}
+            </ul>
+          </div>
+
+          <div class="section">
+            <h2>Top Products</h2>
+            <table>
+              <tr><th>Product</th><th>Revenue</th><th>Units Sold</th></tr>
+              {{#each input.metrics.top_products}}
+              <tr><td>{{name}}</td><td>${{revenue | number_format}}</td><td>{{quantity}}</td></tr>
+              {{/each}}
+            </table>
+          </div>
+
+          <footer style="margin-top: 40px; color: #6b7280; font-size: 12px;">
+            <p>This report was automatically generated by MBFlow.</p>
+          </footer>
+        </body>
+        </html>
+      output_format: "string"
+    position:
+      x: 1100
+      y: 200
+
+  - id: send_email
+    name: "Send Report Email"
+    type: http
+    config:
+      url: "https://api.sendgrid.com/v3/mail/send"
+      method: "POST"
+      headers:
+        Authorization: "Bearer {{env.SENDGRID_API_KEY}}"
+        Content-Type: "application/json"
+      body:
+        personalizations:
+          - to:
+              - email: "{{variables.report_recipients}}"
+        from:
+          email: "reports@{{variables.company_name | lowercase}}.com"
+          name: "{{variables.company_name}} Reports"
+        subject: "Daily Sales Report - {{input.report_date}}"
+        content:
+          - type: "text/html"
+            value: "{{input.html_report}}"
+      timeout: 30
+    position:
+      x: 1300
+      y: 200
+
+edges:
+  - id: e1
+    from: get_date_range
+    to: fetch_sales_data
+
+  - id: e2
+    from: get_date_range
+    to: fetch_previous_period
+
+  - id: e3
+    from: fetch_sales_data
+    to: merge_data
+
+  - id: e4
+    from: fetch_previous_period
+    to: merge_data
+
+  - id: e5
+    from: merge_data
+    to: calculate_metrics
+
+  - id: e6
+    from: calculate_metrics
+    to: ai_insights
+
+  - id: e7
+    from: ai_insights
+    to: format_html_report
+
+  - id: e8
+    from: format_html_report
+    to: send_email
+
+trigger:
+  name: "Daily Report Schedule"
+  type: cron
+  enabled: true
+  config:
+    schedule: "0 9 * * 1-5"  # 9 AM, Monday to Friday
+    timezone: "America/New_York"

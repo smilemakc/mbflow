@@ -1,0 +1,405 @@
+# MBFlow Workflow Configuration v1.0
+# Stage 6: Workflow Router - Risk-based маршрутизация
+
+metadata:
+  name: "Workflow Router"
+  description: "Risk-based маршрутизация: auto-approve, review, expert review, hard stop"
+  version: 1
+  tags: ["router", "content-pipeline", "risk", "workflow", "approval"]
+
+variables:
+  # RAG Backend
+  rag_endpoint: "{{env.RAG_ENDPOINT}}"
+  rag_api_key: "{{env.RAG_API_KEY}}"
+
+  # Review deadlines (hours)
+  marketer_review_deadline: 24
+  expert_review_deadline: 48
+
+nodes:
+  # ============================================
+  # ROUTING DECISION
+  # ============================================
+
+  - id: extract_routing_data
+    name: "Extract Routing Data"
+    type: transform
+    description: "Извлечение данных для принятия решения о маршруте"
+    config:
+      mode: expression
+      expression: |
+        let best = input.evaluated_variants | filter(.variant_id == input.best_variant_id) | first;
+        {
+          "variant": best,
+          "risk_severity": best.risk_report.severity,
+          "auto_approvable": best.risk_report.auto_approvable,
+          "required_reviewers": best.risk_report.required_reviewers,
+          "risk_factors": best.risk_report.risk_factors,
+          "flagged_claims": best.risk_report.flagged_claims,
+          "brief": input.brief
+        }
+    position:
+      x: 100
+      y: 200
+
+  - id: risk_router
+    name: "Risk-Based Router"
+    type: conditional
+    description: "Маршрутизация на основе уровня риска"
+    config:
+      conditions:
+        - expression: "input.risk_severity == 'low' && input.auto_approvable == true"
+          output: "auto_approve"
+        - expression: "input.risk_severity == 'medium'"
+          output: "marketer_review"
+        - expression: "input.risk_severity == 'high'"
+          output: "expert_review"
+        - expression: "input.risk_severity == 'hard_stop'"
+          output: "hard_stop"
+        - expression: "true"
+          output: "marketer_review"
+    position:
+      x: 300
+      y: 200
+
+  # ============================================
+  # PATH 1: AUTO-APPROVE (Low Risk)
+  # ============================================
+
+  - id: auto_approve
+    name: "Auto-Approve Content"
+    type: transform
+    description: "Автоматическое одобрение контента"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "approved",
+          "approval_type": "auto",
+          "approved_by": "system:workflow_router",
+          "approved_at": "{{now}}",
+          "approved_variant": {{input.variant | json}},
+          "workflow_path": "auto_approve",
+          "next_step": "channel_adapter"
+        }
+    position:
+      x: 500
+      y: 50
+
+  - id: log_auto_approve
+    name: "Log Auto-Approval"
+    type: http
+    description: "Логирование автоматического одобрения"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/approval-logs"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        planned_item_id: "{{input.brief.planned_item_id}}"
+        variant_id: "{{input.variant.variant_id}}"
+        approval_type: "auto"
+        risk_severity: "low"
+        decision: "approved"
+        timestamp: "{{now}}"
+    position:
+      x: 700
+      y: 50
+
+  # ============================================
+  # PATH 2: MARKETER REVIEW (Medium Risk)
+  # ============================================
+
+  - id: create_marketer_task
+    name: "Create Marketer Review Task"
+    type: http
+    description: "Создание задачи на review для маркетолога"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/review-tasks"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        type: "content_review"
+        priority: "medium"
+        assignee_role: "marketer"
+        deadline_hours: "{{variables.marketer_review_deadline}}"
+        planned_item_id: "{{input.brief.planned_item_id}}"
+        variant_id: "{{input.variant.variant_id}}"
+        content:
+          variant: "{{input.variant}}"
+          risk_report: "{{input.variant.risk_report}}"
+          brief: "{{input.brief}}"
+        review_checklist:
+          - "Проверить соответствие TOV бренда"
+          - "Оценить эмоциональные триггеры"
+          - "Подтвердить корректность CTA"
+          - "Проверить hashtags"
+    position:
+      x: 500
+      y: 150
+
+  - id: marketer_pending
+    name: "Set Marketer Pending Status"
+    type: transform
+    description: "Установка статуса ожидания review"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "pending_review",
+          "review_type": "marketer",
+          "task_id": "{{input.id}}",
+          "deadline": "{{input.deadline}}",
+          "variant": {{input.variant | json}},
+          "workflow_path": "marketer_review",
+          "next_step": "await_review"
+        }
+    position:
+      x: 700
+      y: 150
+
+  # ============================================
+  # PATH 3: EXPERT REVIEW (High Risk)
+  # ============================================
+
+  - id: determine_expert
+    name: "Determine Expert Type"
+    type: transform
+    description: "Определение типа эксперта на основе risk factors"
+    config:
+      mode: expression
+      expression: |
+        let factors = input.risk_factors | map(.factor);
+        let expert = "brand_manager";
+
+        if factors | any(contains(., "medical") || contains(., "health")) {
+          expert = "medical_expert"
+        } else if factors | any(contains(., "legal") || contains(., "guarantee") || contains(., "promise")) {
+          expert = "lawyer"
+        } else if factors | any(contains(., "competitor") || contains(., "comparison")) {
+          expert = "brand_manager"
+        } else if factors | any(contains(., "financial") || contains(., "money")) {
+          expert = "compliance_officer"
+        }
+
+        {
+          "expert_type": expert,
+          "risk_factors": factors,
+          "variant": input.variant,
+          "brief": input.brief,
+          "flagged_claims": input.flagged_claims
+        }
+    position:
+      x: 500
+      y: 250
+
+  - id: create_expert_task
+    name: "Create Expert Review Task"
+    type: http
+    description: "Создание задачи на review для эксперта"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/review-tasks"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        type: "expert_review"
+        priority: "high"
+        assignee_role: "{{input.expert_type}}"
+        deadline_hours: "{{variables.expert_review_deadline}}"
+        requires_multiple_approvals: true
+        planned_item_id: "{{input.brief.planned_item_id}}"
+        variant_id: "{{input.variant.variant_id}}"
+        content:
+          variant: "{{input.variant}}"
+          risk_factors: "{{input.risk_factors}}"
+          flagged_claims: "{{input.flagged_claims}}"
+          brief: "{{input.brief}}"
+        expert_guidance: "Требуется экспертная оценка по следующим факторам: {{input.risk_factors | join(', ')}}"
+        review_checklist:
+          - "Проверить все flagged claims"
+          - "Оценить юридические/медицинские риски"
+          - "Подтвердить корректность формулировок"
+          - "При необходимости предложить альтернативы"
+    position:
+      x: 700
+      y: 250
+
+  - id: expert_pending
+    name: "Set Expert Pending Status"
+    type: transform
+    description: "Установка статуса ожидания экспертного review"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "pending_review",
+          "review_type": "expert",
+          "expert_type": "{{input.expert_type}}",
+          "task_id": "{{input.id}}",
+          "deadline": "{{input.deadline}}",
+          "variant": {{input.variant | json}},
+          "workflow_path": "expert_review",
+          "next_step": "await_review"
+        }
+    position:
+      x: 900
+      y: 250
+
+  # ============================================
+  # PATH 4: HARD STOP (No Evidence / Critical)
+  # ============================================
+
+  - id: hard_stop_notification
+    name: "Hard Stop Notification"
+    type: http
+    description: "Уведомление о невозможности автоматической обработки"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/notifications"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        type: "hard_stop"
+        severity: "critical"
+        planned_item_id: "{{input.brief.planned_item_id}}"
+        variant_id: "{{input.variant.variant_id}}"
+        message: "Контент не может быть автоматически обработан"
+        reasons: "{{input.flagged_claims}}"
+        required_action: "Полностью ручная обработка контента"
+        content:
+          variant: "{{input.variant}}"
+          flagged_claims: "{{input.flagged_claims}}"
+    position:
+      x: 500
+      y: 350
+
+  - id: hard_stop_status
+    name: "Set Hard Stop Status"
+    type: transform
+    description: "Установка статуса hard stop"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "hard_stop",
+          "reason": "claims_without_evidence",
+          "flagged_claims": {{input.flagged_claims | json}},
+          "variant": {{input.variant | json}},
+          "workflow_path": "hard_stop",
+          "next_step": "manual_processing",
+          "message": "Контент содержит claims без evidence. Требуется полностью ручная обработка."
+        }
+    position:
+      x: 700
+      y: 350
+
+  # ============================================
+  # MERGE OUTPUT
+  # ============================================
+
+  - id: merge_results
+    name: "Merge All Results"
+    type: merge
+    description: "Объединение результатов всех путей"
+    config:
+      strategy: first_available
+      output_key: routing_result
+    position:
+      x: 1100
+      y: 200
+
+  - id: output_result
+    name: "Output Result"
+    type: transform
+    description: "Формирование финального результата"
+    config:
+      mode: expression
+      expression: |
+        {
+          "status": input.routing_result.status,
+          "workflow_path": input.routing_result.workflow_path,
+          "next_step": input.routing_result.next_step,
+          "approved_variant": input.routing_result.approved_variant ?? input.routing_result.variant,
+          "review_type": input.routing_result.review_type,
+          "task_id": input.routing_result.task_id,
+          "deadline": input.routing_result.deadline,
+          "message": input.routing_result.message
+        }
+    position:
+      x: 1300
+      y: 200
+
+edges:
+  # Initial routing
+  - id: e1
+    from: extract_routing_data
+    to: risk_router
+
+  # Auto-approve path
+  - id: e2
+    from: risk_router
+    to: auto_approve
+    source_handle: "auto_approve"
+  - id: e3
+    from: auto_approve
+    to: log_auto_approve
+  - id: e4
+    from: log_auto_approve
+    to: merge_results
+
+  # Marketer review path
+  - id: e5
+    from: risk_router
+    to: create_marketer_task
+    source_handle: "marketer_review"
+  - id: e6
+    from: create_marketer_task
+    to: marketer_pending
+  - id: e7
+    from: marketer_pending
+    to: merge_results
+
+  # Expert review path
+  - id: e8
+    from: risk_router
+    to: determine_expert
+    source_handle: "expert_review"
+  - id: e9
+    from: determine_expert
+    to: create_expert_task
+  - id: e10
+    from: create_expert_task
+    to: expert_pending
+  - id: e11
+    from: expert_pending
+    to: merge_results
+
+  # Hard stop path
+  - id: e12
+    from: risk_router
+    to: hard_stop_notification
+    source_handle: "hard_stop"
+  - id: e13
+    from: hard_stop_notification
+    to: hard_stop_status
+  - id: e14
+    from: hard_stop_status
+    to: merge_results
+
+  # Output
+  - id: e15
+    from: merge_results
+    to: output_result
+
+trigger:
+  name: "Workflow Router Sub-workflow"
+  description: "Вызывается из оркестратора"
+  type: manual
+  enabled: true
+  config: {}

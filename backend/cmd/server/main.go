@@ -17,6 +17,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/application/rentalkey"
+	"github.com/smilemakc/mbflow/internal/application/servicekey"
 	"github.com/smilemakc/mbflow/internal/application/trigger"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/api/rest"
@@ -198,6 +199,7 @@ func main() {
 	resourceRepo := storage.NewResourceRepository(db)
 	pricingPlanRepo := storage.NewPricingPlanRepository(db)
 	credentialsRepo := storage.NewCredentialsRepository(db)
+	serviceKeyRepo := storage.NewServiceKeyRepository(db)
 
 	appLogger.Info("Repositories initialized")
 
@@ -219,6 +221,16 @@ func main() {
 		appLogger.Info("Rental key provider initialized")
 	}
 
+	// Initialize service key service
+	serviceKeyService := servicekey.NewService(serviceKeyRepo, servicekey.Config{
+		MaxKeysPerUser:    cfg.ServiceKeys.MaxKeysPerUser,
+		DefaultExpiryDays: cfg.ServiceKeys.DefaultExpiryDays,
+	})
+	appLogger.Info("Service key service initialized",
+		"max_keys_per_user", cfg.ServiceKeys.MaxKeysPerUser,
+		"default_expiry_days", cfg.ServiceKeys.DefaultExpiryDays,
+	)
+
 	// Initialize auth system
 	authService := auth.NewService(userRepo, accountRepo, &cfg.Auth)
 	providerManager, err := auth.NewProviderManager(&cfg.Auth, authService)
@@ -227,7 +239,7 @@ func main() {
 		// Continue with builtin provider only
 	}
 
-	authMiddleware := rest.NewAuthMiddleware(providerManager, authService)
+	authMiddleware := rest.NewAuthMiddleware(providerManager, authService, serviceKeyService)
 	loginRateLimiter := rest.NewLoginRateLimiter(
 		cfg.Auth.MaxLoginAttempts,
 		time.Duration(cfg.Auth.MaxLoginAttempts)*time.Minute,
@@ -398,6 +410,7 @@ func main() {
 		fileHandlers := rest.NewFileHandlers(fileRepo, fileStorageManager, appLogger)
 		resourceHandlers := rest.NewResourceHandlers(resourceRepo, pricingPlanRepo, workflowRepo, appLogger)
 		accountHandlers := rest.NewAccountHandlers(accountRepo, transactionRepo, appLogger)
+		importHandlers := rest.NewImportHandlers(workflowRepo, triggerRepo, appLogger, executorManager)
 
 		// Initialize resource file service and handlers
 		resourceFileService := filestorage.NewResourceFileService(
@@ -481,6 +494,11 @@ func main() {
 			workflows.GET("/:workflow_id/edges/:edge_id", edgeHandlers.HandleGetEdge)
 			workflows.PUT("/:workflow_id/edges/:edge_id", edgeHandlers.HandleUpdateEdge)
 			workflows.DELETE("/:workflow_id/edges/:edge_id", edgeHandlers.HandleDeleteEdge)
+
+			// Import/Export endpoints
+			workflows.POST("/import", importHandlers.HandleImportWorkflow)
+			workflows.GET("/import/types", importHandlers.HandleGetSupportedTypes)
+			workflows.GET("/:workflow_id/export", importHandlers.HandleExportWorkflow)
 		}
 
 		// Execution endpoints
@@ -612,6 +630,31 @@ func main() {
 		} else {
 			appLogger.Warn("Rental Keys endpoints disabled - encryption key not configured")
 		}
+
+		// Service Keys endpoints
+		serviceKeyHandlers := rest.NewServiceKeyHandlers(serviceKeyService, appLogger)
+		serviceKeyAdminHandlers := rest.NewServiceKeyAdminHandlers(serviceKeyService, appLogger)
+
+		// User endpoints - users can only view their own service keys
+		serviceKeys := apiV1.Group("/service-keys")
+		serviceKeys.Use(authMiddleware.RequireAuth())
+		{
+			serviceKeys.GET("", serviceKeyHandlers.ListMyServiceKeys)
+			serviceKeys.GET("/:id", serviceKeyHandlers.GetMyServiceKey)
+		}
+
+		// Admin endpoints - full CRUD access to all service keys
+		adminServiceKeys := apiV1.Group("/admin/service-keys")
+		adminServiceKeys.Use(authMiddleware.RequireAdmin())
+		{
+			adminServiceKeys.POST("", serviceKeyAdminHandlers.CreateServiceKey)
+			adminServiceKeys.GET("", serviceKeyAdminHandlers.ListServiceKeys)
+			adminServiceKeys.GET("/:id", serviceKeyAdminHandlers.GetServiceKey)
+			adminServiceKeys.DELETE("/:id", serviceKeyAdminHandlers.DeleteServiceKey)
+			adminServiceKeys.POST("/:id/revoke", serviceKeyAdminHandlers.RevokeServiceKey)
+		}
+
+		appLogger.Info("Service Keys endpoints registered")
 
 		// Webhook endpoints
 		if triggerManager != nil {

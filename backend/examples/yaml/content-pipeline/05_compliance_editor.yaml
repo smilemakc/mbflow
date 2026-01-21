@@ -1,0 +1,316 @@
+# MBFlow Workflow Configuration v1.0
+# Stage 5: Compliance Editor Agent - Проверка и Risk Scoring
+
+metadata:
+  name: "Compliance Editor Agent"
+  description: "Compliance проверка, авто-редактирование и risk scoring"
+  version: 1
+  tags: ["compliance", "content-pipeline", "llm", "risk", "editor"]
+
+variables:
+  # OpenAI Configuration
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  openai_model: "gpt-4-turbo"
+
+  # RAG Backend
+  rag_endpoint: "{{env.RAG_ENDPOINT}}"
+  rag_api_key: "{{env.RAG_API_KEY}}"
+
+nodes:
+  # ============================================
+  # COMPLIANCE CHECK
+  # ============================================
+
+  - id: compliance_editor_agent
+    name: "Compliance Editor Agent LLM"
+    type: llm
+    description: "Проверка compliance, редактирование и risk scoring"
+    config:
+      provider: openai
+      model: "{{variables.openai_model}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.2
+      max_tokens: 8000
+      system_prompt: |
+        Ты — ComplianceEditor Agent. Для КАЖДОГО варианта контента выполни полную проверку.
+
+        ## 1. ПРОВЕРКИ (для каждого варианта):
+
+        ### ForbiddenWords
+        - Найди запрещённые слова из списка
+        - Предложи безопасные замены
+        - Укажи severity (warning/error)
+
+        ### Disclaimers
+        - Проверь, нужны ли дисклеймеры
+        - Добавь требуемые дисклеймеры
+        - Укажи позицию (начало/конец)
+
+        ### ChannelConstraints
+        - Проверь длину текста
+        - Проверь количество hashtags
+        - Проверь формат
+
+        ### ToneOfVoice
+        - Оцени соответствие TOV бренда
+        - Предложи корректировки стиля
+
+        ### Claims Verification
+        - Проверь, есть ли claims без evidence
+        - Пометь такие claims как риск
+
+        ## 2. РЕДАКТИРОВАНИЕ:
+        - Примени все необходимые исправления
+        - Сохрани оригинальный смысл
+        - Улучши читабельность
+
+        ## 3. RISK SCORING:
+
+        **Low risk (auto-approve):**
+        - Нейтральные анонсы, скидки, информация
+        - Нет claims о здоровье/эффективности/гарантиях
+        - Все disclaimers на месте
+
+        **Medium risk (marketer review):**
+        - Soft claims ("может помочь", "популярный выбор")
+        - Эмоциональные триггеры умеренной силы
+        - Промо с условиями
+
+        **High risk (expert review):**
+        - Медицинские/терапевтические claims
+        - Юридические обещания ("гарантия возврата 100%")
+        - Сравнение с конкурентами
+        - Чувствительные темы (дети, здоровье, деньги)
+
+        **Hard stop (manual only):**
+        - Claims без evidence
+        - Неразрешимые конфликты требований
+
+        Выведи JSON:
+        {
+          "evaluated_variants": [
+            {
+              "variant_id": "variant_1",
+              "original_content": "исходный текст",
+              "corrected_content": "исправленный текст",
+              "changes_made": [
+                {
+                  "type": "forbidden_word|disclaimer_added|length_adjusted|tov_correction|claim_removed",
+                  "original": "было",
+                  "replacement": "стало",
+                  "reason": "причина изменения",
+                  "severity": "info|warning|error"
+                }
+              ],
+              "evaluation": {
+                "compliance_score": 0.95,
+                "tov_score": 0.88,
+                "readability_score": 0.92,
+                "claims_validity_score": 0.90,
+                "overall_score": 0.91
+              },
+              "checks_passed": {
+                "forbidden_words": true,
+                "disclaimers": true,
+                "length": true,
+                "hashtags": true,
+                "tov": true,
+                "claims": true
+              },
+              "risk_report": {
+                "severity": "low|medium|high|hard_stop",
+                "reasons": ["описание причин риска"],
+                "risk_factors": [
+                  {
+                    "factor": "название фактора",
+                    "description": "описание",
+                    "severity": "low|medium|high"
+                  }
+                ],
+                "flagged_claims": ["claim без evidence"],
+                "required_reviewers": ["marketer|lawyer|medical_expert|brand_manager"],
+                "review_focus": ["на что обратить внимание при review"],
+                "auto_approvable": true
+              }
+            }
+          ],
+          "best_variant_id": "variant_с_лучшим_score",
+          "compliance_summary": {
+            "total_variants": 3,
+            "auto_approvable": 2,
+            "need_review": 1,
+            "hard_stop": 0,
+            "common_issues": ["часто встречающиеся проблемы"],
+            "recommendations": ["рекомендации"]
+          },
+          "overall_risk_level": "low|medium|high"
+        }
+      user_prompt: |
+        ## Варианты для проверки:
+        {{input.variants | json}}
+
+        ## Requirements Snapshot:
+        {{input.requirements_snapshot | json}}
+
+        ---
+
+        Проведи полную compliance проверку и risk scoring для каждого варианта.
+        Выбери лучший вариант (best_variant_id) на основе overall_score.
+    position:
+      x: 100
+      y: 200
+
+  # ============================================
+  # PROCESSING
+  # ============================================
+
+  - id: parse_compliance_result
+    name: "Parse Compliance Result"
+    type: transform
+    description: "Парсинг результата compliance check"
+    config:
+      mode: expression
+      expression: |
+        let parsed = input | fromjson;
+        {
+          "evaluated_variants": parsed.evaluated_variants,
+          "best_variant_id": parsed.best_variant_id,
+          "compliance_summary": parsed.compliance_summary,
+          "overall_risk_level": parsed.overall_risk_level
+        }
+    position:
+      x: 350
+      y: 200
+
+  - id: extract_best_variant
+    name: "Extract Best Variant"
+    type: transform
+    description: "Извлечение лучшего варианта"
+    config:
+      mode: expression
+      expression: |
+        let best = input.evaluated_variants | filter(.variant_id == input.best_variant_id) | first;
+        {
+          "best_variant": best,
+          "all_variants": input.evaluated_variants,
+          "best_variant_id": input.best_variant_id,
+          "compliance_summary": input.compliance_summary,
+          "risk_severity": best.risk_report.severity,
+          "auto_approvable": best.risk_report.auto_approvable
+        }
+    position:
+      x: 550
+      y: 200
+
+  # ============================================
+  # RULE-BASED VALIDATION (дополнительно к LLM)
+  # ============================================
+
+  - id: rule_based_check
+    name: "Rule-Based Validation"
+    type: transform
+    description: "Дополнительная rule-based проверка"
+    config:
+      mode: expression
+      expression: |
+        let variant = input.best_variant;
+        let content = variant.corrected_content;
+        let rs = input.requirements_snapshot;
+
+        // Проверка длины
+        let length_ok = (content | len) <= rs.channel_constraints.max_length;
+
+        // Проверка forbidden words (строгая)
+        let has_forbidden = rs.forbidden_words | any(contains(content, .));
+
+        // Финальный risk
+        let final_risk = if !length_ok || has_forbidden {
+          "high"
+        } else {
+          variant.risk_report.severity
+        };
+
+        {
+          "variant": variant,
+          "rule_checks": {
+            "length_ok": length_ok,
+            "no_forbidden_words": !has_forbidden
+          },
+          "final_risk_severity": final_risk,
+          "auto_approvable": final_risk == "low" && variant.risk_report.auto_approvable,
+          "all_variants": input.all_variants,
+          "compliance_summary": input.compliance_summary
+        }
+    position:
+      x: 750
+      y: 200
+
+  # ============================================
+  # SAVE RESULTS
+  # ============================================
+
+  - id: save_evaluation
+    name: "Save Evaluation Results"
+    type: http
+    description: "Сохранение результатов оценки"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/content-evaluations"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        pipeline_id: "{{input.pipeline_id}}"
+        evaluated_variants: "{{input.all_variants}}"
+        best_variant_id: "{{input.variant.variant_id}}"
+        compliance_summary: "{{input.compliance_summary}}"
+        evaluator_type: "llm_auto"
+        rule_checks: "{{input.rule_checks}}"
+    position:
+      x: 950
+      y: 200
+
+  - id: output_result
+    name: "Output Result"
+    type: transform
+    description: "Формирование выходных данных"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "success",
+          "evaluated_variants": {{input.all_variants | json}},
+          "best_variant_id": "{{input.variant.variant_id}}",
+          "best_variant": {{input.variant | json}},
+          "final_risk_severity": "{{input.final_risk_severity}}",
+          "auto_approvable": {{input.auto_approvable}},
+          "compliance_summary": {{input.compliance_summary | json}},
+          "rule_checks": {{input.rule_checks | json}}
+        }
+    position:
+      x: 1150
+      y: 200
+
+edges:
+  - id: e1
+    from: compliance_editor_agent
+    to: parse_compliance_result
+  - id: e2
+    from: parse_compliance_result
+    to: extract_best_variant
+  - id: e3
+    from: extract_best_variant
+    to: rule_based_check
+  - id: e4
+    from: rule_based_check
+    to: save_evaluation
+  - id: e5
+    from: save_evaluation
+    to: output_result
+
+trigger:
+  name: "Compliance Editor Sub-workflow"
+  description: "Вызывается из оркестратора"
+  type: manual
+  enabled: true
+  config: {}

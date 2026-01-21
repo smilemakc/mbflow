@@ -184,7 +184,7 @@ func (t *TriggerAPI) GetWebhookURL(ctx context.Context, triggerID string) (strin
 	}
 
 	// For embedded mode, return local webhook URL
-	return fmt.Sprintf("http://localhost:8181/api/v1/webhooks/%s", triggerID), nil
+	return fmt.Sprintf("http://localhost:8585/api/v1/webhooks/%s", triggerID), nil
 }
 
 // GetHistory retrieves the execution history for a trigger.

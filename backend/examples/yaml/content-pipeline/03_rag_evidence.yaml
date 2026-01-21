@@ -1,0 +1,402 @@
+# MBFlow Workflow Configuration v1.0
+# Stage 3: RAG Evidence - Retriever + Synthesizer
+
+metadata:
+  name: "RAG Evidence Collector"
+  description: "Evidence-first RAG: сбор фактов, цитат и verified claims"
+  version: 1
+  tags: ["rag", "content-pipeline", "llm", "evidence", "retriever", "synthesizer"]
+
+variables:
+  # OpenAI Configuration
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  openai_model: "gpt-4-turbo"
+  openai_model_cheap: "gpt-3.5-turbo"
+
+  # RAG Backend
+  rag_endpoint: "{{env.RAG_ENDPOINT}}"
+  rag_api_key: "{{env.RAG_API_KEY}}"
+  rag_top_k: 10
+
+nodes:
+  # ============================================
+  # STEP 1: RETRIEVER - Query Generation
+  # ============================================
+
+  - id: retriever_agent
+    name: "Retriever Agent LLM"
+    type: llm
+    description: "Формирование умных queries для Knowledge Base"
+    config:
+      provider: openai
+      model: "{{variables.openai_model_cheap}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.3
+      max_tokens: 1500
+      system_prompt: |
+        Ты — Retriever Agent. На основе Brief сформируй оптимальные поисковые запросы для Knowledge Base.
+
+        Доступные Knowledge Bases:
+        - products: информация о продуктах, характеристики, цены, преимущества
+        - policies: политики компании, правила, ограничения
+        - research: исследования, статистика, данные рынка
+        - competition: данные о конкурентах (использовать осторожно!)
+        - testimonials: отзывы клиентов, кейсы, истории успеха
+        - faq: часто задаваемые вопросы и ответы
+
+        Правила:
+        1. Формируй 3-5 запросов, покрывающих разные аспекты темы
+        2. Используй разные KB для разнообразия источников
+        3. Указывай top_k в зависимости от важности запроса
+        4. Добавляй фильтры для точности (категория, дата, тип)
+
+        Выведи JSON:
+        {
+          "queries": [
+            {
+              "id": "q1",
+              "kb": "products|policies|research|competition|testimonials|faq",
+              "query": "поисковый запрос на естественном языке",
+              "top_k": 5,
+              "filters": {
+                "category": "категория (опционально)",
+                "date_from": "YYYY-MM-DD (опционально)",
+                "entity_type": "тип сущности (опционально)"
+              },
+              "importance": "high|medium|low",
+              "purpose": "зачем этот запрос нужен"
+            }
+          ],
+          "search_strategy": "описание стратегии поиска",
+          "expected_evidence_types": ["facts", "statistics", "testimonials", "claims"]
+        }
+      user_prompt: |
+        ## Brief для контента:
+        {{input.brief | json}}
+
+        ## Requirements Snapshot:
+        {{input.requirements_snapshot | json}}
+
+        ---
+
+        Сформируй 3-5 поисковых запросов для сбора доказательной базы.
+        Учитывай тему, формат и целевую аудиторию контента.
+    position:
+      x: 100
+      y: 200
+
+  - id: parse_queries
+    name: "Parse Queries"
+    type: transform
+    description: "Парсинг запросов из ответа LLM"
+    config:
+      mode: expression
+      expression: |
+        let parsed = input | fromjson;
+        {
+          "queries": parsed.queries,
+          "search_strategy": parsed.search_strategy,
+          "expected_evidence_types": parsed.expected_evidence_types
+        }
+    position:
+      x: 300
+      y: 200
+
+  # ============================================
+  # STEP 2: EXECUTE VECTOR SEARCH
+  # ============================================
+
+  - id: execute_rag_search
+    name: "Execute RAG Search"
+    type: http
+    description: "Выполнение векторного поиска по всем KB"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/search/multi"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        queries: "{{input.queries}}"
+        default_top_k: "{{variables.rag_top_k}}"
+        include_metadata: true
+        include_scores: true
+      timeout: 60000
+    position:
+      x: 500
+      y: 200
+
+  - id: check_rag_results
+    name: "Check RAG Results"
+    type: conditional
+    description: "Проверка наличия результатов"
+    config:
+      conditions:
+        - expression: "input.total_chunks > 0"
+          output: "has_results"
+        - expression: "true"
+          output: "no_results"
+    position:
+      x: 700
+      y: 200
+
+  # ============================================
+  # STEP 3: SYNTHESIZER - Evidence Extraction
+  # ============================================
+
+  - id: synthesizer_agent
+    name: "Synthesizer Agent LLM"
+    type: llm
+    description: "Извлечение фактов, цитат и verified claims"
+    config:
+      provider: openai
+      model: "{{variables.openai_model}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.3
+      max_tokens: 4000
+      system_prompt: |
+        Ты — Synthesizer Agent. Обработай результаты RAG-поиска и создай EvidenceBundle.
+
+        КРИТИЧЕСКИЕ ПРАВИЛА:
+        1. Без EvidenceBundle генератор НЕ МОЖЕТ делать factual claims
+        2. Каждый факт должен иметь ссылку на источник
+        3. Claims могут быть только на основе verified facts
+        4. Если confidence < 0.7, факт помечается как "needs_verification"
+
+        Задачи:
+        1. Извлеки проверяемые факты из chunks
+        2. Создай citations с точными ссылками на источники
+        3. Сформируй verified_claims (что можно безопасно утверждать)
+        4. Предложи angles, hooks, storytelling подходы
+
+        Выведи JSON:
+        {
+          "evidence_bundle": {
+            "id": "evidence_uuid",
+            "brief_id": "brief_id",
+            "facts": [
+              {
+                "id": "fact_1",
+                "text": "извлечённый факт",
+                "source": {
+                  "kb": "products",
+                  "chunk_id": "chunk_123",
+                  "document": "название документа",
+                  "page": 5
+                },
+                "confidence": 0.95,
+                "category": "product_feature|statistic|testimonial|policy",
+                "can_claim": true,
+                "needs_verification": false
+              }
+            ],
+            "citations": [
+              {
+                "id": "cite_1",
+                "text": "точная цитата из источника",
+                "source": {...},
+                "context": "контекст использования",
+                "usable_as": "quote|paraphrase|reference"
+              }
+            ],
+            "verified_claims": [
+              {
+                "id": "claim_1",
+                "claim": "утверждение, которое можно безопасно использовать",
+                "evidence_refs": ["fact_1", "fact_2"],
+                "strength": "strong|moderate|weak",
+                "risk_level": "low|medium|high",
+                "suggested_phrasing": ["вариант формулировки 1", "вариант 2"]
+              }
+            ],
+            "suggested_angles": [
+              {
+                "angle": "emotional_story|rational_benefits|social_proof|expert_opinion",
+                "description": "описание подхода",
+                "supporting_evidence": ["fact_1", "cite_1"],
+                "effectiveness_prediction": "high|medium|low"
+              }
+            ],
+            "suggested_hooks": [
+              {
+                "type": "question|statistic|story|challenge",
+                "text": "пример хука",
+                "based_on": "fact_1"
+              }
+            ],
+            "overall_confidence": 0.85,
+            "evidence_gaps": ["чего не хватает в доказательной базе"],
+            "warnings": ["предупреждения о слабых местах"]
+          }
+        }
+      user_prompt: |
+        ## Brief:
+        {{input.brief | json}}
+
+        ## RAG Results (chunks):
+        {{input.rag_results | json}}
+
+        ## Search Strategy:
+        {{input.search_strategy}}
+
+        ---
+
+        Синтезируй EvidenceBundle для генератора контента.
+        Будь строгим в оценке confidence и can_claim.
+    position:
+      x: 900
+      y: 100
+
+  # ============================================
+  # NO RESULTS PATH
+  # ============================================
+
+  - id: create_empty_evidence
+    name: "Create Empty Evidence"
+    type: transform
+    description: "Создание пустого EvidenceBundle с предупреждением"
+    config:
+      mode: template
+      template: |
+        {
+          "evidence_bundle": {
+            "id": "{{uuid}}",
+            "brief_id": "{{input.brief.id}}",
+            "facts": [],
+            "citations": [],
+            "verified_claims": [],
+            "suggested_angles": [
+              {
+                "angle": "general_information",
+                "description": "Общая информация без конкретных claims",
+                "supporting_evidence": [],
+                "effectiveness_prediction": "low"
+              }
+            ],
+            "suggested_hooks": [],
+            "overall_confidence": 0.0,
+            "evidence_gaps": ["Не найдено релевантных данных в Knowledge Base"],
+            "warnings": [
+              "ВНИМАНИЕ: EvidenceBundle пуст. Генератор может создавать только общий контент без factual claims.",
+              "Рекомендуется обновить Knowledge Base или пересмотреть Brief."
+            ]
+          },
+          "status": "empty_evidence",
+          "requires_attention": true
+        }
+    position:
+      x: 900
+      y: 300
+
+  # ============================================
+  # OUTPUT
+  # ============================================
+
+  - id: parse_evidence
+    name: "Parse Evidence Bundle"
+    type: transform
+    description: "Парсинг EvidenceBundle из ответа LLM"
+    config:
+      mode: expression
+      expression: |
+        let parsed = input | fromjson;
+        parsed.evidence_bundle
+    position:
+      x: 1100
+      y: 100
+
+  - id: merge_evidence
+    name: "Merge Evidence Results"
+    type: merge
+    description: "Объединение результатов"
+    config:
+      strategy: first_available
+      output_key: evidence_bundle
+    position:
+      x: 1300
+      y: 200
+
+  - id: save_evidence
+    name: "Save Evidence Bundle"
+    type: http
+    description: "Сохранение EvidenceBundle в базу"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/evidence-bundles"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        brief_id: "{{input.brief.id}}"
+        pipeline_id: "{{input.pipeline_id}}"
+        evidence_bundle: "{{input.evidence_bundle}}"
+    position:
+      x: 1500
+      y: 200
+
+  - id: output_result
+    name: "Output Result"
+    type: transform
+    description: "Формирование выходных данных"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "success",
+          "evidence_bundle": {{input.evidence_bundle | json}},
+          "evidence_id": "{{input.id}}",
+          "facts_count": {{input.evidence_bundle.facts | len}},
+          "claims_count": {{input.evidence_bundle.verified_claims | len}},
+          "overall_confidence": {{input.evidence_bundle.overall_confidence}}
+        }
+    position:
+      x: 1700
+      y: 200
+
+edges:
+  # Retriever flow
+  - id: e1
+    from: retriever_agent
+    to: parse_queries
+  - id: e2
+    from: parse_queries
+    to: execute_rag_search
+  - id: e3
+    from: execute_rag_search
+    to: check_rag_results
+
+  # Has results path
+  - id: e4
+    from: check_rag_results
+    to: synthesizer_agent
+    source_handle: "has_results"
+  - id: e5
+    from: synthesizer_agent
+    to: parse_evidence
+  - id: e6
+    from: parse_evidence
+    to: merge_evidence
+
+  # No results path
+  - id: e7
+    from: check_rag_results
+    to: create_empty_evidence
+    source_handle: "no_results"
+  - id: e8
+    from: create_empty_evidence
+    to: merge_evidence
+
+  # Output
+  - id: e9
+    from: merge_evidence
+    to: save_evidence
+  - id: e10
+    from: save_evidence
+    to: output_result
+
+trigger:
+  name: "RAG Evidence Sub-workflow"
+  description: "Вызывается из оркестратора"
+  type: manual
+  enabled: true
+  config: {}
