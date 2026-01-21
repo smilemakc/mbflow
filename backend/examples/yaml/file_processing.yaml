@@ -1,0 +1,447 @@
+# MBFlow Workflow Configuration v1.0
+# File Download → Process → Storage Pipeline
+#
+# This workflow downloads files from various sources, processes them
+# (resize images, extract text from PDFs, etc.), and stores them in cloud storage.
+
+metadata:
+  name: "File Processing Pipeline"
+  description: "Download, process, and store files with automatic format detection and transformation"
+  version: 1
+  tags: ["files", "processing", "storage", "images", "documents"]
+
+variables:
+  storage_bucket: "{{env.STORAGE_BUCKET}}"
+  gcp_credentials: "{{env.GCP_CREDENTIALS}}"
+  cloudflare_account_id: "{{env.CLOUDFLARE_ACCOUNT_ID}}"
+  cloudflare_api_token: "{{env.CLOUDFLARE_API_TOKEN}}"
+  max_file_size_mb: 50
+  image_max_width: 1920
+  image_quality: 85
+  allowed_extensions: ["jpg", "jpeg", "png", "gif", "pdf", "docx", "xlsx"]
+  webhook_secret: "{{env.FILE_WEBHOOK_SECRET}}"
+
+nodes:
+  - id: receive_file_request
+    name: "Receive File Request"
+    type: transform
+    config:
+      mapping:
+        file_url: "$.url"
+        file_name: "$.filename || $.url.split('/').pop()"
+        callback_url: "$.callback_url"
+        user_id: "$.user_id"
+        options: "$.options || {}"
+        request_id: "uuid()"
+        received_at: "now()"
+      output_format: "json"
+    position:
+      x: 100
+      y: 200
+
+  - id: validate_request
+    name: "Validate File Request"
+    type: transform
+    config:
+      mapping:
+        is_valid: "$.file_url != null && $.file_url.length > 0"
+        extension: "$.file_name.split('.').pop().toLowerCase()"
+        is_allowed_extension: "variables.allowed_extensions.includes($.file_name.split('.').pop().toLowerCase())"
+      output_format: "json"
+    position:
+      x: 300
+      y: 200
+
+  - id: check_validation
+    name: "Check Validation"
+    type: conditional
+    config:
+      expression: "data.is_valid && data.is_allowed_extension"
+      true_output: "valid"
+      false_output: "invalid"
+    position:
+      x: 500
+      y: 200
+
+  - id: download_file
+    name: "Download File"
+    type: http
+    config:
+      url: "{{input.file_url}}"
+      method: "GET"
+      timeout: 300
+      response_type: "binary"
+      max_size_bytes: "{{variables.max_file_size_mb * 1024 * 1024}}"
+      headers:
+        User-Agent: "MBFlow File Processor/1.0"
+    position:
+      x: 700
+      y: 150
+
+  - id: detect_file_type
+    name: "Detect File Type"
+    type: transform
+    config:
+      mapping:
+        content_type: "$.headers['content-type']"
+        file_size: "$.headers['content-length']"
+        is_image: "$.headers['content-type'].startsWith('image/')"
+        is_pdf: "$.headers['content-type'] == 'application/pdf'"
+        is_document: "$.headers['content-type'].includes('document') || $.headers['content-type'].includes('spreadsheet')"
+        data: "$.body"
+      output_format: "json"
+    position:
+      x: 900
+      y: 150
+
+  - id: route_by_type
+    name: "Route by File Type"
+    type: conditional
+    config:
+      expression: "true"
+      branches:
+        - condition: "data.is_image"
+          output: "image"
+        - condition: "data.is_pdf"
+          output: "pdf"
+        - condition: "data.is_document"
+          output: "document"
+        - condition: "default"
+          output: "other"
+    position:
+      x: 1100
+      y: 150
+
+  # Image Processing Branch
+  - id: process_image
+    name: "Process Image"
+    type: http
+    config:
+      url: "https://api.cloudflare.com/client/v4/accounts/{{variables.cloudflare_account_id}}/images/v1"
+      method: "POST"
+      headers:
+        Authorization: "Bearer {{variables.cloudflare_api_token}}"
+      multipart:
+        file: "{{input.data}}"
+        metadata:
+          filename: "{{context.file_name}}"
+      timeout: 60
+    position:
+      x: 1350
+      y: 50
+
+  - id: resize_image
+    name: "Resize Image"
+    type: transform
+    config:
+      mapping:
+        original_url: "$.result.variants[0]"
+        thumbnail_url: "$.result.variants[1]"
+        image_id: "$.result.id"
+        width: "$.result.meta.width"
+        height: "$.result.meta.height"
+      output_format: "json"
+    position:
+      x: 1550
+      y: 50
+
+  # PDF Processing Branch
+  - id: extract_pdf_text
+    name: "Extract PDF Text"
+    type: http
+    config:
+      url: "{{env.PDF_EXTRACTION_API}}/extract"
+      method: "POST"
+      headers:
+        Content-Type: "application/pdf"
+      body: "{{input.data}}"
+      timeout: 120
+    position:
+      x: 1350
+      y: 150
+
+  - id: process_pdf_output
+    name: "Process PDF Output"
+    type: transform
+    config:
+      mapping:
+        text_content: "$.text"
+        page_count: "$.pages"
+        metadata: "$.metadata"
+        word_count: "$.text.split(' ').length"
+      output_format: "json"
+    position:
+      x: 1550
+      y: 150
+
+  # Document Processing Branch
+  - id: convert_document
+    name: "Convert Document"
+    type: http
+    config:
+      url: "{{env.DOCUMENT_CONVERTER_API}}/convert"
+      method: "POST"
+      headers:
+        Content-Type: "application/octet-stream"
+      query_params:
+        output_format: "pdf"
+        filename: "{{context.file_name}}"
+      body: "{{input.data}}"
+      timeout: 120
+    position:
+      x: 1350
+      y: 250
+
+  # Other Files - Direct Storage
+  - id: prepare_other_file
+    name: "Prepare Other File"
+    type: transform
+    config:
+      mapping:
+        data: "$.data"
+        content_type: "$.content_type"
+        file_size: "$.file_size"
+        processing: "'none'"
+      output_format: "json"
+    position:
+      x: 1350
+      y: 350
+
+  # Merge all processed files
+  - id: merge_processed
+    name: "Merge Processed Files"
+    type: merge
+    config:
+      strategy: "first_available"
+      timeout: 10
+    position:
+      x: 1750
+      y: 200
+
+  # Upload to Cloud Storage
+  - id: encode_for_storage
+    name: "Encode for Storage"
+    type: bytes_to_base64
+    config:
+      input_field: "data"
+      output_field: "encoded_data"
+    position:
+      x: 1950
+      y: 200
+
+  - id: upload_to_storage
+    name: "Upload to Google Cloud Storage"
+    type: google_drive
+    config:
+      operation: "upload"
+      credentials: "{{variables.gcp_credentials}}"
+      bucket: "{{variables.storage_bucket}}"
+      path: "processed/{{context.user_id}}/{{context.request_id}}/{{context.file_name}}"
+      content: "{{input.encoded_data}}"
+      content_type: "{{input.content_type}}"
+      metadata:
+        original_url: "{{context.file_url}}"
+        processed_at: "{{now()}}"
+        request_id: "{{context.request_id}}"
+    position:
+      x: 2150
+      y: 200
+
+  - id: generate_signed_url
+    name: "Generate Signed URL"
+    type: google_drive
+    config:
+      operation: "get_signed_url"
+      credentials: "{{variables.gcp_credentials}}"
+      bucket: "{{variables.storage_bucket}}"
+      path: "processed/{{context.user_id}}/{{context.request_id}}/{{context.file_name}}"
+      expiration_hours: 24
+    position:
+      x: 2350
+      y: 200
+
+  - id: create_response
+    name: "Create Success Response"
+    type: transform
+    config:
+      mapping:
+        status: "'success'"
+        request_id: "$.request_id"
+        file_name: "$.file_name"
+        storage_path: "'processed/' + $.user_id + '/' + $.request_id + '/' + $.file_name"
+        download_url: "$.signed_url"
+        expires_at: "now() | add_hours(24)"
+        processing_details:
+          type: "$.file_type"
+          original_size: "$.original_size"
+          processed_size: "$.processed_size"
+        completed_at: "now()"
+      output_format: "json"
+    position:
+      x: 2550
+      y: 200
+
+  - id: send_callback
+    name: "Send Callback"
+    type: http
+    config:
+      url: "{{context.callback_url}}"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+        X-Webhook-Secret: "{{variables.webhook_secret}}"
+      body:
+        event: "file.processed"
+        data: "{{input}}"
+      timeout: 15
+      retry:
+        max_attempts: 3
+        delay_ms: 1000
+    position:
+      x: 2750
+      y: 200
+
+  # Error Handling
+  - id: handle_invalid_request
+    name: "Handle Invalid Request"
+    type: transform
+    config:
+      mapping:
+        status: "'error'"
+        error_code: "'INVALID_REQUEST'"
+        message: "'Invalid file request or unsupported file type'"
+        request_id: "$.request_id"
+        timestamp: "now()"
+      output_format: "json"
+    position:
+      x: 700
+      y: 300
+
+  - id: send_error_callback
+    name: "Send Error Callback"
+    type: http
+    config:
+      url: "{{context.callback_url}}"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+        X-Webhook-Secret: "{{variables.webhook_secret}}"
+      body:
+        event: "file.error"
+        data: "{{input}}"
+      timeout: 15
+    position:
+      x: 900
+      y: 300
+
+edges:
+  - id: e1
+    from: receive_file_request
+    to: validate_request
+
+  - id: e2
+    from: validate_request
+    to: check_validation
+
+  - id: e3
+    from: check_validation
+    to: download_file
+    condition: "output == 'valid'"
+
+  - id: e4
+    from: check_validation
+    to: handle_invalid_request
+    condition: "output == 'invalid'"
+
+  - id: e5
+    from: download_file
+    to: detect_file_type
+
+  - id: e6
+    from: detect_file_type
+    to: route_by_type
+
+  # Image processing
+  - id: e7
+    from: route_by_type
+    to: process_image
+    condition: "output == 'image'"
+
+  - id: e8
+    from: process_image
+    to: resize_image
+
+  - id: e9
+    from: resize_image
+    to: merge_processed
+
+  # PDF processing
+  - id: e10
+    from: route_by_type
+    to: extract_pdf_text
+    condition: "output == 'pdf'"
+
+  - id: e11
+    from: extract_pdf_text
+    to: process_pdf_output
+
+  - id: e12
+    from: process_pdf_output
+    to: merge_processed
+
+  # Document processing
+  - id: e13
+    from: route_by_type
+    to: convert_document
+    condition: "output == 'document'"
+
+  - id: e14
+    from: convert_document
+    to: merge_processed
+
+  # Other files
+  - id: e15
+    from: route_by_type
+    to: prepare_other_file
+    condition: "output == 'other'"
+
+  - id: e16
+    from: prepare_other_file
+    to: merge_processed
+
+  # Storage and response
+  - id: e17
+    from: merge_processed
+    to: encode_for_storage
+
+  - id: e18
+    from: encode_for_storage
+    to: upload_to_storage
+
+  - id: e19
+    from: upload_to_storage
+    to: generate_signed_url
+
+  - id: e20
+    from: generate_signed_url
+    to: create_response
+
+  - id: e21
+    from: create_response
+    to: send_callback
+
+  # Error path
+  - id: e22
+    from: handle_invalid_request
+    to: send_error_callback
+
+trigger:
+  name: "File Processing Webhook"
+  type: webhook
+  enabled: true
+  config:
+    path: "/webhooks/process-file"
+    method: "POST"
+    validate_signature: true
+    signature_header: "X-Webhook-Signature"
+    secret: "{{env.FILE_WEBHOOK_SECRET}}"

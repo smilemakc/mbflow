@@ -19,7 +19,7 @@ docker run -d -p 6379:6379 redis:7
 # Set environment variables
 export DATABASE_URL="postgres://mbflow:mbflow@localhost:5432/mbflow?sslmode=disable"
 export REDIS_URL="redis://localhost:6379"
-export PORT=8181
+export PORT=8585
 
 # Build and run server
 go build -o mbflow-server ./cmd/server
@@ -31,7 +31,7 @@ go build -o mbflow-server ./cmd/server
 Create a simple workflow that will be triggered:
 
 ```bash
-curl -X POST http://localhost:8181/api/v1/workflows \
+curl -X POST http://localhost:8585/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Hello World Workflow",
@@ -62,7 +62,7 @@ Save the workflow ID from the response.
 ```bash
 WORKFLOW_ID="<your-workflow-id>"
 
-curl -X POST http://localhost:8181/api/v1/triggers \
+curl -X POST http://localhost:8585/api/v1/triggers \
   -H "Content-Type: application/json" \
   -d "{
     \"workflow_id\": \"$WORKFLOW_ID\",
@@ -78,7 +78,7 @@ Save the trigger ID, then execute:
 ```bash
 TRIGGER_ID="<your-trigger-id>"
 
-curl -X POST http://localhost:8181/api/v1/triggers/$TRIGGER_ID/execute \
+curl -X POST http://localhost:8585/api/v1/triggers/$TRIGGER_ID/execute \
   -H "Content-Type: application/json" \
   -d '{
     "input": {
@@ -90,7 +90,7 @@ curl -X POST http://localhost:8181/api/v1/triggers/$TRIGGER_ID/execute \
 ### Option B: Interval Trigger (Every 30 seconds)
 
 ```bash
-curl -X POST http://localhost:8181/api/v1/triggers \
+curl -X POST http://localhost:8585/api/v1/triggers \
   -H "Content-Type: application/json" \
   -d "{
     \"workflow_id\": \"$WORKFLOW_ID\",
@@ -106,13 +106,13 @@ curl -X POST http://localhost:8181/api/v1/triggers \
 Watch it execute every 30 seconds:
 
 ```bash
-watch -n 5 'curl -s http://localhost:8181/api/v1/executions?limit=5 | jq'
+watch -n 5 'curl -s http://localhost:8585/api/v1/executions?limit=5 | jq'
 ```
 
 ### Option C: Cron Trigger (Every Minute)
 
 ```bash
-curl -X POST http://localhost:8181/api/v1/triggers \
+curl -X POST http://localhost:8585/api/v1/triggers \
   -H "Content-Type: application/json" \
   -d "{
     \"workflow_id\": \"$WORKFLOW_ID\",
@@ -129,7 +129,7 @@ curl -X POST http://localhost:8181/api/v1/triggers \
 ### Option D: Webhook Trigger
 
 ```bash
-curl -X POST http://localhost:8181/api/v1/triggers \
+curl -X POST http://localhost:8585/api/v1/triggers \
   -H "Content-Type: application/json" \
   -d "{
     \"workflow_id\": \"$WORKFLOW_ID\",
@@ -147,7 +147,7 @@ Get the trigger ID and test the webhook:
 ```bash
 TRIGGER_ID="<your-trigger-id>"
 
-curl -X POST http://localhost:8181/api/v1/webhooks/$TRIGGER_ID \
+curl -X POST http://localhost:8585/api/v1/webhooks/$TRIGGER_ID \
   -H "Content-Type: application/json" \
   -d '{
     "data": "Hello from webhook!"
@@ -157,7 +157,7 @@ curl -X POST http://localhost:8181/api/v1/webhooks/$TRIGGER_ID \
 ### Option E: Event Trigger
 
 ```bash
-curl -X POST http://localhost:8181/api/v1/triggers \
+curl -X POST http://localhost:8585/api/v1/triggers \
   -H "Content-Type: application/json" \
   -d "{
     \"workflow_id\": \"$WORKFLOW_ID\",
@@ -188,35 +188,35 @@ redis-cli PUBLISH "mbflow:events:user.created" '{
 
 ```bash
 # List recent executions
-curl http://localhost:8181/api/v1/executions?limit=10 | jq
+curl http://localhost:8585/api/v1/executions?limit=10 | jq
 
 # Get specific execution
-curl http://localhost:8181/api/v1/executions/<execution-id> | jq
+curl http://localhost:8585/api/v1/executions/<execution-id> | jq
 
 # Filter by workflow
-curl http://localhost:8181/api/v1/executions?workflow_id=<workflow-id> | jq
+curl http://localhost:8585/api/v1/executions?workflow_id=<workflow-id> | jq
 
 # Filter by status
-curl http://localhost:8181/api/v1/executions?status=failed | jq
+curl http://localhost:8585/api/v1/executions?status=failed | jq
 ```
 
 ## 5. Manage Triggers
 
 ```bash
 # List all triggers
-curl http://localhost:8181/api/v1/triggers | jq
+curl http://localhost:8585/api/v1/triggers | jq
 
 # Get trigger details
-curl http://localhost:8181/api/v1/triggers/<trigger-id> | jq
+curl http://localhost:8585/api/v1/triggers/<trigger-id> | jq
 
 # Disable trigger
-curl -X POST http://localhost:8181/api/v1/triggers/<trigger-id>/disable
+curl -X POST http://localhost:8585/api/v1/triggers/<trigger-id>/disable
 
 # Enable trigger
-curl -X POST http://localhost:8181/api/v1/triggers/<trigger-id>/enable
+curl -X POST http://localhost:8585/api/v1/triggers/<trigger-id>/enable
 
 # Update trigger
-curl -X PUT http://localhost:8181/api/v1/triggers/<trigger-id> \
+curl -X PUT http://localhost:8585/api/v1/triggers/<trigger-id> \
   -H "Content-Type: application/json" \
   -d '{
     "config": {
@@ -225,7 +225,7 @@ curl -X PUT http://localhost:8181/api/v1/triggers/<trigger-id> \
   }'
 
 # Delete trigger
-curl -X DELETE http://localhost:8181/api/v1/triggers/<trigger-id>
+curl -X DELETE http://localhost:8585/api/v1/triggers/<trigger-id>
 ```
 
 ## Common Patterns
@@ -233,7 +233,7 @@ curl -X DELETE http://localhost:8181/api/v1/triggers/<trigger-id>
 ### Daily Report at 9 AM
 
 ```bash
-curl -X POST http://localhost:8181/api/v1/triggers \
+curl -X POST http://localhost:8585/api/v1/triggers \
   -H "Content-Type: application/json" \
   -d "{
     \"workflow_id\": \"$WORKFLOW_ID\",
@@ -250,7 +250,7 @@ curl -X POST http://localhost:8181/api/v1/triggers \
 ### Health Check Every 30 Seconds
 
 ```bash
-curl -X POST http://localhost:8181/api/v1/triggers \
+curl -X POST http://localhost:8585/api/v1/triggers \
   -H "Content-Type: application/json" \
   -d "{
     \"workflow_id\": \"$WORKFLOW_ID\",
@@ -266,7 +266,7 @@ curl -X POST http://localhost:8181/api/v1/triggers \
 ### Webhook with Security
 
 ```bash
-curl -X POST http://localhost:8181/api/v1/triggers \
+curl -X POST http://localhost:8585/api/v1/triggers \
   -H "Content-Type: application/json" \
   -d "{
     \"workflow_id\": \"$WORKFLOW_ID\",
@@ -286,10 +286,10 @@ curl -X POST http://localhost:8181/api/v1/triggers \
 
 ```bash
 # Check trigger is enabled
-curl http://localhost:8181/api/v1/triggers/<trigger-id> | jq '.enabled'
+curl http://localhost:8585/api/v1/triggers/<trigger-id> | jq '.enabled'
 
 # Check workflow is active
-curl http://localhost:8181/api/v1/workflows/<workflow-id> | jq '.status'
+curl http://localhost:8585/api/v1/workflows/<workflow-id> | jq '.status'
 
 # Check server logs
 docker logs mbflow-api
@@ -303,15 +303,15 @@ go test ./internal/application/trigger/... -run TestParseCronSchedule -v
 
 ```bash
 # Check trigger exists
-curl http://localhost:8181/api/v1/webhooks/<trigger-id>
+curl http://localhost:8585/api/v1/webhooks/<trigger-id>
 
 # Test without signature (if no secret configured)
-curl -X POST http://localhost:8181/api/v1/webhooks/<trigger-id> \
+curl -X POST http://localhost:8585/api/v1/webhooks/<trigger-id> \
   -H "Content-Type: application/json" \
   -d '{"test": "data"}'
 
 # Check if IP is whitelisted
-curl http://localhost:8181/api/v1/triggers/<trigger-id> | jq '.config.ip_whitelist'
+curl http://localhost:8585/api/v1/triggers/<trigger-id> | jq '.config.ip_whitelist'
 ```
 
 ### Event Not Triggering
@@ -321,7 +321,7 @@ curl http://localhost:8181/api/v1/triggers/<trigger-id> | jq '.config.ip_whiteli
 redis-cli PING
 
 # Verify event type
-curl http://localhost:8181/api/v1/triggers?type=event | jq '.[].config.event_type'
+curl http://localhost:8585/api/v1/triggers?type=event | jq '.[].config.event_type'
 
 # Monitor Redis pub/sub
 redis-cli PSUBSCRIBE "mbflow:events:*"

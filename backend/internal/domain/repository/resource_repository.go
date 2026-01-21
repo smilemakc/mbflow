@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -114,4 +115,46 @@ type RentalKeyFilter struct {
 	CreatedBy *string
 	Limit     int
 	Offset    int
+}
+
+// ServiceKeyFilter defines filter options for listing service keys
+type ServiceKeyFilter struct {
+	UserID    *uuid.UUID
+	Status    *string
+	CreatedBy *uuid.UUID
+	Limit     int
+	Offset    int
+}
+
+// ServiceKeyRepository defines the interface for service key persistence
+type ServiceKeyRepository interface {
+	// Create creates a new service key
+	Create(ctx context.Context, key *models.ServiceKey) error
+
+	// FindByID finds a service key by ID
+	FindByID(ctx context.Context, id uuid.UUID) (*models.ServiceKey, error)
+
+	// FindByPrefix finds a service key by its prefix (for validation)
+	FindByPrefix(ctx context.Context, prefix string) ([]*models.ServiceKey, error)
+
+	// FindByUserID returns all service keys for a user
+	FindByUserID(ctx context.Context, userID uuid.UUID) ([]*models.ServiceKey, error)
+
+	// FindAll returns all service keys with optional filters
+	FindAll(ctx context.Context, filter ServiceKeyFilter) ([]*models.ServiceKey, int64, error)
+
+	// Update updates a service key
+	Update(ctx context.Context, key *models.ServiceKey) error
+
+	// Delete permanently deletes a service key
+	Delete(ctx context.Context, id uuid.UUID) error
+
+	// Revoke marks a service key as revoked
+	Revoke(ctx context.Context, id uuid.UUID) error
+
+	// UpdateLastUsed updates the last used timestamp and increments usage count
+	UpdateLastUsed(ctx context.Context, id uuid.UUID) error
+
+	// CountByUserID returns the number of service keys for a user
+	CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
 }

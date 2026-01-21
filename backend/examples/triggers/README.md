@@ -23,7 +23,7 @@ A comprehensive example of a scheduled workflow that:
 **Setup:**
 ```bash
 # Create workflow
-curl -X POST http://localhost:8181/api/v1/workflows \
+curl -X POST http://localhost:8585/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d @cron_daily_report.json
 
@@ -51,7 +51,7 @@ Processes GitHub push events and triggers CI/CD pipeline:
 **Setup:**
 ```bash
 # 1. Create workflow and trigger
-curl -X POST http://localhost:8181/api/v1/workflows \
+curl -X POST http://localhost:8585/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d @webhook_github_integration.json
 
@@ -87,12 +87,12 @@ Automated user onboarding triggered by user creation events:
 **Setup:**
 ```bash
 # 1. Create workflow and trigger
-curl -X POST http://localhost:8181/api/v1/workflows \
+curl -X POST http://localhost:8585/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d @event_user_onboarding.json
 
 # 2. Publish events from your application
-curl -X POST http://localhost:8181/api/v1/events/publish \
+curl -X POST http://localhost:8585/api/v1/events/publish \
   -H "Content-Type: application/json" \
   -d '{
     "type": "user.created",
@@ -129,12 +129,12 @@ Continuous service monitoring that:
 **Setup:**
 ```bash
 # Create workflow and trigger
-curl -X POST http://localhost:8181/api/v1/workflows \
+curl -X POST http://localhost:8585/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d @interval_health_check.json
 
 # Monitor execution logs
-curl http://localhost:8181/api/v1/executions?limit=10
+curl http://localhost:8585/api/v1/executions?limit=10
 ```
 
 ---
@@ -159,7 +159,7 @@ On-demand data export with flexible parameters:
 **Setup:**
 ```bash
 # 1. Create workflow and trigger
-curl -X POST http://localhost:8181/api/v1/workflows \
+curl -X POST http://localhost:8585/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d @manual_data_export.json
 
@@ -167,7 +167,7 @@ curl -X POST http://localhost:8181/api/v1/workflows \
 TRIGGER_ID="<trigger-id>"
 
 # 3. Execute with custom parameters
-curl -X POST http://localhost:8181/api/v1/triggers/$TRIGGER_ID/execute \
+curl -X POST http://localhost:8585/api/v1/triggers/$TRIGGER_ID/execute \
   -H "Content-Type: application/json" \
   -d '{
     "input": {
@@ -192,7 +192,7 @@ All examples require the following environment variables:
 
 ```bash
 # API Server
-PORT=8181
+PORT=8585
 HOST=0.0.0.0
 
 # Database
@@ -246,7 +246,7 @@ go run cmd/server/main.go
 ./scripts/test-trigger-cron.sh
 
 # 3. Monitor execution
-watch -n 1 'curl -s http://localhost:8181/api/v1/executions?limit=5 | jq'
+watch -n 1 'curl -s http://localhost:8585/api/v1/executions?limit=5 | jq'
 ```
 
 ## Customization
@@ -309,7 +309,7 @@ Webhook HMAC:
 
 ```bash
 # Get trigger details
-curl http://localhost:8181/api/v1/triggers/{trigger_id}
+curl http://localhost:8585/api/v1/triggers/{trigger_id}
 
 # Check Redis state
 redis-cli GET "trigger:{trigger_id}:state"
@@ -319,13 +319,13 @@ redis-cli GET "trigger:{trigger_id}:state"
 
 ```bash
 # Recent executions
-curl http://localhost:8181/api/v1/executions?limit=10
+curl http://localhost:8585/api/v1/executions?limit=10
 
 # Executions for specific workflow
-curl http://localhost:8181/api/v1/executions?workflow_id={workflow_id}
+curl http://localhost:8585/api/v1/executions?workflow_id={workflow_id}
 
 # Failed executions
-curl http://localhost:8181/api/v1/executions?status=failed
+curl http://localhost:8585/api/v1/executions?status=failed
 ```
 
 ### Debug Mode
@@ -338,7 +338,7 @@ LOG_LEVEL=debug go run cmd/server/main.go
 redis-cli PSUBSCRIBE "mbflow:events:*"
 
 # Check cron scheduler
-curl http://localhost:8181/api/v1/health
+curl http://localhost:8585/api/v1/health
 ```
 
 ## Best Practices
@@ -379,12 +379,12 @@ curl http://localhost:8181/api/v1/health
 
 1. Check trigger is enabled:
    ```bash
-   curl http://localhost:8181/api/v1/triggers/{id}
+   curl http://localhost:8585/api/v1/triggers/{id}
    ```
 
 2. Verify workflow exists and is active:
    ```bash
-   curl http://localhost:8181/api/v1/workflows/{workflow_id}
+   curl http://localhost:8585/api/v1/workflows/{workflow_id}
    ```
 
 3. Check server logs:
@@ -412,7 +412,7 @@ curl http://localhost:8181/api/v1/health
 3. Review event filters
 4. Test with direct event publish:
    ```bash
-   curl -X POST http://localhost:8181/api/v1/events/publish \
+   curl -X POST http://localhost:8585/api/v1/events/publish \
      -H "Content-Type: application/json" \
      -d '{"type": "test.event", "data": {}}'
    ```

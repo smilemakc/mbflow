@@ -1,0 +1,275 @@
+# MBFlow Workflow Configuration v1.0
+# Stage 1: Planner Agent - Стратегическое планирование
+
+metadata:
+  name: "Planner Agent"
+  description: "Стратегическое планирование контента: gap-анализ, оптимизация частоты, балансировка форматов"
+  version: 1
+  tags: ["planner", "content-pipeline", "llm", "strategy"]
+
+variables:
+  # OpenAI Configuration
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  openai_model: "gpt-4-turbo"
+
+  # RAG Backend
+  rag_endpoint: "{{env.RAG_ENDPOINT}}"
+  rag_api_key: "{{env.RAG_API_KEY}}"
+
+nodes:
+  # ============================================
+  # DATA COLLECTION (parallel)
+  # ============================================
+
+  - id: fetch_analytics
+    name: "Fetch Performance Analytics"
+    type: http
+    description: "Получение метрик эффективности предыдущего контента"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/analytics/brand/{{input.brand_id}}"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      timeout: 30000
+    position:
+      x: 100
+      y: 100
+
+  - id: fetch_published_history
+    name: "Fetch Published Content History"
+    type: http
+    description: "Получение истории публикаций для gap-анализа"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/content/brand/{{input.brand_id}}/published?limit=100"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 200
+
+  - id: fetch_brand_config
+    name: "Fetch Brand Configuration"
+    type: http
+    description: "Загрузка конфигурации бренда (TOV, стратегия, ЦА)"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/brands/{{input.brand_id}}"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 300
+
+  - id: fetch_trends
+    name: "Fetch Current Trends"
+    type: http
+    description: "Получение текущих трендов и сезонных событий"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/trends/current"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 400
+
+  # ============================================
+  # MERGE & PROCESS
+  # ============================================
+
+  - id: merge_planner_inputs
+    name: "Merge Planner Inputs"
+    type: merge
+    description: "Объединение всех данных для Planner Agent"
+    config:
+      strategy: combine
+      output_key: planner_context
+    position:
+      x: 350
+      y: 250
+
+  - id: planner_agent
+    name: "Planner Agent LLM"
+    type: llm
+    description: "Стратегическое планирование контента с LLM"
+    config:
+      provider: openai
+      model: "{{variables.openai_model}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.7
+      max_tokens: 4000
+      system_prompt: |
+        Ты — Planner Agent для контент-маркетинга. Твоя задача — создать ContentPlan на основе:
+        1. Аналитики эффективности (что работало/не работало)
+        2. Истории публикаций (какие темы/форматы/каналы недоиспользованы)
+        3. Конфигурации бренда (TOV, стратегия, ЦА)
+        4. Текущих трендов и сезонных событий
+
+        Выполни:
+        - Gap-анализ: какие темы/форматы/каналы недоиспользованы
+        - Оптимизация частоты по каналам на основе метрик
+        - Учёт сезонности (праздники, события, тренды)
+        - Балансировка форматов (educational/promo/engagement)
+
+        Выведи JSON:
+        {
+          "content_plan": {
+            "period": "week",
+            "period_start": "2024-01-22",
+            "period_end": "2024-01-28",
+            "goals": ["увеличить engagement на 10%", "охватить новую аудиторию"],
+            "kpis": {
+              "engagement_rate": 0.05,
+              "reach": 10000,
+              "conversions": 50
+            },
+            "strategy_notes": "фокус на educational контент"
+          },
+          "planned_items": [
+            {
+              "id": "item_1",
+              "topic": "тема контента",
+              "topic_description": "детальное описание",
+              "format": "post|story|reel|article|carousel",
+              "channel": "instagram|telegram|email|vk",
+              "scheduled_date": "2024-01-25",
+              "scheduled_time": "10:00",
+              "priority": "high|medium|low",
+              "content_type": "educational|promo|engagement|news",
+              "target_audience_segment": "segment_name",
+              "rationale": "почему этот слот выбран",
+              "suggested_products": ["product_id_1"],
+              "seasonal_hook": "если есть привязка к событию"
+            }
+          ],
+          "gap_analysis": {
+            "underused_topics": ["тема1", "тема2"],
+            "underused_formats": ["reels"],
+            "underused_channels": ["email"],
+            "recommendations": ["рекомендация"]
+          }
+        }
+      user_prompt: |
+        ## Контекст для планирования:
+
+        ### Аналитика эффективности (последние 30 дней):
+        {{input.planner_context.analytics}}
+
+        ### История публикаций (последние 100):
+        {{input.planner_context.published_history}}
+
+        ### Конфигурация бренда:
+        {{input.planner_context.brand}}
+
+        ### Текущие тренды и события:
+        {{input.planner_context.trends}}
+
+        ---
+
+        Создай ContentPlan на следующую неделю с 5-7 PlannedItem.
+        Учитывай gap-анализ и оптимизируй распределение по каналам.
+    position:
+      x: 550
+      y: 250
+
+  # ============================================
+  # OUTPUT PROCESSING
+  # ============================================
+
+  - id: parse_plan_response
+    name: "Parse Plan Response"
+    type: transform
+    description: "Парсинг и валидация ответа LLM"
+    config:
+      mode: expression
+      expression: |
+        let parsed = input | fromjson;
+        {
+          "content_plan": parsed.content_plan,
+          "planned_items": parsed.planned_items,
+          "gap_analysis": parsed.gap_analysis,
+          "items_count": parsed.planned_items | len,
+          "planner_completed_at": now()
+        }
+    position:
+      x: 750
+      y: 250
+
+  - id: save_plan
+    name: "Save Content Plan"
+    type: http
+    description: "Сохранение плана в базу данных"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/content-plans"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        brand_id: "{{input.brand_id}}"
+        pipeline_id: "{{input.pipeline_id}}"
+        content_plan: "{{input.content_plan}}"
+        planned_items: "{{input.planned_items}}"
+        gap_analysis: "{{input.gap_analysis}}"
+    position:
+      x: 950
+      y: 250
+
+  - id: output_result
+    name: "Output Result"
+    type: transform
+    description: "Формирование выходных данных"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "success",
+          "content_plan": {{input.content_plan | json}},
+          "planned_items": {{input.planned_items | json}},
+          "gap_analysis": {{input.gap_analysis | json}},
+          "plan_id": "{{input.id}}"
+        }
+    position:
+      x: 1150
+      y: 250
+
+edges:
+  # Parallel data fetch
+  - id: e1
+    from: fetch_analytics
+    to: merge_planner_inputs
+  - id: e2
+    from: fetch_published_history
+    to: merge_planner_inputs
+  - id: e3
+    from: fetch_brand_config
+    to: merge_planner_inputs
+  - id: e4
+    from: fetch_trends
+    to: merge_planner_inputs
+
+  # Processing chain
+  - id: e5
+    from: merge_planner_inputs
+    to: planner_agent
+  - id: e6
+    from: planner_agent
+    to: parse_plan_response
+  - id: e7
+    from: parse_plan_response
+    to: save_plan
+  - id: e8
+    from: save_plan
+    to: output_result
+
+trigger:
+  name: "Planner Sub-workflow Trigger"
+  description: "Вызывается из оркестратора или вручную"
+  type: manual
+  enabled: true
+  config: {}

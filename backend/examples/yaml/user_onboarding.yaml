@@ -1,0 +1,423 @@
+# MBFlow Workflow Configuration v1.0
+# User Onboarding Automation
+#
+# This workflow handles the complete user onboarding process including
+# email verification, welcome series, and initial setup tasks.
+
+metadata:
+  name: "User Onboarding Automation"
+  description: "Automated user onboarding with email sequences, setup tasks, and engagement tracking"
+  version: 1
+  tags: ["onboarding", "users", "email", "automation", "crm"]
+
+variables:
+  api_base_url: "{{env.API_BASE_URL}}"
+  sendgrid_api_key: "{{env.SENDGRID_API_KEY}}"
+  segment_write_key: "{{env.SEGMENT_WRITE_KEY}}"
+  slack_webhook_url: "{{env.SLACK_WEBHOOK_URL}}"
+  intercom_token: "{{env.INTERCOM_TOKEN}}"
+  app_name: "MyApp"
+  support_email: "support@myapp.com"
+  from_email: "onboarding@myapp.com"
+
+nodes:
+  - id: receive_user
+    name: "Receive New User Event"
+    type: transform
+    config:
+      mapping:
+        user_id: "$.user_id"
+        email: "$.email"
+        name: "$.name"
+        first_name: "$.name.split(' ')[0]"
+        plan: "$.plan || 'free'"
+        source: "$.source || 'organic'"
+        created_at: "$.created_at || now()"
+        traits: "$.traits || {}"
+      output_format: "json"
+    position:
+      x: 100
+      y: 200
+
+  - id: track_signup
+    name: "Track Signup Event"
+    type: http
+    config:
+      url: "https://api.segment.io/v1/track"
+      method: "POST"
+      headers:
+        Authorization: "Basic {{variables.segment_write_key | base64}}"
+        Content-Type: "application/json"
+      body:
+        userId: "{{input.user_id}}"
+        event: "User Signed Up"
+        properties:
+          plan: "{{input.plan}}"
+          source: "{{input.source}}"
+        timestamp: "{{input.created_at}}"
+      timeout: 10
+    position:
+      x: 300
+      y: 100
+
+  - id: create_crm_contact
+    name: "Create CRM Contact"
+    type: http
+    config:
+      url: "https://api.intercom.io/contacts"
+      method: "POST"
+      headers:
+        Authorization: "Bearer {{variables.intercom_token}}"
+        Content-Type: "application/json"
+      body:
+        role: "user"
+        email: "{{input.email}}"
+        name: "{{input.name}}"
+        custom_attributes:
+          plan: "{{input.plan}}"
+          signup_source: "{{input.source}}"
+          onboarding_status: "started"
+      timeout: 15
+    position:
+      x: 300
+      y: 200
+
+  - id: check_plan_type
+    name: "Check Plan Type"
+    type: conditional
+    config:
+      expression: "data.plan"
+      branches:
+        - condition: "== 'enterprise'"
+          output: "enterprise"
+        - condition: "== 'pro'"
+          output: "pro"
+        - condition: "default"
+          output: "free"
+    position:
+      x: 300
+      y: 300
+
+  # Welcome Email - All Users
+  - id: send_welcome_email
+    name: "Send Welcome Email"
+    type: http
+    config:
+      url: "https://api.sendgrid.com/v3/mail/send"
+      method: "POST"
+      headers:
+        Authorization: "Bearer {{variables.sendgrid_api_key}}"
+        Content-Type: "application/json"
+      body:
+        personalizations:
+          - to:
+              - email: "{{input.email}}"
+                name: "{{input.name}}"
+            dynamic_template_data:
+              first_name: "{{input.first_name}}"
+              app_name: "{{variables.app_name}}"
+        from:
+          email: "{{variables.from_email}}"
+          name: "{{variables.app_name}} Team"
+        template_id: "d-welcome-template-id"
+      timeout: 15
+    position:
+      x: 550
+      y: 200
+
+  # Enterprise Path
+  - id: notify_sales_enterprise
+    name: "Notify Sales - Enterprise"
+    type: http
+    config:
+      url: "{{variables.slack_webhook_url}}"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        channel: "#enterprise-leads"
+        username: "Onboarding Bot"
+        icon_emoji: ":star:"
+        text: |
+          :rocket: *New Enterprise Signup!*
+          • Name: {{input.name}}
+          • Email: {{input.email}}
+          • Source: {{input.source}}
+
+          <{{variables.api_base_url}}/admin/users/{{input.user_id}}|View in Admin>
+    position:
+      x: 550
+      y: 50
+
+  - id: schedule_enterprise_call
+    name: "Schedule Enterprise Call"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/internal/scheduling/create"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        user_id: "{{input.user_id}}"
+        type: "onboarding_call"
+        priority: "high"
+        assigned_team: "enterprise_success"
+        metadata:
+          plan: "enterprise"
+          contact_email: "{{input.email}}"
+      timeout: 15
+    position:
+      x: 750
+      y: 50
+
+  # Pro Path
+  - id: notify_success_pro
+    name: "Notify Success Team - Pro"
+    type: http
+    config:
+      url: "{{variables.slack_webhook_url}}"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        channel: "#pro-signups"
+        text: "New Pro user: {{input.name}} ({{input.email}})"
+    position:
+      x: 550
+      y: 350
+
+  # Setup Tasks - All Users
+  - id: create_setup_tasks
+    name: "Create Setup Tasks"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/internal/tasks/batch"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        user_id: "{{input.user_id}}"
+        tasks:
+          - type: "complete_profile"
+            title: "Complete your profile"
+            priority: 1
+            due_days: 3
+          - type: "connect_integration"
+            title: "Connect your first integration"
+            priority: 2
+            due_days: 7
+          - type: "invite_team"
+            title: "Invite team members"
+            priority: 3
+            due_days: 14
+          - type: "watch_tutorial"
+            title: "Watch getting started video"
+            priority: 1
+            due_days: 1
+      timeout: 15
+    position:
+      x: 750
+      y: 200
+
+  - id: merge_paths
+    name: "Merge Onboarding Paths"
+    type: merge
+    config:
+      strategy: "first_available"
+      timeout: 5
+    position:
+      x: 950
+      y: 200
+
+  # Day 1 - Getting Started Email (delayed)
+  - id: schedule_day1_email
+    name: "Schedule Day 1 Email"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/internal/scheduler/email"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        user_id: "{{input.user_id}}"
+        email: "{{input.email}}"
+        template: "onboarding_day1"
+        send_at: "{{input.created_at | add_hours(24)}}"
+        data:
+          first_name: "{{input.first_name}}"
+          app_name: "{{variables.app_name}}"
+      timeout: 10
+    position:
+      x: 1150
+      y: 150
+
+  # Day 3 - Tips Email
+  - id: schedule_day3_email
+    name: "Schedule Day 3 Email"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/internal/scheduler/email"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        user_id: "{{input.user_id}}"
+        email: "{{input.email}}"
+        template: "onboarding_day3_tips"
+        send_at: "{{input.created_at | add_days(3)}}"
+        data:
+          first_name: "{{input.first_name}}"
+      timeout: 10
+    position:
+      x: 1150
+      y: 250
+
+  # Day 7 - Check-in Email
+  - id: schedule_day7_email
+    name: "Schedule Day 7 Email"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/internal/scheduler/email"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        user_id: "{{input.user_id}}"
+        email: "{{input.email}}"
+        template: "onboarding_day7_checkin"
+        send_at: "{{input.created_at | add_days(7)}}"
+        data:
+          first_name: "{{input.first_name}}"
+          support_email: "{{variables.support_email}}"
+      timeout: 10
+    position:
+      x: 1150
+      y: 350
+
+  - id: update_onboarding_status
+    name: "Update Onboarding Status"
+    type: http
+    config:
+      url: "{{variables.api_base_url}}/internal/users/{{input.user_id}}"
+      method: "PATCH"
+      headers:
+        Content-Type: "application/json"
+      body:
+        onboarding_status: "in_progress"
+        onboarding_started_at: "{{now()}}"
+        email_sequence_scheduled: true
+      timeout: 10
+    position:
+      x: 1350
+      y: 250
+
+  - id: complete_onboarding_setup
+    name: "Complete Onboarding Setup"
+    type: transform
+    config:
+      mapping:
+        status: "'success'"
+        user_id: "$.user_id"
+        email: "$.email"
+        plan: "$.plan"
+        tasks_created: 4
+        emails_scheduled: 3
+        completed_at: "now()"
+      output_format: "json"
+    position:
+      x: 1550
+      y: 250
+
+edges:
+  - id: e1
+    from: receive_user
+    to: track_signup
+
+  - id: e2
+    from: receive_user
+    to: create_crm_contact
+
+  - id: e3
+    from: receive_user
+    to: check_plan_type
+
+  - id: e4
+    from: create_crm_contact
+    to: send_welcome_email
+
+  # Enterprise path
+  - id: e5
+    from: check_plan_type
+    to: notify_sales_enterprise
+    condition: "output == 'enterprise'"
+
+  - id: e6
+    from: notify_sales_enterprise
+    to: schedule_enterprise_call
+
+  - id: e7
+    from: schedule_enterprise_call
+    to: merge_paths
+
+  # Pro path
+  - id: e8
+    from: check_plan_type
+    to: notify_success_pro
+    condition: "output == 'pro'"
+
+  - id: e9
+    from: notify_success_pro
+    to: merge_paths
+
+  # Free path (goes directly to merge)
+  - id: e10
+    from: check_plan_type
+    to: merge_paths
+    condition: "output == 'free'"
+
+  # Common path after merge
+  - id: e11
+    from: send_welcome_email
+    to: create_setup_tasks
+
+  - id: e12
+    from: create_setup_tasks
+    to: merge_paths
+
+  - id: e13
+    from: merge_paths
+    to: schedule_day1_email
+
+  - id: e14
+    from: merge_paths
+    to: schedule_day3_email
+
+  - id: e15
+    from: merge_paths
+    to: schedule_day7_email
+
+  - id: e16
+    from: schedule_day1_email
+    to: update_onboarding_status
+
+  - id: e17
+    from: schedule_day3_email
+    to: update_onboarding_status
+
+  - id: e18
+    from: schedule_day7_email
+    to: update_onboarding_status
+
+  - id: e19
+    from: update_onboarding_status
+    to: complete_onboarding_setup
+
+trigger:
+  name: "User Created Event"
+  type: event
+  enabled: true
+  config:
+    event_type: "user.created"
+    source: "auth-service"
+    filter:
+      verified: true

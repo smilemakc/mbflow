@@ -8,30 +8,36 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/application/auth"
+	"github.com/smilemakc/mbflow/internal/application/servicekey"
+	"github.com/smilemakc/mbflow/pkg/models"
 	pkgmodels "github.com/smilemakc/mbflow/pkg/models"
 )
 
 const (
 	// Context keys for auth data
-	ContextKeyUserID      = "user_id"
-	ContextKeyUser        = "user"
-	ContextKeyClaims      = "claims"
-	ContextKeyToken       = "token"
-	ContextKeyIsAdmin     = "is_admin"
-	ContextKeyPermissions = "permissions"
+	ContextKeyUserID       = "user_id"
+	ContextKeyUser         = "user"
+	ContextKeyClaims       = "claims"
+	ContextKeyToken        = "token"
+	ContextKeyIsAdmin      = "is_admin"
+	ContextKeyPermissions  = "permissions"
+	ContextKeyAuthMethod   = "auth_method"
+	ContextKeyServiceKeyID = "service_key_id"
 )
 
 // AuthMiddleware provides authentication and authorization middleware
 type AuthMiddleware struct {
-	providerManager *auth.ProviderManager
-	authService     *auth.Service
+	providerManager   *auth.ProviderManager
+	authService       *auth.Service
+	serviceKeyService *servicekey.Service
 }
 
 // NewAuthMiddleware creates a new authentication middleware
-func NewAuthMiddleware(pm *auth.ProviderManager, authService *auth.Service) *AuthMiddleware {
+func NewAuthMiddleware(pm *auth.ProviderManager, authService *auth.Service, serviceKeyService *servicekey.Service) *AuthMiddleware {
 	return &AuthMiddleware{
-		providerManager: pm,
-		authService:     authService,
+		providerManager:   pm,
+		authService:       authService,
+		serviceKeyService: serviceKeyService,
 	}
 }
 
@@ -45,6 +51,32 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
+		// Check if it's a service key (starts with "sk_")
+		if strings.HasPrefix(token, "sk_") && m.serviceKeyService != nil {
+			serviceKey, err := m.serviceKeyService.ValidateKey(c.Request.Context(), token)
+			if err != nil {
+				if errors.Is(err, models.ErrServiceKeyRevoked) {
+					respondError(c, http.StatusUnauthorized, "service key has been revoked")
+				} else if errors.Is(err, models.ErrServiceKeyExpired) {
+					respondError(c, http.StatusUnauthorized, "service key has expired")
+				} else {
+					respondError(c, http.StatusUnauthorized, "invalid service key")
+				}
+				c.Abort()
+				return
+			}
+
+			// Set context values from service key
+			c.Set(ContextKeyUserID, serviceKey.UserID)
+			c.Set(ContextKeyIsAdmin, false)
+			c.Set(ContextKeyAuthMethod, "service_key")
+			c.Set(ContextKeyServiceKeyID, serviceKey.ID)
+
+			c.Next()
+			return
+		}
+
+		// Otherwise validate as JWT token
 		claims, err := m.providerManager.ValidateToken(c.Request.Context(), token)
 		if err != nil {
 			if errors.Is(err, auth.ErrExpiredToken) {
@@ -61,6 +93,7 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		c.Set(ContextKeyClaims, claims)
 		c.Set(ContextKeyToken, token)
 		c.Set(ContextKeyIsAdmin, claims.IsAdmin)
+		c.Set(ContextKeyAuthMethod, "jwt")
 
 		c.Next()
 	}
@@ -239,9 +272,15 @@ func (m *AuthMiddleware) RequirePermission(permission string) gin.HandlerFunc {
 	}
 }
 
-// extractToken extracts the JWT token from the Authorization header or cookie
+// extractToken extracts the JWT token from Authorization header, cookie, query param,
+// OR service key from X-Service-Key header
 func (m *AuthMiddleware) extractToken(c *gin.Context) (string, error) {
-	// Try Authorization header first
+	// Check X-Service-Key header first
+	if serviceKey := c.GetHeader("X-Service-Key"); serviceKey != "" {
+		return serviceKey, nil
+	}
+
+	// Try Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader != "" {
 		parts := strings.SplitN(authHeader, " ", 2)
@@ -321,4 +360,27 @@ func GetUser(c *gin.Context) (*pkgmodels.User, bool) {
 		return nil, false
 	}
 	return user.(*pkgmodels.User), true
+}
+
+// GetAuthMethod returns the authentication method used
+func GetAuthMethod(c *gin.Context) string {
+	method, exists := c.Get(ContextKeyAuthMethod)
+	if !exists {
+		return "jwt"
+	}
+	return method.(string)
+}
+
+// GetServiceKeyID returns the service key ID if authenticated via service key
+func GetServiceKeyID(c *gin.Context) (string, bool) {
+	id, exists := c.Get(ContextKeyServiceKeyID)
+	if !exists {
+		return "", false
+	}
+	return id.(string), true
+}
+
+// IsServiceKeyAuth returns true if the request is authenticated via service key
+func IsServiceKeyAuth(c *gin.Context) bool {
+	return GetAuthMethod(c) == "service_key"
 }

@@ -1,0 +1,419 @@
+# MBFlow Workflow Configuration v1.0
+# AI Content Generation with Web Research
+#
+# This workflow generates content by first researching a topic via web search,
+# then using AI to create high-quality articles with citations.
+
+metadata:
+  name: "AI Content Generator with Research"
+  description: "Research topics online and generate AI-powered content with citations"
+  version: 1
+  tags: ["ai", "content", "research", "web-search", "generation"]
+
+variables:
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  serp_api_key: "{{env.SERP_API_KEY}}"
+  content_db_url: "{{env.CONTENT_DB_URL}}"
+  cms_api_url: "{{env.CMS_API_URL}}"
+  cms_api_key: "{{env.CMS_API_KEY}}"
+  target_word_count: 1500
+  content_style: "professional"
+
+nodes:
+  - id: receive_topic
+    name: "Receive Topic Request"
+    type: transform
+    config:
+      mapping:
+        topic: "$.topic"
+        keywords: "$.keywords"
+        target_audience: "$.target_audience || 'general'"
+        tone: "$.tone || 'informative'"
+        request_id: "uuid()"
+      output_format: "json"
+    position:
+      x: 100
+      y: 200
+
+  - id: generate_search_queries
+    name: "Generate Search Queries"
+    type: llm
+    config:
+      provider: "openai"
+      model: "gpt-4"
+      api_key: "{{variables.openai_api_key}}"
+      prompt: |
+        Generate 5 specific search queries to research the following topic comprehensively.
+        Focus on finding factual information, statistics, expert opinions, and recent developments.
+
+        Topic: {{input.topic}}
+        Keywords: {{input.keywords}}
+        Target Audience: {{input.target_audience}}
+
+        Return as JSON array:
+        {
+          "queries": ["query1", "query2", "query3", "query4", "query5"]
+        }
+      max_tokens: 300
+      temperature: 0.5
+    position:
+      x: 300
+      y: 200
+
+  - id: web_search_1
+    name: "Web Search - Query 1"
+    type: http
+    config:
+      url: "https://serpapi.com/search"
+      method: "GET"
+      query_params:
+        api_key: "{{variables.serp_api_key}}"
+        q: "{{input.queries[0]}}"
+        num: 5
+      timeout: 30
+    position:
+      x: 550
+      y: 50
+
+  - id: web_search_2
+    name: "Web Search - Query 2"
+    type: http
+    config:
+      url: "https://serpapi.com/search"
+      method: "GET"
+      query_params:
+        api_key: "{{variables.serp_api_key}}"
+        q: "{{input.queries[1]}}"
+        num: 5
+      timeout: 30
+    position:
+      x: 550
+      y: 150
+
+  - id: web_search_3
+    name: "Web Search - Query 3"
+    type: http
+    config:
+      url: "https://serpapi.com/search"
+      method: "GET"
+      query_params:
+        api_key: "{{variables.serp_api_key}}"
+        q: "{{input.queries[2]}}"
+        num: 5
+      timeout: 30
+    position:
+      x: 550
+      y: 250
+
+  - id: web_search_4
+    name: "Web Search - Query 4"
+    type: http
+    config:
+      url: "https://serpapi.com/search"
+      method: "GET"
+      query_params:
+        api_key: "{{variables.serp_api_key}}"
+        q: "{{input.queries[3]}}"
+        num: 5
+      timeout: 30
+    position:
+      x: 550
+      y: 350
+
+  - id: merge_search_results
+    name: "Merge Search Results"
+    type: merge
+    config:
+      strategy: "array"
+      flatten: true
+      deduplicate_by: "link"
+    position:
+      x: 800
+      y: 200
+
+  - id: extract_content
+    name: "Extract Relevant Content"
+    type: transform
+    config:
+      mapping:
+        sources: |
+          $.results.map(r => ({
+            title: r.title,
+            snippet: r.snippet,
+            link: r.link,
+            source: r.displayed_link
+          })).slice(0, 10)
+        source_count: "$.results.length()"
+      output_format: "json"
+    position:
+      x: 1000
+      y: 200
+
+  - id: create_outline
+    name: "Create Content Outline"
+    type: llm
+    config:
+      provider: "openai"
+      model: "gpt-4"
+      api_key: "{{variables.openai_api_key}}"
+      prompt: |
+        Based on the following research sources, create a detailed outline for an article about "{{context.topic}}".
+
+        Target Audience: {{context.target_audience}}
+        Tone: {{context.tone}}
+        Target Word Count: {{variables.target_word_count}}
+
+        Research Sources:
+        {{#each input.sources}}
+        - {{title}}: {{snippet}}
+        {{/each}}
+
+        Create an outline with:
+        1. Compelling title
+        2. Introduction hook
+        3. 4-6 main sections with subsections
+        4. Key points to cover in each section
+        5. Conclusion
+
+        Return as JSON:
+        {
+          "title": "...",
+          "intro_hook": "...",
+          "sections": [
+            {
+              "heading": "...",
+              "subsections": ["...", "..."],
+              "key_points": ["...", "..."]
+            }
+          ],
+          "conclusion_points": ["...", "..."]
+        }
+      max_tokens: 1500
+      temperature: 0.6
+    position:
+      x: 1200
+      y: 200
+
+  - id: generate_content
+    name: "Generate Full Article"
+    type: llm
+    config:
+      provider: "openai"
+      model: "gpt-4"
+      api_key: "{{variables.openai_api_key}}"
+      prompt: |
+        Write a comprehensive article following this outline.
+
+        Outline:
+        {{input.outline | json}}
+
+        Research Sources for Citations:
+        {{#each context.sources}}
+        [{{@index + 1}}] {{title}} - {{link}}
+        {{/each}}
+
+        Requirements:
+        - Target word count: {{variables.target_word_count}} words
+        - Style: {{variables.content_style}}
+        - Include inline citations using [number] format
+        - Use engaging language appropriate for {{context.target_audience}}
+        - Tone: {{context.tone}}
+        - Include a "Sources" section at the end
+
+        Write the complete article in markdown format.
+      max_tokens: 4000
+      temperature: 0.7
+    position:
+      x: 1400
+      y: 200
+
+  - id: quality_check
+    name: "Quality Check"
+    type: llm
+    config:
+      provider: "openai"
+      model: "gpt-4"
+      api_key: "{{variables.openai_api_key}}"
+      prompt: |
+        Review the following article for quality and suggest improvements.
+
+        Article:
+        {{input.article}}
+
+        Check for:
+        1. Factual accuracy based on provided sources
+        2. Grammar and spelling
+        3. Flow and readability
+        4. Completeness of topic coverage
+        5. Proper citation usage
+
+        Return JSON:
+        {
+          "quality_score": 85,  // 0-100
+          "issues": [
+            {"type": "grammar|factual|flow|citation", "description": "...", "location": "..."}
+          ],
+          "suggestions": ["...", "..."],
+          "approved": true/false
+        }
+      max_tokens: 1000
+      temperature: 0.3
+    position:
+      x: 1600
+      y: 200
+
+  - id: check_approval
+    name: "Check Quality Approval"
+    type: conditional
+    config:
+      expression: "data.approved == true && data.quality_score >= 75"
+      true_output: "approved"
+      false_output: "needs_revision"
+    position:
+      x: 1800
+      y: 200
+
+  - id: publish_to_cms
+    name: "Publish to CMS"
+    type: http
+    config:
+      url: "{{variables.cms_api_url}}/articles"
+      method: "POST"
+      headers:
+        Authorization: "Bearer {{variables.cms_api_key}}"
+        Content-Type: "application/json"
+      body:
+        title: "{{context.outline.title}}"
+        content: "{{context.article}}"
+        status: "draft"
+        meta:
+          topic: "{{context.topic}}"
+          keywords: "{{context.keywords}}"
+          target_audience: "{{context.target_audience}}"
+          quality_score: "{{input.quality_score}}"
+          sources_count: "{{context.source_count}}"
+          generated_at: "{{now()}}"
+      timeout: 30
+    position:
+      x: 2000
+      y: 150
+
+  - id: save_to_database
+    name: "Save to Content Database"
+    type: http
+    config:
+      url: "{{variables.content_db_url}}/content"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        request_id: "{{context.request_id}}"
+        topic: "{{context.topic}}"
+        title: "{{context.outline.title}}"
+        content: "{{context.article}}"
+        outline: "{{context.outline}}"
+        sources: "{{context.sources}}"
+        quality_report: "{{input}}"
+        cms_id: "{{cms_response.id}}"
+        status: "published"
+        created_at: "{{now()}}"
+      timeout: 30
+    position:
+      x: 2200
+      y: 150
+
+  - id: revision_needed
+    name: "Flag for Revision"
+    type: transform
+    config:
+      mapping:
+        status: "'revision_needed'"
+        request_id: "$.request_id"
+        quality_score: "$.quality_score"
+        issues: "$.issues"
+        suggestions: "$.suggestions"
+        flagged_at: "now()"
+      output_format: "json"
+    position:
+      x: 2000
+      y: 300
+
+edges:
+  - id: e1
+    from: receive_topic
+    to: generate_search_queries
+
+  - id: e2
+    from: generate_search_queries
+    to: web_search_1
+
+  - id: e3
+    from: generate_search_queries
+    to: web_search_2
+
+  - id: e4
+    from: generate_search_queries
+    to: web_search_3
+
+  - id: e5
+    from: generate_search_queries
+    to: web_search_4
+
+  - id: e6
+    from: web_search_1
+    to: merge_search_results
+
+  - id: e7
+    from: web_search_2
+    to: merge_search_results
+
+  - id: e8
+    from: web_search_3
+    to: merge_search_results
+
+  - id: e9
+    from: web_search_4
+    to: merge_search_results
+
+  - id: e10
+    from: merge_search_results
+    to: extract_content
+
+  - id: e11
+    from: extract_content
+    to: create_outline
+
+  - id: e12
+    from: create_outline
+    to: generate_content
+
+  - id: e13
+    from: generate_content
+    to: quality_check
+
+  - id: e14
+    from: quality_check
+    to: check_approval
+
+  - id: e15
+    from: check_approval
+    to: publish_to_cms
+    condition: "output == 'approved'"
+
+  - id: e16
+    from: check_approval
+    to: revision_needed
+    condition: "output == 'needs_revision'"
+
+  - id: e17
+    from: publish_to_cms
+    to: save_to_database
+
+trigger:
+  name: "Content Request Webhook"
+  type: webhook
+  enabled: true
+  config:
+    path: "/webhooks/content-request"
+    method: "POST"
+    response_mode: "async"

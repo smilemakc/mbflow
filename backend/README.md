@@ -59,7 +59,7 @@ docker compose up -d
 
 3. Check service health:
 ```bash
-curl http://localhost:8181/health
+curl http://localhost:8585/health
 ```
 
 ### Local Development Setup
@@ -96,7 +96,7 @@ go build -o mbflow-server ./cmd/server
 ./mbflow-server
 ```
 
-The server will start on `http://localhost:8181`
+The server will start on `http://localhost:8585`
 
 ## Configuration
 
@@ -106,7 +106,7 @@ Configuration is managed through environment variables. See `.env.example` for a
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PORT` | Server port | 8181 |
+| `PORT` | Server port | 8585 |
 | `DATABASE_URL` | PostgreSQL connection string | See .env.example |
 | `REDIS_URL` | Redis connection string | redis://localhost:6379 |
 | `LOG_LEVEL` | Log level (debug/info/warn/error) | info |
@@ -151,7 +151,7 @@ import (
 func main() {
     // Create client
     client, err := sdk.NewClient(
-        sdk.WithHTTPEndpoint("http://localhost:8181"),
+        sdk.WithHTTPEndpoint("http://localhost:8585"),
         sdk.WithAPIKey("your-api-key"),
     )
     if err != nil {
@@ -288,7 +288,7 @@ docker build -t mbflow:latest .
 ```bash
 docker build -t mbflow:latest .
 docker run -d \
-  -p 8181:8181 \
+  -p 8585:8585 \
   -e DATABASE_URL=postgres://... \
   -e REDIS_URL=redis://... \
   mbflow:latest
@@ -317,7 +317,7 @@ Kubernetes manifests coming soon.
 The server exposes metrics at `/metrics`:
 
 ```bash
-curl http://localhost:8181/metrics
+curl http://localhost:8585/metrics
 ```
 
 Metrics include:

@@ -1,0 +1,379 @@
+# MBFlow Workflow Configuration v1.0
+# Stage 2: Brief Builder Agent - Автоматическое создание брифа
+
+metadata:
+  name: "Brief Builder Agent"
+  description: "Автоматическое создание структурированного брифа с RequirementsSnapshot"
+  version: 1
+  tags: ["brief", "content-pipeline", "llm", "requirements"]
+
+variables:
+  # OpenAI Configuration
+  openai_api_key: "{{env.OPENAI_API_KEY}}"
+  openai_model: "gpt-4-turbo"
+
+  # RAG Backend
+  rag_endpoint: "{{env.RAG_ENDPOINT}}"
+  rag_api_key: "{{env.RAG_API_KEY}}"
+
+nodes:
+  # ============================================
+  # DATA COLLECTION (parallel)
+  # ============================================
+
+  - id: fetch_products
+    name: "Fetch Available Products"
+    type: http
+    description: "Загрузка доступных продуктов для упоминания"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/products/brand/{{input.brand_id}}"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 100
+
+  - id: fetch_channel_requirements
+    name: "Fetch Channel Requirements"
+    type: http
+    description: "Загрузка требований канала (лимиты, форматы)"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/channels/{{input.planned_item.channel}}/requirements"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 200
+
+  - id: fetch_compliance_rules
+    name: "Fetch Compliance Rules"
+    type: http
+    description: "Загрузка запрещённых слов и обязательных дисклеймеров"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/compliance/brand/{{input.brand_id}}/rules"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 300
+
+  - id: fetch_brand_tov
+    name: "Fetch Brand TOV"
+    type: http
+    description: "Загрузка Tone of Voice бренда"
+    config:
+      method: GET
+      url: "{{variables.rag_endpoint}}/api/v1/brands/{{input.brand_id}}/tov"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+      timeout: 30000
+    position:
+      x: 100
+      y: 400
+
+  # ============================================
+  # MERGE & PROCESS
+  # ============================================
+
+  - id: merge_brief_inputs
+    name: "Merge Brief Inputs"
+    type: merge
+    description: "Объединение всех данных для BriefBuilder"
+    config:
+      strategy: combine
+      output_key: brief_context
+    position:
+      x: 350
+      y: 250
+
+  - id: brief_builder_agent
+    name: "Brief Builder Agent LLM"
+    type: llm
+    description: "Создание структурированного брифа"
+    config:
+      provider: openai
+      model: "{{variables.openai_model}}"
+      api_key: "{{variables.openai_api_key}}"
+      temperature: 0.5
+      max_tokens: 3000
+      system_prompt: |
+        Ты — BriefBuilder Agent. Твоя задача — создать детальный Brief для контент-генератора.
+
+        Выполни:
+        1. Собери все constraints в единый snapshot (версионируемый)
+        2. Детектируй конфликты (например: формат требует 300 символов, а канал лимит 280)
+        3. Предложи альтернативы при конфликте
+        4. Создай человекочитаемое ТЗ
+
+        ВАЖНО: Brief должен быть достаточно детальным для генератора, но не содержать готовый текст.
+
+        Выведи JSON:
+        {
+          "brief": {
+            "id": "brief_uuid",
+            "planned_item_id": "item_id",
+            "task_text": "Человекочитаемое ТЗ на 2-3 предложения",
+            "topic": "тема из PlannedItem",
+            "topic_details": "расширенное описание темы",
+            "format": "формат контента",
+            "channel": "целевой канал",
+            "do_list": [
+              "использовать продукт X",
+              "добавить CTA на покупку",
+              "включить социальное доказательство"
+            ],
+            "dont_list": [
+              "не использовать агрессивные продажи",
+              "избегать технических терминов",
+              "не сравнивать с конкурентами"
+            ],
+            "success_criteria": [
+              "вовлечение аудитории",
+              "клик на CTA",
+              "сохранение в закладки"
+            ],
+            "target_length": {
+              "min": 200,
+              "max": 280,
+              "optimal": 250
+            },
+            "required_elements": ["CTA", "hashtags", "emoji", "product_mention"],
+            "suggested_products": ["product_id_1", "product_id_2"],
+            "target_emotion": "curiosity|trust|excitement|urgency",
+            "content_type": "educational|promo|engagement"
+          },
+          "requirements_snapshot": {
+            "version": "2024-01-25T10:00:00Z",
+            "snapshot_hash": "sha256_hash",
+            "channel_constraints": {
+              "max_length": 280,
+              "allowed_media": ["image", "video"],
+              "hashtag_limit": 5,
+              "link_allowed": true
+            },
+            "forbidden_words": ["слово1", "слово2"],
+            "required_disclaimers": [
+              {"condition": "если упоминается цена", "text": "Цены актуальны на..."}
+            ],
+            "tone_of_voice": {
+              "style": "professional, friendly",
+              "formality": "semi-formal",
+              "emoji_usage": "moderate",
+              "humor_level": "light"
+            },
+            "brand_guidelines": {
+              "key_messages": ["сообщение1"],
+              "value_propositions": ["ценность1"]
+            }
+          },
+          "conflicts": [
+            {
+              "type": "length_mismatch|format_incompatible|rule_conflict",
+              "severity": "warning|error",
+              "description": "описание конфликта",
+              "suggestion": "предложение по разрешению",
+              "auto_resolved": true
+            }
+          ],
+          "has_critical_conflicts": false
+        }
+      user_prompt: |
+        ## PlannedItem для создания брифа:
+        {{input.planned_item | json}}
+
+        ## Доступные продукты:
+        {{input.brief_context.products | json}}
+
+        ## Требования канала {{input.planned_item.channel}}:
+        {{input.brief_context.channel_requirements | json}}
+
+        ## Compliance правила (запрещённые слова, дисклеймеры):
+        {{input.brief_context.compliance_rules | json}}
+
+        ## Tone of Voice бренда:
+        {{input.brief_context.brand_tov | json}}
+
+        ---
+
+        Создай детальный Brief и RequirementsSnapshot.
+        Если есть конфликты — задокументируй их и предложи решения.
+    position:
+      x: 550
+      y: 250
+
+  # ============================================
+  # CONFLICT HANDLING
+  # ============================================
+
+  - id: parse_brief_response
+    name: "Parse Brief Response"
+    type: transform
+    description: "Парсинг ответа LLM"
+    config:
+      mode: expression
+      expression: |
+        let parsed = input | fromjson;
+        {
+          "brief": parsed.brief,
+          "requirements_snapshot": parsed.requirements_snapshot,
+          "conflicts": parsed.conflicts,
+          "has_critical_conflicts": parsed.has_critical_conflicts
+        }
+    position:
+      x: 750
+      y: 250
+
+  - id: check_conflicts
+    name: "Check Critical Conflicts"
+    type: conditional
+    description: "Проверка критических конфликтов"
+    config:
+      conditions:
+        - expression: "input.has_critical_conflicts == true"
+          output: "has_conflicts"
+        - expression: "true"
+          output: "no_conflicts"
+    position:
+      x: 950
+      y: 250
+
+  # ============================================
+  # NO CONFLICTS PATH
+  # ============================================
+
+  - id: save_brief
+    name: "Save Brief"
+    type: http
+    description: "Сохранение брифа в базу данных"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/briefs"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        planned_item_id: "{{input.planned_item.id}}"
+        pipeline_id: "{{input.pipeline_id}}"
+        brief: "{{input.brief}}"
+        requirements_snapshot: "{{input.requirements_snapshot}}"
+        conflicts: "{{input.conflicts}}"
+    position:
+      x: 1150
+      y: 150
+
+  - id: output_success
+    name: "Output Success"
+    type: transform
+    description: "Формирование успешного результата"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "success",
+          "brief": {{input.brief | json}},
+          "requirements_snapshot": {{input.requirements_snapshot | json}},
+          "conflicts": {{input.conflicts | json}},
+          "brief_id": "{{input.id}}"
+        }
+    position:
+      x: 1350
+      y: 150
+
+  # ============================================
+  # CONFLICTS PATH
+  # ============================================
+
+  - id: notify_conflicts
+    name: "Notify About Conflicts"
+    type: http
+    description: "Уведомление о критических конфликтах"
+    config:
+      method: POST
+      url: "{{variables.rag_endpoint}}/api/v1/notifications"
+      headers:
+        Authorization: "Bearer {{variables.rag_api_key}}"
+        Content-Type: "application/json"
+      body:
+        type: "brief_conflicts"
+        severity: "warning"
+        planned_item_id: "{{input.planned_item.id}}"
+        conflicts: "{{input.conflicts}}"
+        message: "Обнаружены критические конфликты в требованиях. Требуется ручное разрешение."
+    position:
+      x: 1150
+      y: 350
+
+  - id: output_conflicts
+    name: "Output With Conflicts"
+    type: transform
+    description: "Формирование результата с конфликтами"
+    config:
+      mode: template
+      template: |
+        {
+          "status": "conflicts_detected",
+          "brief": {{input.brief | json}},
+          "requirements_snapshot": {{input.requirements_snapshot | json}},
+          "conflicts": {{input.conflicts | json}},
+          "requires_manual_resolution": true
+        }
+    position:
+      x: 1350
+      y: 350
+
+edges:
+  # Parallel data fetch
+  - id: e1
+    from: fetch_products
+    to: merge_brief_inputs
+  - id: e2
+    from: fetch_channel_requirements
+    to: merge_brief_inputs
+  - id: e3
+    from: fetch_compliance_rules
+    to: merge_brief_inputs
+  - id: e4
+    from: fetch_brand_tov
+    to: merge_brief_inputs
+
+  # Processing chain
+  - id: e5
+    from: merge_brief_inputs
+    to: brief_builder_agent
+  - id: e6
+    from: brief_builder_agent
+    to: parse_brief_response
+  - id: e7
+    from: parse_brief_response
+    to: check_conflicts
+
+  # No conflicts path
+  - id: e8
+    from: check_conflicts
+    to: save_brief
+    source_handle: "no_conflicts"
+  - id: e9
+    from: save_brief
+    to: output_success
+
+  # Conflicts path
+  - id: e10
+    from: check_conflicts
+    to: notify_conflicts
+    source_handle: "has_conflicts"
+  - id: e11
+    from: notify_conflicts
+    to: output_conflicts
+
+trigger:
+  name: "Brief Builder Sub-workflow"
+  description: "Вызывается из оркестратора"
+  type: manual
+  enabled: true
+  config: {}

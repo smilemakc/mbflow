@@ -7,7 +7,7 @@
 // Example usage:
 //
 //	client := sdk.NewClient(
-//		sdk.WithHTTPEndpoint("http://localhost:8181"),
+//		sdk.WithHTTPEndpoint("http://localhost:8585"),
 //		sdk.WithAPIKey("your-api-key"),
 //	)
 //	defer client.Close()

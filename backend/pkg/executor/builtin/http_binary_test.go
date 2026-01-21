@@ -323,3 +323,226 @@ func TestHTTPExecutor_PipelineSimulation_ImageToLLM(t *testing.T) {
 	assert.NotEmpty(t, files[0]["data"])
 	assert.Equal(t, "image/png", files[0]["mime_type"])
 }
+
+// ============== Error Handling Tests ==============
+
+func TestHTTPExecutor_ErrorStatus_Default(t *testing.T) {
+	// By default, 4xx/5xx responses should return an error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error": "not found"}`))
+	}))
+	defer server.Close()
+
+	exec := NewHTTPExecutor()
+	config := map[string]interface{}{
+		"method": "GET",
+		"url":    server.URL,
+	}
+
+	_, err := exec.Execute(context.Background(), config, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTTP 404")
+}
+
+func TestHTTPExecutor_ErrorStatus_IgnoreStatusErrors(t *testing.T) {
+	// With ignore_status_errors: true, 4xx/5xx should not return error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error": "not found", "code": "RESOURCE_NOT_FOUND"}`))
+	}))
+	defer server.Close()
+
+	exec := NewHTTPExecutor()
+	config := map[string]interface{}{
+		"method":               "GET",
+		"url":                  server.URL,
+		"ignore_status_errors": true,
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Equal(t, 404, resultMap["status"])
+	assert.Equal(t, true, resultMap["is_error"])
+	assert.NotNil(t, resultMap["body"])
+
+	body := resultMap["body"].(map[string]interface{})
+	assert.Equal(t, "not found", body["error"])
+	assert.Equal(t, "RESOURCE_NOT_FOUND", body["code"])
+}
+
+func TestHTTPExecutor_ErrorStatus_IgnoreStatusErrors_500(t *testing.T) {
+	// Test with 500 Internal Server Error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message": "internal error"}`))
+	}))
+	defer server.Close()
+
+	exec := NewHTTPExecutor()
+	config := map[string]interface{}{
+		"method":               "POST",
+		"url":                  server.URL,
+		"ignore_status_errors": true,
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Equal(t, 500, resultMap["status"])
+	assert.Equal(t, true, resultMap["is_error"])
+}
+
+func TestHTTPExecutor_SuccessStatusCodes_Allowed(t *testing.T) {
+	// 404 is allowed when in success_status_codes list
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"exists": false}`))
+	}))
+	defer server.Close()
+
+	exec := NewHTTPExecutor()
+	config := map[string]interface{}{
+		"method":               "GET",
+		"url":                  server.URL,
+		"success_status_codes": []interface{}{200, 201, 404},
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Equal(t, 404, resultMap["status"])
+	assert.Equal(t, true, resultMap["is_error"])
+
+	body := resultMap["body"].(map[string]interface{})
+	assert.Equal(t, false, body["exists"])
+}
+
+func TestHTTPExecutor_SuccessStatusCodes_NotAllowed(t *testing.T) {
+	// 500 is not in success_status_codes, so it should return error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error": "server error"}`))
+	}))
+	defer server.Close()
+
+	exec := NewHTTPExecutor()
+	config := map[string]interface{}{
+		"method":               "GET",
+		"url":                  server.URL,
+		"success_status_codes": []interface{}{200, 201, 404}, // 500 not included
+	}
+
+	_, err := exec.Execute(context.Background(), config, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTTP 500")
+}
+
+func TestHTTPExecutor_SuccessStatusCodes_PriorityOverIgnore(t *testing.T) {
+	// success_status_codes takes priority over ignore_status_errors
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway) // 502
+		w.Write([]byte(`upstream error`))
+	}))
+	defer server.Close()
+
+	exec := NewHTTPExecutor()
+	config := map[string]interface{}{
+		"method":               "GET",
+		"url":                  server.URL,
+		"ignore_status_errors": true,                         // Would allow all errors
+		"success_status_codes": []interface{}{200, 201, 404}, // But this restricts to specific codes
+	}
+
+	// 502 is not in success_status_codes, so it should still error
+	_, err := exec.Execute(context.Background(), config, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTTP 502")
+}
+
+func TestHTTPExecutor_IsError_FalseOnSuccess(t *testing.T) {
+	// is_error should be false for successful responses
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success": true}`))
+	}))
+	defer server.Close()
+
+	exec := NewHTTPExecutor()
+	config := map[string]interface{}{
+		"method": "GET",
+		"url":    server.URL,
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap := result.(map[string]interface{})
+	assert.Equal(t, 200, resultMap["status"])
+	assert.Equal(t, false, resultMap["is_error"])
+}
+
+func TestHTTPExecutor_getIntSlice(t *testing.T) {
+	exec := NewHTTPExecutor()
+
+	tests := []struct {
+		name     string
+		config   map[string]interface{}
+		key      string
+		expected []int
+	}{
+		{
+			name:     "empty config",
+			config:   map[string]interface{}{},
+			key:      "codes",
+			expected: nil,
+		},
+		{
+			name: "[]int type",
+			config: map[string]interface{}{
+				"codes": []int{200, 201, 404},
+			},
+			key:      "codes",
+			expected: []int{200, 201, 404},
+		},
+		{
+			name: "[]interface{} with float64 (from JSON)",
+			config: map[string]interface{}{
+				"codes": []interface{}{float64(200), float64(201), float64(404)},
+			},
+			key:      "codes",
+			expected: []int{200, 201, 404},
+		},
+		{
+			name: "[]interface{} mixed types",
+			config: map[string]interface{}{
+				"codes": []interface{}{float64(200), 201, float64(404)},
+			},
+			key:      "codes",
+			expected: []int{200, 201, 404},
+		},
+		{
+			name: "wrong type",
+			config: map[string]interface{}{
+				"codes": "not an array",
+			},
+			key:      "codes",
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := exec.getIntSlice(tt.config, tt.key)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

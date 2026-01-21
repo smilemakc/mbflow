@@ -20,7 +20,7 @@ func TestConfig_Load_DefaultValues(t *testing.T) {
 	assert.NotNil(t, cfg)
 
 	// Verify default values
-	assert.Equal(t, 8181, cfg.Server.Port)
+	assert.Equal(t, 8585, cfg.Server.Port)
 	assert.Equal(t, "0.0.0.0", cfg.Server.Host)
 	assert.Equal(t, 15*time.Second, cfg.Server.ReadTimeout)
 	assert.Equal(t, 15*time.Second, cfg.Server.WriteTimeout)
@@ -145,7 +145,7 @@ func TestConfig_Load_InvalidValuesUsesDefaults(t *testing.T) {
 	assert.NotNil(t, cfg)
 
 	// Should use default values when parsing fails
-	assert.Equal(t, 8181, cfg.Server.Port)
+	assert.Equal(t, 8585, cfg.Server.Port)
 	assert.Equal(t, 20, cfg.Database.MaxConnections)
 	assert.Equal(t, 15*time.Second, cfg.Server.ReadTimeout)
 	assert.True(t, cfg.Server.CORS)
@@ -209,7 +209,7 @@ func TestConfig_Validate_InvalidPort(t *testing.T) {
 }
 
 func TestConfig_Validate_ValidPorts(t *testing.T) {
-	tests := []int{1, 80, 443, 8080, 8181, 65535}
+	tests := []int{1, 80, 443, 8080, 8585, 65535}
 
 	for _, port := range tests {
 		t.Run("Port "+string(rune(port)), func(t *testing.T) {

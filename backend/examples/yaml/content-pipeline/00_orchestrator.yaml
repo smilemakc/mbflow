@@ -1,0 +1,480 @@
+# MBFlow Workflow Configuration v1.0
+# Content Pipeline Orchestrator - координация всех этапов
+
+metadata:
+  name: "Content Pipeline Orchestrator"
+  description: "Главный координатор LLM Content Pipeline: запуск и мониторинг всех этапов"
+  version: 1
+  tags: ["orchestrator", "content-pipeline", "llm", "automation"]
+
+variables:
+  # API Configuration
+  mbflow_api: "{{env.MBFLOW_API_URL}}"
+  mbflow_api_key: "{{env.MBFLOW_API_KEY}}"
+
+  # Brand Configuration
+  brand_id: "{{env.BRAND_ID}}"
+
+  # Sub-workflow IDs (заполняются после импорта)
+  planner_workflow_id: "{{env.PLANNER_WORKFLOW_ID}}"
+  brief_workflow_id: "{{env.BRIEF_WORKFLOW_ID}}"
+  rag_workflow_id: "{{env.RAG_WORKFLOW_ID}}"
+  generator_workflow_id: "{{env.GENERATOR_WORKFLOW_ID}}"
+  compliance_workflow_id: "{{env.COMPLIANCE_WORKFLOW_ID}}"
+  router_workflow_id: "{{env.ROUTER_WORKFLOW_ID}}"
+  adapter_workflow_id: "{{env.ADAPTER_WORKFLOW_ID}}"
+  analytics_workflow_id: "{{env.ANALYTICS_WORKFLOW_ID}}"
+
+  # Execution settings
+  wait_timeout: 300000  # 5 min per stage
+  variants_count: 3
+
+nodes:
+  # ============================================
+  # INITIALIZATION
+  # ============================================
+
+  - id: init_pipeline
+    name: "Initialize Pipeline"
+    type: transform
+    description: "Инициализация контекста пайплайна"
+    config:
+      mode: template
+      template: |
+        {
+          "pipeline_id": "{{uuid}}",
+          "brand_id": "{{variables.brand_id}}",
+          "started_at": "{{now}}",
+          "stages_completed": [],
+          "current_stage": "planner"
+        }
+    position:
+      x: 100
+      y: 200
+
+  # ============================================
+  # STAGE 1: PLANNER
+  # ============================================
+
+  - id: run_planner
+    name: "Run Planner Workflow"
+    type: http
+    description: "Запуск workflow стратегического планирования"
+    config:
+      method: POST
+      url: "{{variables.mbflow_api}}/api/v1/executions"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+        Content-Type: "application/json"
+      body:
+        workflow_id: "{{variables.planner_workflow_id}}"
+        input:
+          brand_id: "{{input.brand_id}}"
+          pipeline_id: "{{input.pipeline_id}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 300
+      y: 200
+
+  - id: wait_planner
+    name: "Wait for Planner"
+    type: http
+    description: "Ожидание завершения Planner workflow"
+    config:
+      method: GET
+      url: "{{variables.mbflow_api}}/api/v1/executions/{{input.execution_id}}/wait"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 500
+      y: 200
+
+  - id: extract_planned_items
+    name: "Extract Planned Items"
+    type: transform
+    description: "Извлечение PlannedItems для итерации"
+    config:
+      mode: expression
+      expression: |
+        {
+          "content_plan": input.result.content_plan,
+          "planned_items": input.result.planned_items,
+          "stages_completed": ["planner"]
+        }
+    position:
+      x: 700
+      y: 200
+
+  # ============================================
+  # STAGE 2-7: PROCESS EACH ITEM
+  # Итерация по каждому PlannedItem
+  # ============================================
+
+  - id: process_item_brief
+    name: "Run Brief Builder"
+    type: http
+    description: "Запуск Brief Builder для каждого item"
+    config:
+      method: POST
+      url: "{{variables.mbflow_api}}/api/v1/executions"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+        Content-Type: "application/json"
+      body:
+        workflow_id: "{{variables.brief_workflow_id}}"
+        input:
+          planned_item: "{{input.current_item}}"
+          brand_id: "{{input.brand_id}}"
+          pipeline_id: "{{input.pipeline_id}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 900
+      y: 200
+
+  - id: wait_brief
+    name: "Wait for Brief"
+    type: http
+    config:
+      method: GET
+      url: "{{variables.mbflow_api}}/api/v1/executions/{{input.execution_id}}/wait"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 1100
+      y: 200
+
+  - id: process_item_rag
+    name: "Run RAG Evidence"
+    type: http
+    description: "Запуск RAG для сбора доказательств"
+    config:
+      method: POST
+      url: "{{variables.mbflow_api}}/api/v1/executions"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+        Content-Type: "application/json"
+      body:
+        workflow_id: "{{variables.rag_workflow_id}}"
+        input:
+          brief: "{{input.result.brief}}"
+          requirements_snapshot: "{{input.result.requirements_snapshot}}"
+          pipeline_id: "{{input.pipeline_id}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 1300
+      y: 200
+
+  - id: wait_rag
+    name: "Wait for RAG"
+    type: http
+    config:
+      method: GET
+      url: "{{variables.mbflow_api}}/api/v1/executions/{{input.execution_id}}/wait"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 1500
+      y: 200
+
+  - id: process_item_generator
+    name: "Run Content Generator"
+    type: http
+    description: "Запуск генерации вариантов"
+    config:
+      method: POST
+      url: "{{variables.mbflow_api}}/api/v1/executions"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+        Content-Type: "application/json"
+      body:
+        workflow_id: "{{variables.generator_workflow_id}}"
+        input:
+          brief: "{{input.brief}}"
+          evidence_bundle: "{{input.result.evidence_bundle}}"
+          requirements_snapshot: "{{input.requirements_snapshot}}"
+          variants_count: "{{variables.variants_count}}"
+          pipeline_id: "{{input.pipeline_id}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 1700
+      y: 200
+
+  - id: wait_generator
+    name: "Wait for Generator"
+    type: http
+    config:
+      method: GET
+      url: "{{variables.mbflow_api}}/api/v1/executions/{{input.execution_id}}/wait"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 1900
+      y: 200
+
+  - id: process_item_compliance
+    name: "Run Compliance Editor"
+    type: http
+    description: "Запуск compliance check и risk scoring"
+    config:
+      method: POST
+      url: "{{variables.mbflow_api}}/api/v1/executions"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+        Content-Type: "application/json"
+      body:
+        workflow_id: "{{variables.compliance_workflow_id}}"
+        input:
+          variants: "{{input.result.variants}}"
+          requirements_snapshot: "{{input.requirements_snapshot}}"
+          pipeline_id: "{{input.pipeline_id}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 2100
+      y: 200
+
+  - id: wait_compliance
+    name: "Wait for Compliance"
+    type: http
+    config:
+      method: GET
+      url: "{{variables.mbflow_api}}/api/v1/executions/{{input.execution_id}}/wait"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 2300
+      y: 200
+
+  - id: process_item_router
+    name: "Run Workflow Router"
+    type: http
+    description: "Запуск risk-based маршрутизации"
+    config:
+      method: POST
+      url: "{{variables.mbflow_api}}/api/v1/executions"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+        Content-Type: "application/json"
+      body:
+        workflow_id: "{{variables.router_workflow_id}}"
+        input:
+          evaluated_variants: "{{input.result.evaluated_variants}}"
+          best_variant_id: "{{input.result.best_variant_id}}"
+          brief: "{{input.brief}}"
+          pipeline_id: "{{input.pipeline_id}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 2500
+      y: 200
+
+  - id: wait_router
+    name: "Wait for Router"
+    type: http
+    config:
+      method: GET
+      url: "{{variables.mbflow_api}}/api/v1/executions/{{input.execution_id}}/wait"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 2700
+      y: 200
+
+  - id: check_auto_approved
+    name: "Check if Auto-Approved"
+    type: conditional
+    description: "Проверка автоматического одобрения"
+    config:
+      conditions:
+        - expression: "input.result.status == 'approved'"
+          output: "approved"
+        - expression: "input.result.status == 'pending_review'"
+          output: "pending"
+        - expression: "input.result.status == 'hard_stop'"
+          output: "stopped"
+    position:
+      x: 2900
+      y: 200
+
+  - id: process_item_adapter
+    name: "Run Channel Adapter"
+    type: http
+    description: "Запуск адаптации под каналы"
+    config:
+      method: POST
+      url: "{{variables.mbflow_api}}/api/v1/executions"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+        Content-Type: "application/json"
+      body:
+        workflow_id: "{{variables.adapter_workflow_id}}"
+        input:
+          approved_variant: "{{input.result.approved_variant}}"
+          brief: "{{input.brief}}"
+          pipeline_id: "{{input.pipeline_id}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 3100
+      y: 100
+
+  - id: wait_adapter
+    name: "Wait for Adapter"
+    type: http
+    config:
+      method: GET
+      url: "{{variables.mbflow_api}}/api/v1/executions/{{input.execution_id}}/wait"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+      timeout: "{{variables.wait_timeout}}"
+    position:
+      x: 3300
+      y: 100
+
+  # ============================================
+  # FINALIZATION
+  # ============================================
+
+  - id: collect_results
+    name: "Collect All Results"
+    type: merge
+    description: "Сбор результатов всех items"
+    config:
+      strategy: combine
+      output_key: pipeline_results
+    position:
+      x: 3500
+      y: 200
+
+  - id: run_analytics
+    name: "Run Analytics"
+    type: http
+    description: "Запуск аналитики и сохранение трассы"
+    config:
+      method: POST
+      url: "{{variables.mbflow_api}}/api/v1/executions"
+      headers:
+        Authorization: "Bearer {{variables.mbflow_api_key}}"
+        Content-Type: "application/json"
+      body:
+        workflow_id: "{{variables.analytics_workflow_id}}"
+        input:
+          pipeline_id: "{{input.pipeline_id}}"
+          brand_id: "{{input.brand_id}}"
+          results: "{{input.pipeline_results}}"
+    position:
+      x: 3700
+      y: 200
+
+  - id: pipeline_complete
+    name: "Pipeline Complete"
+    type: transform
+    description: "Финализация результатов пайплайна"
+    config:
+      mode: template
+      template: |
+        {
+          "pipeline_id": "{{input.pipeline_id}}",
+          "status": "completed",
+          "completed_at": "{{now}}",
+          "summary": {
+            "items_processed": {{input.pipeline_results.items | len}},
+            "items_approved": {{input.pipeline_results.items | filter(.status == "approved") | len}},
+            "items_pending": {{input.pipeline_results.items | filter(.status == "pending_review") | len}},
+            "items_stopped": {{input.pipeline_results.items | filter(.status == "hard_stop") | len}}
+          }
+        }
+    position:
+      x: 3900
+      y: 200
+
+edges:
+  # Initialization
+  - id: e1
+    from: init_pipeline
+    to: run_planner
+
+  # Planner stage
+  - id: e2
+    from: run_planner
+    to: wait_planner
+  - id: e3
+    from: wait_planner
+    to: extract_planned_items
+
+  # Item processing chain
+  - id: e4
+    from: extract_planned_items
+    to: process_item_brief
+  - id: e5
+    from: process_item_brief
+    to: wait_brief
+  - id: e6
+    from: wait_brief
+    to: process_item_rag
+  - id: e7
+    from: process_item_rag
+    to: wait_rag
+  - id: e8
+    from: wait_rag
+    to: process_item_generator
+  - id: e9
+    from: process_item_generator
+    to: wait_generator
+  - id: e10
+    from: wait_generator
+    to: process_item_compliance
+  - id: e11
+    from: process_item_compliance
+    to: wait_compliance
+  - id: e12
+    from: wait_compliance
+    to: process_item_router
+  - id: e13
+    from: process_item_router
+    to: wait_router
+  - id: e14
+    from: wait_router
+    to: check_auto_approved
+
+  # Routing based on approval status
+  - id: e15
+    from: check_auto_approved
+    to: process_item_adapter
+    source_handle: "approved"
+  - id: e16
+    from: process_item_adapter
+    to: wait_adapter
+  - id: e17
+    from: wait_adapter
+    to: collect_results
+
+  # Pending items go to collect
+  - id: e18
+    from: check_auto_approved
+    to: collect_results
+    source_handle: "pending"
+  - id: e19
+    from: check_auto_approved
+    to: collect_results
+    source_handle: "stopped"
+
+  # Finalization
+  - id: e20
+    from: collect_results
+    to: run_analytics
+  - id: e21
+    from: run_analytics
+    to: pipeline_complete
+
+trigger:
+  name: "Content Pipeline Trigger"
+  description: "Запуск полного цикла контент-пайплайна"
+  type: cron
+  enabled: true
+  config:
+    schedule: "0 9 * * 1"  # Каждый понедельник в 9:00
+    timezone: "Europe/Moscow"
