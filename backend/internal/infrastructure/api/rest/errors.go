@@ -186,6 +186,36 @@ func TranslateError(err error) *APIError {
 	case errors.Is(err, auth.ErrRoleNotFound):
 		return NewAPIError("ROLE_NOT_FOUND", "Role not found", http.StatusNotFound)
 
+	// gRPC provider errors
+	case errors.Is(err, auth.ErrGRPCProviderNotConfigured):
+		return NewAPIError("GRPC_NOT_CONFIGURED", "gRPC authentication provider is not configured", http.StatusServiceUnavailable)
+	case errors.Is(err, auth.ErrGRPCLoginFailed):
+		return NewAPIErrorWithDetails("GRPC_LOGIN_FAILED", "Login via gRPC auth-gateway failed", http.StatusBadGateway, map[string]interface{}{
+			"original_error": err.Error(),
+		})
+	case errors.Is(err, auth.ErrGRPCTokenValidationFailed):
+		return NewAPIErrorWithDetails("GRPC_TOKEN_VALIDATION_FAILED", "Token validation via gRPC auth-gateway failed", http.StatusBadGateway, map[string]interface{}{
+			"original_error": err.Error(),
+		})
+	case errors.Is(err, auth.ErrGRPCUserFetchFailed):
+		return NewAPIErrorWithDetails("GRPC_USER_FETCH_FAILED", "User fetch via gRPC auth-gateway failed", http.StatusBadGateway, map[string]interface{}{
+			"original_error": err.Error(),
+		})
+	case errors.Is(err, auth.ErrGRPCUserCreateFailed):
+		return NewAPIErrorWithDetails("GRPC_USER_CREATE_FAILED", "User creation via gRPC auth-gateway failed", http.StatusBadGateway, map[string]interface{}{
+			"original_error": err.Error(),
+		})
+	case errors.Is(err, auth.ErrRefreshNotSupported):
+		return NewAPIError("REFRESH_NOT_SUPPORTED", "Refresh token not supported via gRPC proxy", http.StatusNotImplemented)
+	case errors.Is(err, auth.ErrCallbackNotSupported):
+		return NewAPIError("CALLBACK_NOT_SUPPORTED", "OAuth callback not supported via gRPC proxy", http.StatusNotImplemented)
+	case errors.Is(err, auth.ErrNoProvidersAvailable):
+		return NewAPIError("NO_AUTH_PROVIDERS", "No authentication providers available", http.StatusServiceUnavailable)
+	case errors.Is(err, auth.ErrAllProvidersFailed):
+		return NewAPIErrorWithDetails("ALL_PROVIDERS_FAILED", "All authentication providers failed", http.StatusServiceUnavailable, map[string]interface{}{
+			"original_error": err.Error(),
+		})
+
 	// Database-level not found (when repository doesn't wrap sql.ErrNoRows)
 	case errors.Is(err, sql.ErrNoRows):
 		return NewAPIError("NOT_FOUND", "Resource not found", http.StatusNotFound)

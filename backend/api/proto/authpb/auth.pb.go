@@ -812,12 +812,174 @@ func (x *LoginResponse) GetErrorMessage() string {
 	return ""
 }
 
+// CreateUserRequest contains data for creating a new user
+type CreateUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Phone         string                 `protobuf:"bytes,2,opt,name=phone,proto3" json:"phone,omitempty"`
+	Username      string                 `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
+	Password      string                 `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"`
+	FullName      string                 `protobuf:"bytes,5,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	AccountType   string                 `protobuf:"bytes,6,opt,name=account_type,json=accountType,proto3" json:"account_type,omitempty"` // "human" or "service"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserRequest) Reset() {
+	*x = CreateUserRequest{}
+	mi := &file_auth_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserRequest) ProtoMessage() {}
+
+func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserRequest.ProtoReflect.Descriptor instead.
+func (*CreateUserRequest) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *CreateUserRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetPhone() string {
+	if x != nil {
+		return x.Phone
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetFullName() string {
+	if x != nil {
+		return x.FullName
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetAccountType() string {
+	if x != nil {
+		return x.AccountType
+	}
+	return ""
+}
+
+// CreateUserResponse contains the result of user creation
+type CreateUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	AccessToken   string                 `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,3,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	ExpiresIn     int64                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserResponse) Reset() {
+	*x = CreateUserResponse{}
+	mi := &file_auth_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserResponse) ProtoMessage() {}
+
+func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserResponse.ProtoReflect.Descriptor instead.
+func (*CreateUserResponse) Descriptor() ([]byte, []int) {
+	return file_auth_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CreateUserResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *CreateUserResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *CreateUserResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+func (x *CreateUserResponse) GetExpiresIn() int64 {
+	if x != nil {
+		return x.ExpiresIn
+	}
+	return 0
+}
+
+func (x *CreateUserResponse) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
 var File_auth_proto protoreflect.FileDescriptor
 
 const file_auth_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"auth.proto\x12\x06authpb\"9\n" +
+	"auth.proto\x12\x04auth\"9\n" +
 	"\x14ValidateTokenRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"\xef\x01\n" +
 	"\x15ValidateTokenResponse\x12\x14\n" +
@@ -845,9 +1007,10 @@ const file_auth_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\x03R\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\x03R\tupdatedAt\"X\n" +
-	"\x0fGetUserResponse\x12 \n" +
-	"\x04user\x18\x01 \x01(\v2\f.authpb.UserR\x04user\x12#\n" +
+	" \x01(\x03R\tupdatedAt\"V\n" +
+	"\x0fGetUserResponse\x12\x1e\n" +
+	"\x04user\x18\x01 \x01(\v2\n" +
+	".auth.UserR\x04user\x12#\n" +
 	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"e\n" +
 	"\x16CheckPermissionRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
@@ -877,20 +1040,38 @@ const file_auth_proto_rawDesc = "" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x14\n" +
 	"\x05phone\x18\x02 \x01(\tR\x05phone\x12\x1a\n" +
-	"\bpassword\x18\x03 \x01(\tR\bpassword\"\xbd\x01\n" +
-	"\rLoginResponse\x12 \n" +
-	"\x04user\x18\x01 \x01(\v2\f.authpb.UserR\x04user\x12!\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\"\xbb\x01\n" +
+	"\rLoginResponse\x12\x1e\n" +
+	"\x04user\x18\x01 \x01(\v2\n" +
+	".auth.UserR\x04user\x12!\n" +
 	"\faccess_token\x18\x02 \x01(\tR\vaccessToken\x12#\n" +
 	"\rrefresh_token\x18\x03 \x01(\tR\frefreshToken\x12\x1d\n" +
 	"\n" +
 	"expires_in\x18\x04 \x01(\x03R\texpiresIn\x12#\n" +
-	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage2\xf5\x02\n" +
-	"\vAuthService\x12L\n" +
-	"\rValidateToken\x12\x1c.authpb.ValidateTokenRequest\x1a\x1d.authpb.ValidateTokenResponse\x12:\n" +
-	"\aGetUser\x12\x16.authpb.GetUserRequest\x1a\x17.authpb.GetUserResponse\x12R\n" +
-	"\x0fCheckPermission\x12\x1e.authpb.CheckPermissionRequest\x1a\x1f.authpb.CheckPermissionResponse\x12R\n" +
-	"\x0fIntrospectToken\x12\x1e.authpb.IntrospectTokenRequest\x1a\x1f.authpb.IntrospectTokenResponse\x124\n" +
-	"\x05Login\x12\x14.authpb.LoginRequest\x1a\x15.authpb.LoginResponseB.Z,github.com/smilemakc/mbflow/api/proto/authpbb\x06proto3"
+	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage\"\xb7\x01\n" +
+	"\x11CreateUserRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\x12\x14\n" +
+	"\x05phone\x18\x02 \x01(\tR\x05phone\x12\x1a\n" +
+	"\busername\x18\x03 \x01(\tR\busername\x12\x1a\n" +
+	"\bpassword\x18\x04 \x01(\tR\bpassword\x12\x1b\n" +
+	"\tfull_name\x18\x05 \x01(\tR\bfullName\x12!\n" +
+	"\faccount_type\x18\x06 \x01(\tR\vaccountType\"\xc0\x01\n" +
+	"\x12CreateUserResponse\x12\x1e\n" +
+	"\x04user\x18\x01 \x01(\v2\n" +
+	".auth.UserR\x04user\x12!\n" +
+	"\faccess_token\x18\x02 \x01(\tR\vaccessToken\x12#\n" +
+	"\rrefresh_token\x18\x03 \x01(\tR\frefreshToken\x12\x1d\n" +
+	"\n" +
+	"expires_in\x18\x04 \x01(\x03R\texpiresIn\x12#\n" +
+	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage2\xa2\x03\n" +
+	"\vAuthService\x12H\n" +
+	"\rValidateToken\x12\x1a.auth.ValidateTokenRequest\x1a\x1b.auth.ValidateTokenResponse\x126\n" +
+	"\aGetUser\x12\x14.auth.GetUserRequest\x1a\x15.auth.GetUserResponse\x12N\n" +
+	"\x0fCheckPermission\x12\x1c.auth.CheckPermissionRequest\x1a\x1d.auth.CheckPermissionResponse\x12N\n" +
+	"\x0fIntrospectToken\x12\x1c.auth.IntrospectTokenRequest\x1a\x1d.auth.IntrospectTokenResponse\x120\n" +
+	"\x05Login\x12\x12.auth.LoginRequest\x1a\x13.auth.LoginResponse\x12?\n" +
+	"\n" +
+	"CreateUser\x12\x17.auth.CreateUserRequest\x1a\x18.auth.CreateUserResponseB.Z,github.com/smilemakc/mbflow/api/proto/authpbb\x06proto3"
 
 var (
 	file_auth_proto_rawDescOnce sync.Once
@@ -904,38 +1085,43 @@ func file_auth_proto_rawDescGZIP() []byte {
 	return file_auth_proto_rawDescData
 }
 
-var file_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_auth_proto_goTypes = []any{
-	(*ValidateTokenRequest)(nil),    // 0: authpb.ValidateTokenRequest
-	(*ValidateTokenResponse)(nil),   // 1: authpb.ValidateTokenResponse
-	(*GetUserRequest)(nil),          // 2: authpb.GetUserRequest
-	(*User)(nil),                    // 3: authpb.User
-	(*GetUserResponse)(nil),         // 4: authpb.GetUserResponse
-	(*CheckPermissionRequest)(nil),  // 5: authpb.CheckPermissionRequest
-	(*CheckPermissionResponse)(nil), // 6: authpb.CheckPermissionResponse
-	(*IntrospectTokenRequest)(nil),  // 7: authpb.IntrospectTokenRequest
-	(*IntrospectTokenResponse)(nil), // 8: authpb.IntrospectTokenResponse
-	(*LoginRequest)(nil),            // 9: authpb.LoginRequest
-	(*LoginResponse)(nil),           // 10: authpb.LoginResponse
+	(*ValidateTokenRequest)(nil),    // 0: auth.ValidateTokenRequest
+	(*ValidateTokenResponse)(nil),   // 1: auth.ValidateTokenResponse
+	(*GetUserRequest)(nil),          // 2: auth.GetUserRequest
+	(*User)(nil),                    // 3: auth.User
+	(*GetUserResponse)(nil),         // 4: auth.GetUserResponse
+	(*CheckPermissionRequest)(nil),  // 5: auth.CheckPermissionRequest
+	(*CheckPermissionResponse)(nil), // 6: auth.CheckPermissionResponse
+	(*IntrospectTokenRequest)(nil),  // 7: auth.IntrospectTokenRequest
+	(*IntrospectTokenResponse)(nil), // 8: auth.IntrospectTokenResponse
+	(*LoginRequest)(nil),            // 9: auth.LoginRequest
+	(*LoginResponse)(nil),           // 10: auth.LoginResponse
+	(*CreateUserRequest)(nil),       // 11: auth.CreateUserRequest
+	(*CreateUserResponse)(nil),      // 12: auth.CreateUserResponse
 }
 var file_auth_proto_depIdxs = []int32{
-	3,  // 0: authpb.GetUserResponse.user:type_name -> authpb.User
-	3,  // 1: authpb.LoginResponse.user:type_name -> authpb.User
-	0,  // 2: authpb.AuthService.ValidateToken:input_type -> authpb.ValidateTokenRequest
-	2,  // 3: authpb.AuthService.GetUser:input_type -> authpb.GetUserRequest
-	5,  // 4: authpb.AuthService.CheckPermission:input_type -> authpb.CheckPermissionRequest
-	7,  // 5: authpb.AuthService.IntrospectToken:input_type -> authpb.IntrospectTokenRequest
-	9,  // 6: authpb.AuthService.Login:input_type -> authpb.LoginRequest
-	1,  // 7: authpb.AuthService.ValidateToken:output_type -> authpb.ValidateTokenResponse
-	4,  // 8: authpb.AuthService.GetUser:output_type -> authpb.GetUserResponse
-	6,  // 9: authpb.AuthService.CheckPermission:output_type -> authpb.CheckPermissionResponse
-	8,  // 10: authpb.AuthService.IntrospectToken:output_type -> authpb.IntrospectTokenResponse
-	10, // 11: authpb.AuthService.Login:output_type -> authpb.LoginResponse
-	7,  // [7:12] is the sub-list for method output_type
-	2,  // [2:7] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	3,  // 0: auth.GetUserResponse.user:type_name -> auth.User
+	3,  // 1: auth.LoginResponse.user:type_name -> auth.User
+	3,  // 2: auth.CreateUserResponse.user:type_name -> auth.User
+	0,  // 3: auth.AuthService.ValidateToken:input_type -> auth.ValidateTokenRequest
+	2,  // 4: auth.AuthService.GetUser:input_type -> auth.GetUserRequest
+	5,  // 5: auth.AuthService.CheckPermission:input_type -> auth.CheckPermissionRequest
+	7,  // 6: auth.AuthService.IntrospectToken:input_type -> auth.IntrospectTokenRequest
+	9,  // 7: auth.AuthService.Login:input_type -> auth.LoginRequest
+	11, // 8: auth.AuthService.CreateUser:input_type -> auth.CreateUserRequest
+	1,  // 9: auth.AuthService.ValidateToken:output_type -> auth.ValidateTokenResponse
+	4,  // 10: auth.AuthService.GetUser:output_type -> auth.GetUserResponse
+	6,  // 11: auth.AuthService.CheckPermission:output_type -> auth.CheckPermissionResponse
+	8,  // 12: auth.AuthService.IntrospectToken:output_type -> auth.IntrospectTokenResponse
+	10, // 13: auth.AuthService.Login:output_type -> auth.LoginResponse
+	12, // 14: auth.AuthService.CreateUser:output_type -> auth.CreateUserResponse
+	9,  // [9:15] is the sub-list for method output_type
+	3,  // [3:9] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_auth_proto_init() }
@@ -949,7 +1135,7 @@ func file_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_proto_rawDesc), len(file_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

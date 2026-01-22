@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package authpb;
+package auth;
 
 option go_package = "github.com/smilemakc/mbflow/api/proto/authpb";
 
@@ -20,6 +20,9 @@ service AuthService {
 
   // Login authenticates a user with email/phone and password
   rpc Login(LoginRequest) returns (LoginResponse);
+
+  // CreateUser creates a new user account
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
 }
 
 // ValidateTokenRequest contains the token to validate
@@ -107,6 +110,25 @@ message LoginRequest {
 
 // LoginResponse contains the result of login
 message LoginResponse {
+  User user = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  int64 expires_in = 4;
+  string error_message = 5;
+}
+
+// CreateUserRequest contains data for creating a new user
+message CreateUserRequest {
+  string email = 1;
+  string phone = 2;
+  string username = 3;
+  string password = 4;
+  string full_name = 5;
+  string account_type = 6; // "human" or "service"
+}
+
+// CreateUserResponse contains the result of user creation
+message CreateUserResponse {
   User user = 1;
   string access_token = 2;
   string refresh_token = 3;

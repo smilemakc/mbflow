@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 	"github.com/smilemakc/mbflow/internal/application/auth"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
@@ -31,6 +32,7 @@ USAGE:
 COMMANDS:
     workflow show <id>    Show workflow diagram
     workflow list         List all workflows
+    user create           Create user (local or via auth-gateway)
     admin create          Create admin user (requires DATABASE_URL)
     version               Show version information
     help                  Show this help message
@@ -43,6 +45,16 @@ WORKFLOW SHOW OPTIONS:
     -compact              Compact mode for ASCII (default: false)
     -color                Use colors in ASCII (default: true)
     -output <file>        Save to file instead of stdout
+
+USER CREATE OPTIONS:
+    -email <email>        User email address (required)
+    -username <name>      Username (required)
+    -password <pass>      Password (will prompt if not provided)
+    -full-name <name>     Full name (optional)
+    -phone <phone>        Phone number (optional)
+    -admin                Create as admin user (default: false)
+    -gateway              Create user via auth-gateway gRPC (requires MBFLOW_AUTH_GRPC_ADDRESS)
+    -local                Create user in local database (requires DATABASE_URL)
 
 ADMIN CREATE OPTIONS:
     -email <email>        Admin email address (required)
@@ -68,6 +80,15 @@ EXAMPLES:
     # List all workflows
     mbflow-cli workflow list
 
+    # Create user in local database
+    mbflow-cli user create -email user@example.com -username user -local
+
+    # Create user via auth-gateway
+    mbflow-cli user create -email user@example.com -username user -gateway
+
+    # Create admin user via auth-gateway
+    mbflow-cli user create -email admin@example.com -username admin -admin -gateway
+
     # Create admin user (interactive password prompt)
     mbflow-cli admin create -email admin@example.com -username admin
 
@@ -77,7 +98,8 @@ EXAMPLES:
 ENVIRONMENT VARIABLES:
     MBFLOW_ENDPOINT       Server endpoint (overridden by -endpoint)
     MBFLOW_API_KEY        API key (overridden by -api-key)
-    DATABASE_URL          Database connection string for admin commands
+    DATABASE_URL          Database connection string for local user creation
+    MBFLOW_AUTH_GRPC_ADDRESS     Auth-gateway gRPC address (e.g., localhost:50051)
 `
 )
 
@@ -86,6 +108,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(1)
 	}
+
+	godotenv.Load()
 
 	command := os.Args[1]
 
@@ -104,6 +128,21 @@ func main() {
 			handleWorkflowList(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "Error: unknown workflow subcommand: %s\n", subcommand)
+			os.Exit(1)
+		}
+
+	case "user":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "Error: user command requires a subcommand (create)")
+			fmt.Fprintln(os.Stderr, usage)
+			os.Exit(1)
+		}
+		subcommand := os.Args[2]
+		switch subcommand {
+		case "create":
+			handleUserCreate(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "Error: unknown user subcommand: %s\n", subcommand)
 			os.Exit(1)
 		}
 
@@ -414,6 +453,213 @@ func handleAdminCreate(args []string) {
 		fmt.Printf("  Name:     %s\n", user.FullName)
 	}
 	fmt.Printf("  Admin:    true\n")
+}
+
+func handleUserCreate(args []string) {
+	// Parse flags
+	fs := flag.NewFlagSet("user create", flag.ExitOnError)
+	email := fs.String("email", "", "User email address (required)")
+	username := fs.String("username", "", "Username (required)")
+	password := fs.String("password", "", "Password (will prompt if not provided)")
+	fullName := fs.String("full-name", "", "Full name (optional)")
+	phone := fs.String("phone", "", "Phone number (optional)")
+	isAdmin := fs.Bool("admin", false, "Create as admin user")
+	useGateway := fs.Bool("gateway", false, "Create user via auth-gateway gRPC")
+	useLocal := fs.Bool("local", false, "Create user in local database")
+
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Validate required fields
+	if *email == "" {
+		fmt.Fprintln(os.Stderr, "Error: -email is required")
+		os.Exit(1)
+	}
+	if *username == "" {
+		fmt.Fprintln(os.Stderr, "Error: -username is required")
+		os.Exit(1)
+	}
+
+	// Must specify either -gateway or -local
+	if !*useGateway && !*useLocal {
+		fmt.Fprintln(os.Stderr, "Error: must specify either -gateway or -local")
+		fmt.Fprintln(os.Stderr, "  -gateway: create user via auth-gateway gRPC")
+		fmt.Fprintln(os.Stderr, "  -local:   create user in local database")
+		os.Exit(1)
+	}
+
+	// Get password if not provided
+	if *password == "" {
+		*password = promptPassword("Enter password: ")
+		if *password == "" {
+			fmt.Fprintln(os.Stderr, "Error: password cannot be empty")
+			os.Exit(1)
+		}
+
+		// Confirm password
+		confirm := promptPassword("Confirm password: ")
+		if *password != confirm {
+			fmt.Fprintln(os.Stderr, "Error: passwords do not match")
+			os.Exit(1)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if *useGateway {
+		createUserViaGateway(ctx, *email, *username, *password, *fullName, *phone)
+	} else {
+		createUserLocal(ctx, *email, *username, *password, *fullName, *isAdmin)
+	}
+}
+
+func createUserViaGateway(ctx context.Context, email, username, password, fullName, phone string) {
+	grpcAddress := os.Getenv("MBFLOW_AUTH_GRPC_ADDRESS")
+	if grpcAddress == "" {
+		fmt.Fprintln(os.Stderr, "Error: MBFLOW_AUTH_GRPC_ADDRESS environment variable is required for -gateway mode")
+		fmt.Fprintln(os.Stderr, "Example: MBFLOW_AUTH_GRPC_ADDRESS=\"localhost:50051\"")
+		os.Exit(1)
+	}
+
+	// Create gRPC provider
+	authCfg := &config.AuthConfig{
+		GRPCAddress: grpcAddress,
+		GRPCTimeout: 30 * time.Second,
+	}
+
+	provider, err := auth.NewGRPCProvider(authCfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create gRPC provider: %v\n", err)
+		os.Exit(1)
+	}
+	defer provider.Close()
+
+	if !provider.IsAvailable() {
+		fmt.Fprintln(os.Stderr, "Error: gRPC auth provider is not available")
+		os.Exit(1)
+	}
+
+	// Create user via gRPC
+	req := &auth.CreateUserRequest{
+		Email:       email,
+		Phone:       phone,
+		Username:    username,
+		Password:    password,
+		FullName:    fullName,
+		AccountType: "human",
+	}
+
+	result, err := provider.CreateUser(ctx, req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create user via auth-gateway: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("User created successfully via auth-gateway!")
+	fmt.Printf("  ID:       %s\n", result.User.ID)
+	fmt.Printf("  Email:    %s\n", result.User.Email)
+	fmt.Printf("  Username: %s\n", result.User.Username)
+	if result.User.FullName != "" {
+		fmt.Printf("  Name:     %s\n", result.User.FullName)
+	}
+	fmt.Printf("  Admin:    %v\n", result.User.IsAdmin)
+	if result.AccessToken != "" {
+		fmt.Printf("  Token:    %s...\n", result.AccessToken[:min(20, len(result.AccessToken))])
+	}
+}
+
+func createUserLocal(ctx context.Context, email, username, password, fullName string, isAdmin bool) {
+	// Get database URL from environment
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		fmt.Fprintln(os.Stderr, "Error: DATABASE_URL environment variable is required for -local mode")
+		fmt.Fprintln(os.Stderr, "Example: DATABASE_URL=\"postgres://user:pass@localhost:5432/mbflow?sslmode=disable\"")
+		os.Exit(1)
+	}
+
+	// Connect to database
+	dbConfig := storage.DefaultConfig()
+	dbConfig.DSN = databaseURL
+
+	db, err := storage.NewDB(dbConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer storage.Close(db)
+
+	// Create user repository
+	userRepo := storage.NewUserRepository(db)
+
+	// Check if user already exists
+	existingUser, _ := userRepo.FindByEmail(ctx, email)
+	if existingUser != nil {
+		fmt.Fprintf(os.Stderr, "Error: user with email '%s' already exists\n", email)
+		os.Exit(1)
+	}
+
+	existingUser, _ = userRepo.FindByUsername(ctx, username)
+	if existingUser != nil {
+		fmt.Fprintf(os.Stderr, "Error: user with username '%s' already exists\n", username)
+		os.Exit(1)
+	}
+
+	// Create auth config for password service
+	authCfg := &config.AuthConfig{
+		MinPasswordLength: 8,
+	}
+	passwordService := auth.NewPasswordService(authCfg.MinPasswordLength)
+
+	// Validate password
+	if err := passwordService.ValidatePassword(password); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Hash password
+	passwordHash, err := passwordService.HashPassword(password)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to hash password: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create user
+	user := &models.UserModel{
+		ID:           uuid.New(),
+		Email:        email,
+		Username:     username,
+		PasswordHash: passwordHash,
+		FullName:     fullName,
+		IsActive:     true,
+		IsAdmin:      isAdmin,
+	}
+
+	if err := userRepo.Create(ctx, user); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create user: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Assign role if admin
+	if isAdmin {
+		adminRole, err := userRepo.FindRoleByName(ctx, "admin")
+		if err == nil && adminRole != nil {
+			if err := userRepo.AssignRole(ctx, user.ID, adminRole.ID, nil); err != nil {
+				fmt.Printf("Warning: failed to assign admin role: %v\n", err)
+			}
+		}
+	}
+
+	fmt.Println("User created successfully in local database!")
+	fmt.Printf("  ID:       %s\n", user.ID)
+	fmt.Printf("  Email:    %s\n", user.Email)
+	fmt.Printf("  Username: %s\n", user.Username)
+	if user.FullName != "" {
+		fmt.Printf("  Name:     %s\n", user.FullName)
+	}
+	fmt.Printf("  Admin:    %v\n", user.IsAdmin)
 }
 
 func promptPassword(prompt string) string {

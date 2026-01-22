@@ -19,11 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_ValidateToken_FullMethodName   = "/authpb.AuthService/ValidateToken"
-	AuthService_GetUser_FullMethodName         = "/authpb.AuthService/GetUser"
-	AuthService_CheckPermission_FullMethodName = "/authpb.AuthService/CheckPermission"
-	AuthService_IntrospectToken_FullMethodName = "/authpb.AuthService/IntrospectToken"
-	AuthService_Login_FullMethodName           = "/authpb.AuthService/Login"
+	AuthService_ValidateToken_FullMethodName   = "/auth.AuthService/ValidateToken"
+	AuthService_GetUser_FullMethodName         = "/auth.AuthService/GetUser"
+	AuthService_CheckPermission_FullMethodName = "/auth.AuthService/CheckPermission"
+	AuthService_IntrospectToken_FullMethodName = "/auth.AuthService/IntrospectToken"
+	AuthService_Login_FullMethodName           = "/auth.AuthService/Login"
+	AuthService_CreateUser_FullMethodName      = "/auth.AuthService/CreateUser"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -42,6 +43,8 @@ type AuthServiceClient interface {
 	IntrospectToken(ctx context.Context, in *IntrospectTokenRequest, opts ...grpc.CallOption) (*IntrospectTokenResponse, error)
 	// Login authenticates a user with email/phone and password
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+	// CreateUser creates a new user account
+	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
 }
 
 type authServiceClient struct {
@@ -102,6 +105,16 @@ func (c *authServiceClient) Login(ctx context.Context, in *LoginRequest, opts ..
 	return out, nil
 }
 
+func (c *authServiceClient) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateUserResponse)
+	err := c.cc.Invoke(ctx, AuthService_CreateUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -118,6 +131,8 @@ type AuthServiceServer interface {
 	IntrospectToken(context.Context, *IntrospectTokenRequest) (*IntrospectTokenResponse, error)
 	// Login authenticates a user with email/phone and password
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
+	// CreateUser creates a new user account
+	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -142,6 +157,9 @@ func (UnimplementedAuthServiceServer) IntrospectToken(context.Context, *Introspe
 }
 func (UnimplementedAuthServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Login not implemented")
+}
+func (UnimplementedAuthServiceServer) CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateUser not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -254,11 +272,29 @@ func _AuthService_Login_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_CreateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CreateUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CreateUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CreateUser(ctx, req.(*CreateUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AuthService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "authpb.AuthService",
+	ServiceName: "auth.AuthService",
 	HandlerType: (*AuthServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -280,6 +316,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Login",
 			Handler:    _AuthService_Login_Handler,
+		},
+		{
+			MethodName: "CreateUser",
+			Handler:    _AuthService_CreateUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

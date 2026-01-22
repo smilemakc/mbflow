@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/smilemakc/mbflow/internal/config"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	pkgmodels "github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -27,6 +28,8 @@ type ProviderManager struct {
 
 // NewProviderManager creates a new provider manager
 func NewProviderManager(cfg *config.AuthConfig, authService *Service) (*ProviderManager, error) {
+	logger.Info("Creating ProviderManager", "mode", cfg.Mode, "fallback", cfg.EnableFallback)
+
 	pm := &ProviderManager{
 		providers:      make(map[ProviderType]AuthProvider),
 		enableFallback: cfg.EnableFallback,
@@ -37,6 +40,10 @@ func NewProviderManager(cfg *config.AuthConfig, authService *Service) (*Provider
 	case "grpc":
 		pm.primaryType = ProviderTypeGRPC
 		pm.fallbackType = ProviderTypeBuiltin
+	case "grpc_hybrid":
+		pm.primaryType = ProviderTypeGRPC
+		pm.fallbackType = ProviderTypeBuiltin
+		pm.enableFallback = true
 	case "gateway", "oidc":
 		pm.primaryType = ProviderTypeGateway
 		pm.fallbackType = ProviderTypeBuiltin
@@ -57,25 +64,41 @@ func NewProviderManager(cfg *config.AuthConfig, authService *Service) (*Provider
 
 	// Initialize gateway provider if configured
 	if cfg.IssuerURL != "" && cfg.ClientID != "" {
+		logger.Info("Initializing gateway provider", "issuer", cfg.IssuerURL)
 		gatewayProvider, err := NewGatewayProvider(cfg)
 		if err != nil {
-			// Log warning but don't fail - gateway might not be available
-			fmt.Printf("Warning: Failed to initialize gateway provider: %v\n", err)
+			logger.Warn("Failed to initialize gateway provider", "error", err.Error())
 		} else if gatewayProvider.IsAvailable() {
 			pm.providers[ProviderTypeGateway] = gatewayProvider
+			logger.Info("Gateway provider initialized successfully")
 		}
 	}
 
 	// Initialize gRPC provider if configured
 	if cfg.GRPCAddress != "" {
+		logger.Info("Initializing gRPC provider", "address", cfg.GRPCAddress)
 		grpcProvider, err := NewGRPCProvider(cfg)
 		if err != nil {
-			// Log warning but don't fail - gRPC provider might not be available
-			fmt.Printf("Warning: Failed to initialize gRPC provider: %v\n", err)
+			logger.Warn("Failed to initialize gRPC provider", "error", err.Error())
 		} else if grpcProvider.IsAvailable() {
 			pm.providers[ProviderTypeGRPC] = grpcProvider
+			logger.Info("gRPC provider initialized successfully")
+		} else {
+			logger.Warn("gRPC provider created but not available")
 		}
 	}
+
+	// Log final configuration
+	availableProviders := make([]string, 0)
+	for pt, p := range pm.providers {
+		if p.IsAvailable() {
+			availableProviders = append(availableProviders, string(pt))
+		}
+	}
+	logger.Info("ProviderManager ready",
+		"primary", string(pm.primaryType),
+		"fallback", string(pm.fallbackType),
+		"available", fmt.Sprintf("%v", availableProviders))
 
 	return pm, nil
 }
@@ -111,33 +134,53 @@ func (pm *ProviderManager) Authenticate(ctx context.Context, creds *Credentials)
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
+	logger.Info("Attempting authentication",
+		"primary_provider", string(pm.primaryType),
+		"fallback_enabled", pm.enableFallback,
+		"email", creds.Email)
+
 	// Try primary provider
 	if provider, ok := pm.providers[pm.primaryType]; ok && provider.IsAvailable() {
+		logger.Debug("Primary provider available, attempting auth", "provider", string(pm.primaryType))
 		result, err := provider.Authenticate(ctx, creds)
 		if err == nil {
+			logger.Info("Primary provider authentication succeeded", "provider", string(pm.primaryType))
 			return result, nil
 		}
 
+		logger.Error("Primary provider authentication failed",
+			"provider", string(pm.primaryType),
+			"error", err.Error())
+
 		// If fallback is disabled, return the error
 		if !pm.enableFallback {
+			logger.Debug("Fallback disabled, returning error")
 			return nil, err
 		}
 
-		// Log primary failure and try fallback
-		fmt.Printf("Primary provider (%s) failed: %v, trying fallback\n", pm.primaryType, err)
+		logger.Info("Trying fallback provider", "provider", string(pm.fallbackType))
+	} else {
+		logger.Warn("Primary provider not available", "provider", string(pm.primaryType))
 	}
 
 	// Try fallback provider
 	if pm.enableFallback {
 		if provider, ok := pm.providers[pm.fallbackType]; ok && provider.IsAvailable() {
+			logger.Debug("Fallback provider available, attempting auth", "provider", string(pm.fallbackType))
 			result, err := provider.Authenticate(ctx, creds)
 			if err == nil {
+				logger.Info("Fallback provider authentication succeeded", "provider", string(pm.fallbackType))
 				return result, nil
 			}
+			logger.Error("Fallback provider authentication failed",
+				"provider", string(pm.fallbackType),
+				"error", err.Error())
 			return nil, fmt.Errorf("%w: %v", ErrAllProvidersFailed, err)
 		}
+		logger.Warn("Fallback provider not available", "provider", string(pm.fallbackType))
 	}
 
+	logger.Error("No providers available for authentication")
 	return nil, ErrNoProvidersAvailable
 }
 
@@ -286,7 +329,16 @@ func (pm *ProviderManager) IsGatewayAvailable() bool {
 // GetMode returns the current authentication mode
 func (pm *ProviderManager) GetMode() string {
 	if pm.enableFallback {
+		if pm.primaryType == ProviderTypeGRPC {
+			return "grpc_hybrid"
+		}
 		return "hybrid"
 	}
 	return string(pm.primaryType)
+}
+
+// ShouldHandleAuth returns true if ProviderManager should handle authentication
+// instead of the local auth service. This is true for any non-builtin primary provider.
+func (pm *ProviderManager) ShouldHandleAuth() bool {
+	return pm.primaryType != ProviderTypeBuiltin
 }

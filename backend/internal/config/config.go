@@ -263,11 +263,15 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) validateAuth() error {
-	if c.Auth.Mode != "builtin" && c.Auth.Mode != "gateway" && c.Auth.Mode != "hybrid" && c.Auth.Mode != "grpc" {
-		return fmt.Errorf("invalid MBFLOW_AUTH_MODE: %s (must be builtin, gateway, hybrid, or grpc)", c.Auth.Mode)
+	validModes := map[string]bool{
+		"builtin": true, "gateway": true, "hybrid": true, "grpc": true, "grpc_hybrid": true,
+	}
+	if !validModes[c.Auth.Mode] {
+		return fmt.Errorf("invalid MBFLOW_AUTH_MODE: %s (must be builtin, gateway, hybrid, grpc, or grpc_hybrid)", c.Auth.Mode)
 	}
 
-	if c.Auth.Mode == "builtin" || c.Auth.Mode == "hybrid" {
+	// Modes that require JWT secret for local token generation
+	if c.Auth.Mode == "builtin" || c.Auth.Mode == "hybrid" || c.Auth.Mode == "grpc_hybrid" {
 		if c.Auth.JWTSecret == "" {
 			return fmt.Errorf("MBFLOW_JWT_SECRET is required for %s mode", c.Auth.Mode)
 		}

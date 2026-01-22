@@ -102,10 +102,45 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.Login(c.Request.Context(), &auth.LoginRequest{
-		Email:    req.Email,
-		Password: req.Password,
-	}, clientIP, c.GetHeader("User-Agent"))
+	var authResult *AuthResponse
+	var err error
+
+	// Check if we should use provider manager (for gRPC/gateway modes)
+	if h.providerManager.ShouldHandleAuth() {
+		// Use provider manager for authentication
+		providerResult, providerErr := h.providerManager.Authenticate(c.Request.Context(), &auth.Credentials{
+			Email:    req.Email,
+			Password: req.Password,
+		})
+		if providerErr != nil {
+			err = providerErr
+		} else {
+			authResult = &AuthResponse{
+				User:         providerResult.User,
+				AccessToken:  providerResult.AccessToken,
+				RefreshToken: providerResult.RefreshToken,
+				ExpiresIn:    providerResult.ExpiresIn,
+				TokenType:    "Bearer",
+			}
+		}
+	} else {
+		// Use local auth service
+		result, localErr := h.authService.Login(c.Request.Context(), &auth.LoginRequest{
+			Email:    req.Email,
+			Password: req.Password,
+		}, clientIP, c.GetHeader("User-Agent"))
+		if localErr != nil {
+			err = localErr
+		} else {
+			authResult = &AuthResponse{
+				User:         result.User,
+				AccessToken:  result.AccessToken,
+				RefreshToken: result.RefreshToken,
+				ExpiresIn:    result.ExpiresIn,
+				TokenType:    result.TokenType,
+			}
+		}
+	}
 
 	if err != nil {
 		if h.rateLimiter != nil {
@@ -132,13 +167,7 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 		h.rateLimiter.RecordSuccessfulLogin(clientIP)
 	}
 
-	respondJSON(c, http.StatusOK, AuthResponse{
-		User:         result.User,
-		AccessToken:  result.AccessToken,
-		RefreshToken: result.RefreshToken,
-		ExpiresIn:    result.ExpiresIn,
-		TokenType:    result.TokenType,
-	})
+	respondJSON(c, http.StatusOK, authResult)
 }
 
 func (h *AuthHandlers) HandleLogout(c *gin.Context) {
