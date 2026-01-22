@@ -111,8 +111,9 @@ type AuthConfig struct {
 	JWKSURL      string
 	RedirectURL  string
 
-	GRPCAddress string
-	GRPCTimeout time.Duration
+	GRPCAddress       string
+	GRPCTimeout       time.Duration
+	GRPCApplicationID string
 
 	EnableFallback bool
 	FallbackMode   string
@@ -197,6 +198,7 @@ func Load() (*Config, error) {
 			RedirectURL:         getEnv("MBFLOW_AUTH_REDIRECT_URL", ""),
 			GRPCAddress:         getEnv("MBFLOW_AUTH_GRPC_ADDRESS", ""),
 			GRPCTimeout:         getEnvAsDuration("MBFLOW_AUTH_GRPC_TIMEOUT", 10*time.Second),
+			GRPCApplicationID:   getEnv("MBFLOW_AUTH_APPLICATION_ID", ""),
 			EnableFallback:      getEnvAsBool("MBFLOW_AUTH_ENABLE_FALLBACK", false),
 			FallbackMode:        getEnv("MBFLOW_AUTH_FALLBACK_MODE", "builtin"),
 		},

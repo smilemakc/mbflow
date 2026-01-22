@@ -42,7 +42,7 @@ const dictionaries = {
       resources: "Resources",
       settings: "Settings",
       signOut: "Sign Out",
-      title: "Workflow.ai"
+      title: "MBFlow"
     },
     dashboard: {
       title: "Dashboard Overview",
@@ -1140,7 +1140,7 @@ const dictionaries = {
       resources: "Ресурсы",
       settings: "Настройки",
       signOut: "Выйти",
-      title: "Workflow.ai"
+      title: "MBFlow"
     },
     dashboard: {
       title: "Обзор системы",

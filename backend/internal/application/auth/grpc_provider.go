@@ -11,6 +11,7 @@ import (
 	pkgmodels "github.com/smilemakc/mbflow/pkg/models"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	pb "github.com/smilemakc/mbflow/api/proto/authpb"
@@ -62,6 +63,10 @@ func NewGRPCProvider(cfg *config.AuthConfig) (*GRPCProvider, error) {
 	provider.client = pb.NewAuthServiceClient(conn)
 	provider.available = true
 
+	if cfg.GRPCApplicationID != "" {
+		logger.Info("gRPC auth provider: application ID configured", "app_id", cfg.GRPCApplicationID)
+	}
+
 	return provider, nil
 }
 
@@ -70,6 +75,16 @@ func (p *GRPCProvider) Close() error {
 		return p.conn.Close()
 	}
 	return nil
+}
+
+// withApplicationID adds x-application-id metadata to the context if configured
+func (p *GRPCProvider) withApplicationID(ctx context.Context) context.Context {
+	if p.config.GRPCApplicationID != "" {
+		md := metadata.Pairs("x-application-id", p.config.GRPCApplicationID)
+		ctx = metadata.NewOutgoingContext(ctx, md)
+		logger.Debug("gRPC auth: added application ID to context", "app_id", p.config.GRPCApplicationID)
+	}
+	return ctx
 }
 
 func (p *GRPCProvider) GetType() ProviderType {
@@ -86,6 +101,7 @@ func (p *GRPCProvider) Authenticate(ctx context.Context, creds *Credentials) (*P
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
+	ctx = p.withApplicationID(ctx)
 
 	req := &pb.LoginRequest{
 		Email:    creds.Email,
@@ -156,6 +172,7 @@ func (p *GRPCProvider) ValidateToken(ctx context.Context, token string) (*JWTCla
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
+	ctx = p.withApplicationID(ctx)
 
 	req := &pb.ValidateTokenRequest{
 		AccessToken: token,
@@ -223,6 +240,7 @@ func (p *GRPCProvider) GetUserInfo(ctx context.Context, accessToken string) (*pk
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
+	ctx = p.withApplicationID(ctx)
 
 	req := &pb.GetUserRequest{
 		UserId: claims.UserID,
@@ -297,6 +315,7 @@ func (p *GRPCProvider) CreateUser(ctx context.Context, req *CreateUserRequest) (
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
+	ctx = p.withApplicationID(ctx)
 
 	pbReq := &pb.CreateUserRequest{
 		Email:       req.Email,
