@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,10 +15,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// withHealthCheck wraps a handler to respond to health check requests
+func withHealthCheck(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/health") || r.URL.Path == "/health" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status":"ok"}`))
+			return
+		}
+		handler(w, r)
+	}
+}
+
 // TestExecutionAPI_RunRemote_Success tests successful remote execution start
 func TestExecutionAPI_RunRemote_Success(t *testing.T) {
 	// Create mock server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/executions", r.URL.Path)
 
@@ -52,7 +66,7 @@ func TestExecutionAPI_RunRemote_Success(t *testing.T) {
 
 // TestExecutionAPI_RunRemote_ServerError tests remote execution with server error
 func TestExecutionAPI_RunRemote_ServerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error": "internal server error"}`))
 	}))
@@ -73,7 +87,7 @@ func TestExecutionAPI_RunRemote_ServerError(t *testing.T) {
 
 // TestExecutionAPI_GetRemote_Success tests successful remote execution retrieval
 func TestExecutionAPI_GetRemote_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123")
 
@@ -107,7 +121,7 @@ func TestExecutionAPI_GetRemote_Success(t *testing.T) {
 
 // TestExecutionAPI_GetRemote_NotFound tests remote execution not found
 func TestExecutionAPI_GetRemote_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "execution not found"}`))
 	}))
@@ -128,7 +142,7 @@ func TestExecutionAPI_GetRemote_NotFound(t *testing.T) {
 
 // TestExecutionAPI_ListRemote_Success tests successful remote execution list
 func TestExecutionAPI_ListRemote_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "/api/v1/executions", r.URL.Path)
 
@@ -173,7 +187,7 @@ func TestExecutionAPI_ListRemote_Success(t *testing.T) {
 
 // TestExecutionAPI_ListRemote_WithFilters tests list with query filters
 func TestExecutionAPI_ListRemote_WithFilters(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 
 		// Check query parameters
@@ -223,7 +237,7 @@ func TestExecutionAPI_ListRemote_WithFilters(t *testing.T) {
 func TestExecutionAPI_CancelRemote_Success(t *testing.T) {
 	t.Skip("Cancel remote implementation not yet complete")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123/cancel")
 
@@ -249,7 +263,7 @@ func TestExecutionAPI_CancelRemote_Success(t *testing.T) {
 func TestExecutionAPI_RetryRemote_Success(t *testing.T) {
 	t.Skip("Retry remote implementation not yet complete")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123/retry")
 
@@ -284,7 +298,7 @@ func TestExecutionAPI_RetryRemote_Success(t *testing.T) {
 func TestExecutionAPI_WatchRemote_Success(t *testing.T) {
 	t.Skip("Watch remote implementation not yet complete")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123/watch")
 
@@ -333,7 +347,7 @@ func TestExecutionAPI_WatchRemote_Success(t *testing.T) {
 
 // TestExecutionAPI_GetLogsRemote_Success tests successful remote logs retrieval
 func TestExecutionAPI_GetLogsRemote_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123/logs")
 
@@ -385,7 +399,7 @@ func TestExecutionAPI_GetLogsRemote_Success(t *testing.T) {
 func TestExecutionAPI_StreamLogsRemote_Success(t *testing.T) {
 	t.Skip("StreamLogs remote implementation not yet complete")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123/logs/stream")
 
@@ -442,7 +456,7 @@ func TestExecutionAPI_StreamLogsRemote_Success(t *testing.T) {
 
 // TestExecutionAPI_GetNodeResultRemote_Success tests successful remote node result retrieval
 func TestExecutionAPI_GetNodeResultRemote_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123/nodes/node-456")
 
@@ -482,7 +496,7 @@ func TestExecutionAPI_GetNodeResultRemote_Success(t *testing.T) {
 
 // TestExecutionAPI_GetNodeResultRemote_NotFound tests node result not found
 func TestExecutionAPI_GetNodeResultRemote_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "node result not found"}`))
 	}))
@@ -503,7 +517,7 @@ func TestExecutionAPI_GetNodeResultRemote_NotFound(t *testing.T) {
 
 // TestExecutionAPI_RunSyncRemote_Success tests successful synchronous remote execution
 func TestExecutionAPI_RunSyncRemote_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 
 		// Parse request to check if async=false
@@ -541,7 +555,7 @@ func TestExecutionAPI_RunSyncRemote_Success(t *testing.T) {
 
 // TestExecutionAPI_RunRemote_EmptyWorkflowID tests validation of empty workflow ID
 func TestExecutionAPI_RunRemote_EmptyWorkflowID(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("should not reach server with empty workflow ID")
 	}))
 	defer server.Close()
@@ -561,7 +575,7 @@ func TestExecutionAPI_RunRemote_EmptyWorkflowID(t *testing.T) {
 
 // TestExecutionAPI_GetRemote_EmptyExecutionID tests validation of empty execution ID
 func TestExecutionAPI_GetRemote_EmptyExecutionID(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("should not reach server with empty execution ID")
 	}))
 	defer server.Close()
@@ -581,7 +595,7 @@ func TestExecutionAPI_GetRemote_EmptyExecutionID(t *testing.T) {
 
 // TestExecutionAPI_RunRemote_WithInput tests execution with input data
 func TestExecutionAPI_RunRemote_WithInput(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		var req ExecutionRequest
 		json.NewDecoder(r.Body).Decode(&req)
 

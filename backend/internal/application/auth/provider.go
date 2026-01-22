@@ -19,6 +19,7 @@ const (
 // Credentials represents authentication credentials
 type Credentials struct {
 	Email        string `json:"email"`
+	Phone        string `json:"phone,omitempty"`
 	Password     string `json:"password"`
 	Username     string `json:"username,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`

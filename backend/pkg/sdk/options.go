@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/pkg/executor"
 )
 
@@ -156,6 +157,29 @@ func WithAutoMigrate(migrationsDir string) ClientOption {
 			return fmt.Errorf("migrations directory cannot be empty")
 		}
 		c.MigrationsDir = migrationsDir
+		return nil
+	}
+}
+
+// WithObserverManager sets a custom observer manager for real-time event notifications.
+// Observers can be registered to receive notifications about execution events,
+// enabling features like WebSocket streaming, logging, and external integrations.
+//
+// Example:
+//
+//	obsManager := observer.NewObserverManager()
+//	obsManager.Register(myCustomObserver)
+//
+//	client, err := sdk.NewClient(
+//	    sdk.WithEmbeddedMode(dbURL, ""),
+//	    sdk.WithObserverManager(obsManager),
+//	)
+func WithObserverManager(manager *observer.ObserverManager) ClientOption {
+	return func(c *ClientConfig) error {
+		if manager == nil {
+			return fmt.Errorf("observer manager cannot be nil")
+		}
+		c.ObserverManager = manager
 		return nil
 	}
 }

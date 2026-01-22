@@ -20,12 +20,14 @@ package sdk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
 	"github.com/smilemakc/mbflow/pkg/executor"
@@ -49,12 +51,15 @@ type Client struct {
 	httpClient *http.Client
 
 	// Embedded mode components
+	db               *bun.DB
 	executorManager  executor.Manager
 	executionManager *engine.ExecutionManager
 	workflowRepo     repository.WorkflowRepository
 	executionRepo    repository.ExecutionRepository
 	eventRepo        repository.EventRepository
+	resourceRepo     repository.ResourceRepository
 	triggerRepo      repository.TriggerRepository
+	observerManager  *observer.ObserverManager
 
 	// Lifecycle
 	closed bool
@@ -79,6 +84,9 @@ type ClientConfig struct {
 
 	// Executor configuration
 	ExecutorManager executor.Manager
+
+	// Observer configuration (for real-time event notifications)
+	ObserverManager *observer.ObserverManager
 
 	// Logging
 	Logger Logger
@@ -214,8 +222,12 @@ func (c *Client) Close() error {
 
 	// Close mode-specific resources
 	if c.config.Mode == ModeEmbedded {
-		// Close database connections, etc.
-		// TODO: Implement cleanup
+		// Close database connection
+		if c.db != nil {
+			if err := c.db.Close(); err != nil {
+				return fmt.Errorf("failed to close database connection: %w", err)
+			}
+		}
 	}
 
 	return nil
@@ -275,6 +287,7 @@ func (c *Client) initializeEmbedded() error {
 		if err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}
+		c.db = db
 
 		// Run migrations if configured
 		if c.config.MigrationsDir != "" {
@@ -287,16 +300,24 @@ func (c *Client) initializeEmbedded() error {
 		c.workflowRepo = storage.NewWorkflowRepository(db)
 		c.executionRepo = storage.NewExecutionRepository(db)
 		c.triggerRepo = storage.NewTriggerRepository(db)
-		// Note: eventRepo is deferred for MVP
+		c.eventRepo = storage.NewEventRepository(db)
+		c.resourceRepo = storage.NewResourceRepository(db)
 
-		// Create execution manager
+		// Initialize observer manager if provided or create default
+		if c.config.ObserverManager != nil {
+			c.observerManager = c.config.ObserverManager
+		} else {
+			c.observerManager = observer.NewObserverManager()
+		}
+
+		// Create execution manager with all components
 		c.executionManager = engine.NewExecutionManager(
 			c.executorManager,
 			c.workflowRepo,
 			c.executionRepo,
-			nil, // eventRepo - will be nil for MVP
-			nil, // resourceRepo - will be nil for SDK
-			nil, // observerManager - optional for SDK
+			c.eventRepo,
+			c.resourceRepo,
+			c.observerManager,
 		)
 	}
 
@@ -338,7 +359,29 @@ func (c *Client) initializeRemote() error {
 		return fmt.Errorf("base URL is required for remote mode")
 	}
 
-	// TODO: Perform health check against remote API
+	// Perform health check against remote API
+	ctx, cancel := context.WithTimeout(context.Background(), c.config.Timeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", nil)
+	if err != nil {
+		return fmt.Errorf("failed to create health check request: %w", err)
+	}
+
+	if c.config.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to remote API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Accept any 2xx status code as healthy
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("remote API health check failed with status: %d", resp.StatusCode)
+	}
 
 	return nil
 }
@@ -370,16 +413,88 @@ func (c *Client) Health(ctx context.Context) (*HealthStatus, error) {
 		return nil, models.ErrClientClosed
 	}
 
-	// TODO: Implement health check
-	return &HealthStatus{
-		Status: "ok",
-		Mode:   c.config.Mode,
-	}, nil
+	status := &HealthStatus{
+		Status:  "ok",
+		Mode:    c.config.Mode,
+		Version: "1.0.0",
+	}
+
+	switch c.config.Mode {
+	case ModeEmbedded:
+		// Check database connectivity
+		if c.db != nil {
+			if err := c.db.PingContext(ctx); err != nil {
+				status.Status = "degraded"
+				status.Database = &ComponentHealth{
+					Status: "unhealthy",
+					Error:  err.Error(),
+				}
+			} else {
+				status.Database = &ComponentHealth{
+					Status: "healthy",
+				}
+			}
+		}
+
+	case ModeRemote:
+		// Check remote API health
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create health check request: %w", err)
+		}
+
+		if c.config.APIKey != "" {
+			req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			status.Status = "unhealthy"
+			status.Remote = &ComponentHealth{
+				Status: "unhealthy",
+				Error:  err.Error(),
+			}
+			return status, nil
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			status.Status = "unhealthy"
+			status.Remote = &ComponentHealth{
+				Status: "unhealthy",
+				Error:  fmt.Sprintf("health check returned status %d", resp.StatusCode),
+			}
+		} else {
+			// Parse remote health response
+			var remoteHealth HealthStatus
+			if err := json.NewDecoder(resp.Body).Decode(&remoteHealth); err == nil {
+				status.Remote = &ComponentHealth{
+					Status:  "healthy",
+					Version: remoteHealth.Version,
+				}
+			} else {
+				status.Remote = &ComponentHealth{
+					Status: "healthy",
+				}
+			}
+		}
+	}
+
+	return status, nil
 }
 
 // HealthStatus represents the health status of the MBFlow system.
 type HealthStatus struct {
-	Status  string     `json:"status"`
-	Mode    ClientMode `json:"mode"`
-	Version string     `json:"version,omitempty"`
+	Status   string           `json:"status"`
+	Mode     ClientMode       `json:"mode"`
+	Version  string           `json:"version,omitempty"`
+	Database *ComponentHealth `json:"database,omitempty"`
+	Remote   *ComponentHealth `json:"remote,omitempty"`
+}
+
+// ComponentHealth represents the health of a specific component.
+type ComponentHealth struct {
+	Status  string `json:"status"`
+	Error   string `json:"error,omitempty"`
+	Version string `json:"version,omitempty"`
 }

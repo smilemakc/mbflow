@@ -17,6 +17,9 @@ service AuthService {
 
   // IntrospectToken provides detailed information about a token
   rpc IntrospectToken(IntrospectTokenRequest) returns (IntrospectTokenResponse);
+
+  // Login authenticates a user with email/phone and password
+  rpc Login(LoginRequest) returns (LoginResponse);
 }
 
 // ValidateTokenRequest contains the token to validate
@@ -93,4 +96,20 @@ message IntrospectTokenResponse {
   string subject = 9;
   bool blacklisted = 10;
   string error_message = 11;
+}
+
+// LoginRequest contains credentials for authentication
+message LoginRequest {
+  string email = 1;    // Email for login (optional if phone provided)
+  string phone = 2;    // Phone for login (optional if email provided)
+  string password = 3; // User password
+}
+
+// LoginResponse contains the result of login
+message LoginResponse {
+  User user = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  int64 expires_in = 4;
+  string error_message = 5;
 }

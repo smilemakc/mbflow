@@ -16,11 +16,11 @@ import (
 
 var (
 	ErrGRPCProviderNotConfigured = errors.New("gRPC auth provider is not configured")
-	ErrAuthenticateNotSupported  = errors.New("authenticate not supported via gRPC proxy")
 	ErrRefreshNotSupported       = errors.New("refresh token not supported via gRPC proxy")
 	ErrCallbackNotSupported      = errors.New("OAuth callback not supported via gRPC proxy")
 	ErrGRPCTokenValidationFailed = errors.New("token validation failed via gRPC")
 	ErrGRPCUserFetchFailed       = errors.New("user fetch failed via gRPC")
+	ErrGRPCLoginFailed           = errors.New("login failed via gRPC")
 )
 
 type GRPCProvider struct {
@@ -74,7 +74,59 @@ func (p *GRPCProvider) GetType() ProviderType {
 }
 
 func (p *GRPCProvider) Authenticate(ctx context.Context, creds *Credentials) (*ProviderAuthResult, error) {
-	return nil, ErrAuthenticateNotSupported
+	if !p.available {
+		return nil, ErrGRPCProviderNotConfigured
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, p.timeout)
+	defer cancel()
+
+	req := &pb.LoginRequest{
+		Email:    creds.Email,
+		Phone:    creds.Phone,
+		Password: creds.Password,
+	}
+
+	resp, err := p.client.Login(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrGRPCLoginFailed, err)
+	}
+
+	if resp.GetErrorMessage() != "" {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidCredentials, resp.GetErrorMessage())
+	}
+
+	protoUser := resp.GetUser()
+	if protoUser == nil {
+		return nil, fmt.Errorf("%w: user not returned", ErrGRPCLoginFailed)
+	}
+
+	isAdmin := false
+	for _, role := range protoUser.GetRoles() {
+		if role == "admin" || role == "administrator" {
+			isAdmin = true
+			break
+		}
+	}
+
+	user := &pkgmodels.User{
+		ID:        protoUser.GetId(),
+		Email:     protoUser.GetEmail(),
+		Username:  protoUser.GetUsername(),
+		FullName:  protoUser.GetFullName(),
+		IsActive:  protoUser.GetIsActive(),
+		IsAdmin:   isAdmin,
+		Roles:     protoUser.GetRoles(),
+		CreatedAt: time.Unix(protoUser.GetCreatedAt(), 0),
+		UpdatedAt: time.Unix(protoUser.GetUpdatedAt(), 0),
+	}
+
+	return &ProviderAuthResult{
+		User:         user,
+		AccessToken:  resp.GetAccessToken(),
+		RefreshToken: resp.GetRefreshToken(),
+		ExpiresIn:    int(resp.GetExpiresIn()),
+	}, nil
 }
 
 func (p *GRPCProvider) ValidateToken(ctx context.Context, token string) (*JWTClaims, error) {
