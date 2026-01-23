@@ -6,15 +6,13 @@ import (
 	"fmt"
 	"time"
 
+	authgateway "github.com/smilemakc/auth-gateway/packages/go-sdk"
+	"github.com/smilemakc/auth-gateway/packages/go-sdk/proto"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	pkgmodels "github.com/smilemakc/mbflow/pkg/models"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-
-	pb "github.com/smilemakc/mbflow/api/proto/authpb"
 )
 
 var (
@@ -27,14 +25,15 @@ var (
 	ErrGRPCUserCreateFailed      = errors.New("user creation failed via gRPC")
 )
 
+// GRPCProvider implements AuthProvider using auth-gateway SDK
 type GRPCProvider struct {
 	config    *config.AuthConfig
-	client    pb.AuthServiceClient
-	conn      *grpc.ClientConn
+	client    *authgateway.GRPCClient
 	available bool
 	timeout   time.Duration
 }
 
+// NewGRPCProvider creates a new gRPC auth provider using auth-gateway SDK
 func NewGRPCProvider(cfg *config.AuthConfig) (*GRPCProvider, error) {
 	timeout := cfg.GRPCTimeout
 	if timeout == 0 {
@@ -51,46 +50,69 @@ func NewGRPCProvider(cfg *config.AuthConfig) (*GRPCProvider, error) {
 		return provider, nil
 	}
 
-	conn, err := grpc.NewClient(
-		cfg.GRPCAddress,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return provider, fmt.Errorf("failed to create gRPC connection: %w", err)
+	// Build metadata map from config
+	metadata := make(map[string]string)
+	if cfg.GRPCApplicationID != "" {
+		metadata["x-application-id"] = cfg.GRPCApplicationID
+	}
+	if cfg.GRPCClientName != "" {
+		metadata["x-client-name"] = cfg.GRPCClientName
+	}
+	if cfg.GRPCClientVersion != "" {
+		metadata["x-client-version"] = cfg.GRPCClientVersion
+	}
+	if cfg.GRPCPlatform != "" {
+		metadata["x-platform"] = cfg.GRPCPlatform
+	}
+	if cfg.GRPCEnvironment != "" {
+		metadata["x-environment"] = cfg.GRPCEnvironment
 	}
 
-	provider.conn = conn
-	provider.client = pb.NewAuthServiceClient(conn)
+	// Create SDK client
+	client, err := authgateway.NewGRPCClient(authgateway.GRPCConfig{
+		Address:     cfg.GRPCAddress,
+		Insecure:    true, // TODO: make configurable
+		DialTimeout: timeout,
+		DialOptions: []grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		},
+		Metadata: metadata,
+	})
+	if err != nil {
+		return provider, fmt.Errorf("failed to create gRPC client: %w", err)
+	}
+
+	provider.client = client
 	provider.available = true
 
-	if cfg.GRPCApplicationID != "" {
-		logger.Info("gRPC auth provider: application ID configured", "app_id", cfg.GRPCApplicationID)
-	}
+	logger.Info("gRPC auth provider initialized (using SDK)",
+		"address", cfg.GRPCAddress,
+		"app_id", cfg.GRPCApplicationID,
+		"client_name", cfg.GRPCClientName,
+		"environment", cfg.GRPCEnvironment)
 
 	return provider, nil
 }
 
+// Close closes the gRPC connection
 func (p *GRPCProvider) Close() error {
-	if p.conn != nil {
-		return p.conn.Close()
+	if p.client != nil {
+		return p.client.Close()
 	}
 	return nil
 }
 
-// withApplicationID adds x-application-id metadata to the context if configured
-func (p *GRPCProvider) withApplicationID(ctx context.Context) context.Context {
-	if p.config.GRPCApplicationID != "" {
-		md := metadata.Pairs("x-application-id", p.config.GRPCApplicationID)
-		ctx = metadata.NewOutgoingContext(ctx, md)
-		logger.Debug("gRPC auth: added application ID to context", "app_id", p.config.GRPCApplicationID)
-	}
-	return ctx
-}
-
+// GetType returns the provider type
 func (p *GRPCProvider) GetType() ProviderType {
 	return ProviderTypeGRPC
 }
 
+// IsAvailable returns whether the provider is available
+func (p *GRPCProvider) IsAvailable() bool {
+	return p.available
+}
+
+// Authenticate authenticates a user with credentials
 func (p *GRPCProvider) Authenticate(ctx context.Context, creds *Credentials) (*ProviderAuthResult, error) {
 	if !p.available {
 		logger.Error("gRPC auth provider not available", "address", p.config.GRPCAddress)
@@ -101,31 +123,15 @@ func (p *GRPCProvider) Authenticate(ctx context.Context, creds *Credentials) (*P
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
-	ctx = p.withApplicationID(ctx)
 
-	req := &pb.LoginRequest{
+	resp, err := p.client.Login(ctx, &proto.LoginRequest{
 		Email:    creds.Email,
 		Phone:    creds.Phone,
 		Password: creds.Password,
-	}
-
-	resp, err := p.client.Login(ctx, req)
+	})
 	if err != nil {
-		grpcStatus, ok := status.FromError(err)
-		if ok {
-			logger.Error("gRPC auth: login failed",
-				"code", grpcStatus.Code().String(),
-				"message", grpcStatus.Message(),
-				"details", fmt.Sprintf("%v", grpcStatus.Details()))
-		} else {
-			logger.Error("gRPC auth: login failed", "error", err.Error())
-		}
+		logger.Error("gRPC auth: login failed", "error", err.Error())
 		return nil, fmt.Errorf("%w: %v", ErrGRPCLoginFailed, err)
-	}
-
-	if resp.GetErrorMessage() != "" {
-		logger.Error("gRPC auth: login returned error", "error", resp.GetErrorMessage())
-		return nil, fmt.Errorf("%w: %s", ErrInvalidCredentials, resp.GetErrorMessage())
 	}
 
 	protoUser := resp.GetUser()
@@ -136,25 +142,7 @@ func (p *GRPCProvider) Authenticate(ctx context.Context, creds *Credentials) (*P
 
 	logger.Info("gRPC auth: login succeeded", "user_id", protoUser.GetId(), "email", protoUser.GetEmail())
 
-	isAdmin := false
-	for _, role := range protoUser.GetRoles() {
-		if role == "admin" || role == "administrator" {
-			isAdmin = true
-			break
-		}
-	}
-
-	user := &pkgmodels.User{
-		ID:        protoUser.GetId(),
-		Email:     protoUser.GetEmail(),
-		Username:  protoUser.GetUsername(),
-		FullName:  protoUser.GetFullName(),
-		IsActive:  protoUser.GetIsActive(),
-		IsAdmin:   isAdmin,
-		Roles:     protoUser.GetRoles(),
-		CreatedAt: time.Unix(protoUser.GetCreatedAt(), 0),
-		UpdatedAt: time.Unix(protoUser.GetUpdatedAt(), 0),
-	}
+	user := protoUserToUser(protoUser)
 
 	return &ProviderAuthResult{
 		User:         user,
@@ -164,6 +152,7 @@ func (p *GRPCProvider) Authenticate(ctx context.Context, creds *Credentials) (*P
 	}, nil
 }
 
+// ValidateToken validates a JWT token
 func (p *GRPCProvider) ValidateToken(ctx context.Context, token string) (*JWTClaims, error) {
 	if !p.available {
 		logger.Error("gRPC auth: ValidateToken - provider not available")
@@ -172,22 +161,10 @@ func (p *GRPCProvider) ValidateToken(ctx context.Context, token string) (*JWTCla
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
-	ctx = p.withApplicationID(ctx)
 
-	req := &pb.ValidateTokenRequest{
-		AccessToken: token,
-	}
-
-	resp, err := p.client.ValidateToken(ctx, req)
+	resp, err := p.client.ValidateToken(ctx, token)
 	if err != nil {
-		grpcStatus, ok := status.FromError(err)
-		if ok {
-			logger.Error("gRPC auth: ValidateToken failed",
-				"code", grpcStatus.Code().String(),
-				"message", grpcStatus.Message())
-		} else {
-			logger.Error("gRPC auth: ValidateToken failed", "error", err.Error())
-		}
+		logger.Error("gRPC auth: ValidateToken failed", "error", err.Error())
 		return nil, fmt.Errorf("%w: %v", ErrGRPCTokenValidationFailed, err)
 	}
 
@@ -208,28 +185,29 @@ func (p *GRPCProvider) ValidateToken(ctx context.Context, token string) (*JWTCla
 	}, nil
 }
 
+// RefreshToken refreshes an access token (not supported via gRPC)
 func (p *GRPCProvider) RefreshToken(ctx context.Context, refreshToken string) (*ProviderAuthResult, error) {
 	return nil, ErrRefreshNotSupported
 }
 
+// GetAuthorizationURL returns OAuth authorization URL (not supported via gRPC)
 func (p *GRPCProvider) GetAuthorizationURL(state, nonce string) string {
 	return ""
 }
 
+// HandleCallback handles OAuth callback (not supported via gRPC)
 func (p *GRPCProvider) HandleCallback(ctx context.Context, code, state string) (*ProviderAuthResult, error) {
 	return nil, ErrCallbackNotSupported
 }
 
-func (p *GRPCProvider) IsAvailable() bool {
-	return p.available
-}
-
+// GetUserInfo retrieves user information by access token
 func (p *GRPCProvider) GetUserInfo(ctx context.Context, accessToken string) (*pkgmodels.User, error) {
 	if !p.available {
 		logger.Error("gRPC auth: GetUserInfo - provider not available")
 		return nil, ErrGRPCProviderNotConfigured
 	}
 
+	// First validate token to get user ID
 	claims, err := p.ValidateToken(ctx, accessToken)
 	if err != nil {
 		logger.Error("gRPC auth: GetUserInfo - token validation failed", "error", err.Error())
@@ -240,55 +218,14 @@ func (p *GRPCProvider) GetUserInfo(ctx context.Context, accessToken string) (*pk
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
-	ctx = p.withApplicationID(ctx)
 
-	req := &pb.GetUserRequest{
-		UserId: claims.UserID,
-	}
-
-	resp, err := p.client.GetUser(ctx, req)
+	protoUser, err := p.client.GetUser(ctx, claims.UserID)
 	if err != nil {
-		grpcStatus, ok := status.FromError(err)
-		if ok {
-			logger.Error("gRPC auth: GetUser failed",
-				"code", grpcStatus.Code().String(),
-				"message", grpcStatus.Message())
-		} else {
-			logger.Error("gRPC auth: GetUser failed", "error", err.Error())
-		}
+		logger.Error("gRPC auth: GetUser failed", "error", err.Error())
 		return nil, fmt.Errorf("%w: %v", ErrGRPCUserFetchFailed, err)
 	}
 
-	if resp.GetErrorMessage() != "" {
-		return nil, fmt.Errorf("%w: %s", ErrGRPCUserFetchFailed, resp.GetErrorMessage())
-	}
-
-	protoUser := resp.GetUser()
-	if protoUser == nil {
-		return nil, fmt.Errorf("%w: user not found", ErrGRPCUserFetchFailed)
-	}
-
-	isAdmin := false
-	for _, role := range protoUser.GetRoles() {
-		if role == "admin" || role == "administrator" {
-			isAdmin = true
-			break
-		}
-	}
-
-	user := &pkgmodels.User{
-		ID:        protoUser.GetId(),
-		Email:     protoUser.GetEmail(),
-		Username:  protoUser.GetUsername(),
-		FullName:  protoUser.GetFullName(),
-		IsActive:  protoUser.GetIsActive(),
-		IsAdmin:   isAdmin,
-		Roles:     protoUser.GetRoles(),
-		CreatedAt: time.Unix(protoUser.GetCreatedAt(), 0),
-		UpdatedAt: time.Unix(protoUser.GetUpdatedAt(), 0),
-	}
-
-	return user, nil
+	return protoUserToUser(protoUser), nil
 }
 
 // CreateUserRequest contains data for creating a new user via gRPC
@@ -315,34 +252,18 @@ func (p *GRPCProvider) CreateUser(ctx context.Context, req *CreateUserRequest) (
 
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
-	ctx = p.withApplicationID(ctx)
 
-	pbReq := &pb.CreateUserRequest{
+	resp, err := p.client.CreateUser(ctx, &proto.CreateUserRequest{
 		Email:       req.Email,
 		Phone:       req.Phone,
 		Username:    req.Username,
 		Password:    req.Password,
 		FullName:    req.FullName,
 		AccountType: req.AccountType,
-	}
-
-	resp, err := p.client.CreateUser(ctx, pbReq)
+	})
 	if err != nil {
-		grpcStatus, ok := status.FromError(err)
-		if ok {
-			logger.Error("gRPC auth: CreateUser failed",
-				"code", grpcStatus.Code().String(),
-				"message", grpcStatus.Message(),
-				"details", fmt.Sprintf("%v", grpcStatus.Details()))
-		} else {
-			logger.Error("gRPC auth: CreateUser failed", "error", err.Error())
-		}
+		logger.Error("gRPC auth: CreateUser failed", "error", err.Error())
 		return nil, fmt.Errorf("%w: %v", ErrGRPCUserCreateFailed, err)
-	}
-
-	if resp.GetErrorMessage() != "" {
-		logger.Error("gRPC auth: CreateUser returned error", "error", resp.GetErrorMessage())
-		return nil, fmt.Errorf("%w: %s", ErrGRPCUserCreateFailed, resp.GetErrorMessage())
 	}
 
 	protoUser := resp.GetUser()
@@ -353,6 +274,39 @@ func (p *GRPCProvider) CreateUser(ctx context.Context, req *CreateUserRequest) (
 
 	logger.Info("gRPC auth: user created", "user_id", protoUser.GetId(), "email", protoUser.GetEmail())
 
+	user := protoUserToUser(protoUser)
+
+	return &ProviderAuthResult{
+		User:         user,
+		AccessToken:  resp.GetAccessToken(),
+		RefreshToken: resp.GetRefreshToken(),
+		ExpiresIn:    int(resp.GetExpiresIn()),
+	}, nil
+}
+
+// CheckPermission checks if a user has a specific permission
+func (p *GRPCProvider) CheckPermission(ctx context.Context, userID, resource, action string) (bool, error) {
+	if !p.available {
+		return false, ErrGRPCProviderNotConfigured
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, p.timeout)
+	defer cancel()
+
+	return p.client.HasPermission(ctx, userID, resource, action)
+}
+
+// GetSDKClient returns the underlying SDK client for advanced usage
+func (p *GRPCProvider) GetSDKClient() *authgateway.GRPCClient {
+	return p.client
+}
+
+// protoUserToUser converts proto.User to pkgmodels.User
+func protoUserToUser(protoUser *proto.User) *pkgmodels.User {
+	if protoUser == nil {
+		return nil
+	}
+
 	isAdmin := false
 	for _, role := range protoUser.GetRoles() {
 		if role == "admin" || role == "administrator" {
@@ -361,7 +315,7 @@ func (p *GRPCProvider) CreateUser(ctx context.Context, req *CreateUserRequest) (
 		}
 	}
 
-	user := &pkgmodels.User{
+	return &pkgmodels.User{
 		ID:        protoUser.GetId(),
 		Email:     protoUser.GetEmail(),
 		Username:  protoUser.GetUsername(),
@@ -372,11 +326,4 @@ func (p *GRPCProvider) CreateUser(ctx context.Context, req *CreateUserRequest) (
 		CreatedAt: time.Unix(protoUser.GetCreatedAt(), 0),
 		UpdatedAt: time.Unix(protoUser.GetUpdatedAt(), 0),
 	}
-
-	return &ProviderAuthResult{
-		User:         user,
-		AccessToken:  resp.GetAccessToken(),
-		RefreshToken: resp.GetRefreshToken(),
-		ExpiresIn:    int(resp.GetExpiresIn()),
-	}, nil
 }

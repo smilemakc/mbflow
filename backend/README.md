@@ -1,6 +1,7 @@
 # MBFlow Backend
 
-A sophisticated workflow orchestration engine written in Go implementing Domain-Driven Design (DDD) principles with Event Sourcing.
+A sophisticated workflow orchestration engine written in Go implementing Domain-Driven Design (DDD) principles with
+Event Sourcing.
 
 ## Features
 
@@ -47,17 +48,20 @@ examples/
 ### Using Docker Compose (Recommended)
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/smilemakc/mbflow.git
 cd mbflow/backend
 ```
 
 2. Start all services:
+
 ```bash
 docker compose up -d
 ```
 
 3. Check service health:
+
 ```bash
 curl http://localhost:8585/health
 ```
@@ -65,11 +69,13 @@ curl http://localhost:8585/health
 ### Local Development Setup
 
 1. Install dependencies:
+
 ```bash
 go mod download
 ```
 
 2. Start PostgreSQL and Redis:
+
 ```bash
 # Using Docker
 docker run -d --name mbflow-postgres \
@@ -85,12 +91,14 @@ docker run -d --name mbflow-redis \
 ```
 
 3. Copy environment file:
+
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
 4. Build and run the server:
+
 ```bash
 go build -o mbflow-server ./cmd/server
 ./mbflow-server
@@ -104,15 +112,64 @@ Configuration is managed through environment variables. See `.env.example` for a
 
 ### Key Configuration Options
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | 8585 |
-| `DATABASE_URL` | PostgreSQL connection string | See .env.example |
-| `REDIS_URL` | Redis connection string | redis://localhost:6379 |
-| `LOG_LEVEL` | Log level (debug/info/warn/error) | info |
-| `LOG_FORMAT` | Log format (json/text) | json |
-| `DB_MAX_CONNECTIONS` | Maximum database connections | 20 |
-| `API_KEYS` | Comma-separated API keys | - |
+| Variable                    | Description                       | Default                |
+|-----------------------------|-----------------------------------|------------------------|
+| `MBFLOW_PORT`               | Server port                       | 8585                   |
+| `MBFLOW_DATABASE_URL`       | PostgreSQL connection string      | See .env.example       |
+| `MBFLOW_REDIS_URL`          | Redis connection string           | redis://localhost:6379 |
+| `MBFLOW_LOG_LEVEL`          | Log level (debug/info/warn/error) | info                   |
+| `MBFLOW_LOG_FORMAT`         | Log format (json/text)            | json                   |
+| `MBFLOW_DB_MAX_CONNECTIONS` | Maximum database connections      | 20                     |
+| `MBFLOW_API_KEYS`           | Comma-separated API keys          | -                      |
+
+### Authentication Configuration
+
+MBFlow supports multiple authentication modes:
+
+| Mode          | Description                             |
+|---------------|-----------------------------------------|
+| `builtin`     | Local authentication with JWT (default) |
+| `grpc`        | External auth via gRPC auth-gateway     |
+| `grpc_hybrid` | gRPC primary with local fallback        |
+| `gateway`     | OAuth2/OIDC gateway                     |
+| `hybrid`      | Gateway primary with local fallback     |
+
+#### Built-in Authentication
+
+```bash
+MBFLOW_AUTH_MODE=builtin
+MBFLOW_JWT_SECRET=your-secret-key-at-least-32-characters
+MBFLOW_JWT_EXPIRATION_HOURS=24
+MBFLOW_ALLOW_REGISTRATION=true
+```
+
+#### gRPC Auth-Gateway Integration
+
+```bash
+MBFLOW_AUTH_MODE=grpc              # or grpc_hybrid for fallback support
+MBFLOW_AUTH_GRPC_ADDRESS=localhost:50051
+MBFLOW_AUTH_GRPC_TIMEOUT=10s
+MBFLOW_AUTH_ENABLE_FALLBACK=true   # Enable local fallback (for grpc_hybrid)
+
+# gRPC Metadata (sent with every request to auth-gateway)
+MBFLOW_AUTH_APPLICATION_ID=your-app-uuid
+MBFLOW_AUTH_CLIENT_NAME=mbflow
+MBFLOW_AUTH_CLIENT_VERSION=1.0.0
+MBFLOW_AUTH_PLATFORM=kubernetes
+MBFLOW_AUTH_ENVIRONMENT=production
+```
+
+#### OAuth2/OIDC Gateway
+
+```bash
+MBFLOW_AUTH_MODE=gateway           # or hybrid for fallback support
+MBFLOW_AUTH_GATEWAY_URL=https://auth.example.com
+MBFLOW_AUTH_CLIENT_ID=your-client-id
+MBFLOW_AUTH_CLIENT_SECRET=your-client-secret
+MBFLOW_AUTH_ISSUER_URL=https://auth.example.com
+MBFLOW_AUTH_JWKS_URL=https://auth.example.com/.well-known/jwks.json
+MBFLOW_AUTH_REDIRECT_URL=http://localhost:8585/auth/callback
+```
 
 ## API Endpoints
 
@@ -143,50 +200,50 @@ Configuration is managed through environment variables. See `.env.example` for a
 package main
 
 import (
-    "context"
-    "github.com/smilemakc/mbflow/pkg/sdk"
-    "github.com/smilemakc/mbflow/pkg/models"
+	"context"
+	"github.com/smilemakc/mbflow/pkg/sdk"
+	"github.com/smilemakc/mbflow/pkg/models"
 )
 
 func main() {
-    // Create client
-    client, err := sdk.NewClient(
-        sdk.WithHTTPEndpoint("http://localhost:8585"),
-        sdk.WithAPIKey("your-api-key"),
-    )
-    if err != nil {
-        panic(err)
-    }
-    defer client.Close()
+	// Create client
+	client, err := sdk.NewClient(
+		sdk.WithHTTPEndpoint("http://localhost:8585"),
+		sdk.WithAPIKey("your-api-key"),
+	)
+	if err != nil {
+		panic(err)
+	}
+	defer client.Close()
 
-    ctx := context.Background()
+	ctx := context.Background()
 
-    // Create workflow
-    workflow := &models.Workflow{
-        Name: "My Workflow",
-        Nodes: []*models.Node{
-            {
-                ID:   "node-1",
-                Name: "Fetch Data",
-                Type: "http",
-                Config: map[string]interface{}{
-                    "method": "GET",
-                    "url":    "https://api.example.com/data",
-                },
-            },
-        },
-    }
+	// Create workflow
+	workflow := &models.Workflow{
+		Name: "My Workflow",
+		Nodes: []*models.Node{
+			{
+				ID:   "node-1",
+				Name: "Fetch Data",
+				Type: "http",
+				Config: map[string]interface{}{
+					"method": "GET",
+					"url":    "https://api.example.com/data",
+				},
+			},
+		},
+	}
 
-    created, err := client.Workflows().Create(ctx, workflow)
-    if err != nil {
-        panic(err)
-    }
+	created, err := client.Workflows().Create(ctx, workflow)
+	if err != nil {
+		panic(err)
+	}
 
-    // Execute workflow
-    execution, err := client.Executions().Run(ctx, created.ID, nil)
-    if err != nil {
-        panic(err)
-    }
+	// Execute workflow
+	execution, err := client.Executions().Run(ctx, created.ID, nil)
+	if err != nil {
+		panic(err)
+	}
 }
 ```
 
@@ -194,10 +251,10 @@ func main() {
 
 ```go
 client, err := sdk.NewClient(
-    sdk.WithEmbeddedMode(
-        "postgres://user:pass@localhost:5432/mbflow",
-        "redis://localhost:6379",
-    ),
+sdk.WithEmbeddedMode(
+"postgres://user:pass@localhost:5432/mbflow",
+"redis://localhost:6379",
+),
 )
 ```
 
@@ -207,27 +264,27 @@ client, err := sdk.NewClient(
 package main
 
 import (
-    "context"
-    "github.com/smilemakc/mbflow/pkg/executor"
+	"context"
+	"github.com/smilemakc/mbflow/pkg/executor"
 )
 
 type MyExecutor struct {
-    *executor.BaseExecutor
+	*executor.BaseExecutor
 }
 
 func (e *MyExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-    // Your custom logic here
-    return map[string]interface{}{"result": "success"}, nil
+	// Your custom logic here
+	return map[string]interface{}{"result": "success"}, nil
 }
 
 func (e *MyExecutor) Validate(config map[string]interface{}) error {
-    return e.ValidateRequired(config, "required_field")
+	return e.ValidateRequired(config, "required_field")
 }
 
 // Register
 manager := executor.NewManager()
 manager.Register("my-executor", &MyExecutor{
-    BaseExecutor: executor.NewBaseExecutor("my-executor"),
+BaseExecutor: executor.NewBaseExecutor("my-executor"),
 })
 ```
 
@@ -321,6 +378,7 @@ curl http://localhost:8585/metrics
 ```
 
 Metrics include:
+
 - Database connection pool statistics
 - Redis cache statistics
 - Request counts and latencies

@@ -114,6 +114,10 @@ type AuthConfig struct {
 	GRPCAddress       string
 	GRPCTimeout       time.Duration
 	GRPCApplicationID string
+	GRPCClientName    string
+	GRPCClientVersion string
+	GRPCPlatform      string
+	GRPCEnvironment   string
 
 	EnableFallback bool
 	FallbackMode   string
@@ -199,6 +203,10 @@ func Load() (*Config, error) {
 			GRPCAddress:         getEnv("MBFLOW_AUTH_GRPC_ADDRESS", ""),
 			GRPCTimeout:         getEnvAsDuration("MBFLOW_AUTH_GRPC_TIMEOUT", 10*time.Second),
 			GRPCApplicationID:   getEnv("MBFLOW_AUTH_APPLICATION_ID", ""),
+			GRPCClientName:      getEnv("MBFLOW_AUTH_CLIENT_NAME", "mbflow"),
+			GRPCClientVersion:   getEnv("MBFLOW_AUTH_CLIENT_VERSION", ""),
+			GRPCPlatform:        getEnv("MBFLOW_AUTH_PLATFORM", ""),
+			GRPCEnvironment:     getEnv("MBFLOW_AUTH_ENVIRONMENT", ""),
 			EnableFallback:      getEnvAsBool("MBFLOW_AUTH_ENABLE_FALLBACK", false),
 			FallbackMode:        getEnv("MBFLOW_AUTH_FALLBACK_MODE", "builtin"),
 		},
