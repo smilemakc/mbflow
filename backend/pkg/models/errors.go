@@ -6,7 +6,8 @@ import "errors"
 // Common error types for MBFlow SDK.
 var (
 	// Client errors
-	ErrClientClosed = errors.New("client is closed")
+	ErrClientClosed           = errors.New("client is closed")
+	ErrMigratorNotInitialized = errors.New("migrator not initialized")
 
 	// Workflow errors
 	ErrInvalidWorkflowID = errors.New("invalid workflow ID")

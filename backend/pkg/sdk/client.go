@@ -46,12 +46,14 @@ type Client struct {
 	workflows  *WorkflowAPI
 	executions *ExecutionAPI
 	triggers   *TriggerAPI
+	migrations *MigrationAPI
 
 	// HTTP client for remote mode
 	httpClient *http.Client
 
 	// Embedded mode components
 	db               *bun.DB
+	migrator         *storage.MigratorWithAccess
 	executorManager  executor.Manager
 	executionManager *engine.ExecutionManager
 	workflowRepo     repository.WorkflowRepository
@@ -80,7 +82,8 @@ type ClientConfig struct {
 	DatabaseURL    string
 	RedisURL       string
 	WebhookBaseURL string // Base URL for webhook endpoints (e.g., "http://localhost:8585")
-	MigrationsDir  string // Directory with migration files (enables auto-migrate if set)
+	MigrationsDir  string // Directory with migration files
+	AutoMigrate    bool   // If true, run migrations automatically on init
 
 	// Executor configuration
 	ExecutorManager executor.Manager
@@ -148,6 +151,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	client.workflows = newWorkflowAPI(client)
 	client.executions = newExecutionAPI(client)
 	client.triggers = newTriggerAPI(client)
+	client.migrations = newMigrationAPI(client)
 
 	return client, nil
 }
@@ -185,6 +189,12 @@ func (c *Client) Executions() *ExecutionAPI {
 // Triggers returns the Trigger API for managing workflow triggers.
 func (c *Client) Triggers() *TriggerAPI {
 	return c.triggers
+}
+
+// Migrations returns the Migration API for database schema management.
+// Only available in embedded mode with migrations directory configured.
+func (c *Client) Migrations() *MigrationAPI {
+	return c.migrations
 }
 
 // RegisterExecutor registers a custom executor with the embedded engine.
@@ -289,10 +299,19 @@ func (c *Client) initializeEmbedded() error {
 		}
 		c.db = db
 
-		// Run migrations if configured
+		// Initialize migrator if migrations directory is configured
 		if c.config.MigrationsDir != "" {
-			if err := c.runMigrations(db); err != nil {
-				return fmt.Errorf("failed to run migrations: %w", err)
+			migrator, err := storage.NewMigratorWithAccess(db, c.config.MigrationsDir)
+			if err != nil {
+				return fmt.Errorf("failed to create migrator: %w", err)
+			}
+			c.migrator = migrator
+
+			// Run migrations automatically if configured
+			if c.config.AutoMigrate {
+				if err := c.runMigrations(); err != nil {
+					return fmt.Errorf("failed to run migrations: %w", err)
+				}
 			}
 		}
 
@@ -324,22 +343,21 @@ func (c *Client) initializeEmbedded() error {
 	return nil
 }
 
-// runMigrations runs database migrations using the configured migrations directory.
-func (c *Client) runMigrations(db *bun.DB) error {
+// runMigrations runs database migrations using the stored migrator.
+func (c *Client) runMigrations() error {
 	ctx := context.Background()
 
-	migrator, err := storage.NewMigrator(db, c.config.MigrationsDir)
-	if err != nil {
-		return fmt.Errorf("failed to create migrator: %w", err)
+	if c.migrator == nil {
+		return fmt.Errorf("migrator not initialized")
 	}
 
 	// Initialize migration tables (creates bun_migrations table if not exists)
-	if err := migrator.Init(ctx); err != nil {
+	if err := c.migrator.Init(ctx); err != nil {
 		return fmt.Errorf("failed to initialize migrations: %w", err)
 	}
 
 	// Run pending migrations
-	if err := migrator.Up(ctx); err != nil {
+	if err := c.migrator.Up(ctx); err != nil {
 		return fmt.Errorf("failed to apply migrations: %w", err)
 	}
 

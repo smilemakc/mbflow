@@ -157,6 +157,30 @@ func WithAutoMigrate(migrationsDir string) ClientOption {
 			return fmt.Errorf("migrations directory cannot be empty")
 		}
 		c.MigrationsDir = migrationsDir
+		c.AutoMigrate = true
+		return nil
+	}
+}
+
+// WithMigrationsDir configures the directory containing migration SQL files.
+// This enables manual migration control via client.Migrations() API.
+// Unlike WithAutoMigrate, this does NOT run migrations automatically on initialization.
+// Use client.Migrations().Up(ctx) to run migrations manually.
+//
+// Example:
+//
+//	client, err := sdk.NewClient(
+//	    sdk.WithEmbeddedMode(dbURL, ""),
+//	    sdk.WithMigrationsDir("migrations"),
+//	)
+//	// Run migrations manually
+//	result, err := client.Migrations().Up(ctx)
+func WithMigrationsDir(migrationsDir string) ClientOption {
+	return func(c *ClientConfig) error {
+		if migrationsDir == "" {
+			return fmt.Errorf("migrations directory cannot be empty")
+		}
+		c.MigrationsDir = migrationsDir
 		return nil
 	}
 }

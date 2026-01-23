@@ -16,6 +16,48 @@ type Migrator struct {
 	db       *bun.DB
 }
 
+// MigratorWithAccess extends Migrator with direct access to underlying bun migrator methods.
+// This is used by the SDK to provide more detailed migration results.
+type MigratorWithAccess struct {
+	*Migrator
+}
+
+// NewMigratorWithAccess creates a new MigratorWithAccess instance.
+func NewMigratorWithAccess(db *bun.DB, migrationsDir string) (*MigratorWithAccess, error) {
+	m, err := NewMigrator(db, migrationsDir)
+	if err != nil {
+		return nil, err
+	}
+	return &MigratorWithAccess{Migrator: m}, nil
+}
+
+// Migrate runs pending migrations and returns the migration group.
+func (m *MigratorWithAccess) Migrate(ctx context.Context) (*migrate.MigrationGroup, error) {
+	group, err := m.migrator.Migrate(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate: %w", err)
+	}
+	return group, nil
+}
+
+// Rollback rolls back the last migration group and returns it.
+func (m *MigratorWithAccess) Rollback(ctx context.Context) (*migrate.MigrationGroup, error) {
+	group, err := m.migrator.Rollback(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to rollback: %w", err)
+	}
+	return group, nil
+}
+
+// MigrationsWithStatus returns all migrations with their current status.
+func (m *MigratorWithAccess) MigrationsWithStatus(ctx context.Context) (migrate.MigrationSlice, error) {
+	ms, err := m.migrator.MigrationsWithStatus(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get migration status: %w", err)
+	}
+	return ms, nil
+}
+
 // NewMigrator creates a new migrator instance
 func NewMigrator(db *bun.DB, migrationsDir string) (*Migrator, error) {
 	migrations := migrate.NewMigrations()
