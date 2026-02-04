@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/migrations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -55,7 +56,7 @@ func setupFileRepoTest(t *testing.T) (*FileRepository, *bun.DB, func()) {
 	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
 
 	// Run migrations
-	migrator, err := NewMigrator(db, "../../../migrations")
+	migrator, err := NewMigrator(db, migrations.FS)
 	require.NoError(t, err)
 	err = migrator.Init(ctx)
 	require.NoError(t, err)

@@ -3,8 +3,8 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log/slog"
-	"os"
 
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/migrate"
@@ -23,8 +23,8 @@ type MigratorWithAccess struct {
 }
 
 // NewMigratorWithAccess creates a new MigratorWithAccess instance.
-func NewMigratorWithAccess(db *bun.DB, migrationsDir string) (*MigratorWithAccess, error) {
-	m, err := NewMigrator(db, migrationsDir)
+func NewMigratorWithAccess(db *bun.DB, migrationsFS fs.FS) (*MigratorWithAccess, error) {
+	m, err := NewMigrator(db, migrationsFS)
 	if err != nil {
 		return nil, err
 	}
@@ -59,14 +59,11 @@ func (m *MigratorWithAccess) MigrationsWithStatus(ctx context.Context) (migrate.
 }
 
 // NewMigrator creates a new migrator instance
-func NewMigrator(db *bun.DB, migrationsDir string) (*Migrator, error) {
+func NewMigrator(db *bun.DB, migrationsFS fs.FS) (*Migrator, error) {
 	migrations := migrate.NewMigrations()
 
-	// Load migrations from filesystem directory
-	if migrationsDir != "" {
-		if err := migrations.Discover(os.DirFS(migrationsDir)); err != nil {
-			return nil, fmt.Errorf("failed to discover migrations: %w", err)
-		}
+	if err := migrations.Discover(migrationsFS); err != nil {
+		return nil, fmt.Errorf("failed to discover migrations: %w", err)
 	}
 
 	migrator := migrate.NewMigrator(db, migrations)

@@ -30,6 +30,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
+	"github.com/smilemakc/mbflow/migrations"
 	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/executor/builtin"
 	"github.com/smilemakc/mbflow/pkg/models"
@@ -82,7 +83,6 @@ type ClientConfig struct {
 	DatabaseURL    string
 	RedisURL       string
 	WebhookBaseURL string // Base URL for webhook endpoints (e.g., "http://localhost:8585")
-	MigrationsDir  string // Directory with migration files
 	AutoMigrate    bool   // If true, run migrations automatically on init
 
 	// Executor configuration
@@ -192,7 +192,7 @@ func (c *Client) Triggers() *TriggerAPI {
 }
 
 // Migrations returns the Migration API for database schema management.
-// Only available in embedded mode with migrations directory configured.
+// Only available in embedded mode with database connection configured.
 func (c *Client) Migrations() *MigrationAPI {
 	return c.migrations
 }
@@ -299,19 +299,17 @@ func (c *Client) initializeEmbedded() error {
 		}
 		c.db = db
 
-		// Initialize migrator if migrations directory is configured
-		if c.config.MigrationsDir != "" {
-			migrator, err := storage.NewMigratorWithAccess(db, c.config.MigrationsDir)
-			if err != nil {
-				return fmt.Errorf("failed to create migrator: %w", err)
-			}
-			c.migrator = migrator
+		// Initialize migrator with embedded migrations
+		migrator, err := storage.NewMigratorWithAccess(db, migrations.FS)
+		if err != nil {
+			return fmt.Errorf("failed to create migrator: %w", err)
+		}
+		c.migrator = migrator
 
-			// Run migrations automatically if configured
-			if c.config.AutoMigrate {
-				if err := c.runMigrations(); err != nil {
-					return fmt.Errorf("failed to run migrations: %w", err)
-				}
+		// Run migrations automatically if configured
+		if c.config.AutoMigrate {
+			if err := c.runMigrations(); err != nil {
+				return fmt.Errorf("failed to run migrations: %w", err)
 			}
 		}
 

@@ -11,18 +11,17 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
+	"github.com/smilemakc/mbflow/migrations"
 )
 
 var (
-	command       string
-	databaseURL   string
-	migrationsDir string
+	command     string
+	databaseURL string
 )
 
 func init() {
 	flag.StringVar(&command, "command", "up", "Migration command: init, up, down, status, reset")
 	flag.StringVar(&databaseURL, "database-url", "", "PostgreSQL database URL (overrides DATABASE_URL env var)")
-	flag.StringVar(&migrationsDir, "migrations-dir", "migrations", "Path to migrations directory")
 }
 
 func main() {
@@ -65,7 +64,7 @@ func main() {
 	defer storage.Close(db)
 
 	// Create migrator
-	migrator, err := storage.NewMigrator(db, migrationsDir)
+	migrator, err := storage.NewMigrator(db, migrations.FS)
 	if err != nil {
 		slog.Error("failed to create migrator", slog.String("error", err.Error()))
 		os.Exit(1)

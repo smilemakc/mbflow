@@ -391,22 +391,12 @@ func (m *mockExecutor) Type() string {
 func TestClient_WithAutoMigrate(t *testing.T) {
 	client, err := NewClient(
 		WithStandaloneMode(),
-		WithAutoMigrate("migrations"),
+		WithAutoMigrate(),
 	)
 	require.NoError(t, err)
 	defer client.Close()
 
-	assert.Equal(t, "migrations", client.config.MigrationsDir)
-}
-
-// TestClient_WithAutoMigrate_Empty tests that empty migrations dir is rejected
-func TestClient_WithAutoMigrate_Empty(t *testing.T) {
-	_, err := NewClient(
-		WithStandaloneMode(),
-		WithAutoMigrate(""),
-	)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "migrations directory cannot be empty")
+	assert.True(t, client.config.AutoMigrate)
 }
 
 // TestClient_WithWebhookBaseURL tests webhook base URL option

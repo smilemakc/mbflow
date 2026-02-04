@@ -25,6 +25,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/migrations"
 	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/executor/builtin"
 	"github.com/smilemakc/mbflow/pkg/models"
@@ -368,13 +369,8 @@ func setupE2EEnvironment(t *testing.T) *E2ETestEnvironment {
 	require.NoError(t, err)
 	env.DB = db
 
-	// Run migrations - use absolute path from module root
-	migrationsPath := "../../../../migrations"
-	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
-		// Fallback to relative path from backend directory
-		migrationsPath = "../../../migrations"
-	}
-	migrator, err := storage.NewMigrator(env.DB, migrationsPath)
+	// Run migrations using embedded migration files
+	migrator, err := storage.NewMigrator(env.DB, migrations.FS)
 	require.NoError(t, err)
 
 	err = migrator.Init(context.Background())

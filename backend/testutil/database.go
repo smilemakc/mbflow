@@ -16,6 +16,7 @@ import (
 	"github.com/uptrace/bun/driver/pgdriver"
 
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
+	"github.com/smilemakc/mbflow/migrations"
 )
 
 // TestDB encapsulates a test database with cleanup
@@ -106,30 +107,11 @@ func SetupTestDB(t *testing.T) *TestDB {
 	return testDB
 }
 
-// createMigrator creates a migrator with proper migrations path
+// createMigrator creates a migrator using embedded migrations.
 func (td *TestDB) createMigrator(t *testing.T) *storage.Migrator {
 	t.Helper()
 
-	// Try different possible paths to migrations
-	possiblePaths := []string{
-		"migrations",             // From backend root
-		"../migrations",          // From subdirectory
-		"../../migrations",       // From nested subdirectory
-		"../../../migrations",    // From deeply nested
-		"../../../../migrations", // From very deeply nested
-	}
-
-	var migrationsPath string
-	for _, path := range possiblePaths {
-		if _, err := os.Stat(path); err == nil {
-			migrationsPath = path
-			break
-		}
-	}
-
-	require.NotEmpty(t, migrationsPath, "Could not find migrations directory")
-
-	migrator, err := storage.NewMigrator(td.DB, migrationsPath)
+	migrator, err := storage.NewMigrator(td.DB, migrations.FS)
 	require.NoError(t, err, "Failed to create migrator")
 
 	return migrator

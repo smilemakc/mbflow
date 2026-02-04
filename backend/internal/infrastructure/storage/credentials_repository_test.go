@@ -17,6 +17,7 @@ import (
 	"github.com/uptrace/bun/driver/pgdriver"
 
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/migrations"
 	pkgmodels "github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -361,7 +362,7 @@ func setupCredentialsTestDB(t *testing.T) (*bun.DB, func()) {
 	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
 
 	// Run migrations
-	migrator, err := NewMigrator(db, "../../../migrations")
+	migrator, err := NewMigrator(db, migrations.FS)
 	require.NoError(t, err)
 
 	err = migrator.Init(ctx)

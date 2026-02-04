@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/migrations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -56,7 +57,7 @@ func setupWorkflowRepoTest(t *testing.T) (*WorkflowRepository, *bun.DB, func()) 
 	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
 
 	// Run migrations
-	migrator, err := NewMigrator(db, "../../../migrations")
+	migrator, err := NewMigrator(db, migrations.FS)
 	require.NoError(t, err)
 
 	err = migrator.Init(ctx)
@@ -113,7 +114,7 @@ func setupTestDBWithContainer(t *testing.T) (*bun.DB, func()) {
 	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
 
 	// Run migrations
-	migrator, err := NewMigrator(db, "../../../migrations")
+	migrator, err := NewMigrator(db, migrations.FS)
 	require.NoError(t, err)
 
 	err = migrator.Init(ctx)

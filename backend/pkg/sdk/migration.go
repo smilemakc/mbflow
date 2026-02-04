@@ -182,17 +182,13 @@ func (m *MigrationAPI) Reset(ctx context.Context) error {
 	return nil
 }
 
-// getMigrator returns or creates a migrator instance.
+// getMigrator returns the migrator instance.
 func (m *MigrationAPI) getMigrator() (*storage.MigratorWithAccess, error) {
 	m.client.mu.RLock()
 	defer m.client.mu.RUnlock()
 
 	if m.client.db == nil {
 		return nil, fmt.Errorf("database connection not initialized (use WithEmbeddedMode)")
-	}
-
-	if m.client.config.MigrationsDir == "" {
-		return nil, fmt.Errorf("migrations directory not configured (use WithMigrationsDir or WithAutoMigrate)")
 	}
 
 	if m.client.migrator != nil {
