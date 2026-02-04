@@ -66,7 +66,10 @@ func NewMigrator(db *bun.DB, migrationsFS fs.FS) (*Migrator, error) {
 		return nil, fmt.Errorf("failed to discover migrations: %w", err)
 	}
 
-	migrator := migrate.NewMigrator(db, migrations)
+	migrator := migrate.NewMigrator(db, migrations,
+		migrate.WithTableName("mbflow_bun_migrations"),
+		migrate.WithLocksTableName("mbflow_bun_migration_locks"),
+	)
 
 	return &Migrator{
 		migrator: migrator,
