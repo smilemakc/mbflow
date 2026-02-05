@@ -42,10 +42,10 @@ Dual-mode: embedded SDK + remote HTTP/gRPC.
 | 21 | 4.3 errors.Join Usage            | DONE   | `461042e` | Replaced AggregatedError with errors.Join in dag_executor                      |
 | 22 | 6.2 Distributed Tracing          | TODO   |           | OpenTelemetry middleware                                                       |
 | 23 | 6.3 Typed Executor Config        | TODO   |           | Typed config structs per executor                                              |
-| 24 | 6.4 Redis Rate Limiter           | TODO   |           | Redis-backed rate limiting for multi-instance                                  |
+| 24 | 6.4 Redis Rate Limiter           | DONE   |           | RedisRateLimiter + RedisLoginRateLimiter with 10 tests                         |
 | 25 | 2.5 Server Package Tests         | DONE   |           | Unit tests for options, getters, RegisterExecutor (10 tests)                   |
 
-**Completed:** 19/25 tasks + bonus fix (pre-existing failures)
+**Completed:** 20/25 tasks + bonus fix (pre-existing failures)
 **Remaining estimated effort:** ~40 hours
 
 ---
