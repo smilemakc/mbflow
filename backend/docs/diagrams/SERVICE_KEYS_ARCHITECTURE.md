@@ -287,7 +287,7 @@ graph TB
     Service --> Errors
     Service --> Interface
 
-    Interface <|.. Implementation
+    Interface --> Implementation
     Implementation --> Database
     Implementation --> Filter
 
