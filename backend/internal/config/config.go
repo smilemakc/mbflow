@@ -21,6 +21,7 @@ type Config struct {
 	Auth        AuthConfig
 	FileStorage FileStorageConfig
 	ServiceKeys ServiceKeysConfig
+	ServiceAPI  SystemAPIConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -135,6 +136,15 @@ type ServiceKeysConfig struct {
 	DefaultExpiryDays int
 }
 
+// SystemAPIConfig holds system API configuration.
+type SystemAPIConfig struct {
+	MaxKeys            int    `mapstructure:"max_keys" yaml:"max_keys"`
+	BcryptCost         int    `mapstructure:"bcrypt_cost" yaml:"bcrypt_cost"`
+	DefaultExpiryDays  int    `mapstructure:"default_expiry_days" yaml:"default_expiry_days"`
+	AuditRetentionDays int    `mapstructure:"audit_retention_days" yaml:"audit_retention_days"`
+	SystemUserID       string `mapstructure:"system_user_id" yaml:"system_user_id"`
+}
+
 // Load loads the configuration from environment variables.
 func Load() (*Config, error) {
 	godotenv.Load()
@@ -217,6 +227,13 @@ func Load() (*Config, error) {
 		ServiceKeys: ServiceKeysConfig{
 			MaxKeysPerUser:    getEnvAsInt("MBFLOW_SERVICE_KEYS_MAX_PER_USER", 10),
 			DefaultExpiryDays: getEnvAsInt("MBFLOW_SERVICE_KEYS_DEFAULT_EXPIRY_DAYS", 365),
+		},
+		ServiceAPI: SystemAPIConfig{
+			MaxKeys:            getEnvAsInt("MBFLOW_SERVICE_API_MAX_KEYS", 100),
+			BcryptCost:         getEnvAsInt("MBFLOW_SERVICE_API_BCRYPT_COST", 10),
+			DefaultExpiryDays:  getEnvAsInt("MBFLOW_SERVICE_API_DEFAULT_EXPIRY_DAYS", 365),
+			AuditRetentionDays: getEnvAsInt("MBFLOW_SERVICE_API_AUDIT_RETENTION_DAYS", 90),
+			SystemUserID:       getEnv("MBFLOW_SERVICE_API_SYSTEM_USER_ID", "00000000-0000-0000-0000-000000000000"),
 		},
 	}
 

@@ -141,6 +141,7 @@ func (s *Server) setupAPIv1Routes() {
 		s.setupRentalKeyRoutes(apiV1)
 		s.setupServiceKeyRoutes(apiV1)
 		s.setupWebhookRoutes(apiV1)
+		s.setupServiceAPIRoutes(apiV1)
 	}
 }
 
@@ -420,4 +421,54 @@ func (s *Server) setupWebhookRoutes(apiV1 *gin.RouterGroup) {
 	s.logger.Info("Webhook endpoints registered",
 		"endpoints", []string{"/api/v1/webhooks/:path", "/api/v1/webhooks/telegram/:trigger_id"},
 	)
+}
+
+func (s *Server) setupServiceAPIRoutes(apiV1 *gin.RouterGroup) {
+	systemKeyHandlers := rest.NewServiceAPISystemKeyHandlers(s.systemKeyService_, s.logger)
+	adminSystemKeys := apiV1.Group("/service/system-keys")
+	adminSystemKeys.Use(s.authMiddleware.RequireAdmin())
+	{
+		adminSystemKeys.POST("", systemKeyHandlers.CreateSystemKey)
+		adminSystemKeys.GET("", systemKeyHandlers.ListSystemKeys)
+		adminSystemKeys.GET("/:id", systemKeyHandlers.GetSystemKey)
+		adminSystemKeys.DELETE("/:id", systemKeyHandlers.DeleteSystemKey)
+		adminSystemKeys.POST("/:id/revoke", systemKeyHandlers.RevokeSystemKey)
+	}
+
+	serviceAPI := apiV1.Group("/service")
+	serviceAPI.Use(s.systemAuthMiddleware.RequireSystemAccess())
+	serviceAPI.Use(s.systemAuthMiddleware.HandleImpersonation())
+	serviceAPI.Use(s.auditMiddleware.RecordAction())
+	{
+		wfh := rest.NewServiceAPIWorkflowHandlers(s.workflowRepo, s.logger, s.executorManager)
+		serviceAPI.GET("/workflows", wfh.ListWorkflows)
+		serviceAPI.GET("/workflows/:id", wfh.GetWorkflow)
+		serviceAPI.POST("/workflows", wfh.CreateWorkflow)
+		serviceAPI.PUT("/workflows/:id", wfh.UpdateWorkflow)
+		serviceAPI.DELETE("/workflows/:id", wfh.DeleteWorkflow)
+
+		exh := rest.NewServiceAPIExecutionHandlers(s.executionRepo, s.workflowRepo, s.executionManager, s.logger)
+		serviceAPI.GET("/executions", exh.ListExecutions)
+		serviceAPI.GET("/executions/:id", exh.GetExecution)
+		serviceAPI.POST("/workflows/:id/execute", exh.StartExecution)
+		serviceAPI.POST("/executions/:id/cancel", exh.CancelExecution)
+		serviceAPI.POST("/executions/:id/retry", exh.RetryExecution)
+
+		trh := rest.NewServiceAPITriggerHandlers(s.triggerRepo, s.workflowRepo, s.logger)
+		serviceAPI.GET("/triggers", trh.ListTriggers)
+		serviceAPI.POST("/triggers", trh.CreateTrigger)
+		serviceAPI.PUT("/triggers/:id", trh.UpdateTrigger)
+		serviceAPI.DELETE("/triggers/:id", trh.DeleteTrigger)
+
+		crh := rest.NewServiceAPICredentialHandlers(s.credentialsRepo, s.workflowRepo, s.encryptionService, s.logger)
+		serviceAPI.GET("/credentials", crh.ListCredentials)
+		serviceAPI.POST("/credentials", crh.CreateCredential)
+		serviceAPI.PUT("/credentials/:id", crh.UpdateCredential)
+		serviceAPI.DELETE("/credentials/:id", crh.DeleteCredential)
+
+		auh := rest.NewServiceAPIAuditHandlers(s.auditService, s.logger)
+		serviceAPI.GET("/audit-log", auh.ListAuditLog)
+	}
+
+	s.logger.Info("Service API endpoints registered")
 }

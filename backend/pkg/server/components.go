@@ -10,6 +10,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/application/rentalkey"
 	"github.com/smilemakc/mbflow/internal/application/servicekey"
+	"github.com/smilemakc/mbflow/internal/application/systemkey"
 	"github.com/smilemakc/mbflow/internal/application/trigger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/api/rest"
 	"github.com/smilemakc/mbflow/internal/infrastructure/cache"
@@ -51,6 +52,10 @@ func (s *Server) initComponents() error {
 
 	if err := s.initAuthSystem(); err != nil {
 		return fmt.Errorf("failed to initialize auth system: %w", err)
+	}
+
+	if err := s.initSystemKeySystem(); err != nil {
+		return fmt.Errorf("failed to initialize system key system: %w", err)
 	}
 
 	if err := s.initExecutionEngine(); err != nil {
@@ -221,6 +226,8 @@ func (s *Server) initRepositories() error {
 	s.pricingPlanRepo = storage.NewPricingPlanRepository(s.db)
 	s.credentialsRepo = storage.NewCredentialsRepository(s.db)
 	s.serviceKeyRepo = storage.NewServiceKeyRepository(s.db)
+	s.systemKeyRepo = storage.NewSystemKeyRepo(s.db)
+	s.auditLogRepo = storage.NewServiceAuditLogRepo(s.db)
 
 	s.logger.Info("Repositories initialized")
 	return nil
@@ -313,5 +320,18 @@ func (s *Server) initTriggerManager() error {
 	}
 
 	s.logger.Info("Trigger manager started")
+	return nil
+}
+
+func (s *Server) initSystemKeySystem() error {
+	s.systemKeyService_ = systemkey.NewService(s.systemKeyRepo, systemkey.Config{
+		MaxKeys:           s.config.ServiceAPI.MaxKeys,
+		DefaultExpiryDays: s.config.ServiceAPI.DefaultExpiryDays,
+		BcryptCost:        s.config.ServiceAPI.BcryptCost,
+	})
+	s.auditService = systemkey.NewAuditService(s.auditLogRepo, s.config.ServiceAPI.AuditRetentionDays)
+	s.systemAuthMiddleware = rest.NewSystemAuthMiddleware(s.systemKeyService_, s.userRepo, s.config.ServiceAPI.SystemUserID, s.logger)
+	s.auditMiddleware = rest.NewAuditMiddleware(s.auditService, s.logger)
+	s.logger.Info("System key system initialized")
 	return nil
 }

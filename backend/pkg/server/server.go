@@ -19,6 +19,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/application/rentalkey"
 	"github.com/smilemakc/mbflow/internal/application/servicekey"
+	"github.com/smilemakc/mbflow/internal/application/systemkey"
 	"github.com/smilemakc/mbflow/internal/application/trigger"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
@@ -58,10 +59,18 @@ type Server struct {
 	pricingPlanRepo *storage.PricingPlanRepositoryImpl
 	credentialsRepo *storage.CredentialsRepositoryImpl
 	serviceKeyRepo  *storage.ServiceKeyRepositoryImpl
+	systemKeyRepo   *storage.SystemKeyRepoImpl
+	auditLogRepo    *storage.ServiceAuditLogRepoImpl
 
 	authService       *auth.Service
 	serviceKeyService *servicekey.Service
 	providerManager   *auth.ProviderManager
+
+	systemKeyService_ *systemkey.Service
+	auditService      *systemkey.AuditService
+
+	systemAuthMiddleware *rest.SystemAuthMiddleware
+	auditMiddleware      *rest.AuditMiddleware
 
 	wsHub             *observer.WebSocketHub
 	encryptionService *crypto.EncryptionService

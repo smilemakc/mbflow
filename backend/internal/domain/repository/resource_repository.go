@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/pkg/models"
@@ -157,4 +158,46 @@ type ServiceKeyRepository interface {
 
 	// CountByUserID returns the number of service keys for a user
 	CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+}
+
+// SystemKeyFilter defines filter options for listing system keys
+type SystemKeyFilter struct {
+	ServiceName *string
+	Status      *string
+	CreatedBy   *uuid.UUID
+	Limit       int
+	Offset      int
+}
+
+// SystemKeyRepository defines the interface for system key persistence
+type SystemKeyRepository interface {
+	Create(ctx context.Context, key *models.SystemKey) error
+	FindByID(ctx context.Context, id uuid.UUID) (*models.SystemKey, error)
+	FindByPrefix(ctx context.Context, prefix string) ([]*models.SystemKey, error)
+	FindAll(ctx context.Context, filter SystemKeyFilter) ([]*models.SystemKey, int64, error)
+	Update(ctx context.Context, key *models.SystemKey) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	Revoke(ctx context.Context, id uuid.UUID) error
+	UpdateLastUsed(ctx context.Context, id uuid.UUID) error
+	Count(ctx context.Context) (int64, error)
+}
+
+// ServiceAuditLogFilter defines filter options for listing audit logs
+type ServiceAuditLogFilter struct {
+	SystemKeyID        *uuid.UUID
+	ServiceName        *string
+	Action             *string
+	ResourceType       *string
+	ImpersonatedUserID *uuid.UUID
+	DateFrom           *time.Time
+	DateTo             *time.Time
+	Limit              int
+	Offset             int
+}
+
+// ServiceAuditLogRepository defines the interface for audit log persistence
+type ServiceAuditLogRepository interface {
+	Create(ctx context.Context, log *models.ServiceAuditLog) error
+	FindAll(ctx context.Context, filter ServiceAuditLogFilter) ([]*models.ServiceAuditLog, int64, error)
+	DeleteOlderThan(ctx context.Context, before time.Time) (int64, error)
 }
