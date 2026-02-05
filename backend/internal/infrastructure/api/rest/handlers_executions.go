@@ -18,6 +18,22 @@ func NewExecutionHandlers(ops *serviceapi.Operations, log *logger.Logger) *Execu
 	return &ExecutionHandlers{ops: ops, logger: log}
 }
 
+// HandleRunExecution starts a new workflow execution
+//
+//	@Summary		Start workflow execution
+//	@Description	Starts a new execution of the specified workflow with optional input parameters
+//	@Tags			executions
+//	@Accept			json
+//	@Produce		json
+//	@Param			workflow_id	path		string												false	"Workflow ID (can also be provided in body)"	format(uuid)
+//	@Param			request		body		object{workflow_id=string,input=object,async=bool}	true	"Execution request"
+//	@Success		202			{object}	models.Execution									"Started execution"
+//	@Failure		400			{object}	APIError											"Invalid request"
+//	@Failure		404			{object}	APIError											"Workflow not found"
+//	@Failure		500			{object}	APIError											"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/executions [post]
+//	@Router			/workflows/{workflow_id}/execute [post]
 func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	var req struct {
 		WorkflowID string         `json:"workflow_id"`
@@ -52,6 +68,20 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	respondJSON(c, http.StatusAccepted, execution)
 }
 
+// HandleGetExecution retrieves an execution by ID
+//
+//	@Summary		Get execution by ID
+//	@Description	Retrieves a specific workflow execution by its unique identifier
+//	@Tags			executions
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		string				true	"Execution ID"	format(uuid)
+//	@Success		200	{object}	models.Execution	"Execution details"
+//	@Failure		400	{object}	APIError			"Invalid execution ID"
+//	@Failure		404	{object}	APIError			"Execution not found"
+//	@Failure		500	{object}	APIError			"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/executions/{id} [get]
 func (h *ExecutionHandlers) HandleGetExecution(c *gin.Context) {
 	executionID := c.Param("id")
 	if executionID == "" {
@@ -78,6 +108,22 @@ func (h *ExecutionHandlers) HandleGetExecution(c *gin.Context) {
 	respondJSON(c, http.StatusOK, execution)
 }
 
+// HandleListExecutions lists executions with optional filtering
+//
+//	@Summary		List executions
+//	@Description	Lists all executions with optional filtering by workflow ID and status
+//	@Tags			executions
+//	@Accept			json
+//	@Produce		json
+//	@Param			limit		query		int		false	"Maximum number of results"	default(50)
+//	@Param			offset		query		int		false	"Offset for pagination"		default(0)
+//	@Param			workflow_id	query		string	false	"Filter by workflow ID"		format(uuid)
+//	@Param			status		query		string	false	"Filter by status"
+//	@Success		200			{object}	object{data=[]models.Execution,total=int,limit=int,offset=int}	"List of executions"
+//	@Failure		400			{object}	APIError													"Invalid request"
+//	@Failure		500			{object}	APIError													"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/executions [get]
 func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 	limit := getQueryInt(c, "limit", 50)
 	offset := getQueryInt(c, "offset", 0)
@@ -110,6 +156,20 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 	respondList(c, http.StatusOK, result.Executions, result.Total, limit, offset)
 }
 
+// HandleGetLogs retrieves logs for an execution
+//
+//	@Summary		Get execution logs
+//	@Description	Retrieves all log entries for a specific workflow execution
+//	@Tags			executions
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		string										true	"Execution ID"	format(uuid)
+//	@Success		200	{object}	object{logs=[]object,total=int}				"Execution logs"
+//	@Failure		400	{object}	APIError									"Invalid execution ID"
+//	@Failure		404	{object}	APIError									"Execution not found"
+//	@Failure		500	{object}	APIError									"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/executions/{id}/logs [get]
 func (h *ExecutionHandlers) HandleGetLogs(c *gin.Context) {
 	executionID := c.Param("id")
 	if executionID == "" {

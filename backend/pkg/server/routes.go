@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/smilemakc/mbflow/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/internal/application/observer"
@@ -82,6 +84,7 @@ func (s *Server) setupRoutes() error {
 	}
 
 	s.setupHealthEndpoints()
+	s.setupSwaggerEndpoint()
 	s.setupWebSocketEndpoints()
 	s.setupAPIv1Routes()
 
@@ -143,6 +146,13 @@ func (s *Server) setupHealthEndpoints() {
 
 		c.JSON(http.StatusOK, gin.H{"metrics": metrics})
 	})
+}
+
+func (s *Server) setupSwaggerEndpoint() {
+	// Swagger UI endpoint - serves OpenAPI documentation
+	// Access at /swagger/index.html
+	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	s.logger.Info("Swagger documentation endpoint registered", "endpoint", "/swagger/index.html")
 }
 
 func (s *Server) setupWebSocketEndpoints() {

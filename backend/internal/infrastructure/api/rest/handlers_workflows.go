@@ -20,6 +20,20 @@ func NewWorkflowHandlers(ops *serviceapi.Operations, log *logger.Logger) *Workfl
 	return &WorkflowHandlers{ops: ops, logger: log}
 }
 
+// HandleCreateWorkflow creates a new workflow
+//
+//	@Summary		Create a new workflow
+//	@Description	Creates a new workflow with the specified name and optional description, variables, and metadata
+//	@Tags			workflows
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		object{name=string,description=string,variables=object,metadata=object}	true	"Workflow creation request"
+//	@Success		201		{object}	models.Workflow											"Created workflow"
+//	@Failure		400		{object}	APIError												"Invalid request"
+//	@Failure		401		{object}	APIError												"Unauthorized"
+//	@Failure		500		{object}	APIError												"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/workflows [post]
 func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 	var req struct {
 		Name        string         `json:"name" binding:"required"`
@@ -53,6 +67,20 @@ func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 	respondJSON(c, http.StatusCreated, workflow)
 }
 
+// HandleGetWorkflow retrieves a workflow by ID
+//
+//	@Summary		Get workflow by ID
+//	@Description	Retrieves a specific workflow by its unique identifier
+//	@Tags			workflows
+//	@Accept			json
+//	@Produce		json
+//	@Param			workflow_id	path		string			true	"Workflow ID"	format(uuid)
+//	@Success		200			{object}	models.Workflow	"Workflow details"
+//	@Failure		400			{object}	APIError		"Invalid workflow ID"
+//	@Failure		404			{object}	APIError		"Workflow not found"
+//	@Failure		500			{object}	APIError		"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/workflows/{workflow_id} [get]
 func (h *WorkflowHandlers) HandleGetWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
@@ -79,6 +107,23 @@ func (h *WorkflowHandlers) HandleGetWorkflow(c *gin.Context) {
 	respondJSON(c, http.StatusOK, workflow)
 }
 
+// HandleListWorkflows lists all workflows with optional filtering
+//
+//	@Summary		List workflows
+//	@Description	Lists all workflows with optional filtering by status and user ID
+//	@Tags			workflows
+//	@Accept			json
+//	@Produce		json
+//	@Param			limit	query		int		false	"Maximum number of results"	default(50)
+//	@Param			offset	query		int		false	"Offset for pagination"		default(0)
+//	@Param			status	query		string	false	"Filter by status"
+//	@Param			user_id	query		string	false	"Filter by user ID"			format(uuid)
+//	@Success		200		{object}	object{data=[]models.Workflow,total=int,limit=int,offset=int}	"List of workflows"
+//	@Failure		400		{object}	APIError													"Invalid request"
+//	@Failure		401		{object}	APIError													"Unauthorized"
+//	@Failure		500		{object}	APIError													"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/workflows [get]
 func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 	limit := getQueryInt(c, "limit", 50)
 	offset := getQueryInt(c, "offset", 0)
@@ -153,6 +198,21 @@ type EdgeRequest struct {
 	Condition map[string]interface{} `json:"condition,omitempty"`
 }
 
+// HandleUpdateWorkflow updates an existing workflow
+//
+//	@Summary		Update workflow
+//	@Description	Updates a workflow's name, description, variables, metadata, nodes, edges, and resources
+//	@Tags			workflows
+//	@Accept			json
+//	@Produce		json
+//	@Param			workflow_id	path		string					true	"Workflow ID"	format(uuid)
+//	@Param			request		body		UpdateWorkflowRequest	true	"Workflow update request"
+//	@Success		200			{object}	models.Workflow			"Updated workflow"
+//	@Failure		400			{object}	APIError				"Invalid request"
+//	@Failure		404			{object}	APIError				"Workflow not found"
+//	@Failure		500			{object}	APIError				"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/workflows/{workflow_id} [put]
 func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
@@ -226,6 +286,20 @@ func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 	respondJSON(c, http.StatusOK, workflow)
 }
 
+// HandleDeleteWorkflow deletes a workflow by ID
+//
+//	@Summary		Delete workflow
+//	@Description	Deletes a specific workflow by its unique identifier
+//	@Tags			workflows
+//	@Accept			json
+//	@Produce		json
+//	@Param			workflow_id	path		string					true	"Workflow ID"	format(uuid)
+//	@Success		200			{object}	object{message=string}	"Success message"
+//	@Failure		400			{object}	APIError				"Invalid workflow ID"
+//	@Failure		404			{object}	APIError				"Workflow not found"
+//	@Failure		500			{object}	APIError				"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/workflows/{workflow_id} [delete]
 func (h *WorkflowHandlers) HandleDeleteWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
@@ -251,6 +325,20 @@ func (h *WorkflowHandlers) HandleDeleteWorkflow(c *gin.Context) {
 	respondJSON(c, http.StatusOK, gin.H{"message": "workflow deleted successfully"})
 }
 
+// HandlePublishWorkflow publishes a workflow
+//
+//	@Summary		Publish workflow
+//	@Description	Publishes a workflow, making it available for execution
+//	@Tags			workflows
+//	@Accept			json
+//	@Produce		json
+//	@Param			workflow_id	path		string			true	"Workflow ID"	format(uuid)
+//	@Success		200			{object}	models.Workflow	"Published workflow"
+//	@Failure		400			{object}	APIError		"Invalid workflow ID or workflow cannot be published"
+//	@Failure		404			{object}	APIError		"Workflow not found"
+//	@Failure		500			{object}	APIError		"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/workflows/{workflow_id}/publish [post]
 func (h *WorkflowHandlers) HandlePublishWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
@@ -277,6 +365,20 @@ func (h *WorkflowHandlers) HandlePublishWorkflow(c *gin.Context) {
 	respondJSON(c, http.StatusOK, workflow)
 }
 
+// HandleUnpublishWorkflow unpublishes a workflow
+//
+//	@Summary		Unpublish workflow
+//	@Description	Unpublishes a workflow, making it unavailable for new executions
+//	@Tags			workflows
+//	@Accept			json
+//	@Produce		json
+//	@Param			workflow_id	path		string			true	"Workflow ID"	format(uuid)
+//	@Success		200			{object}	models.Workflow	"Unpublished workflow"
+//	@Failure		400			{object}	APIError		"Invalid workflow ID"
+//	@Failure		404			{object}	APIError		"Workflow not found"
+//	@Failure		500			{object}	APIError		"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/workflows/{workflow_id}/unpublish [post]
 func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
@@ -303,6 +405,25 @@ func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
 	respondJSON(c, http.StatusOK, workflow)
 }
 
+// HandleGetWorkflowDiagram generates a diagram representation of a workflow
+//
+//	@Summary		Get workflow diagram
+//	@Description	Generates a visual diagram representation of a workflow in the specified format
+//	@Tags			workflows
+//	@Accept			json
+//	@Produce		text/plain
+//	@Param			workflow_id		path		string	true	"Workflow ID"								format(uuid)
+//	@Param			format			query		string	false	"Diagram format (mermaid, dot, ascii)"		default(mermaid)
+//	@Param			direction		query		string	false	"Diagram direction (TB, LR, BT, RL)"		default(TB)
+//	@Param			show_config		query		bool	false	"Show node configuration in diagram"		default(true)
+//	@Param			show_conditions	query		bool	false	"Show edge conditions in diagram"			default(true)
+//	@Param			compact			query		bool	false	"Use compact mode"							default(false)
+//	@Success		200				{string}	string	"Diagram representation"
+//	@Failure		400				{object}	APIError	"Invalid workflow ID or format"
+//	@Failure		404				{object}	APIError	"Workflow not found"
+//	@Failure		500				{object}	APIError	"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/workflows/{workflow_id}/diagram [get]
 func (h *WorkflowHandlers) HandleGetWorkflowDiagram(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
 	if workflowID == "" {
