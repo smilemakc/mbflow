@@ -8,6 +8,7 @@ import (
 )
 
 func TestConditionCache_GetPut(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(3)
 
 	// Compile a test expression
@@ -35,6 +36,7 @@ func TestConditionCache_GetPut(t *testing.T) {
 }
 
 func TestConditionCache_Eviction(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(2) // Capacity of 2
 
 	// Compile test expressions
@@ -76,6 +78,7 @@ func TestConditionCache_Eviction(t *testing.T) {
 }
 
 func TestConditionCache_LRUBehavior(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(2)
 
 	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
@@ -112,6 +115,7 @@ func TestConditionCache_LRUBehavior(t *testing.T) {
 }
 
 func TestConditionCache_UpdateExisting(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(3)
 
 	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
@@ -139,6 +143,7 @@ func TestConditionCache_UpdateExisting(t *testing.T) {
 }
 
 func TestConditionCache_Clear(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(10)
 
 	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
@@ -164,6 +169,7 @@ func TestConditionCache_Clear(t *testing.T) {
 }
 
 func TestConditionCache_CompileAndCache(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(10)
 
 	env := map[string]interface{}{"x": 10}
@@ -193,6 +199,7 @@ func TestConditionCache_CompileAndCache(t *testing.T) {
 }
 
 func TestConditionCache_ThreadSafety(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(100)
 	var wg sync.WaitGroup
 
@@ -224,6 +231,7 @@ func TestConditionCache_ThreadSafety(t *testing.T) {
 }
 
 func TestConditionCache_ZeroCapacity(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(0) // Should default to 100
 
 	prog, _ := expr.Compile("x > 5", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
@@ -236,6 +244,7 @@ func TestConditionCache_ZeroCapacity(t *testing.T) {
 }
 
 func TestConditionCache_NegativeCapacity(t *testing.T) {
+	t.Parallel()
 	cache := NewConditionCache(-5) // Should default to 100
 
 	prog, _ := expr.Compile("x > 5", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())

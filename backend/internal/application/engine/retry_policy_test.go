@@ -8,6 +8,7 @@ import (
 )
 
 func TestDefaultRetryPolicy(t *testing.T) {
+	t.Parallel()
 	policy := DefaultRetryPolicy()
 
 	if policy.MaxAttempts != 3 {
@@ -24,6 +25,7 @@ func TestDefaultRetryPolicy(t *testing.T) {
 }
 
 func TestNoRetryPolicy(t *testing.T) {
+	t.Parallel()
 	policy := NoRetryPolicy()
 
 	if policy.MaxAttempts != 1 {
@@ -32,6 +34,7 @@ func TestNoRetryPolicy(t *testing.T) {
 }
 
 func TestRetryPolicy_ShouldRetry(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		retryableErrors []string
@@ -72,6 +75,7 @@ func TestRetryPolicy_ShouldRetry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			policy := &RetryPolicy{
 				RetryableErrors: tt.retryableErrors,
 			}
@@ -85,6 +89,7 @@ func TestRetryPolicy_ShouldRetry(t *testing.T) {
 }
 
 func TestRetryPolicy_GetDelay_Constant(t *testing.T) {
+	t.Parallel()
 	policy := &RetryPolicy{
 		InitialDelay:    100 * time.Millisecond,
 		MaxDelay:        1 * time.Second,

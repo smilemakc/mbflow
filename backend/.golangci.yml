@@ -1,0 +1,179 @@
+run:
+  timeout: 5m
+  go: "1.25"
+  tests: true
+  skip-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - examples
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+    - ".*_gen\\.go$"
+    - "mock_.*\\.go$"
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - unused
+    - ineffassign
+    - typecheck
+    - gocritic
+    - revive
+    - misspell
+    - gofmt
+    - goimports
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+      - shadow
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+    exclude-functions:
+      - (*database/sql.Rows).Close
+      - (*database/sql.DB).Close
+
+  staticcheck:
+    checks: ["all"]
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - unnamedResult
+      - hugeParam
+      - rangeValCopy
+      - exitAfterDefer
+
+  revive:
+    severity: warning
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+        disabled: true
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+        arguments:
+          - ["ID", "URL", "HTTP", "API", "JSON", "XML", "SQL", "UUID", "UI", "DB", "RPC", "GRPC"]
+      - name: var-declaration
+      - name: package-comments
+        disabled: true
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+        disabled: true
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+        disabled: true
+      - name: unreachable-code
+      - name: redefines-builtin-id
+
+  misspell:
+    locale: US
+    ignore-words:
+      - cancelled
+
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: github.com/smilemakc/mbflow
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 3
+  new: false
+  fix: false
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gocritic
+
+    # Allow underscores in test function names
+    - path: _test\.go
+      text: "should not use underscores in Go names"
+
+    # Exclude revive exported check for main packages
+    - path: cmd/
+      linters:
+        - revive
+      text: "should have comment or be unexported"
+
+    # Gin framework specific: allow unused parameters in handler functions
+    - path: internal/controller/
+      text: "unused-parameter"
+      linters:
+        - revive
+
+    # gRPC generated code patterns
+    - path: pb/
+      linters:
+        - all
+
+    # Allow blank imports for database drivers and gRPC
+    - source: "_ \"github.com/"
+      linters:
+        - revive
+        - stylecheck
+
+    # Common false positives
+    - text: "G104:"
+      linters:
+        - gosec
+
+    - text: "should have a package comment"
+      linters:
+        - revive
+        - stylecheck
+
+    # Exclude error shadowing in some cases
+    - text: "shadow: declaration of \"err\""
+      linters:
+        - govet
+
+    # Allow complex functions in specific cases
+    - path: internal/repository/
+      text: "cognitive complexity"
+      linters:
+        - gocritic
+
+  exclude-use-default: false
+
+severity:
+  default-severity: warning
+  case-sensitive: false

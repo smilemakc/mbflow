@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -203,26 +204,10 @@ func (de *DAGExecutor) executeWave(
 
 	// Return aggregated errors if continue-on-error is enabled
 	if opts.ContinueOnError && len(collectedErrors) > 0 {
-		return &AggregatedError{
-			Message: fmt.Sprintf("wave %d completed with %d error(s)", waveIdx, len(collectedErrors)),
-			Errors:  collectedErrors,
-		}
+		return fmt.Errorf("wave %d completed with %d error(s): %w", waveIdx, len(collectedErrors), errors.Join(collectedErrors...))
 	}
 
 	return nil
-}
-
-// AggregatedError contains multiple errors from continue-on-error mode
-type AggregatedError struct {
-	Message string
-	Errors  []error
-}
-
-func (ae *AggregatedError) Error() string {
-	if len(ae.Errors) == 0 {
-		return ae.Message
-	}
-	return fmt.Sprintf("%s: %v", ae.Message, ae.Errors)
 }
 
 // sortNodesByPriority sorts nodes by priority (higher priority first)

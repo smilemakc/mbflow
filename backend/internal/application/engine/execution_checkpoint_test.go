@@ -7,6 +7,7 @@ import (
 )
 
 func TestCreateCheckpoint(t *testing.T) {
+	t.Parallel()
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Test Workflow",
@@ -54,6 +55,7 @@ func TestCreateCheckpoint(t *testing.T) {
 }
 
 func TestRestoreFromCheckpoint(t *testing.T) {
+	t.Parallel()
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Test Workflow",
@@ -104,6 +106,7 @@ func TestRestoreFromCheckpoint(t *testing.T) {
 }
 
 func TestCheckpoint_Serialization(t *testing.T) {
+	t.Parallel()
 	checkpoint := &ExecutionCheckpoint{
 		ExecutionID:    "exec-1",
 		WorkflowID:     "wf-1",
@@ -136,6 +139,7 @@ func TestCheckpoint_Serialization(t *testing.T) {
 }
 
 func TestDeserializeCheckpoint_InvalidData(t *testing.T) {
+	t.Parallel()
 	_, err := DeserializeCheckpoint([]byte("invalid json"))
 	if err == nil {
 		t.Error("expected error for invalid JSON")
@@ -143,6 +147,7 @@ func TestDeserializeCheckpoint_InvalidData(t *testing.T) {
 }
 
 func TestValidateCheckpoint(t *testing.T) {
+	t.Parallel()
 	workflow := &models.Workflow{
 		ID:    "wf-1",
 		Nodes: []*models.Node{{ID: "node-1"}, {ID: "node-2"}},
@@ -189,6 +194,7 @@ func TestValidateCheckpoint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := ValidateCheckpoint(tt.checkpoint, workflow)
 			if (err != nil) != tt.expectError {
 				t.Errorf("expected error=%v, got error=%v", tt.expectError, err)
@@ -198,6 +204,7 @@ func TestValidateCheckpoint(t *testing.T) {
 }
 
 func TestCheckpoint_GetNextWaveIndex(t *testing.T) {
+	t.Parallel()
 	checkpoint := &ExecutionCheckpoint{WaveIndex: 5}
 	if checkpoint.GetNextWaveIndex() != 6 {
 		t.Errorf("expected next wave 6, got %d", checkpoint.GetNextWaveIndex())
@@ -205,6 +212,7 @@ func TestCheckpoint_GetNextWaveIndex(t *testing.T) {
 }
 
 func TestCheckpoint_IsNodeCompleted(t *testing.T) {
+	t.Parallel()
 	checkpoint := &ExecutionCheckpoint{
 		CompletedNodes: []string{"node-1", "node-2"},
 	}
@@ -223,6 +231,7 @@ func TestCheckpoint_IsNodeCompleted(t *testing.T) {
 }
 
 func TestCheckpointManager(t *testing.T) {
+	t.Parallel()
 	manager := NewCheckpointManager()
 
 	checkpoint := &ExecutionCheckpoint{
@@ -260,6 +269,7 @@ func TestCheckpointManager(t *testing.T) {
 }
 
 func TestCheckpointManager_ListCheckpoints(t *testing.T) {
+	t.Parallel()
 	manager := NewCheckpointManager()
 
 	cp1 := &ExecutionCheckpoint{ExecutionID: "exec-1"}

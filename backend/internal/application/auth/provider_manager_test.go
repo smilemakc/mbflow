@@ -91,6 +91,7 @@ func createMockProviderManager(primaryType, fallbackType ProviderType, enableFal
 }
 
 func TestNewProviderManager_ShouldSetGRPCPrimary_WhenModeIsGRPC(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	cfg := &config.AuthConfig{
 		Mode:           "grpc",
@@ -110,6 +111,7 @@ func TestNewProviderManager_ShouldSetGRPCPrimary_WhenModeIsGRPC(t *testing.T) {
 }
 
 func TestNewProviderManager_ShouldSetGatewayPrimary_WhenModeIsGateway(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	cfg := &config.AuthConfig{
 		Mode:           "gateway",
@@ -129,6 +131,7 @@ func TestNewProviderManager_ShouldSetGatewayPrimary_WhenModeIsGateway(t *testing
 }
 
 func TestNewProviderManager_ShouldSetGatewayPrimary_WhenModeIsOIDC(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	cfg := &config.AuthConfig{
 		Mode:           "oidc",
@@ -147,6 +150,7 @@ func TestNewProviderManager_ShouldSetGatewayPrimary_WhenModeIsOIDC(t *testing.T)
 }
 
 func TestNewProviderManager_ShouldSetBuiltinPrimary_WhenModeIsBuiltin(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	cfg := &config.AuthConfig{
 		Mode:           "builtin",
@@ -165,6 +169,7 @@ func TestNewProviderManager_ShouldSetBuiltinPrimary_WhenModeIsBuiltin(t *testing
 }
 
 func TestNewProviderManager_ShouldSetBuiltinPrimary_WhenModeIsLocal(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	cfg := &config.AuthConfig{
 		Mode:           "local",
@@ -181,6 +186,7 @@ func TestNewProviderManager_ShouldSetBuiltinPrimary_WhenModeIsLocal(t *testing.T
 }
 
 func TestNewProviderManager_ShouldSetBuiltinPrimary_WhenModeIsEmpty(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	cfg := &config.AuthConfig{
 		Mode:           "",
@@ -197,6 +203,7 @@ func TestNewProviderManager_ShouldSetBuiltinPrimary_WhenModeIsEmpty(t *testing.T
 }
 
 func TestNewProviderManager_ShouldEnableFallback_WhenModeIsHybrid(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	cfg := &config.AuthConfig{
 		Mode:           "hybrid",
@@ -215,6 +222,7 @@ func TestNewProviderManager_ShouldEnableFallback_WhenModeIsHybrid(t *testing.T) 
 }
 
 func TestNewProviderManager_ShouldAlwaysInitializeBuiltinProvider(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	cfg := &config.AuthConfig{
 		Mode:           "builtin",
@@ -234,6 +242,7 @@ func TestNewProviderManager_ShouldAlwaysInitializeBuiltinProvider(t *testing.T) 
 }
 
 func TestProviderManager_GetProvider_ShouldReturnProvider_WhenProviderAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, _ := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 	primary.On("IsAvailable").Return(true)
@@ -248,6 +257,7 @@ func TestProviderManager_GetProvider_ShouldReturnProvider_WhenProviderAvailable(
 }
 
 func TestProviderManager_GetProvider_ShouldReturnError_WhenProviderNotFound(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, _, _ := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 
@@ -261,6 +271,7 @@ func TestProviderManager_GetProvider_ShouldReturnError_WhenProviderNotFound(t *t
 }
 
 func TestProviderManager_GetProvider_ShouldReturnError_WhenProviderNotAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, _ := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 	primary.On("IsAvailable").Return(false)
@@ -275,6 +286,7 @@ func TestProviderManager_GetProvider_ShouldReturnError_WhenProviderNotAvailable(
 }
 
 func TestProviderManager_GetPrimaryProvider_ShouldReturnPrimaryProvider(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, _ := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 	primary.On("IsAvailable").Return(true)
@@ -289,6 +301,7 @@ func TestProviderManager_GetPrimaryProvider_ShouldReturnPrimaryProvider(t *testi
 }
 
 func TestProviderManager_GetFallbackProvider_ShouldReturnFallbackProvider_WhenFallbackEnabled(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, _, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	fallback.On("IsAvailable").Return(true)
@@ -303,6 +316,7 @@ func TestProviderManager_GetFallbackProvider_ShouldReturnFallbackProvider_WhenFa
 }
 
 func TestProviderManager_GetFallbackProvider_ShouldReturnError_WhenFallbackDisabled(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, _, _ := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 
@@ -316,6 +330,7 @@ func TestProviderManager_GetFallbackProvider_ShouldReturnError_WhenFallbackDisab
 }
 
 func TestProviderManager_Authenticate_ShouldUsePrimaryProvider_WhenPrimarySucceeds(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -348,6 +363,7 @@ func TestProviderManager_Authenticate_ShouldUsePrimaryProvider_WhenPrimarySuccee
 }
 
 func TestProviderManager_Authenticate_ShouldUseFallback_WhenPrimaryFailsAndFallbackEnabled(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -383,6 +399,7 @@ func TestProviderManager_Authenticate_ShouldUseFallback_WhenPrimaryFailsAndFallb
 }
 
 func TestProviderManager_Authenticate_ShouldReturnError_WhenPrimaryFailsAndFallbackDisabled(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 	ctx := context.Background()
@@ -407,6 +424,7 @@ func TestProviderManager_Authenticate_ShouldReturnError_WhenPrimaryFailsAndFallb
 }
 
 func TestProviderManager_Authenticate_ShouldReturnError_WhenBothProvidersFail(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -434,6 +452,7 @@ func TestProviderManager_Authenticate_ShouldReturnError_WhenBothProvidersFail(t 
 }
 
 func TestProviderManager_Authenticate_ShouldReturnError_WhenNoProvidersAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 	ctx := context.Background()
@@ -455,6 +474,7 @@ func TestProviderManager_Authenticate_ShouldReturnError_WhenNoProvidersAvailable
 }
 
 func TestProviderManager_ValidateToken_ShouldUsePrimaryProvider_WhenPrimarySucceeds(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -481,6 +501,7 @@ func TestProviderManager_ValidateToken_ShouldUsePrimaryProvider_WhenPrimarySucce
 }
 
 func TestProviderManager_ValidateToken_ShouldUseFallback_WhenPrimaryFailsWithNonExpiredError(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -510,6 +531,7 @@ func TestProviderManager_ValidateToken_ShouldUseFallback_WhenPrimaryFailsWithNon
 }
 
 func TestProviderManager_ValidateToken_ShouldNotUseFallback_WhenTokenExpired(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -529,6 +551,7 @@ func TestProviderManager_ValidateToken_ShouldNotUseFallback_WhenTokenExpired(t *
 }
 
 func TestProviderManager_ValidateToken_ShouldReturnError_WhenNoProvidersAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, _ := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 	ctx := context.Background()
@@ -546,6 +569,7 @@ func TestProviderManager_ValidateToken_ShouldReturnError_WhenNoProvidersAvailabl
 }
 
 func TestProviderManager_RefreshToken_ShouldUsePrimaryProvider_WhenPrimarySucceeds(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -575,6 +599,7 @@ func TestProviderManager_RefreshToken_ShouldUsePrimaryProvider_WhenPrimarySuccee
 }
 
 func TestProviderManager_RefreshToken_ShouldUseFallback_WhenPrimaryFailsAndFallbackEnabled(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -607,6 +632,7 @@ func TestProviderManager_RefreshToken_ShouldUseFallback_WhenPrimaryFailsAndFallb
 }
 
 func TestProviderManager_GetUserInfo_ShouldUsePrimaryProvider_WhenPrimarySucceeds(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -635,6 +661,7 @@ func TestProviderManager_GetUserInfo_ShouldUsePrimaryProvider_WhenPrimarySucceed
 }
 
 func TestProviderManager_GetUserInfo_ShouldUseFallback_WhenPrimaryFailsAndFallbackEnabled(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 	ctx := context.Background()
@@ -666,6 +693,7 @@ func TestProviderManager_GetUserInfo_ShouldUseFallback_WhenPrimaryFailsAndFallba
 }
 
 func TestProviderManager_GetUserInfo_ShouldReturnError_WhenNoProvidersAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, _ := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 	ctx := context.Background()
@@ -683,6 +711,7 @@ func TestProviderManager_GetUserInfo_ShouldReturnError_WhenNoProvidersAvailable(
 }
 
 func TestProviderManager_GetAvailableProviders_ShouldReturnOnlyAvailableProviders(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 
@@ -699,6 +728,7 @@ func TestProviderManager_GetAvailableProviders_ShouldReturnOnlyAvailableProvider
 }
 
 func TestProviderManager_GetAvailableProviders_ShouldReturnEmpty_WhenNoProvidersAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, fallback := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, true)
 
@@ -713,6 +743,7 @@ func TestProviderManager_GetAvailableProviders_ShouldReturnEmpty_WhenNoProviders
 }
 
 func TestProviderManager_IsGatewayAvailable_ShouldReturnTrue_WhenGatewayAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	gateway := &MockAuthProvider{providerType: ProviderTypeGateway}
 	pm := &ProviderManager{
@@ -733,6 +764,7 @@ func TestProviderManager_IsGatewayAvailable_ShouldReturnTrue_WhenGatewayAvailabl
 }
 
 func TestProviderManager_IsGatewayAvailable_ShouldReturnFalse_WhenGatewayNotAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	gateway := &MockAuthProvider{providerType: ProviderTypeGateway}
 	pm := &ProviderManager{
@@ -753,6 +785,7 @@ func TestProviderManager_IsGatewayAvailable_ShouldReturnFalse_WhenGatewayNotAvai
 }
 
 func TestProviderManager_IsGatewayAvailable_ShouldReturnFalse_WhenGatewayNotConfigured(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm := &ProviderManager{
 		providers:    map[ProviderType]AuthProvider{},
@@ -768,6 +801,7 @@ func TestProviderManager_IsGatewayAvailable_ShouldReturnFalse_WhenGatewayNotConf
 }
 
 func TestProviderManager_GetMode_ShouldReturnHybrid_WhenFallbackEnabled(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm := &ProviderManager{
 		primaryType:    ProviderTypeGateway,
@@ -783,6 +817,7 @@ func TestProviderManager_GetMode_ShouldReturnHybrid_WhenFallbackEnabled(t *testi
 }
 
 func TestProviderManager_GetMode_ShouldReturnPrimaryType_WhenFallbackDisabled(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm := &ProviderManager{
 		primaryType:    ProviderTypeGRPC,
@@ -798,6 +833,7 @@ func TestProviderManager_GetMode_ShouldReturnPrimaryType_WhenFallbackDisabled(t 
 }
 
 func TestProviderManager_GetAuthorizationURL_ShouldReturnURL_WhenGatewayProviderAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	gateway := &MockAuthProvider{providerType: ProviderTypeGateway}
 	pm := &ProviderManager{
@@ -819,6 +855,7 @@ func TestProviderManager_GetAuthorizationURL_ShouldReturnURL_WhenGatewayProvider
 }
 
 func TestProviderManager_GetAuthorizationURL_ShouldReturnEmpty_WhenGatewayNotAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	gateway := &MockAuthProvider{providerType: ProviderTypeGateway}
 	pm := &ProviderManager{
@@ -837,6 +874,7 @@ func TestProviderManager_GetAuthorizationURL_ShouldReturnEmpty_WhenGatewayNotAva
 }
 
 func TestProviderManager_HandleOAuthCallback_ShouldReturnResult_WhenGatewayAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	gateway := &MockAuthProvider{providerType: ProviderTypeGateway}
 	pm := &ProviderManager{
@@ -869,6 +907,7 @@ func TestProviderManager_HandleOAuthCallback_ShouldReturnResult_WhenGatewayAvail
 }
 
 func TestProviderManager_HandleOAuthCallback_ShouldReturnError_WhenGatewayNotAvailable(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	gateway := &MockAuthProvider{providerType: ProviderTypeGateway}
 	pm := &ProviderManager{
@@ -890,6 +929,7 @@ func TestProviderManager_HandleOAuthCallback_ShouldReturnError_WhenGatewayNotAva
 }
 
 func TestProviderManager_ConcurrentAccess_ShouldBeSafe(t *testing.T) {
+	t.Parallel()
 	// Arrange
 	pm, primary, _ := createMockProviderManager(ProviderTypeGRPC, ProviderTypeBuiltin, false)
 	ctx := context.Background()
