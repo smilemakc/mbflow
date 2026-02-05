@@ -126,10 +126,8 @@ func TestHandlers_ListNodes_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
-
-	nodes := result["nodes"].([]interface{})
+	var nodes []interface{}
+	testutil.ParseListResponse(t, w, &nodes)
 	assert.Len(t, nodes, 3)
 }
 

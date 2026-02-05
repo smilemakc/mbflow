@@ -70,12 +70,54 @@ func MakeRequestWithHeaders(t *testing.T, router *gin.Engine, method, path strin
 	return w
 }
 
-// ParseResponse helper function to parse JSON response
+// ParseResponse helper function to parse JSON response.
+// Automatically unwraps {data: ..., meta?: ...} envelope format for single-object responses.
 func ParseResponse(t *testing.T, w *httptest.ResponseRecorder, result interface{}) {
 	t.Helper()
 
-	err := json.Unmarshal(w.Body.Bytes(), result)
-	require.NoError(t, err, "Failed to parse response: %s", w.Body.String())
+	body := w.Body.Bytes()
+
+	// Try to detect and unwrap {data: ..., meta?: ...} envelope format
+	var raw map[string]json.RawMessage
+	if json.Unmarshal(body, &raw) == nil {
+		if data, hasData := raw["data"]; hasData {
+			isEnvelope := true
+			for key := range raw {
+				if key != "data" && key != "meta" {
+					isEnvelope = false
+					break
+				}
+			}
+			if isEnvelope {
+				if json.Unmarshal(data, result) == nil {
+					return
+				}
+			}
+		}
+	}
+
+	err := json.Unmarshal(body, result)
+	require.NoError(t, err, "Failed to parse response: %s", string(body))
+}
+
+// ParseListResponse parses a list response with {data: [...], meta: {...}} envelope.
+// Stores the data array in result and returns the meta map.
+func ParseListResponse(t *testing.T, w *httptest.ResponseRecorder, result interface{}) map[string]interface{} {
+	t.Helper()
+
+	var envelope struct {
+		Data json.RawMessage        `json:"data"`
+		Meta map[string]interface{} `json:"meta"`
+	}
+	body := w.Body.Bytes()
+	err := json.Unmarshal(body, &envelope)
+	require.NoError(t, err, "Failed to parse list response envelope: %s", string(body))
+	require.NotNil(t, envelope.Data, "Response missing 'data' field: %s", string(body))
+
+	err = json.Unmarshal(envelope.Data, result)
+	require.NoError(t, err, "Failed to parse list data: %s", string(body))
+
+	return envelope.Meta
 }
 
 // AssertJSONResponse asserts the response status code and parses JSON

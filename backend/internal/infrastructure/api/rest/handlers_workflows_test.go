@@ -203,12 +203,11 @@ func TestHandlers_ListWorkflows_Empty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var workflows []interface{}
+	meta := testutil.ParseListResponse(t, w, &workflows)
 
-	workflows := result["workflows"].([]interface{})
 	assert.Empty(t, workflows)
-	assert.Equal(t, float64(0), result["total"])
+	assert.Equal(t, float64(0), meta["total"])
 }
 
 func TestHandlers_ListWorkflows_WithData(t *testing.T) {
@@ -229,12 +228,11 @@ func TestHandlers_ListWorkflows_WithData(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var workflows []interface{}
+	meta := testutil.ParseListResponse(t, w, &workflows)
 
-	workflows := result["workflows"].([]interface{})
 	assert.Len(t, workflows, 3)
-	assert.Equal(t, float64(3), result["total"])
+	assert.Equal(t, float64(3), meta["total"])
 }
 
 func TestHandlers_ListWorkflows_Pagination(t *testing.T) {
@@ -255,15 +253,14 @@ func TestHandlers_ListWorkflows_Pagination(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var workflows []interface{}
+	meta := testutil.ParseListResponse(t, w, &workflows)
 
-	workflows := result["workflows"].([]interface{})
 	assert.Len(t, workflows, 2)
 
-	assert.Equal(t, float64(5), result["total"])
-	assert.Equal(t, float64(2), result["limit"])
-	assert.Equal(t, float64(0), result["offset"])
+	assert.Equal(t, float64(5), meta["total"])
+	assert.Equal(t, float64(2), meta["limit"])
+	assert.Equal(t, float64(0), meta["offset"])
 }
 
 func TestHandlers_ListWorkflows_FilterByStatus(t *testing.T) {
@@ -282,10 +279,9 @@ func TestHandlers_ListWorkflows_FilterByStatus(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var workflows []interface{}
+	testutil.ParseListResponse(t, w, &workflows)
 
-	workflows := result["workflows"].([]interface{})
 	assert.Len(t, workflows, 2)
 }
 
@@ -633,11 +629,10 @@ func TestHandlers_ListWorkflows_FilterByUserID_Admin(t *testing.T) {
 	// Admin should be able to filter by any user_id
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var workflows []interface{}
+	testutil.ParseListResponse(t, w, &workflows)
 
 	// Should return empty list (no workflows for that user)
-	workflows := result["workflows"].([]interface{})
 	assert.Empty(t, workflows)
 }
 
@@ -670,10 +665,9 @@ func TestHandlers_ListWorkflows_FilterByOwnUserID_Empty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var workflows []interface{}
+	testutil.ParseListResponse(t, w, &workflows)
 
-	workflows := result["workflows"].([]interface{})
 	assert.Empty(t, workflows)
 }
 
@@ -696,9 +690,8 @@ func TestHandlers_ListWorkflows_UnauthenticatedSeeAll(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var workflows []interface{}
+	testutil.ParseListResponse(t, w, &workflows)
 
-	workflows := result["workflows"].([]interface{})
 	assert.Len(t, workflows, 3)
 }

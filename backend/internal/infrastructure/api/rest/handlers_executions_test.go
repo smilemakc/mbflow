@@ -242,10 +242,9 @@ func TestHandlers_ListExecutions_Empty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var executions []interface{}
+	testutil.ParseListResponse(t, w, &executions)
 
-	executions := result["executions"].([]interface{})
 	assert.Empty(t, executions)
 }
 
@@ -274,10 +273,9 @@ func TestHandlers_ListExecutions_WithData(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var executions []interface{}
+	testutil.ParseListResponse(t, w, &executions)
 
-	executions := result["executions"].([]interface{})
 	assert.Len(t, executions, 3)
 }
 
@@ -308,15 +306,14 @@ func TestHandlers_ListExecutions_Pagination(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var executions []interface{}
+	meta := testutil.ParseListResponse(t, w, &executions)
 
-	executions := result["executions"].([]interface{})
 	// We expect at most 2 results due to limit
 	assert.LessOrEqual(t, len(executions), 2)
 	// Total should be at least the number of executions we see
-	assert.GreaterOrEqual(t, result["total"], float64(len(executions)))
-	assert.Equal(t, float64(2), result["limit"])
+	assert.GreaterOrEqual(t, meta["total"], float64(len(executions)))
+	assert.Equal(t, float64(2), meta["limit"])
 }
 
 func TestHandlers_ListExecutions_FilterByWorkflowID(t *testing.T) {
@@ -360,10 +357,9 @@ func TestHandlers_ListExecutions_FilterByWorkflowID(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var executions []interface{}
+	testutil.ParseListResponse(t, w, &executions)
 
-	executions := result["executions"].([]interface{})
 	assert.Len(t, executions, 2)
 }
 
@@ -393,11 +389,11 @@ func TestHandlers_ListExecutions_FilterByStatus(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
+	var executions []interface{}
+	testutil.ParseListResponse(t, w, &executions)
 
-	// Just verify response structure, actual filtering depends on execution speed
-	assert.NotNil(t, result["executions"])
+	// Just verify response has data
+	assert.NotNil(t, executions)
 }
 
 // ========== GET LOGS TESTS ==========

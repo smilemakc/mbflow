@@ -3,7 +3,6 @@ package rest
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -178,7 +177,7 @@ func TestHandlers_UploadFile_Multipart_Success(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 
 	var result map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &result)
+	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
 	assert.Equal(t, "multipart-test.png", result["name"])

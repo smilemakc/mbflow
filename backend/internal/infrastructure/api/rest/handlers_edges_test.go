@@ -140,10 +140,8 @@ func TestHandlers_ListEdges_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
-
-	edges := result["edges"].([]interface{})
+	var edges []interface{}
+	testutil.ParseListResponse(t, w, &edges)
 	assert.Len(t, edges, 2)
 }
 

@@ -1,10 +1,14 @@
 package rest
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 // parseIntQuery parses integer query parameter with default value
@@ -63,9 +67,9 @@ type SuccessResponse struct {
 
 // MetaInfo contains metadata about the response
 type MetaInfo struct {
-	Total  int `json:"total,omitempty"`
-	Limit  int `json:"limit,omitempty"`
-	Offset int `json:"offset,omitempty"`
+	Total  int `json:"total"`
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
 }
 
 // respondSuccess writes a successful response with metadata
@@ -82,7 +86,28 @@ func respondSuccess(c *gin.Context, status int, data interface{}, meta *MetaInfo
 
 func bindJSON(c *gin.Context, obj interface{}) error {
 	if err := c.ShouldBindJSON(obj); err != nil {
-		respondAPIError(c, ErrInvalidJSON)
+		var ve validator.ValidationErrors
+		if ok := errors.As(err, &ve); ok {
+			msgs := make([]string, 0, len(ve))
+			for _, fe := range ve {
+				field := strings.ToLower(fe.Field())
+				switch fe.Tag() {
+				case "required":
+					msgs = append(msgs, fmt.Sprintf("%s is required", field))
+				case "uuid":
+					msgs = append(msgs, fmt.Sprintf("%s must be a valid UUID", field))
+				case "min":
+					msgs = append(msgs, fmt.Sprintf("%s must be at least %s characters", field, fe.Param()))
+				case "max":
+					msgs = append(msgs, fmt.Sprintf("%s must be at most %s characters", field, fe.Param()))
+				default:
+					msgs = append(msgs, fmt.Sprintf("%s is invalid", field))
+				}
+			}
+			respondError(c, http.StatusBadRequest, strings.Join(msgs, "; "))
+		} else {
+			respondAPIError(c, ErrInvalidJSON)
+		}
 		return err
 	}
 	return nil

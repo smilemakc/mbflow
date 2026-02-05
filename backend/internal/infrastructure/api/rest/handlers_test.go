@@ -56,11 +56,16 @@ func TestRespondJSON(t *testing.T) {
 		t.Errorf("expected status 200, got %d", w.Code)
 	}
 
-	var response map[string]string
+	var response map[string]interface{}
 	parseJSON(t, w.Body.String(), &response)
 
-	if response["message"] != "success" {
-		t.Errorf("expected message=success, got %s", response["message"])
+	data, ok := response["data"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected data field in response envelope")
+	}
+
+	if data["message"] != "success" {
+		t.Errorf("expected message=success, got %v", data["message"])
 	}
 }
 
