@@ -215,10 +215,22 @@ func (s *Server) setupAdminRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
-	workflowHandlers := rest.NewWorkflowHandlers(s.workflowRepo, s.logger, s.executorManager)
+	ops := &serviceapi.Operations{
+		WorkflowRepo:    s.workflowRepo,
+		ExecutionRepo:   s.executionRepo,
+		TriggerRepo:     s.triggerRepo,
+		CredentialsRepo: s.credentialsRepo,
+		ExecutionMgr:    s.executionManager,
+		ExecutorManager: s.executorManager,
+		EncryptionSvc:   s.encryptionService,
+		AuditService:    s.auditService,
+		Logger:          s.logger,
+	}
+
+	workflowHandlers := rest.NewWorkflowHandlers(ops, s.logger)
 	nodeHandlers := rest.NewNodeHandlers(s.workflowRepo, s.logger)
 	edgeHandlers := rest.NewEdgeHandlers(s.workflowRepo, s.logger)
-	executionHandlers := rest.NewExecutionHandlers(s.executionRepo, s.workflowRepo, s.executionManager, s.logger)
+	executionHandlers := rest.NewExecutionHandlers(ops, s.logger)
 	importHandlers := rest.NewImportHandlers(s.workflowRepo, s.triggerRepo, s.logger, s.executorManager)
 
 	workflows := apiV1.Group("/workflows")
@@ -258,7 +270,19 @@ func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
-	executionHandlers := rest.NewExecutionHandlers(s.executionRepo, s.workflowRepo, s.executionManager, s.logger)
+	ops := &serviceapi.Operations{
+		WorkflowRepo:    s.workflowRepo,
+		ExecutionRepo:   s.executionRepo,
+		TriggerRepo:     s.triggerRepo,
+		CredentialsRepo: s.credentialsRepo,
+		ExecutionMgr:    s.executionManager,
+		ExecutorManager: s.executorManager,
+		EncryptionSvc:   s.encryptionService,
+		AuditService:    s.auditService,
+		Logger:          s.logger,
+	}
+
+	executionHandlers := rest.NewExecutionHandlers(ops, s.logger)
 
 	executions := apiV1.Group("/executions")
 	{
@@ -275,7 +299,19 @@ func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
-	triggerHandlers := rest.NewTriggerHandlers(s.triggerRepo, s.workflowRepo, s.logger)
+	ops := &serviceapi.Operations{
+		WorkflowRepo:    s.workflowRepo,
+		ExecutionRepo:   s.executionRepo,
+		TriggerRepo:     s.triggerRepo,
+		CredentialsRepo: s.credentialsRepo,
+		ExecutionMgr:    s.executionManager,
+		ExecutorManager: s.executorManager,
+		EncryptionSvc:   s.encryptionService,
+		AuditService:    s.auditService,
+		Logger:          s.logger,
+	}
+
+	triggerHandlers := rest.NewTriggerHandlers(ops, s.logger)
 
 	triggers := apiV1.Group("/triggers")
 	{

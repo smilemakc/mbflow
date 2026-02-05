@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
@@ -43,8 +44,15 @@ func setupWorkflowHandlersTest(t *testing.T) (*WorkflowHandlers, *gin.Engine, fu
 		t.Fatalf("Failed to register adapters: %v", err)
 	}
 
+	// Create operations struct
+	ops := &serviceapi.Operations{
+		WorkflowRepo:    workflowRepo,
+		ExecutorManager: executorManager,
+		Logger:          log,
+	}
+
 	// Create handlers
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
+	handlers := NewWorkflowHandlers(ops, log)
 
 	// Setup router
 	gin.SetMode(gin.TestMode)
@@ -553,8 +561,15 @@ func setupWorkflowHandlersTestWithAuth(t *testing.T, userID string, isAdmin bool
 		t.Fatalf("Failed to register adapters: %v", err)
 	}
 
+	// Create operations struct
+	ops := &serviceapi.Operations{
+		WorkflowRepo:    workflowRepo,
+		ExecutorManager: executorManager,
+		Logger:          log,
+	}
+
 	// Create handlers
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
+	handlers := NewWorkflowHandlers(ops, log)
 
 	// Setup router with auth middleware
 	gin.SetMode(gin.TestMode)

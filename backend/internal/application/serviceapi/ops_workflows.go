@@ -256,6 +256,149 @@ func (o *Operations) DeleteWorkflow(ctx context.Context, params DeleteWorkflowPa
 	return nil
 }
 
+type PublishWorkflowParams struct {
+	WorkflowID uuid.UUID
+}
+
+func (o *Operations) PublishWorkflow(ctx context.Context, params PublishWorkflowParams) (*models.Workflow, error) {
+	workflowModel, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID)
+	if err != nil {
+		o.Logger.Error("Failed to find workflow for publish", "error", err, "workflow_id", params.WorkflowID)
+		return nil, err
+	}
+	workflowModel.Status = "active"
+	if err := o.WorkflowRepo.Update(ctx, workflowModel); err != nil {
+		o.Logger.Error("Failed to publish workflow", "error", err, "workflow_id", params.WorkflowID)
+		return nil, err
+	}
+	return engine.WorkflowModelToDomain(workflowModel), nil
+}
+
+type UnpublishWorkflowParams struct {
+	WorkflowID uuid.UUID
+}
+
+func (o *Operations) UnpublishWorkflow(ctx context.Context, params UnpublishWorkflowParams) (*models.Workflow, error) {
+	workflowModel, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID)
+	if err != nil {
+		o.Logger.Error("Failed to find workflow for unpublish", "error", err, "workflow_id", params.WorkflowID)
+		return nil, err
+	}
+	workflowModel.Status = "draft"
+	if err := o.WorkflowRepo.Update(ctx, workflowModel); err != nil {
+		o.Logger.Error("Failed to unpublish workflow", "error", err, "workflow_id", params.WorkflowID)
+		return nil, err
+	}
+	return engine.WorkflowModelToDomain(workflowModel), nil
+}
+
+type AttachWorkflowResourceParams struct {
+	WorkflowID uuid.UUID
+	ResourceID uuid.UUID
+	Alias      string
+	AccessType string
+	AssignedBy *uuid.UUID
+}
+
+func (o *Operations) AttachWorkflowResource(ctx context.Context, params AttachWorkflowResourceParams) error {
+	if _, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID); err != nil {
+		o.Logger.Error("Workflow not found in AttachResource", "error", err, "workflow_id", params.WorkflowID)
+		return err
+	}
+
+	accessType := params.AccessType
+	if accessType == "" {
+		accessType = "read"
+	}
+
+	resourceModel := &storagemodels.WorkflowResourceModel{
+		WorkflowID: params.WorkflowID,
+		ResourceID: params.ResourceID,
+		Alias:      params.Alias,
+		AccessType: accessType,
+	}
+
+	if err := o.WorkflowRepo.AssignResource(ctx, params.WorkflowID, resourceModel, params.AssignedBy); err != nil {
+		o.Logger.Error("Failed to attach resource", "error", err, "workflow_id", params.WorkflowID, "resource_id", params.ResourceID)
+		return err
+	}
+
+	o.Logger.Info("Resource attached to workflow", "workflow_id", params.WorkflowID, "resource_id", params.ResourceID, "alias", params.Alias)
+	return nil
+}
+
+type DetachWorkflowResourceParams struct {
+	WorkflowID uuid.UUID
+	ResourceID uuid.UUID
+}
+
+func (o *Operations) DetachWorkflowResource(ctx context.Context, params DetachWorkflowResourceParams) error {
+	if _, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID); err != nil {
+		o.Logger.Error("Workflow not found in DetachResource", "error", err, "workflow_id", params.WorkflowID)
+		return err
+	}
+	if err := o.WorkflowRepo.UnassignResource(ctx, params.WorkflowID, params.ResourceID); err != nil {
+		o.Logger.Error("Failed to detach resource", "error", err, "workflow_id", params.WorkflowID, "resource_id", params.ResourceID)
+		return err
+	}
+	o.Logger.Info("Resource detached from workflow", "workflow_id", params.WorkflowID, "resource_id", params.ResourceID)
+	return nil
+}
+
+type GetWorkflowResourcesParams struct {
+	WorkflowID uuid.UUID
+}
+
+type WorkflowResourceInfo struct {
+	ResourceID string
+	Alias      string
+	AccessType string
+}
+
+type GetWorkflowResourcesResult struct {
+	Resources []WorkflowResourceInfo
+}
+
+func (o *Operations) GetWorkflowResources(ctx context.Context, params GetWorkflowResourcesParams) (*GetWorkflowResourcesResult, error) {
+	if _, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID); err != nil {
+		o.Logger.Error("Workflow not found in GetResources", "error", err, "workflow_id", params.WorkflowID)
+		return nil, err
+	}
+	resources, err := o.WorkflowRepo.GetWorkflowResources(ctx, params.WorkflowID)
+	if err != nil {
+		o.Logger.Error("Failed to get workflow resources", "error", err, "workflow_id", params.WorkflowID)
+		return nil, err
+	}
+	result := make([]WorkflowResourceInfo, len(resources))
+	for i, r := range resources {
+		result[i] = WorkflowResourceInfo{
+			ResourceID: r.ResourceID.String(),
+			Alias:      r.Alias,
+			AccessType: r.AccessType,
+		}
+	}
+	return &GetWorkflowResourcesResult{Resources: result}, nil
+}
+
+type UpdateWorkflowResourceAliasParams struct {
+	WorkflowID uuid.UUID
+	ResourceID uuid.UUID
+	Alias      string
+}
+
+func (o *Operations) UpdateWorkflowResourceAlias(ctx context.Context, params UpdateWorkflowResourceAliasParams) error {
+	if _, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID); err != nil {
+		o.Logger.Error("Workflow not found in UpdateResourceAlias", "error", err, "workflow_id", params.WorkflowID)
+		return err
+	}
+	if err := o.WorkflowRepo.UpdateResourceAlias(ctx, params.WorkflowID, params.ResourceID, params.Alias); err != nil {
+		o.Logger.Error("Failed to update resource alias", "error", err, "workflow_id", params.WorkflowID, "resource_id", params.ResourceID)
+		return err
+	}
+	o.Logger.Info("Resource alias updated", "workflow_id", params.WorkflowID, "resource_id", params.ResourceID, "alias", params.Alias)
+	return nil
+}
+
 func (o *Operations) validateNodes(nodes []NodeInput) error {
 	if nodes == nil {
 		return nil

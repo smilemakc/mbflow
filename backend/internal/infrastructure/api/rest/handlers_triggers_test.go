@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
@@ -33,8 +34,15 @@ func setupTriggerHandlersTest(t *testing.T) (*TriggerHandlers, *gin.Engine, *sto
 		Format: "text",
 	})
 
+	// Create operations
+	ops := &serviceapi.Operations{
+		TriggerRepo:  triggerRepo,
+		WorkflowRepo: workflowRepo,
+		Logger:       log,
+	}
+
 	// Create handlers
-	handlers := NewTriggerHandlers(triggerRepo, workflowRepo, log)
+	handlers := NewTriggerHandlers(ops, log)
 
 	// Setup router
 	gin.SetMode(gin.TestMode)

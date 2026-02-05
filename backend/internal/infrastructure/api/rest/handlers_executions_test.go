@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
@@ -49,8 +50,17 @@ func setupExecutionHandlersTest(t *testing.T) (*ExecutionHandlers, *gin.Engine, 
 		nil, // No observer manager for tests
 	)
 
+	// Create operations
+	ops := &serviceapi.Operations{
+		WorkflowRepo:    workflowRepo,
+		ExecutionRepo:   executionRepo,
+		ExecutionMgr:    executionManager,
+		ExecutorManager: executorRegistry,
+		Logger:          log,
+	}
+
 	// Create handlers
-	handlers := NewExecutionHandlers(executionRepo, workflowRepo, executionManager, log)
+	handlers := NewExecutionHandlers(ops, log)
 
 	// Setup router
 	gin.SetMode(gin.TestMode)

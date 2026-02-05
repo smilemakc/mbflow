@@ -181,6 +181,53 @@ func isValidTriggerType(t string) bool {
 	return validTypes[t]
 }
 
+type GetTriggerParams struct {
+	TriggerID uuid.UUID
+}
+
+func (o *Operations) GetTrigger(ctx context.Context, params GetTriggerParams) (*models.Trigger, error) {
+	triggerModel, err := o.TriggerRepo.FindByID(ctx, params.TriggerID)
+	if err != nil || triggerModel == nil {
+		o.Logger.Error("Failed to find trigger", "error", err, "trigger_id", params.TriggerID)
+		return nil, models.ErrTriggerNotFound
+	}
+	return triggerModelToDomain(triggerModel, "", ""), nil
+}
+
+type EnableTriggerParams struct {
+	TriggerID uuid.UUID
+}
+
+func (o *Operations) EnableTrigger(ctx context.Context, params EnableTriggerParams) (*models.Trigger, error) {
+	if err := o.TriggerRepo.Enable(ctx, params.TriggerID); err != nil {
+		o.Logger.Error("Failed to enable trigger", "error", err, "trigger_id", params.TriggerID)
+		return nil, err
+	}
+	triggerModel, err := o.TriggerRepo.FindByID(ctx, params.TriggerID)
+	if err != nil || triggerModel == nil {
+		o.Logger.Error("Failed to find trigger after enable", "error", err, "trigger_id", params.TriggerID)
+		return nil, models.ErrTriggerNotFound
+	}
+	return triggerModelToDomain(triggerModel, "", ""), nil
+}
+
+type DisableTriggerParams struct {
+	TriggerID uuid.UUID
+}
+
+func (o *Operations) DisableTrigger(ctx context.Context, params DisableTriggerParams) (*models.Trigger, error) {
+	if err := o.TriggerRepo.Disable(ctx, params.TriggerID); err != nil {
+		o.Logger.Error("Failed to disable trigger", "error", err, "trigger_id", params.TriggerID)
+		return nil, err
+	}
+	triggerModel, err := o.TriggerRepo.FindByID(ctx, params.TriggerID)
+	if err != nil || triggerModel == nil {
+		o.Logger.Error("Failed to find trigger after disable", "error", err, "trigger_id", params.TriggerID)
+		return nil, models.ErrTriggerNotFound
+	}
+	return triggerModelToDomain(triggerModel, "", ""), nil
+}
+
 func triggerModelToDomain(tm *storagemodels.TriggerModel, name, description string) *models.Trigger {
 	if tm == nil {
 		return nil
