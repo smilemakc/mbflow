@@ -97,7 +97,7 @@ func (s *Server) setupHealthEndpoints() {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 		defer cancel()
 
-		if err := storage.Ping(ctx, s.db); err != nil {
+		if err := storage.Ping(ctx, s.data.DB); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"status": "unhealthy",
 				"error":  fmt.Sprintf("database: %s", err.Error()),
@@ -105,8 +105,8 @@ func (s *Server) setupHealthEndpoints() {
 			return
 		}
 
-		if s.redisCache != nil {
-			if err := s.redisCache.Health(ctx); err != nil {
+		if s.data.RedisCache != nil {
+			if err := s.data.RedisCache.Health(ctx); err != nil {
 				c.JSON(http.StatusServiceUnavailable, gin.H{
 					"status": "unhealthy",
 					"error":  fmt.Sprintf("redis: %s", err.Error()),
@@ -123,7 +123,7 @@ func (s *Server) setupHealthEndpoints() {
 	})
 
 	s.router.GET("/metrics", func(c *gin.Context) {
-		dbStats := storage.Stats(s.db)
+		dbStats := storage.Stats(s.data.DB)
 
 		metrics := gin.H{
 			"database": gin.H{
@@ -134,8 +134,8 @@ func (s *Server) setupHealthEndpoints() {
 			},
 		}
 
-		if s.redisCache != nil {
-			cacheStats := s.redisCache.Stats()
+		if s.data.RedisCache != nil {
+			cacheStats := s.data.RedisCache.Stats()
 			metrics["redis"] = gin.H{
 				"hits":        cacheStats.Hits,
 				"misses":      cacheStats.Misses,
@@ -156,8 +156,8 @@ func (s *Server) setupSwaggerEndpoint() {
 }
 
 func (s *Server) setupWebSocketEndpoints() {
-	if s.config.Observer.EnableWebSocket && s.wsHub != nil {
-		wsHandler := observer.NewWebSocketHandler(s.wsHub, s.logger)
+	if s.config.Observer.EnableWebSocket && s.execution.WSHub != nil {
+		wsHandler := observer.NewWebSocketHandler(s.execution.WSHub, s.logger)
 		s.router.GET("/ws/executions", func(c *gin.Context) {
 			wsHandler.ServeHTTP(c.Writer, c.Request)
 		})
@@ -190,31 +190,31 @@ func (s *Server) setupAPIv1Routes() {
 }
 
 func (s *Server) setupAuthRoutes(apiV1 *gin.RouterGroup) {
-	authHandlers := rest.NewAuthHandlers(s.authService, s.providerManager, s.loginRateLimiter)
+	authHandlers := rest.NewAuthHandlers(s.auth.AuthService, s.auth.ProviderManager, s.auth.LoginRateLimiter)
 
 	authGroup := apiV1.Group("/auth")
 	{
 		authGroup.POST("/register", authHandlers.HandleRegister)
-		authGroup.POST("/login", s.loginRateLimiter.Middleware(), authHandlers.HandleLogin)
+		authGroup.POST("/login", s.auth.LoginRateLimiter.Middleware(), authHandlers.HandleLogin)
 		authGroup.POST("/refresh", authHandlers.HandleRefresh)
 		authGroup.GET("/info", authHandlers.HandleGetAuthInfo)
 
 		authGroup.GET("/oauth/authorize", authHandlers.HandleOAuthAuthorize)
 		authGroup.GET("/oauth/callback", authHandlers.HandleOAuthCallback)
 
-		authGroup.POST("/logout", s.authMiddleware.RequireAuth(), authHandlers.HandleLogout)
-		authGroup.GET("/me", s.authMiddleware.RequireAuth(), authHandlers.HandleGetMe)
-		authGroup.POST("/password", s.authMiddleware.RequireAuth(), authHandlers.HandleChangePassword)
+		authGroup.POST("/logout", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleLogout)
+		authGroup.GET("/me", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleGetMe)
+		authGroup.POST("/password", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleChangePassword)
 	}
 
 	s.logger.Info("Auth endpoints registered")
 }
 
 func (s *Server) setupAdminRoutes(apiV1 *gin.RouterGroup) {
-	authHandlers := rest.NewAuthHandlers(s.authService, s.providerManager, s.loginRateLimiter)
+	authHandlers := rest.NewAuthHandlers(s.auth.AuthService, s.auth.ProviderManager, s.auth.LoginRateLimiter)
 
 	adminGroup := apiV1.Group("/admin")
-	adminGroup.Use(s.authMiddleware.RequireAdmin())
+	adminGroup.Use(s.auth.AuthMiddleware.RequireAdmin())
 	{
 		adminGroup.GET("/users", authHandlers.HandleAdminListUsers)
 		adminGroup.POST("/users", authHandlers.HandleAdminCreateUser)
@@ -232,25 +232,25 @@ func (s *Server) setupAdminRoutes(apiV1 *gin.RouterGroup) {
 
 func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.workflowRepo,
-		ExecutionRepo:   s.executionRepo,
-		TriggerRepo:     s.triggerRepo,
-		CredentialsRepo: s.credentialsRepo,
-		ExecutionMgr:    s.executionManager,
-		ExecutorManager: s.executorManager,
-		EncryptionSvc:   s.encryptionService,
-		AuditService:    s.auditService,
+		WorkflowRepo:    s.data.WorkflowRepo,
+		ExecutionRepo:   s.data.ExecutionRepo,
+		TriggerRepo:     s.data.TriggerRepo,
+		CredentialsRepo: s.data.CredentialsRepo,
+		ExecutionMgr:    s.execution.ExecutionManager,
+		ExecutorManager: s.execution.ExecutorManager,
+		EncryptionSvc:   s.auth.EncryptionService,
+		AuditService:    s.serviceAPI.AuditService,
 		Logger:          s.logger,
 	}
 
 	workflowHandlers := rest.NewWorkflowHandlers(ops, s.logger)
-	nodeHandlers := rest.NewNodeHandlers(s.workflowRepo, s.logger)
-	edgeHandlers := rest.NewEdgeHandlers(s.workflowRepo, s.logger)
+	nodeHandlers := rest.NewNodeHandlers(s.data.WorkflowRepo, s.logger)
+	edgeHandlers := rest.NewEdgeHandlers(s.data.WorkflowRepo, s.logger)
 	executionHandlers := rest.NewExecutionHandlers(ops, s.logger)
-	importHandlers := rest.NewImportHandlers(s.workflowRepo, s.triggerRepo, s.logger, s.executorManager)
+	importHandlers := rest.NewImportHandlers(s.data.WorkflowRepo, s.data.TriggerRepo, s.logger, s.execution.ExecutorManager)
 
 	workflows := apiV1.Group("/workflows")
-	workflows.Use(s.authMiddleware.OptionalAuth())
+	workflows.Use(s.auth.AuthMiddleware.OptionalAuth())
 	{
 		workflows.POST("", workflowHandlers.HandleCreateWorkflow)
 		workflows.GET("", workflowHandlers.HandleListWorkflows)
@@ -287,14 +287,14 @@ func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 
 func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.workflowRepo,
-		ExecutionRepo:   s.executionRepo,
-		TriggerRepo:     s.triggerRepo,
-		CredentialsRepo: s.credentialsRepo,
-		ExecutionMgr:    s.executionManager,
-		ExecutorManager: s.executorManager,
-		EncryptionSvc:   s.encryptionService,
-		AuditService:    s.auditService,
+		WorkflowRepo:    s.data.WorkflowRepo,
+		ExecutionRepo:   s.data.ExecutionRepo,
+		TriggerRepo:     s.data.TriggerRepo,
+		CredentialsRepo: s.data.CredentialsRepo,
+		ExecutionMgr:    s.execution.ExecutionManager,
+		ExecutorManager: s.execution.ExecutorManager,
+		EncryptionSvc:   s.auth.EncryptionService,
+		AuditService:    s.serviceAPI.AuditService,
 		Logger:          s.logger,
 	}
 
@@ -316,14 +316,14 @@ func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 
 func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
 	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.workflowRepo,
-		ExecutionRepo:   s.executionRepo,
-		TriggerRepo:     s.triggerRepo,
-		CredentialsRepo: s.credentialsRepo,
-		ExecutionMgr:    s.executionManager,
-		ExecutorManager: s.executorManager,
-		EncryptionSvc:   s.encryptionService,
-		AuditService:    s.auditService,
+		WorkflowRepo:    s.data.WorkflowRepo,
+		ExecutionRepo:   s.data.ExecutionRepo,
+		TriggerRepo:     s.data.TriggerRepo,
+		CredentialsRepo: s.data.CredentialsRepo,
+		ExecutionMgr:    s.execution.ExecutionManager,
+		ExecutorManager: s.execution.ExecutorManager,
+		EncryptionSvc:   s.auth.EncryptionService,
+		AuditService:    s.serviceAPI.AuditService,
 		Logger:          s.logger,
 	}
 
@@ -343,10 +343,10 @@ func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupFileRoutes(apiV1 *gin.RouterGroup) {
-	fileHandlers := rest.NewFileHandlers(s.fileRepo, s.fileStorageManager, s.logger)
+	fileHandlers := rest.NewFileHandlers(s.data.FileRepo, s.fileStorage.FileStorageManager, s.logger)
 
 	files := apiV1.Group("/files")
-	files.Use(s.authMiddleware.OptionalAuth())
+	files.Use(s.auth.AuthMiddleware.OptionalAuth())
 	{
 		files.POST("", fileHandlers.HandleUploadFile)
 		files.GET("", fileHandlers.HandleListFiles)
@@ -358,19 +358,19 @@ func (s *Server) setupFileRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupResourceRoutes(apiV1 *gin.RouterGroup) {
-	resourceHandlers := rest.NewResourceHandlers(s.resourceRepo, s.pricingPlanRepo, s.workflowRepo, s.logger)
+	resourceHandlers := rest.NewResourceHandlers(s.data.ResourceRepo, s.data.PricingPlanRepo, s.data.WorkflowRepo, s.logger)
 
 	resourceFileService := filestorage.NewResourceFileService(
-		s.db,
-		s.resourceRepo,
-		s.fileRepo,
-		s.fileStorageManager,
+		s.data.DB,
+		s.data.ResourceRepo,
+		s.data.FileRepo,
+		s.fileStorage.FileStorageManager,
 		s.config.FileStorage.MaxFileSize,
 	)
-	fileStorageHandlers := rest.NewFileStorageHandlers(s.resourceRepo, resourceFileService, s.logger)
+	fileStorageHandlers := rest.NewFileStorageHandlers(s.data.ResourceRepo, resourceFileService, s.logger)
 
 	resources := apiV1.Group("/resources")
-	resources.Use(s.authMiddleware.RequireAuth())
+	resources.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		resources.POST("/file-storage", resourceHandlers.CreateFileStorage)
 		resources.GET("", resourceHandlers.ListResources)
@@ -388,10 +388,10 @@ func (s *Server) setupResourceRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupAccountRoutes(apiV1 *gin.RouterGroup) {
-	accountHandlers := rest.NewAccountHandlers(s.accountRepo, s.transactionRepo, s.logger)
+	accountHandlers := rest.NewAccountHandlers(s.data.AccountRepo, s.data.TransactionRepo, s.logger)
 
 	account := apiV1.Group("/account")
-	account.Use(s.authMiddleware.RequireAuth())
+	account.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		account.GET("", accountHandlers.GetAccount)
 		account.POST("/deposit", accountHandlers.Deposit)
@@ -401,15 +401,15 @@ func (s *Server) setupAccountRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupCredentialsRoutes(apiV1 *gin.RouterGroup) {
-	if s.encryptionService == nil {
+	if s.auth.EncryptionService == nil {
 		s.logger.Warn("Credentials endpoints disabled - encryption key not configured")
 		return
 	}
 
-	credentialsHandlers := rest.NewCredentialsHandlers(s.credentialsRepo, s.workflowRepo, s.encryptionService, s.logger)
+	credentialsHandlers := rest.NewCredentialsHandlers(s.data.CredentialsRepo, s.data.WorkflowRepo, s.auth.EncryptionService, s.logger)
 
 	credentials := apiV1.Group("/credentials")
-	credentials.Use(s.authMiddleware.RequireAuth())
+	credentials.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		credentials.POST("/api-key", credentialsHandlers.CreateAPIKey)
 		credentials.POST("/basic-auth", credentialsHandlers.CreateBasicAuth)
@@ -428,16 +428,16 @@ func (s *Server) setupCredentialsRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupRentalKeyRoutes(apiV1 *gin.RouterGroup) {
-	if s.rentalKeyProvider == nil {
+	if s.auth.RentalKeyProvider == nil {
 		s.logger.Warn("Rental Keys endpoints disabled - encryption key not configured")
 		return
 	}
 
-	rentalKeyHandlers := rest.NewRentalKeyHandlers(s.rentalKeyProvider, s.logger)
-	rentalKeyAdminHandlers := rest.NewRentalKeyAdminHandlers(rentalkey.NewAdminService(s.rentalKeyRepo, s.encryptionService), s.logger)
+	rentalKeyHandlers := rest.NewRentalKeyHandlers(s.auth.RentalKeyProvider, s.logger)
+	rentalKeyAdminHandlers := rest.NewRentalKeyAdminHandlers(rentalkey.NewAdminService(s.data.RentalKeyRepo, s.auth.EncryptionService), s.logger)
 
 	rentalKeys := apiV1.Group("/rental-keys")
-	rentalKeys.Use(s.authMiddleware.RequireAuth())
+	rentalKeys.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		rentalKeys.GET("", rentalKeyHandlers.ListRentalKeys)
 		rentalKeys.GET("/:id", rentalKeyHandlers.GetRentalKey)
@@ -446,8 +446,8 @@ func (s *Server) setupRentalKeyRoutes(apiV1 *gin.RouterGroup) {
 	}
 
 	adminRentalKeys := apiV1.Group("/admin/rental-keys")
-	adminRentalKeys.Use(s.authMiddleware.RequireAuth())
-	adminRentalKeys.Use(s.authMiddleware.RequireAdmin())
+	adminRentalKeys.Use(s.auth.AuthMiddleware.RequireAuth())
+	adminRentalKeys.Use(s.auth.AuthMiddleware.RequireAdmin())
 	{
 		adminRentalKeys.POST("", rentalKeyAdminHandlers.CreateRentalKey)
 		adminRentalKeys.GET("", rentalKeyAdminHandlers.ListAllRentalKeys)
@@ -463,18 +463,18 @@ func (s *Server) setupRentalKeyRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupServiceKeyRoutes(apiV1 *gin.RouterGroup) {
-	serviceKeyHandlers := rest.NewServiceKeyHandlers(s.serviceKeyService, s.logger)
-	serviceKeyAdminHandlers := rest.NewServiceKeyAdminHandlers(s.serviceKeyService, s.logger)
+	serviceKeyHandlers := rest.NewServiceKeyHandlers(s.auth.ServiceKeyService, s.logger)
+	serviceKeyAdminHandlers := rest.NewServiceKeyAdminHandlers(s.auth.ServiceKeyService, s.logger)
 
 	serviceKeys := apiV1.Group("/service-keys")
-	serviceKeys.Use(s.authMiddleware.RequireAuth())
+	serviceKeys.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		serviceKeys.GET("", serviceKeyHandlers.ListMyServiceKeys)
 		serviceKeys.GET("/:id", serviceKeyHandlers.GetMyServiceKey)
 	}
 
 	adminServiceKeys := apiV1.Group("/admin/service-keys")
-	adminServiceKeys.Use(s.authMiddleware.RequireAdmin())
+	adminServiceKeys.Use(s.auth.AuthMiddleware.RequireAdmin())
 	{
 		adminServiceKeys.POST("", serviceKeyAdminHandlers.CreateServiceKey)
 		adminServiceKeys.GET("", serviceKeyAdminHandlers.ListServiceKeys)
@@ -487,15 +487,15 @@ func (s *Server) setupServiceKeyRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupWebhookRoutes(apiV1 *gin.RouterGroup) {
-	if s.triggerManager == nil {
+	if s.triggers.TriggerManager == nil {
 		return
 	}
 
-	webhookHandlers := rest.NewWebhookHandlers(s.triggerManager.WebhookRegistry(), s.logger)
+	webhookHandlers := rest.NewWebhookHandlers(s.triggers.TriggerManager.WebhookRegistry(), s.logger)
 	apiV1.POST("/webhooks/:path", webhookHandlers.HandleWebhook)
 	apiV1.GET("/webhooks/:path", webhookHandlers.HandleWebhookGet)
 
-	telegramWebhookHandlers := rest.NewTelegramWebhookHandlers(s.triggerManager.WebhookRegistry(), s.logger)
+	telegramWebhookHandlers := rest.NewTelegramWebhookHandlers(s.triggers.TriggerManager.WebhookRegistry(), s.logger)
 	apiV1.POST("/webhooks/telegram/:trigger_id", telegramWebhookHandlers.HandleTelegramWebhook)
 
 	s.logger.Info("Webhook endpoints registered",
@@ -504,9 +504,9 @@ func (s *Server) setupWebhookRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupServiceAPIRoutes(apiV1 *gin.RouterGroup) {
-	systemKeyHandlers := rest.NewServiceAPISystemKeyHandlers(s.systemKeyService_, s.logger)
+	systemKeyHandlers := rest.NewServiceAPISystemKeyHandlers(s.serviceAPI.SystemKeyService, s.logger)
 	adminSystemKeys := apiV1.Group("/service/system-keys")
-	adminSystemKeys.Use(s.authMiddleware.RequireAdmin())
+	adminSystemKeys.Use(s.auth.AuthMiddleware.RequireAdmin())
 	{
 		adminSystemKeys.POST("", systemKeyHandlers.CreateSystemKey)
 		adminSystemKeys.GET("", systemKeyHandlers.ListSystemKeys)
@@ -516,19 +516,19 @@ func (s *Server) setupServiceAPIRoutes(apiV1 *gin.RouterGroup) {
 	}
 
 	serviceAPI := apiV1.Group("/service")
-	serviceAPI.Use(s.systemAuthMiddleware.RequireSystemAccess())
-	serviceAPI.Use(s.systemAuthMiddleware.HandleImpersonation())
-	serviceAPI.Use(s.auditMiddleware.RecordAction())
+	serviceAPI.Use(s.serviceAPI.SystemAuthMiddleware.RequireSystemAccess())
+	serviceAPI.Use(s.serviceAPI.SystemAuthMiddleware.HandleImpersonation())
+	serviceAPI.Use(s.serviceAPI.AuditMiddleware.RecordAction())
 	{
 		ops := &serviceapi.Operations{
-			WorkflowRepo:    s.workflowRepo,
-			ExecutionRepo:   s.executionRepo,
-			TriggerRepo:     s.triggerRepo,
-			CredentialsRepo: s.credentialsRepo,
-			ExecutionMgr:    s.executionManager,
-			ExecutorManager: s.executorManager,
-			EncryptionSvc:   s.encryptionService,
-			AuditService:    s.auditService,
+			WorkflowRepo:    s.data.WorkflowRepo,
+			ExecutionRepo:   s.data.ExecutionRepo,
+			TriggerRepo:     s.data.TriggerRepo,
+			CredentialsRepo: s.data.CredentialsRepo,
+			ExecutionMgr:    s.execution.ExecutionManager,
+			ExecutorManager: s.execution.ExecutorManager,
+			EncryptionSvc:   s.auth.EncryptionService,
+			AuditService:    s.serviceAPI.AuditService,
 			Logger:          s.logger,
 		}
 

@@ -72,7 +72,7 @@ func TestWithExecutorManager(t *testing.T) {
 		t.Fatalf("WithExecutorManager returned error: %v", err)
 	}
 
-	if s.executorManager != mgr {
+	if s.execution.ExecutorManager != mgr {
 		t.Error("WithExecutorManager did not set executor manager")
 	}
 }
@@ -116,7 +116,9 @@ func TestServer_ExecutorManager(t *testing.T) {
 
 	mgr := executor.NewRegistry()
 
-	s := &Server{executorManager: mgr}
+	s := &Server{
+		execution: ExecutionLayer{ExecutorManager: mgr},
+	}
 
 	result := s.ExecutorManager()
 	if result != mgr {
@@ -164,7 +166,9 @@ func TestServer_RegisterExecutor_Success(t *testing.T) {
 	t.Parallel()
 
 	mgr := executor.NewRegistry()
-	s := &Server{executorManager: mgr}
+	s := &Server{
+		execution: ExecutionLayer{ExecutorManager: mgr},
+	}
 
 	mockExec := &mockExecutor{}
 	err := s.RegisterExecutor("test-type", mockExec)

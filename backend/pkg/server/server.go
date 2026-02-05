@@ -4,7 +4,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,80 +12,34 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
-	grpclib "google.golang.org/grpc"
 
 	"github.com/smilemakc/mbflow/internal/application/auth"
 	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/internal/application/observer"
-	"github.com/smilemakc/mbflow/internal/application/rentalkey"
-	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/internal/application/servicekey"
-	"github.com/smilemakc/mbflow/internal/application/systemkey"
 	"github.com/smilemakc/mbflow/internal/application/trigger"
 	"github.com/smilemakc/mbflow/internal/config"
-	"github.com/smilemakc/mbflow/internal/domain/repository"
-	serviceapigrpc "github.com/smilemakc/mbflow/internal/infrastructure/api/grpc"
-	"github.com/smilemakc/mbflow/internal/infrastructure/api/rest"
-	"github.com/smilemakc/mbflow/internal/infrastructure/cache"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
-	"github.com/smilemakc/mbflow/pkg/crypto"
 	"github.com/smilemakc/mbflow/pkg/executor"
 )
 
-// Server represents the MBFlow HTTP server
+// Server represents the MBFlow HTTP server.
+// Components are organized into logical layers for better maintainability.
 type Server struct {
 	config     *config.Config
 	logger     *logger.Logger
 	router     *gin.Engine
 	httpServer *http.Server
 
-	db         *bun.DB
-	redisCache *cache.RedisCache
-
-	executorManager    executor.Manager
-	executionManager   *engine.ExecutionManager
-	triggerManager     *trigger.Manager
-	observerManager    *observer.ObserverManager
-	fileStorageManager *filestorage.StorageManager
-
-	workflowRepo    *storage.WorkflowRepository
-	executionRepo   *storage.ExecutionRepository
-	eventRepo       *storage.EventRepository
-	triggerRepo     repository.TriggerRepository
-	userRepo        *storage.UserRepository
-	fileRepo        *storage.FileRepository
-	accountRepo     *storage.AccountRepositoryImpl
-	transactionRepo *storage.TransactionRepositoryImpl
-	resourceRepo    *storage.ResourceRepositoryImpl
-	pricingPlanRepo *storage.PricingPlanRepositoryImpl
-	credentialsRepo *storage.CredentialsRepositoryImpl
-	serviceKeyRepo  *storage.ServiceKeyRepositoryImpl
-	systemKeyRepo   *storage.SystemKeyRepoImpl
-	auditLogRepo    *storage.ServiceAuditLogRepoImpl
-
-	authService       *auth.Service
-	serviceKeyService *servicekey.Service
-	providerManager   *auth.ProviderManager
-
-	systemKeyService_ *systemkey.Service
-	auditService      *systemkey.AuditService
-
-	systemAuthMiddleware *rest.SystemAuthMiddleware
-	auditMiddleware      *rest.AuditMiddleware
-
-	grpcServer     *grpclib.Server
-	grpcListener   net.Listener
-	serviceAPIOps  *serviceapi.Operations
-	serviceAPIGRPC *serviceapigrpc.ServiceAPIServer
-
-	wsHub             *observer.WebSocketHub
-	encryptionService *crypto.EncryptionService
-	rentalKeyRepo     *storage.RentalKeyRepositoryImpl
-	rentalKeyProvider *rentalkey.Provider
-	authMiddleware    *rest.AuthMiddleware
-	loginRateLimiter  *rest.LoginRateLimiter
+	// Logical component layers
+	data        DataLayer
+	auth        AuthLayer
+	execution   ExecutionLayer
+	serviceAPI  ServiceAPILayer
+	triggers    TriggerLayer
+	fileStorage FileStorageLayer
 }
 
 // New creates a new server with the given options
@@ -152,10 +105,10 @@ func (s *Server) Run() error {
 		serverErrors <- s.httpServer.ListenAndServe()
 	}()
 
-	if s.grpcServer != nil {
+	if s.serviceAPI.GRPCServerInstance != nil {
 		go func() {
 			s.logger.Info("gRPC Service API server starting", "address", s.config.GRPCServiceAPI.Address)
-			if err := s.grpcServer.Serve(s.grpcListener); err != nil {
+			if err := s.serviceAPI.GRPCServerInstance.Serve(s.serviceAPI.GRPCListener); err != nil {
 				s.logger.Error("gRPC server error", "error", err)
 				serverErrors <- err
 			}
@@ -181,27 +134,27 @@ func (s *Server) Run() error {
 
 // Shutdown gracefully stops the server
 func (s *Server) Shutdown(ctx context.Context) error {
-	if s.triggerManager != nil {
+	if s.triggers.TriggerManager != nil {
 		s.logger.Info("Stopping trigger manager...")
-		if err := s.triggerManager.Stop(); err != nil {
+		if err := s.triggers.TriggerManager.Stop(); err != nil {
 			s.logger.Error("Trigger manager shutdown failed", "error", err)
 		} else {
 			s.logger.Info("Trigger manager stopped")
 		}
 	}
 
-	if s.fileStorageManager != nil {
+	if s.fileStorage.FileStorageManager != nil {
 		s.logger.Info("Closing file storage manager...")
-		if err := s.fileStorageManager.Close(); err != nil {
+		if err := s.fileStorage.FileStorageManager.Close(); err != nil {
 			s.logger.Error("File storage manager shutdown failed", "error", err)
 		} else {
 			s.logger.Info("File storage manager closed")
 		}
 	}
 
-	if s.grpcServer != nil {
+	if s.serviceAPI.GRPCServerInstance != nil {
 		s.logger.Info("Stopping gRPC Service API server...")
-		s.grpcServer.GracefulStop()
+		s.serviceAPI.GRPCServerInstance.GracefulStop()
 		s.logger.Info("gRPC Service API server stopped")
 	}
 
@@ -213,9 +166,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 
 	// Close Redis cache
-	if s.redisCache != nil {
+	if s.data.RedisCache != nil {
 		s.logger.Info("Closing Redis cache...")
-		if err := s.redisCache.Close(); err != nil {
+		if err := s.data.RedisCache.Close(); err != nil {
 			s.logger.Error("Redis cache close failed", "error", err)
 		} else {
 			s.logger.Info("Redis cache closed")
@@ -223,9 +176,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 
 	// Close database connection
-	if s.db != nil {
+	if s.data.DB != nil {
 		s.logger.Info("Closing database connection...")
-		if err := storage.Close(s.db); err != nil {
+		if err := storage.Close(s.data.DB); err != nil {
 			s.logger.Error("Database close failed", "error", err)
 		} else {
 			s.logger.Info("Database connection closed")
@@ -243,10 +196,10 @@ func (s *Server) Router() *gin.Engine {
 
 // RegisterExecutor registers a custom executor
 func (s *Server) RegisterExecutor(nodeType string, exec executor.Executor) error {
-	if s.executorManager == nil {
+	if s.execution.ExecutorManager == nil {
 		return fmt.Errorf("executor manager not initialized")
 	}
-	return s.executorManager.Register(nodeType, exec)
+	return s.execution.ExecutorManager.Register(nodeType, exec)
 }
 
 // Config returns the server configuration
@@ -261,50 +214,50 @@ func (s *Server) Logger() *logger.Logger {
 
 // DB returns the database connection
 func (s *Server) DB() *bun.DB {
-	return s.db
+	return s.data.DB
 }
 
 // ExecutorManager returns the executor manager
 func (s *Server) ExecutorManager() executor.Manager {
-	return s.executorManager
+	return s.execution.ExecutorManager
 }
 
 // ExecutionManager returns the execution manager
 func (s *Server) ExecutionManager() *engine.ExecutionManager {
-	return s.executionManager
+	return s.execution.ExecutionManager
 }
 
 // TriggerManager returns the trigger manager
 func (s *Server) TriggerManager() *trigger.Manager {
-	return s.triggerManager
+	return s.triggers.TriggerManager
 }
 
 // ObserverManager returns the observer manager
 func (s *Server) ObserverManager() *observer.ObserverManager {
-	return s.observerManager
+	return s.execution.ObserverManager
 }
 
 // FileStorageManager returns the file storage manager
 func (s *Server) FileStorageManager() *filestorage.StorageManager {
-	return s.fileStorageManager
+	return s.fileStorage.FileStorageManager
 }
 
 // WorkflowRepository returns the workflow repository
 func (s *Server) WorkflowRepository() *storage.WorkflowRepository {
-	return s.workflowRepo
+	return s.data.WorkflowRepo
 }
 
 // ExecutionRepository returns the execution repository
 func (s *Server) ExecutionRepository() *storage.ExecutionRepository {
-	return s.executionRepo
+	return s.data.ExecutionRepo
 }
 
 // AuthService returns the auth service
 func (s *Server) AuthService() *auth.Service {
-	return s.authService
+	return s.auth.AuthService
 }
 
 // ServiceKeyService returns the service key service
 func (s *Server) ServiceKeyService() *servicekey.Service {
-	return s.serviceKeyService
+	return s.auth.ServiceKeyService
 }

@@ -84,7 +84,7 @@ func (s *Server) initDatabase() error {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	s.db = db
+	s.data.DB = db
 	s.logger.Info("Database connected",
 		"max_conns", s.config.Database.MaxConnections,
 	)
@@ -98,19 +98,19 @@ func (s *Server) initRedisCache() error {
 		return fmt.Errorf("failed to create redis cache: %w", err)
 	}
 
-	s.redisCache = redisCache
+	s.data.RedisCache = redisCache
 	s.logger.Info("Redis cache connected")
 	return nil
 }
 
 func (s *Server) initExecutorManager() error {
-	s.executorManager = executor.NewManager()
+	s.execution.ExecutorManager = executor.NewManager()
 
-	if err := builtin.RegisterBuiltins(s.executorManager); err != nil {
+	if err := builtin.RegisterBuiltins(s.execution.ExecutorManager); err != nil {
 		return fmt.Errorf("failed to register built-in executors: %w", err)
 	}
 
-	s.logger.Info("Registered executors", "types", s.executorManager.List())
+	s.logger.Info("Registered executors", "types", s.execution.ExecutorManager.List())
 	return nil
 }
 
@@ -119,22 +119,22 @@ func (s *Server) initFileStorageManager() error {
 	fileStorageConfig.BasePath = s.config.FileStorage.StoragePath
 	fileStorageConfig.MaxFileSize = s.config.FileStorage.MaxFileSize
 
-	s.fileStorageManager = filestorage.NewStorageManager(fileStorageConfig, s.logger)
+	s.fileStorage.FileStorageManager = filestorage.NewStorageManager(fileStorageConfig, s.logger)
 
 	s.logger.Info("File storage manager initialized",
 		"base_path", s.config.FileStorage.StoragePath,
 		"max_file_size", s.config.FileStorage.MaxFileSize,
 	)
 
-	if err := builtin.RegisterFileStorage(s.executorManager, s.fileStorageManager); err != nil {
+	if err := builtin.RegisterFileStorage(s.execution.ExecutorManager, s.fileStorage.FileStorageManager); err != nil {
 		return fmt.Errorf("failed to register file_storage executor: %w", err)
 	}
 
-	if err := builtin.RegisterAdapters(s.executorManager); err != nil {
+	if err := builtin.RegisterAdapters(s.execution.ExecutorManager); err != nil {
 		return fmt.Errorf("failed to register adapter executors: %w", err)
 	}
 
-	if err := builtin.RegisterFileAdapters(s.executorManager, s.fileStorageManager); err != nil {
+	if err := builtin.RegisterFileAdapters(s.execution.ExecutorManager, s.fileStorage.FileStorageManager); err != nil {
 		return fmt.Errorf("failed to register file adapter executors: %w", err)
 	}
 
@@ -143,18 +143,18 @@ func (s *Server) initFileStorageManager() error {
 
 func (s *Server) initObserverManager() error {
 	if s.config.Observer.EnableWebSocket {
-		s.wsHub = observer.NewWebSocketHub(s.logger)
+		s.execution.WSHub = observer.NewWebSocketHub(s.logger)
 		s.logger.Info("WebSocket hub initialized")
 	}
 
-	s.observerManager = observer.NewObserverManager(
+	s.execution.ObserverManager = observer.NewObserverManager(
 		observer.WithLogger(s.logger),
 		observer.WithBufferSize(s.config.Observer.BufferSize),
 	)
 
 	if s.config.Observer.EnableDatabase {
-		dbObserver := observer.NewDatabaseObserver(s.eventRepo)
-		if err := s.observerManager.Register(dbObserver); err != nil {
+		dbObserver := observer.NewDatabaseObserver(s.data.EventRepo)
+		if err := s.execution.ObserverManager.Register(dbObserver); err != nil {
 			s.logger.Error("Failed to register database observer", "error", err)
 		} else {
 			s.logger.Info("Database observer registered")
@@ -173,7 +173,7 @@ func (s *Server) initObserverManager() error {
 				2.0,
 			),
 		)
-		if err := s.observerManager.Register(httpObserver); err != nil {
+		if err := s.execution.ObserverManager.Register(httpObserver); err != nil {
 			s.logger.Error("Failed to register HTTP observer", "error", err)
 		} else {
 			s.logger.Info("HTTP callback observer registered",
@@ -187,19 +187,19 @@ func (s *Server) initObserverManager() error {
 		loggerObserver := observer.NewLoggerObserver(
 			observer.WithLoggerInstance(s.logger),
 		)
-		if err := s.observerManager.Register(loggerObserver); err != nil {
+		if err := s.execution.ObserverManager.Register(loggerObserver); err != nil {
 			s.logger.Error("Failed to register logger observer", "error", err)
 		} else {
 			s.logger.Info("Logger observer registered")
 		}
 	}
 
-	if s.config.Observer.EnableWebSocket && s.wsHub != nil {
+	if s.config.Observer.EnableWebSocket && s.execution.WSHub != nil {
 		wsObserver := observer.NewWebSocketObserver(
-			s.wsHub,
+			s.execution.WSHub,
 			observer.WithWebSocketLogger(s.logger),
 		)
-		if err := s.observerManager.Register(wsObserver); err != nil {
+		if err := s.execution.ObserverManager.Register(wsObserver); err != nil {
 			s.logger.Error("Failed to register WebSocket observer", "error", err)
 		} else {
 			s.logger.Info("WebSocket observer registered")
@@ -207,27 +207,27 @@ func (s *Server) initObserverManager() error {
 	}
 
 	s.logger.Info("Observer system initialized",
-		"observer_count", s.observerManager.Count(),
+		"observer_count", s.execution.ObserverManager.Count(),
 	)
 
 	return nil
 }
 
 func (s *Server) initRepositories() error {
-	s.workflowRepo = storage.NewWorkflowRepository(s.db)
-	s.executionRepo = storage.NewExecutionRepository(s.db)
-	s.eventRepo = storage.NewEventRepository(s.db)
-	s.triggerRepo = storage.NewTriggerRepository(s.db)
-	s.userRepo = storage.NewUserRepository(s.db)
-	s.fileRepo = storage.NewFileRepository(s.db)
-	s.accountRepo = storage.NewAccountRepository(s.db)
-	s.transactionRepo = storage.NewTransactionRepository(s.db)
-	s.resourceRepo = storage.NewResourceRepository(s.db)
-	s.pricingPlanRepo = storage.NewPricingPlanRepository(s.db)
-	s.credentialsRepo = storage.NewCredentialsRepository(s.db)
-	s.serviceKeyRepo = storage.NewServiceKeyRepository(s.db)
-	s.systemKeyRepo = storage.NewSystemKeyRepo(s.db)
-	s.auditLogRepo = storage.NewServiceAuditLogRepo(s.db)
+	s.data.WorkflowRepo = storage.NewWorkflowRepository(s.data.DB)
+	s.data.ExecutionRepo = storage.NewExecutionRepository(s.data.DB)
+	s.data.EventRepo = storage.NewEventRepository(s.data.DB)
+	s.data.TriggerRepo = storage.NewTriggerRepository(s.data.DB)
+	s.data.UserRepo = storage.NewUserRepository(s.data.DB)
+	s.data.FileRepo = storage.NewFileRepository(s.data.DB)
+	s.data.AccountRepo = storage.NewAccountRepository(s.data.DB)
+	s.data.TransactionRepo = storage.NewTransactionRepository(s.data.DB)
+	s.data.ResourceRepo = storage.NewResourceRepository(s.data.DB)
+	s.data.PricingPlanRepo = storage.NewPricingPlanRepository(s.data.DB)
+	s.data.CredentialsRepo = storage.NewCredentialsRepository(s.data.DB)
+	s.data.ServiceKeyRepo = storage.NewServiceKeyRepository(s.data.DB)
+	s.data.SystemKeyRepo = storage.NewSystemKeyRepo(s.data.DB)
+	s.data.AuditLogRepo = storage.NewServiceAuditLogRepo(s.data.DB)
 
 	s.logger.Info("Repositories initialized")
 	return nil
@@ -239,32 +239,32 @@ func (s *Server) initEncryptionServices() error {
 		return fmt.Errorf("encryption service not available: %w", err)
 	}
 
-	s.encryptionService = encryptionService
+	s.auth.EncryptionService = encryptionService
 	s.logger.Info("Encryption service initialized")
 
-	s.rentalKeyRepo = storage.NewRentalKeyRepository(s.db, encryptionService)
-	s.rentalKeyProvider = rentalkey.NewProvider(s.rentalKeyRepo, encryptionService)
+	s.data.RentalKeyRepo = storage.NewRentalKeyRepository(s.data.DB, encryptionService)
+	s.auth.RentalKeyProvider = rentalkey.NewProvider(s.data.RentalKeyRepo, encryptionService)
 
 	s.logger.Info("Rental key provider initialized")
 	return nil
 }
 
 func (s *Server) initAuthSystem() error {
-	s.authService = auth.NewService(s.userRepo, s.accountRepo, &s.config.Auth)
+	s.auth.AuthService = auth.NewService(s.data.UserRepo, s.data.AccountRepo, &s.config.Auth)
 
-	providerManager, err := auth.NewProviderManager(&s.config.Auth, s.authService)
+	providerManager, err := auth.NewProviderManager(&s.config.Auth, s.auth.AuthService)
 	if err != nil {
 		s.logger.Warn("Failed to initialize auth provider manager", "error", err)
 	}
-	s.providerManager = providerManager
+	s.auth.ProviderManager = providerManager
 
-	s.serviceKeyService = servicekey.NewService(s.serviceKeyRepo, servicekey.Config{
+	s.auth.ServiceKeyService = servicekey.NewService(s.data.ServiceKeyRepo, servicekey.Config{
 		MaxKeysPerUser:    s.config.ServiceKeys.MaxKeysPerUser,
 		DefaultExpiryDays: s.config.ServiceKeys.DefaultExpiryDays,
 	})
 
-	s.authMiddleware = rest.NewAuthMiddleware(s.providerManager, s.authService, s.serviceKeyService)
-	s.loginRateLimiter = rest.NewLoginRateLimiter(
+	s.auth.AuthMiddleware = rest.NewAuthMiddleware(s.auth.ProviderManager, s.auth.AuthService, s.auth.ServiceKeyService)
+	s.auth.LoginRateLimiter = rest.NewLoginRateLimiter(
 		s.config.Auth.MaxLoginAttempts,
 		time.Duration(s.config.Auth.MaxLoginAttempts)*time.Minute,
 		s.config.Auth.LockoutDuration,
@@ -284,13 +284,13 @@ func (s *Server) initAuthSystem() error {
 }
 
 func (s *Server) initExecutionEngine() error {
-	s.executionManager = engine.NewExecutionManager(
-		s.executorManager,
-		s.workflowRepo,
-		s.executionRepo,
-		s.eventRepo,
-		s.resourceRepo,
-		s.observerManager,
+	s.execution.ExecutionManager = engine.NewExecutionManager(
+		s.execution.ExecutorManager,
+		s.data.WorkflowRepo,
+		s.data.ExecutionRepo,
+		s.data.EventRepo,
+		s.data.ResourceRepo,
+		s.execution.ObserverManager,
 	)
 
 	s.logger.Info("Execution engine initialized")
@@ -298,24 +298,24 @@ func (s *Server) initExecutionEngine() error {
 }
 
 func (s *Server) initTriggerManager() error {
-	if s.redisCache == nil {
+	if s.data.RedisCache == nil {
 		return fmt.Errorf("trigger manager disabled - Redis cache not available")
 	}
 
 	triggerManager, err := trigger.NewManager(trigger.ManagerConfig{
-		TriggerRepo:  s.triggerRepo,
-		WorkflowRepo: s.workflowRepo,
-		ExecutionMgr: s.executionManager,
-		Cache:        s.redisCache,
+		TriggerRepo:  s.data.TriggerRepo,
+		WorkflowRepo: s.data.WorkflowRepo,
+		ExecutionMgr: s.execution.ExecutionManager,
+		Cache:        s.data.RedisCache,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create trigger manager: %w", err)
 	}
 
-	s.triggerManager = triggerManager
+	s.triggers.TriggerManager = triggerManager
 	s.logger.Info("Trigger manager initialized")
 
-	if err := s.triggerManager.Start(); err != nil {
+	if err := s.triggers.TriggerManager.Start(); err != nil {
 		return fmt.Errorf("failed to start trigger manager: %w", err)
 	}
 
@@ -324,14 +324,14 @@ func (s *Server) initTriggerManager() error {
 }
 
 func (s *Server) initSystemKeySystem() error {
-	s.systemKeyService_ = systemkey.NewService(s.systemKeyRepo, systemkey.Config{
+	s.serviceAPI.SystemKeyService = systemkey.NewService(s.data.SystemKeyRepo, systemkey.Config{
 		MaxKeys:           s.config.ServiceAPI.MaxKeys,
 		DefaultExpiryDays: s.config.ServiceAPI.DefaultExpiryDays,
 		BcryptCost:        s.config.ServiceAPI.BcryptCost,
 	})
-	s.auditService = systemkey.NewAuditService(s.auditLogRepo, s.config.ServiceAPI.AuditRetentionDays)
-	s.systemAuthMiddleware = rest.NewSystemAuthMiddleware(s.systemKeyService_, s.userRepo, s.config.ServiceAPI.SystemUserID, s.logger)
-	s.auditMiddleware = rest.NewAuditMiddleware(s.auditService, s.logger)
+	s.serviceAPI.AuditService = systemkey.NewAuditService(s.data.AuditLogRepo, s.config.ServiceAPI.AuditRetentionDays)
+	s.serviceAPI.SystemAuthMiddleware = rest.NewSystemAuthMiddleware(s.serviceAPI.SystemKeyService, s.data.UserRepo, s.config.ServiceAPI.SystemUserID, s.logger)
+	s.serviceAPI.AuditMiddleware = rest.NewAuditMiddleware(s.serviceAPI.AuditService, s.logger)
 	s.logger.Info("System key system initialized")
 	return nil
 }
