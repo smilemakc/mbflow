@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yourusername/mbflow/backend/pkg/models"
+	"github.com/smilemakc/mbflow/pkg/models"
 )
 
 func main() {
-	fmt.Println("=== MBFlow Billing System Demo ===\n")
+	fmt.Println("=== MBFlow Billing System Demo ===")
 
 	userID := "user-" + uuid.New().String()[:8]
 
@@ -64,7 +64,7 @@ func demoResourceManagement(userID string) {
 	fileSizes := []int64{
 		1024 * 1024,
 		2 * 1024 * 1024,
-		1.5 * 1024 * 1024,
+		1536 * 1024,
 	}
 
 	for i, size := range fileSizes {
