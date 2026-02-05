@@ -4,12 +4,240 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/pkg/models"
+	pkgmodels "github.com/smilemakc/mbflow/pkg/models"
 )
+
+// ============================================================================
+// Event Mappers
+// ============================================================================
+
+// EventModelToDomain converts a storage EventModel to a domain Event
+func EventModelToDomain(em *EventModel) *pkgmodels.Event {
+	if em == nil {
+		return nil
+	}
+
+	var payload map[string]interface{}
+	if em.Payload != nil {
+		payload = map[string]interface{}(em.Payload)
+	}
+
+	return &pkgmodels.Event{
+		ID:          em.ID.String(),
+		ExecutionID: em.ExecutionID.String(),
+		EventType:   em.EventType,
+		Sequence:    em.Sequence,
+		Payload:     payload,
+		CreatedAt:   em.CreatedAt,
+	}
+}
+
+// EventDomainToModel converts a domain Event to a storage EventModel
+func EventDomainToModel(e *pkgmodels.Event) *EventModel {
+	if e == nil {
+		return nil
+	}
+
+	em := &EventModel{
+		EventType: e.EventType,
+		Sequence:  e.Sequence,
+		Payload:   JSONBMap(e.Payload),
+		CreatedAt: e.CreatedAt,
+	}
+
+	if e.ID != "" {
+		if id, err := uuid.Parse(e.ID); err == nil {
+			em.ID = id
+		}
+	}
+
+	if e.ExecutionID != "" {
+		if execID, err := uuid.Parse(e.ExecutionID); err == nil {
+			em.ExecutionID = execID
+		}
+	}
+
+	return em
+}
+
+// EventModelsToDomain converts a slice of storage EventModels to domain Events
+func EventModelsToDomain(models []*EventModel) []*pkgmodels.Event {
+	if models == nil {
+		return nil
+	}
+
+	result := make([]*pkgmodels.Event, len(models))
+	for i, m := range models {
+		result[i] = EventModelToDomain(m)
+	}
+	return result
+}
+
+// ============================================================================
+// Trigger Mappers
+// ============================================================================
+
+// TriggerModelToDomain converts a storage TriggerModel to a domain Trigger
+func TriggerModelToDomain(tm *TriggerModel) *pkgmodels.Trigger {
+	if tm == nil {
+		return nil
+	}
+
+	var config map[string]interface{}
+	if tm.Config != nil {
+		config = map[string]interface{}(tm.Config)
+	}
+
+	trigger := &pkgmodels.Trigger{
+		ID:         tm.ID.String(),
+		WorkflowID: tm.WorkflowID.String(),
+		Name:       "", // TriggerModel doesn't have Name field
+		Type:       pkgmodels.TriggerType(tm.Type),
+		Config:     config,
+		Enabled:    tm.Enabled,
+		CreatedAt:  tm.CreatedAt,
+		UpdatedAt:  tm.UpdatedAt,
+		LastRun:    tm.LastTriggeredAt,
+	}
+
+	return trigger
+}
+
+// TriggerDomainToModel converts a domain Trigger to a storage TriggerModel
+func TriggerDomainToModel(t *pkgmodels.Trigger) *TriggerModel {
+	if t == nil {
+		return nil
+	}
+
+	tm := &TriggerModel{
+		Type:            string(t.Type),
+		Config:          JSONBMap(t.Config),
+		Enabled:         t.Enabled,
+		LastTriggeredAt: t.LastRun,
+		CreatedAt:       t.CreatedAt,
+		UpdatedAt:       t.UpdatedAt,
+	}
+
+	if t.ID != "" {
+		if id, err := uuid.Parse(t.ID); err == nil {
+			tm.ID = id
+		}
+	}
+
+	if t.WorkflowID != "" {
+		if wfID, err := uuid.Parse(t.WorkflowID); err == nil {
+			tm.WorkflowID = wfID
+		}
+	}
+
+	return tm
+}
+
+// TriggerModelsToDomain converts a slice of storage TriggerModels to domain Triggers
+func TriggerModelsToDomain(models []*TriggerModel) []*pkgmodels.Trigger {
+	if models == nil {
+		return nil
+	}
+
+	result := make([]*pkgmodels.Trigger, len(models))
+	for i, m := range models {
+		result[i] = TriggerModelToDomain(m)
+	}
+	return result
+}
+
+// ============================================================================
+// AuditLog Mappers
+// ============================================================================
+
+// AuditLogModelToDomain converts a storage AuditLogModel to a domain AuditLog
+func AuditLogModelToDomain(am *AuditLogModel) *pkgmodels.AuditLog {
+	if am == nil {
+		return nil
+	}
+
+	var userID *string
+	if am.UserID != nil {
+		uid := am.UserID.String()
+		userID = &uid
+	}
+
+	var resourceID *string
+	if am.ResourceID != nil {
+		rid := am.ResourceID.String()
+		resourceID = &rid
+	}
+
+	var metadata map[string]interface{}
+	if am.Metadata != nil {
+		metadata = map[string]interface{}(am.Metadata)
+	}
+
+	return &pkgmodels.AuditLog{
+		ID:           am.ID.String(),
+		UserID:       userID,
+		Action:       am.Action,
+		ResourceType: am.ResourceType,
+		ResourceID:   resourceID,
+		IPAddress:    am.IPAddress,
+		UserAgent:    am.UserAgent,
+		Metadata:     metadata,
+		CreatedAt:    am.CreatedAt,
+	}
+}
+
+// AuditLogDomainToModel converts a domain AuditLog to a storage AuditLogModel
+func AuditLogDomainToModel(a *pkgmodels.AuditLog) *AuditLogModel {
+	if a == nil {
+		return nil
+	}
+
+	am := &AuditLogModel{
+		Action:       a.Action,
+		ResourceType: a.ResourceType,
+		IPAddress:    a.IPAddress,
+		UserAgent:    a.UserAgent,
+		Metadata:     JSONBMap(a.Metadata),
+		CreatedAt:    a.CreatedAt,
+	}
+
+	if a.ID != "" {
+		if id, err := uuid.Parse(a.ID); err == nil {
+			am.ID = id
+		}
+	}
+
+	if a.UserID != nil && *a.UserID != "" {
+		if userID, err := uuid.Parse(*a.UserID); err == nil {
+			am.UserID = &userID
+		}
+	}
+
+	if a.ResourceID != nil && *a.ResourceID != "" {
+		if resourceID, err := uuid.Parse(*a.ResourceID); err == nil {
+			am.ResourceID = &resourceID
+		}
+	}
+
+	return am
+}
+
+// AuditLogModelsToDomain converts a slice of storage AuditLogModels to domain AuditLogs
+func AuditLogModelsToDomain(models []*AuditLogModel) []*pkgmodels.AuditLog {
+	if models == nil {
+		return nil
+	}
+
+	result := make([]*pkgmodels.AuditLog, len(models))
+	for i, m := range models {
+		result[i] = AuditLogModelToDomain(m)
+	}
+	return result
+}
 
 // WorkflowToStorage converts a domain workflow to a storage workflow model
 // This is used for both Create and Update operations
-func WorkflowToStorage(w *models.Workflow, workflowID uuid.UUID) *WorkflowModel {
+func WorkflowToStorage(w *pkgmodels.Workflow, workflowID uuid.UUID) *WorkflowModel {
 	storageNodes := make([]*NodeModel, len(w.Nodes))
 	for i, node := range w.Nodes {
 		storageNodes[i] = NodeToStorage(node, workflowID)
@@ -43,7 +271,7 @@ func WorkflowToStorage(w *models.Workflow, workflowID uuid.UUID) *WorkflowModel 
 }
 
 // NodeToStorage converts a domain node to a storage node model
-func NodeToStorage(n *models.Node, workflowID uuid.UUID) *NodeModel {
+func NodeToStorage(n *pkgmodels.Node, workflowID uuid.UUID) *NodeModel {
 	position := JSONBMap{}
 	if n.Position != nil {
 		position["x"] = n.Position.X
@@ -62,7 +290,7 @@ func NodeToStorage(n *models.Node, workflowID uuid.UUID) *NodeModel {
 }
 
 // EdgeToStorage converts a domain edge to a storage edge model
-func EdgeToStorage(e *models.Edge, workflowID uuid.UUID) *EdgeModel {
+func EdgeToStorage(e *pkgmodels.Edge, workflowID uuid.UUID) *EdgeModel {
 	var condition JSONBMap
 	if e.Condition != "" {
 		// Store condition as a simple map for now
@@ -80,13 +308,13 @@ func EdgeToStorage(e *models.Edge, workflowID uuid.UUID) *EdgeModel {
 }
 
 // WorkflowFromStorage converts a storage workflow model to a domain workflow
-func WorkflowFromStorage(sw *WorkflowModel) *models.Workflow {
-	nodes := make([]*models.Node, len(sw.Nodes))
+func WorkflowFromStorage(sw *WorkflowModel) *pkgmodels.Workflow {
+	nodes := make([]*pkgmodels.Node, len(sw.Nodes))
 	for i, node := range sw.Nodes {
 		nodes[i] = NodeFromStorage(node)
 	}
 
-	edges := make([]*models.Edge, len(sw.Edges))
+	edges := make([]*pkgmodels.Edge, len(sw.Edges))
 	for i, edge := range sw.Edges {
 		edges[i] = EdgeFromStorage(edge)
 	}
@@ -117,12 +345,12 @@ func WorkflowFromStorage(sw *WorkflowModel) *models.Workflow {
 		}
 	}
 
-	return &models.Workflow{
+	return &pkgmodels.Workflow{
 		ID:          sw.ID.String(),
 		Name:        sw.Name,
 		Description: sw.Description,
 		Version:     sw.Version,
-		Status:      models.WorkflowStatus(sw.Status),
+		Status:      pkgmodels.WorkflowStatus(sw.Status),
 		Tags:        tags,
 		Nodes:       nodes,
 		Edges:       edges,
@@ -135,12 +363,12 @@ func WorkflowFromStorage(sw *WorkflowModel) *models.Workflow {
 }
 
 // NodeFromStorage converts a storage node model to a domain node
-func NodeFromStorage(sn *NodeModel) *models.Node {
-	var position *models.Position
+func NodeFromStorage(sn *NodeModel) *pkgmodels.Node {
+	var position *pkgmodels.Position
 	if sn.Position != nil {
 		x, _ := sn.Position["x"].(float64)
 		y, _ := sn.Position["y"].(float64)
-		position = &models.Position{X: x, Y: y}
+		position = &pkgmodels.Position{X: x, Y: y}
 	}
 
 	var config map[string]interface{}
@@ -151,7 +379,7 @@ func NodeFromStorage(sn *NodeModel) *models.Node {
 	var metadata map[string]interface{}
 	// NodeModel doesn't have metadata yet, but we're ready for it
 
-	return &models.Node{
+	return &pkgmodels.Node{
 		ID:          sn.NodeID, // Use logical ID
 		Name:        sn.Name,
 		Type:        sn.Type,
@@ -163,7 +391,7 @@ func NodeFromStorage(sn *NodeModel) *models.Node {
 }
 
 // EdgeFromStorage converts a storage edge model to a domain edge
-func EdgeFromStorage(se *EdgeModel) *models.Edge {
+func EdgeFromStorage(se *EdgeModel) *pkgmodels.Edge {
 	var condition string
 	if se.Condition != nil {
 		if expr, ok := se.Condition["expression"].(string); ok {
@@ -174,7 +402,7 @@ func EdgeFromStorage(se *EdgeModel) *models.Edge {
 	var metadata map[string]interface{}
 	// EdgeModel doesn't have metadata yet, but we're ready for it
 
-	return &models.Edge{
+	return &pkgmodels.Edge{
 		ID:        se.EdgeID,     // Use logical ID
 		From:      se.FromNodeID, // Use logical ID
 		To:        se.ToNodeID,   // Use logical ID
@@ -184,7 +412,7 @@ func EdgeFromStorage(se *EdgeModel) *models.Edge {
 }
 
 // WorkflowResourceToStorage converts domain WorkflowResource to storage model
-func WorkflowResourceToStorage(domain *models.WorkflowResource, workflowID uuid.UUID) *WorkflowResourceModel {
+func WorkflowResourceToStorage(domain *pkgmodels.WorkflowResource, workflowID uuid.UUID) *WorkflowResourceModel {
 	resourceID, _ := uuid.Parse(domain.ResourceID)
 	return &WorkflowResourceModel{
 		WorkflowID: workflowID,
@@ -196,8 +424,8 @@ func WorkflowResourceToStorage(domain *models.WorkflowResource, workflowID uuid.
 }
 
 // WorkflowResourceFromStorage converts storage model to domain WorkflowResource
-func WorkflowResourceFromStorage(storage *WorkflowResourceModel) *models.WorkflowResource {
-	return &models.WorkflowResource{
+func WorkflowResourceFromStorage(storage *WorkflowResourceModel) *pkgmodels.WorkflowResource {
+	return &pkgmodels.WorkflowResource{
 		ResourceID: storage.ResourceID.String(),
 		Alias:      storage.Alias,
 		AccessType: storage.AccessType,
@@ -205,7 +433,7 @@ func WorkflowResourceFromStorage(storage *WorkflowResourceModel) *models.Workflo
 }
 
 // WorkflowResourcesToStorage converts slice of domain WorkflowResource to storage models
-func WorkflowResourcesToStorage(domains []models.WorkflowResource, workflowID uuid.UUID) []*WorkflowResourceModel {
+func WorkflowResourcesToStorage(domains []pkgmodels.WorkflowResource, workflowID uuid.UUID) []*WorkflowResourceModel {
 	result := make([]*WorkflowResourceModel, len(domains))
 	for i, d := range domains {
 		result[i] = WorkflowResourceToStorage(&d, workflowID)
@@ -214,8 +442,8 @@ func WorkflowResourcesToStorage(domains []models.WorkflowResource, workflowID uu
 }
 
 // WorkflowResourcesFromStorage converts slice of storage models to domain WorkflowResources
-func WorkflowResourcesFromStorage(storage []*WorkflowResourceModel) []models.WorkflowResource {
-	result := make([]models.WorkflowResource, len(storage))
+func WorkflowResourcesFromStorage(storage []*WorkflowResourceModel) []pkgmodels.WorkflowResource {
+	result := make([]pkgmodels.WorkflowResource, len(storage))
 	for i, s := range storage {
 		result[i] = *WorkflowResourceFromStorage(s)
 	}
@@ -223,16 +451,16 @@ func WorkflowResourcesFromStorage(storage []*WorkflowResourceModel) []models.Wor
 }
 
 // WorkflowModelToDomain converts storage WorkflowModel to domain Workflow
-func WorkflowModelToDomain(wm *WorkflowModel) *models.Workflow {
+func WorkflowModelToDomain(wm *WorkflowModel) *pkgmodels.Workflow {
 	if wm == nil {
 		return nil
 	}
 
-	workflow := &models.Workflow{
+	workflow := &pkgmodels.Workflow{
 		ID:          wm.ID.String(),
 		Name:        wm.Name,
 		Description: wm.Description,
-		Status:      models.WorkflowStatus(wm.Status),
+		Status:      pkgmodels.WorkflowStatus(wm.Status),
 		Variables:   make(map[string]interface{}),
 		Metadata:    make(map[string]interface{}),
 		CreatedAt:   wm.CreatedAt,
@@ -251,19 +479,19 @@ func WorkflowModelToDomain(wm *WorkflowModel) *models.Workflow {
 		workflow.Metadata = map[string]interface{}(wm.Metadata)
 	}
 
-	workflow.Nodes = make([]*models.Node, 0, len(wm.Nodes))
+	workflow.Nodes = make([]*pkgmodels.Node, 0, len(wm.Nodes))
 	for _, nm := range wm.Nodes {
 		workflow.Nodes = append(workflow.Nodes, NodeModelToDomain(nm))
 	}
 
-	workflow.Edges = make([]*models.Edge, 0, len(wm.Edges))
+	workflow.Edges = make([]*pkgmodels.Edge, 0, len(wm.Edges))
 	for _, em := range wm.Edges {
 		workflow.Edges = append(workflow.Edges, EdgeModelToDomain(em))
 	}
 
-	workflow.Resources = make([]models.WorkflowResource, 0, len(wm.Resources))
+	workflow.Resources = make([]pkgmodels.WorkflowResource, 0, len(wm.Resources))
 	for _, rm := range wm.Resources {
-		wr := models.WorkflowResource{
+		wr := pkgmodels.WorkflowResource{
 			ResourceID: rm.ResourceID.String(),
 			Alias:      rm.Alias,
 			AccessType: rm.AccessType,
@@ -279,12 +507,12 @@ func WorkflowModelToDomain(wm *WorkflowModel) *models.Workflow {
 }
 
 // NodeModelToDomain converts storage NodeModel to domain Node
-func NodeModelToDomain(nm *NodeModel) *models.Node {
+func NodeModelToDomain(nm *NodeModel) *pkgmodels.Node {
 	if nm == nil {
 		return nil
 	}
 
-	node := &models.Node{
+	node := &pkgmodels.Node{
 		ID:     nm.NodeID,
 		Name:   nm.Name,
 		Type:   nm.Type,
@@ -299,7 +527,7 @@ func NodeModelToDomain(nm *NodeModel) *models.Node {
 		posMap := map[string]interface{}(nm.Position)
 		if x, ok := posMap["x"].(float64); ok {
 			if y, ok := posMap["y"].(float64); ok {
-				node.Position = &models.Position{X: x, Y: y}
+				node.Position = &pkgmodels.Position{X: x, Y: y}
 			}
 		}
 	}
@@ -308,12 +536,12 @@ func NodeModelToDomain(nm *NodeModel) *models.Node {
 }
 
 // EdgeModelToDomain converts storage EdgeModel to domain Edge
-func EdgeModelToDomain(em *EdgeModel) *models.Edge {
+func EdgeModelToDomain(em *EdgeModel) *pkgmodels.Edge {
 	if em == nil {
 		return nil
 	}
 
-	edge := &models.Edge{
+	edge := &pkgmodels.Edge{
 		ID:   em.EdgeID,
 		From: em.FromNodeID,
 		To:   em.ToNodeID,
@@ -329,15 +557,15 @@ func EdgeModelToDomain(em *EdgeModel) *models.Edge {
 }
 
 // ExecutionModelToDomain converts storage ExecutionModel to domain Execution
-func ExecutionModelToDomain(exm *ExecutionModel) *models.Execution {
+func ExecutionModelToDomain(exm *ExecutionModel) *pkgmodels.Execution {
 	if exm == nil {
 		return nil
 	}
 
-	exec := &models.Execution{
+	exec := &pkgmodels.Execution{
 		ID:         exm.ID.String(),
 		WorkflowID: exm.WorkflowID.String(),
-		Status:     models.ExecutionStatus(exm.Status),
+		Status:     pkgmodels.ExecutionStatus(exm.Status),
 		Input:      make(map[string]interface{}),
 		Output:     make(map[string]interface{}),
 		Variables:  make(map[string]interface{}),
@@ -368,7 +596,7 @@ func ExecutionModelToDomain(exm *ExecutionModel) *models.Execution {
 	}
 
 	if len(exm.NodeExecutions) > 0 {
-		exec.NodeExecutions = make([]*models.NodeExecution, len(exm.NodeExecutions))
+		exec.NodeExecutions = make([]*pkgmodels.NodeExecution, len(exm.NodeExecutions))
 		for i, ne := range exm.NodeExecutions {
 			exec.NodeExecutions[i] = NodeExecutionModelToDomain(ne)
 		}
@@ -378,7 +606,7 @@ func ExecutionModelToDomain(exm *ExecutionModel) *models.Execution {
 }
 
 // ExecutionDomainToModel converts domain Execution to storage ExecutionModel
-func ExecutionDomainToModel(exec *models.Execution) *ExecutionModel {
+func ExecutionDomainToModel(exec *pkgmodels.Execution) *ExecutionModel {
 	if exec == nil {
 		return nil
 	}
@@ -422,16 +650,16 @@ func ExecutionDomainToModel(exec *models.Execution) *ExecutionModel {
 }
 
 // NodeExecutionModelToDomain converts storage NodeExecutionModel to domain NodeExecution
-func NodeExecutionModelToDomain(nem *NodeExecutionModel) *models.NodeExecution {
+func NodeExecutionModelToDomain(nem *NodeExecutionModel) *pkgmodels.NodeExecution {
 	if nem == nil {
 		return nil
 	}
 
-	ne := &models.NodeExecution{
+	ne := &pkgmodels.NodeExecution{
 		ID:             nem.ID.String(),
 		ExecutionID:    nem.ExecutionID.String(),
 		NodeID:         nem.NodeID.String(),
-		Status:         models.NodeExecutionStatus(nem.Status),
+		Status:         pkgmodels.NodeExecutionStatus(nem.Status),
 		Input:          make(map[string]interface{}),
 		Output:         make(map[string]interface{}),
 		Config:         make(map[string]interface{}),
@@ -471,7 +699,7 @@ func NodeExecutionModelToDomain(nem *NodeExecutionModel) *models.NodeExecution {
 }
 
 // NodeExecutionDomainToModel converts domain NodeExecution to storage NodeExecutionModel
-func NodeExecutionDomainToModel(ne *models.NodeExecution) *NodeExecutionModel {
+func NodeExecutionDomainToModel(ne *pkgmodels.NodeExecution) *NodeExecutionModel {
 	if ne == nil {
 		return nil
 	}
