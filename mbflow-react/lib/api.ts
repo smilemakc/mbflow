@@ -5,6 +5,27 @@ import { toast } from './toast';
 const API_URL = (import.meta as any).env?.VITE_API_URL || '/api/v1';
 
 /**
+ * Standard response envelope for single objects
+ * Backend returns: { data: T }
+ */
+export interface ApiResponse<T> {
+  data: T;
+}
+
+/**
+ * Standard response envelope for paginated lists
+ * Backend returns: { data: T[], meta: { total, limit, offset } }
+ */
+export interface ApiListResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    limit: number;
+    offset: number;
+  };
+}
+
+/**
  * APIError - структура ошибки от backend
  * Новый формат: { code: string, message: string, details?: object }
  * Legacy формат: { error: string }

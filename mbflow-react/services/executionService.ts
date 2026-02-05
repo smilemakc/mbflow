@@ -1,4 +1,4 @@
-import { apiClient } from '../lib/api';
+import { apiClient, ApiResponse, ApiListResponse } from '../lib/api';
 import { NodeExecutionResult, ExecutionLog } from '@/types';
 import {
   executionFromApi,
@@ -17,13 +17,6 @@ export interface ExecutionStatusResponse {
   logs: ExecutionLog[];
 }
 
-interface ExecutionListResponse {
-  executions: ExecutionApiResponse[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
 interface LogsResponse {
   logs: {
     timestamp: string;
@@ -38,23 +31,24 @@ interface LogsResponse {
 export const executionService = {
   // Trigger a new execution
   trigger: async (workflowId: string, input?: Record<string, any>) => {
-    const response = await apiClient.post<ExecutionApiResponse>(`/executions/run/${workflowId}`, {
+    const response = await apiClient.post<ApiResponse<ExecutionApiResponse>>(`/executions/run/${workflowId}`, {
       input: input || {},
       async: true,
     });
-    return executionFromApi(response.data);
+    return executionFromApi(response.data.data);
   },
 
   // Get status of a running execution
   getStatus: async (executionId: string) => {
-    const response = await apiClient.get<ExecutionApiResponse>(`/executions/${executionId}`);
-    return executionFromApi(response.data);
+    const response = await apiClient.get<ApiResponse<ExecutionApiResponse>>(`/executions/${executionId}`);
+    return executionFromApi(response.data.data);
   },
 
   // Get logs for an execution
   getLogs: async (executionId: string) => {
-    const response = await apiClient.get<LogsResponse>(`/executions/${executionId}/logs`);
-    return response.data.logs.map(log => ({
+    const response = await apiClient.get<ApiResponse<LogsResponse>>(`/executions/${executionId}/logs`);
+    const logsData = response.data.data;
+    return logsData.logs.map(log => ({
       id: `${log.timestamp}_${log.event_type}`,
       nodeId: log.data?.node_id || null,
       level: log.level as 'info' | 'error' | 'success' | 'warning',
@@ -65,8 +59,8 @@ export const executionService = {
 
   // Get recent executions
   getRecent: async (limit = 5) => {
-    const response = await apiClient.get<ExecutionListResponse>(`/executions?limit=${limit}`);
-    return response.data.executions.map(executionFromApi);
+    const response = await apiClient.get<ApiListResponse<ExecutionApiResponse>>(`/executions?limit=${limit}`);
+    return response.data.data.map(executionFromApi);
   },
 
   // Cancel execution (not implemented on backend yet)
@@ -91,22 +85,22 @@ export const executionService = {
     if (params?.from) queryParams.append('from', params.from);
     if (params?.to) queryParams.append('to', params.to);
 
-    const response = await apiClient.get<ExecutionListResponse>(
+    const response = await apiClient.get<ApiListResponse<ExecutionApiResponse>>(
       `/executions?${queryParams.toString()}`
     );
     return {
-      executions: response.data.executions.map(executionFromApi),
-      total: response.data.total,
-      limit: response.data.limit,
-      offset: response.data.offset,
+      executions: response.data.data.map(executionFromApi),
+      total: response.data.meta.total,
+      limit: response.data.meta.limit,
+      offset: response.data.meta.offset,
     };
   },
 
   // Retry a failed execution
   retry: async (executionId: string) => {
-    const response = await apiClient.post<ExecutionApiResponse>(
+    const response = await apiClient.post<ApiResponse<ExecutionApiResponse>>(
       `/executions/${executionId}/retry`
     );
-    return executionFromApi(response.data);
+    return executionFromApi(response.data.data);
   }
 };
