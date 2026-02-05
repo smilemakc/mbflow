@@ -12,6 +12,7 @@ func LLMProvider(provider models.LLMProvider) NodeOption {
 		validProviders := map[models.LLMProvider]bool{
 			models.LLMProviderOpenAI:    true,
 			models.LLMProviderAnthropic: true,
+			models.LLMProviderGemini:    true,
 		}
 		if !validProviders[provider] {
 			return fmt.Errorf("unsupported LLM provider: %s", provider)
@@ -146,6 +147,17 @@ func NewOpenAINode(id, name, model, prompt string, opts ...NodeOption) *NodeBuil
 func NewAnthropicNode(id, name, model, prompt string, opts ...NodeOption) *NodeBuilder {
 	allOpts := []NodeOption{
 		LLMProvider(models.LLMProviderAnthropic),
+		LLMModel(model),
+		LLMPrompt(prompt),
+	}
+	allOpts = append(allOpts, opts...)
+	return NewNode(id, "llm", name, allOpts...)
+}
+
+// NewGeminiNode creates a new Google Gemini LLM node builder.
+func NewGeminiNode(id, name, model, prompt string, opts ...NodeOption) *NodeBuilder {
+	allOpts := []NodeOption{
+		LLMProvider(models.LLMProviderGemini),
 		LLMModel(model),
 		LLMPrompt(prompt),
 	}

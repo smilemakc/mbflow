@@ -150,6 +150,7 @@ func (e *LLMExecutor) Validate(config map[string]interface{}) error {
 		models.LLMProviderOpenAI:          true,
 		models.LLMProviderOpenAIResponses: true,
 		models.LLMProviderAnthropic:       true,
+		models.LLMProviderGemini:          true,
 	}
 	if !validProviders[provider] {
 		return fmt.Errorf("unsupported LLM provider: %s", providerStr)
@@ -519,6 +520,10 @@ func (e *LLMExecutor) getOrCreateProvider(req *models.LLMRequest) (LLMProvider, 
 		baseURL, _ := req.ProviderConfig["base_url"].(string)
 		orgID, _ := req.ProviderConfig["org_id"].(string)
 		return NewOpenAIResponsesProvider(apiKey, baseURL, orgID)
+	case models.LLMProviderGemini:
+		apiKey, _ := req.ProviderConfig["api_key"].(string)
+		baseURL, _ := req.ProviderConfig["base_url"].(string)
+		return NewGeminiProvider(apiKey, baseURL)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", req.Provider)
 	}

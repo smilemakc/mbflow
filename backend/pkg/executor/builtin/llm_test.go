@@ -564,6 +564,20 @@ func TestLLMExecutor_UnsupportedProvider(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported LLM provider")
 }
 
+func TestLLMExecutor_Validate_GeminiProvider(t *testing.T) {
+	executor := NewLLMExecutor()
+
+	config := map[string]interface{}{
+		"provider": "gemini",
+		"model":    "gemini-2.5-flash",
+		"prompt":   "Hello",
+		"api_key":  "test-gemini-key",
+	}
+
+	err := executor.Validate(config)
+	assert.NoError(t, err)
+}
+
 func TestLLMExecutor_WithInputTemplates(t *testing.T) {
 	exec := NewLLMExecutor()
 
@@ -1423,6 +1437,54 @@ func TestLLMExecutor_getOrCreateProvider_OpenAIResponses(t *testing.T) {
 	// Verify it's an OpenAI Responses provider
 	_, ok := provider.(*OpenAIResponsesProvider)
 	assert.True(t, ok, "Expected OpenAI Responses provider")
+}
+
+// TestLLMExecutor_getOrCreateProvider_Gemini tests provider creation for Gemini
+func TestLLMExecutor_getOrCreateProvider_Gemini(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: models.LLMProviderGemini,
+		Model:    "gemini-2.5-flash",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key": "test-gemini-key",
+		},
+	}
+
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	_, ok := provider.(*GeminiProvider)
+	assert.True(t, ok, "Expected Gemini provider")
+}
+
+// TestLLMExecutor_getOrCreateProvider_GeminiWithBaseURL tests Gemini provider with custom base URL
+func TestLLMExecutor_getOrCreateProvider_GeminiWithBaseURL(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	req := &models.LLMRequest{
+		Provider: models.LLMProviderGemini,
+		Model:    "gemini-2.5-flash",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "test"},
+		},
+		ProviderConfig: map[string]interface{}{
+			"api_key":  "test-gemini-key",
+			"base_url": "https://custom-proxy.example.com/v1beta",
+		},
+	}
+
+	provider, err := exec.getOrCreateProvider(req)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+
+	geminiProvider, ok := provider.(*GeminiProvider)
+	assert.True(t, ok, "Expected Gemini provider")
+	assert.Equal(t, "https://custom-proxy.example.com/v1beta", geminiProvider.baseURL)
 }
 
 // TestLLMExecutor_getOrCreateProvider_UnsupportedProvider tests error for unsupported provider

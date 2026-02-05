@@ -9,6 +9,7 @@ const (
 	LLMProviderOpenAI          LLMProvider = "openai"           // Chat Completions API
 	LLMProviderOpenAIResponses LLMProvider = "openai-responses" // Responses API (GPT-5, o3-mini, gpt-4.1+)
 	LLMProviderAnthropic       LLMProvider = "anthropic"
+	LLMProviderGemini          LLMProvider = "gemini" // Google Gemini API
 )
 
 // LLMRequest represents a request to an LLM.
