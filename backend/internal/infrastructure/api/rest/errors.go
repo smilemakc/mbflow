@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/smilemakc/mbflow/internal/application/auth"
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -64,6 +65,11 @@ func TranslateError(err error) *APIError {
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
 		return apiErr
+	}
+
+	var opErr *serviceapi.OperationError
+	if errors.As(err, &opErr) {
+		return NewAPIError(opErr.Code, opErr.Message, opErr.HTTPStatus)
 	}
 
 	switch {

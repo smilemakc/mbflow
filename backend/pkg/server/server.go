@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,17 +13,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
+	grpclib "google.golang.org/grpc"
 
 	"github.com/smilemakc/mbflow/internal/application/auth"
 	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/application/rentalkey"
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/internal/application/servicekey"
 	"github.com/smilemakc/mbflow/internal/application/systemkey"
 	"github.com/smilemakc/mbflow/internal/application/trigger"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
+	serviceapigrpc "github.com/smilemakc/mbflow/internal/infrastructure/api/grpc"
 	"github.com/smilemakc/mbflow/internal/infrastructure/api/rest"
 	"github.com/smilemakc/mbflow/internal/infrastructure/cache"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
@@ -72,6 +76,11 @@ type Server struct {
 	systemAuthMiddleware *rest.SystemAuthMiddleware
 	auditMiddleware      *rest.AuditMiddleware
 
+	grpcServer     *grpclib.Server
+	grpcListener   net.Listener
+	serviceAPIOps  *serviceapi.Operations
+	serviceAPIGRPC *serviceapigrpc.ServiceAPIServer
+
 	wsHub             *observer.WebSocketHub
 	encryptionService *crypto.EncryptionService
 	rentalKeyRepo     *storage.RentalKeyRepositoryImpl
@@ -111,6 +120,10 @@ func New(opts ...Option) (*Server, error) {
 		return nil, fmt.Errorf("failed to setup routes: %w", err)
 	}
 
+	if err := s.setupGRPCServer(); err != nil {
+		return nil, fmt.Errorf("failed to setup gRPC server: %w", err)
+	}
+
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port),
 		Handler:      s.router,
@@ -138,6 +151,16 @@ func (s *Server) Run() error {
 		)
 		serverErrors <- s.httpServer.ListenAndServe()
 	}()
+
+	if s.grpcServer != nil {
+		go func() {
+			s.logger.Info("gRPC Service API server starting", "address", s.config.GRPCServiceAPI.Address)
+			if err := s.grpcServer.Serve(s.grpcListener); err != nil {
+				s.logger.Error("gRPC server error", "error", err)
+				serverErrors <- err
+			}
+		}()
+	}
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
@@ -174,6 +197,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		} else {
 			s.logger.Info("File storage manager closed")
 		}
+	}
+
+	if s.grpcServer != nil {
+		s.logger.Info("Stopping gRPC Service API server...")
+		s.grpcServer.GracefulStop()
+		s.logger.Info("gRPC Service API server stopped")
 	}
 
 	if err := s.httpServer.Shutdown(ctx); err != nil {

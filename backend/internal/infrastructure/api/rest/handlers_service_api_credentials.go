@@ -1,70 +1,32 @@
 package rest
 
 import (
-	"errors"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
-	"github.com/smilemakc/mbflow/internal/domain/repository"
-	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
-	"github.com/smilemakc/mbflow/pkg/crypto"
-	"github.com/smilemakc/mbflow/pkg/models"
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 )
 
 type ServiceAPICredentialHandlers struct {
-	credentialsRepo repository.CredentialsRepository
-	workflowRepo    repository.WorkflowRepository
-	encryptionSvc   *crypto.EncryptionService
-	logger          *logger.Logger
+	ops *serviceapi.Operations
 }
 
-func NewServiceAPICredentialHandlers(
-	credentialsRepo repository.CredentialsRepository,
-	workflowRepo repository.WorkflowRepository,
-	encryptionSvc *crypto.EncryptionService,
-	log *logger.Logger,
-) *ServiceAPICredentialHandlers {
-	return &ServiceAPICredentialHandlers{
-		credentialsRepo: credentialsRepo,
-		workflowRepo:    workflowRepo,
-		encryptionSvc:   encryptionSvc,
-		logger:          log,
-	}
+func NewServiceAPICredentialHandlers(ops *serviceapi.Operations) *ServiceAPICredentialHandlers {
+	return &ServiceAPICredentialHandlers{ops: ops}
 }
 
 func (h *ServiceAPICredentialHandlers) ListCredentials(c *gin.Context) {
-	userIDParam := c.Query("user_id")
-	provider := c.Query("provider")
-
-	if userIDParam == "" {
-		respondError(c, http.StatusBadRequest, "user_id query parameter is required")
-		return
-	}
-
-	var credentials []*models.CredentialsResource
-	var err error
-
-	if provider != "" {
-		credentials, err = h.credentialsRepo.GetCredentialsByProvider(c.Request.Context(), userIDParam, provider)
-	} else {
-		credentials, err = h.credentialsRepo.GetCredentialsByOwner(c.Request.Context(), userIDParam)
-	}
-
+	result, err := h.ops.ListCredentials(c.Request.Context(), serviceapi.ListCredentialsParams{
+		UserID:   c.Query("user_id"),
+		Provider: c.Query("provider"),
+	})
 	if err != nil {
-		h.logger.Error("Failed to list credentials", "error", err, "user_id", userIDParam)
-		respondError(c, http.StatusInternalServerError, "failed to list credentials")
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
-	response := make([]CredentialResponse, len(credentials))
-	for i, cred := range credentials {
-		response[i] = toServiceAPICredentialResponse(cred)
-	}
-
-	c.JSON(http.StatusOK, gin.H{"credentials": response})
+	c.JSON(http.StatusOK, gin.H{"credentials": result.Credentials})
 }
 
 func (h *ServiceAPICredentialHandlers) CreateCredential(c *gin.Context) {
@@ -86,38 +48,20 @@ func (h *ServiceAPICredentialHandlers) CreateCredential(c *gin.Context) {
 		return
 	}
 
-	credType := models.CredentialType(req.CredentialType)
-	if !models.IsValidCredentialType(credType) {
-		respondError(c, http.StatusBadRequest, "invalid credential_type")
-		return
-	}
-
-	encryptedData, err := h.encryptionSvc.EncryptMap(req.Data)
+	cred, err := h.ops.CreateCredential(c.Request.Context(), serviceapi.CreateCredentialParams{
+		UserID:         userID,
+		Name:           req.Name,
+		Description:    req.Description,
+		CredentialType: req.CredentialType,
+		Provider:       req.Provider,
+		Data:           req.Data,
+	})
 	if err != nil {
-		h.logger.Error("Failed to encrypt credential data", "error", err, "user_id", userID)
-		respondError(c, http.StatusInternalServerError, "encryption failed")
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
-	cred := models.NewCredentialsResource(userID, req.Name, credType)
-	cred.Description = req.Description
-	cred.Provider = req.Provider
-	cred.EncryptedData = encryptedData
-
-	if err := h.credentialsRepo.CreateCredentials(c.Request.Context(), cred); err != nil {
-		h.logger.Error("Failed to create credential", "error", err, "user_id", userID)
-		respondError(c, http.StatusInternalServerError, "failed to create credential")
-		return
-	}
-
-	h.logger.Info("Credential created via service API",
-		"credential_id", cred.ID,
-		"user_id", userID,
-		"name", cred.Name,
-		"credential_type", req.CredentialType,
-	)
-
-	respondJSON(c, http.StatusCreated, toServiceAPICredentialResponse(cred))
+	respondJSON(c, http.StatusCreated, cred)
 }
 
 func (h *ServiceAPICredentialHandlers) UpdateCredential(c *gin.Context) {
@@ -131,32 +75,17 @@ func (h *ServiceAPICredentialHandlers) UpdateCredential(c *gin.Context) {
 		return
 	}
 
-	cred, err := h.credentialsRepo.GetCredentials(c.Request.Context(), credentialID)
+	cred, err := h.ops.UpdateCredential(c.Request.Context(), serviceapi.UpdateCredentialParams{
+		CredentialID: credentialID,
+		Name:         req.Name,
+		Description:  req.Description,
+	})
 	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "credential not found")
-			return
-		}
-		h.logger.Error("Failed to get credential", "error", err, "credential_id", credentialID)
-		respondError(c, http.StatusInternalServerError, "failed to get credential")
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
-	if req.Name != "" {
-		cred.Name = req.Name
-	}
-	cred.Description = req.Description
-	cred.UpdatedAt = time.Now()
-
-	if err := h.credentialsRepo.UpdateCredentials(c.Request.Context(), cred); err != nil {
-		h.logger.Error("Failed to update credential", "error", err, "credential_id", credentialID)
-		respondError(c, http.StatusInternalServerError, "failed to update credential")
-		return
-	}
-
-	h.logger.Info("Credential updated via service API", "credential_id", credentialID)
-
-	c.JSON(http.StatusOK, toServiceAPICredentialResponse(cred))
+	c.JSON(http.StatusOK, cred)
 }
 
 func (h *ServiceAPICredentialHandlers) DeleteCredential(c *gin.Context) {
@@ -165,66 +94,12 @@ func (h *ServiceAPICredentialHandlers) DeleteCredential(c *gin.Context) {
 		return
 	}
 
-	_, err := h.credentialsRepo.GetCredentials(c.Request.Context(), credentialID)
-	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "credential not found")
-			return
-		}
-		h.logger.Error("Failed to get credential", "error", err, "credential_id", credentialID)
-		respondError(c, http.StatusInternalServerError, "failed to get credential")
+	if err := h.ops.DeleteCredential(c.Request.Context(), serviceapi.DeleteCredentialParams{
+		CredentialID: credentialID,
+	}); err != nil {
+		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
-
-	credentialUUID, err := uuid.Parse(credentialID)
-	if err != nil {
-		respondError(c, http.StatusBadRequest, "invalid credential ID")
-		return
-	}
-
-	detachedCount, err := h.workflowRepo.UnassignResourceFromAllWorkflows(c.Request.Context(), credentialUUID)
-	if err != nil {
-		h.logger.Error("Failed to detach credential from workflows", "error", err, "credential_id", credentialID)
-		respondError(c, http.StatusInternalServerError, "failed to detach credential from workflows")
-		return
-	}
-
-	if detachedCount > 0 {
-		h.logger.Info("Credential detached from workflows", "credential_id", credentialID, "workflows_count", detachedCount)
-	}
-
-	if err := h.credentialsRepo.DeleteCredentials(c.Request.Context(), credentialID); err != nil {
-		h.logger.Error("Failed to delete credential", "error", err, "credential_id", credentialID)
-		respondError(c, http.StatusInternalServerError, "failed to delete credential")
-		return
-	}
-
-	h.logger.Info("Credential deleted via service API",
-		"credential_id", credentialID,
-		"detached_from_workflows", detachedCount,
-	)
 
 	c.JSON(http.StatusOK, gin.H{"message": "credential deleted successfully"})
-}
-
-func toServiceAPICredentialResponse(cred *models.CredentialsResource) CredentialResponse {
-	fields := make([]string, 0, len(cred.EncryptedData))
-	for k := range cred.EncryptedData {
-		fields = append(fields, k)
-	}
-
-	return CredentialResponse{
-		ID:             cred.ID,
-		Name:           cred.Name,
-		Description:    cred.Description,
-		Status:         string(cred.Status),
-		CredentialType: string(cred.CredentialType),
-		Provider:       cred.Provider,
-		ExpiresAt:      cred.ExpiresAt,
-		LastUsedAt:     cred.LastUsedAt,
-		UsageCount:     cred.UsageCount,
-		CreatedAt:      cred.CreatedAt,
-		UpdatedAt:      cred.UpdatedAt,
-		Fields:         fields,
-	}
 }

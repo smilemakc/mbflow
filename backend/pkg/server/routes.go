@@ -11,6 +11,7 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/application/rentalkey"
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/internal/infrastructure/api/rest"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
 )
@@ -440,33 +441,45 @@ func (s *Server) setupServiceAPIRoutes(apiV1 *gin.RouterGroup) {
 	serviceAPI.Use(s.systemAuthMiddleware.HandleImpersonation())
 	serviceAPI.Use(s.auditMiddleware.RecordAction())
 	{
-		wfh := rest.NewServiceAPIWorkflowHandlers(s.workflowRepo, s.logger, s.executorManager)
+		ops := &serviceapi.Operations{
+			WorkflowRepo:    s.workflowRepo,
+			ExecutionRepo:   s.executionRepo,
+			TriggerRepo:     s.triggerRepo,
+			CredentialsRepo: s.credentialsRepo,
+			ExecutionMgr:    s.executionManager,
+			ExecutorManager: s.executorManager,
+			EncryptionSvc:   s.encryptionService,
+			AuditService:    s.auditService,
+			Logger:          s.logger,
+		}
+
+		wfh := rest.NewServiceAPIWorkflowHandlers(ops)
 		serviceAPI.GET("/workflows", wfh.ListWorkflows)
 		serviceAPI.GET("/workflows/:id", wfh.GetWorkflow)
 		serviceAPI.POST("/workflows", wfh.CreateWorkflow)
 		serviceAPI.PUT("/workflows/:id", wfh.UpdateWorkflow)
 		serviceAPI.DELETE("/workflows/:id", wfh.DeleteWorkflow)
 
-		exh := rest.NewServiceAPIExecutionHandlers(s.executionRepo, s.workflowRepo, s.executionManager, s.logger)
+		exh := rest.NewServiceAPIExecutionHandlers(ops)
 		serviceAPI.GET("/executions", exh.ListExecutions)
 		serviceAPI.GET("/executions/:id", exh.GetExecution)
 		serviceAPI.POST("/workflows/:id/execute", exh.StartExecution)
 		serviceAPI.POST("/executions/:id/cancel", exh.CancelExecution)
 		serviceAPI.POST("/executions/:id/retry", exh.RetryExecution)
 
-		trh := rest.NewServiceAPITriggerHandlers(s.triggerRepo, s.workflowRepo, s.logger)
+		trh := rest.NewServiceAPITriggerHandlers(ops)
 		serviceAPI.GET("/triggers", trh.ListTriggers)
 		serviceAPI.POST("/triggers", trh.CreateTrigger)
 		serviceAPI.PUT("/triggers/:id", trh.UpdateTrigger)
 		serviceAPI.DELETE("/triggers/:id", trh.DeleteTrigger)
 
-		crh := rest.NewServiceAPICredentialHandlers(s.credentialsRepo, s.workflowRepo, s.encryptionService, s.logger)
+		crh := rest.NewServiceAPICredentialHandlers(ops)
 		serviceAPI.GET("/credentials", crh.ListCredentials)
 		serviceAPI.POST("/credentials", crh.CreateCredential)
 		serviceAPI.PUT("/credentials/:id", crh.UpdateCredential)
 		serviceAPI.DELETE("/credentials/:id", crh.DeleteCredential)
 
-		auh := rest.NewServiceAPIAuditHandlers(s.auditService, s.logger)
+		auh := rest.NewServiceAPIAuditHandlers(ops)
 		serviceAPI.GET("/audit-log", auh.ListAuditLog)
 	}
 

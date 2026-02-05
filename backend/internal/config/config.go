@@ -19,9 +19,10 @@ type Config struct {
 	Logging     LoggingConfig
 	Observer    ObserverConfig
 	Auth        AuthConfig
-	FileStorage FileStorageConfig
-	ServiceKeys ServiceKeysConfig
-	ServiceAPI  SystemAPIConfig
+	FileStorage    FileStorageConfig
+	ServiceKeys    ServiceKeysConfig
+	ServiceAPI     SystemAPIConfig
+	GRPCServiceAPI GRPCServiceAPIConfig
 }
 
 // ServerConfig holds server-related configuration.
@@ -145,6 +146,12 @@ type SystemAPIConfig struct {
 	SystemUserID       string `mapstructure:"system_user_id" yaml:"system_user_id"`
 }
 
+// GRPCServiceAPIConfig holds gRPC Service API configuration.
+type GRPCServiceAPIConfig struct {
+	Enabled bool
+	Address string
+}
+
 // Load loads the configuration from environment variables.
 func Load() (*Config, error) {
 	godotenv.Load()
@@ -234,6 +241,10 @@ func Load() (*Config, error) {
 			DefaultExpiryDays:  getEnvAsInt("MBFLOW_SERVICE_API_DEFAULT_EXPIRY_DAYS", 365),
 			AuditRetentionDays: getEnvAsInt("MBFLOW_SERVICE_API_AUDIT_RETENTION_DAYS", 90),
 			SystemUserID:       getEnv("MBFLOW_SERVICE_API_SYSTEM_USER_ID", "00000000-0000-0000-0000-000000000000"),
+		},
+		GRPCServiceAPI: GRPCServiceAPIConfig{
+			Enabled: getEnvAsBool("GRPC_SERVICE_API_ENABLED", false),
+			Address: getEnv("GRPC_SERVICE_API_ADDRESS", ":50051"),
 		},
 	}
 

@@ -7,72 +7,58 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/smilemakc/mbflow/internal/application/systemkey"
-	"github.com/smilemakc/mbflow/internal/domain/repository"
-	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 )
 
 type ServiceAPIAuditHandlers struct {
-	auditService *systemkey.AuditService
-	logger       *logger.Logger
+	ops *serviceapi.Operations
 }
 
-func NewServiceAPIAuditHandlers(auditService *systemkey.AuditService, log *logger.Logger) *ServiceAPIAuditHandlers {
-	return &ServiceAPIAuditHandlers{
-		auditService: auditService,
-		logger:       log,
-	}
+func NewServiceAPIAuditHandlers(ops *serviceapi.Operations) *ServiceAPIAuditHandlers {
+	return &ServiceAPIAuditHandlers{ops: ops}
 }
 
 func (h *ServiceAPIAuditHandlers) ListAuditLog(c *gin.Context) {
-	limit := getQueryInt(c, "limit", 50)
-	offset := getQueryInt(c, "offset", 0)
-
-	if limit > 100 {
-		limit = 100
+	params := serviceapi.ListAuditLogParams{
+		Limit:  getQueryInt(c, "limit", 50),
+		Offset: getQueryInt(c, "offset", 0),
 	}
 
-	filter := repository.ServiceAuditLogFilter{
-		Limit:  limit,
-		Offset: offset,
+	if s := c.Query("service_name"); s != "" {
+		params.ServiceName = &s
 	}
-
-	if serviceName := c.Query("service_name"); serviceName != "" {
-		filter.ServiceName = &serviceName
+	if a := c.Query("action"); a != "" {
+		params.Action = &a
 	}
-	if action := c.Query("action"); action != "" {
-		filter.Action = &action
+	if rt := c.Query("resource_type"); rt != "" {
+		params.ResourceType = &rt
 	}
-	if resourceType := c.Query("resource_type"); resourceType != "" {
-		filter.ResourceType = &resourceType
-	}
-	if impersonatedUserID := c.Query("impersonated_user_id"); impersonatedUserID != "" {
-		if parsed, err := uuid.Parse(impersonatedUserID); err == nil {
-			filter.ImpersonatedUserID = &parsed
+	if iuid := c.Query("impersonated_user_id"); iuid != "" {
+		if parsed, err := uuid.Parse(iuid); err == nil {
+			params.ImpersonatedUserID = &parsed
 		}
 	}
-	if dateFromStr := c.Query("date_from"); dateFromStr != "" {
-		if parsed, err := time.Parse(time.RFC3339, dateFromStr); err == nil {
-			filter.DateFrom = &parsed
+	if df := c.Query("date_from"); df != "" {
+		if parsed, err := time.Parse(time.RFC3339, df); err == nil {
+			params.DateFrom = &parsed
 		}
 	}
-	if dateToStr := c.Query("date_to"); dateToStr != "" {
-		if parsed, err := time.Parse(time.RFC3339, dateToStr); err == nil {
-			filter.DateTo = &parsed
+	if dt := c.Query("date_to"); dt != "" {
+		if parsed, err := time.Parse(time.RFC3339, dt); err == nil {
+			params.DateTo = &parsed
 		}
 	}
 
-	logs, total, err := h.auditService.ListLogs(c.Request.Context(), filter)
+	result, err := h.ops.ListAuditLog(c.Request.Context(), params)
 	if err != nil {
-		h.logger.Error("Failed to list audit logs", "error", err)
 		respondError(c, http.StatusInternalServerError, "failed to list audit logs")
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"audit_logs": logs,
-		"total":      total,
-		"limit":      limit,
-		"offset":     offset,
+		"audit_logs": result.AuditLogs,
+		"total":      result.Total,
+		"limit":      params.Limit,
+		"offset":     params.Offset,
 	})
 }

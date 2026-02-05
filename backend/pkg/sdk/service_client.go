@@ -10,6 +10,16 @@ import (
 	"time"
 )
 
+// TransportType defines the transport protocol for the Service API client.
+type TransportType string
+
+const (
+	// TransportHTTP uses HTTP/JSON transport (default).
+	TransportHTTP TransportType = "http"
+	// TransportGRPC uses gRPC transport.
+	TransportGRPC TransportType = "grpc"
+)
+
 // ServiceClientConfig holds configuration for the Service API client.
 type ServiceClientConfig struct {
 	// Endpoint is the base URL of the MBFlow server (e.g., "http://localhost:8585")
@@ -26,13 +36,24 @@ type ServiceClientConfig struct {
 
 	// Timeout for HTTP requests (default: 30s)
 	Timeout time.Duration
+
+	// Transport specifies the transport protocol ("http" or "grpc"). Default: "http".
+	Transport TransportType
+
+	// GRPCAddress is the gRPC server address (e.g., "localhost:50051").
+	// Required when Transport is "grpc".
+	GRPCAddress string
+
+	// GRPCInsecure disables TLS for gRPC connections.
+	GRPCInsecure bool
 }
 
 // ServiceClient provides access to the MBFlow Service API.
 // It authenticates using system keys and supports user impersonation.
 type ServiceClient struct {
-	config     ServiceClientConfig
-	httpClient *http.Client
+	config        ServiceClientConfig
+	httpClient    *http.Client
+	grpcTransport *grpcServiceTransport
 
 	Workflows   *ServiceWorkflowsAPI
 	Executions  *ServiceExecutionsAPI
@@ -58,6 +79,23 @@ func NewServiceClient(config ServiceClientConfig) (*ServiceClient, error) {
 		httpClient = &http.Client{Timeout: config.Timeout}
 	}
 
+	if config.Transport == TransportGRPC {
+		transport, err := newGRPCServiceTransport(config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gRPC transport: %w", err)
+		}
+		c := &ServiceClient{
+			config:        config,
+			httpClient:    httpClient,
+			grpcTransport: transport,
+		}
+		c.Workflows = &ServiceWorkflowsAPI{client: c}
+		c.Executions = &ServiceExecutionsAPI{client: c}
+		c.Triggers = &ServiceTriggersAPI{client: c}
+		c.Credentials = &ServiceCredentialsAPI{client: c}
+		return c, nil
+	}
+
 	c := &ServiceClient{
 		config:     config,
 		httpClient: httpClient,
@@ -75,11 +113,22 @@ func NewServiceClient(config ServiceClientConfig) (*ServiceClient, error) {
 func (c *ServiceClient) As(userID string) *ServiceClient {
 	clone := *c
 	clone.config.OnBehalfOf = userID
+	if c.grpcTransport != nil {
+		clone.grpcTransport = c.grpcTransport.withOnBehalfOf(userID)
+	}
 	clone.Workflows = &ServiceWorkflowsAPI{client: &clone}
 	clone.Executions = &ServiceExecutionsAPI{client: &clone}
 	clone.Triggers = &ServiceTriggersAPI{client: &clone}
 	clone.Credentials = &ServiceCredentialsAPI{client: &clone}
 	return &clone
+}
+
+// Close closes the client and releases resources. Must be called for gRPC clients.
+func (c *ServiceClient) Close() error {
+	if c.grpcTransport != nil {
+		return c.grpcTransport.close()
+	}
+	return nil
 }
 
 // CallOption modifies an HTTP request before it is sent.
