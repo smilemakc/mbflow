@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,7 +53,7 @@ func (r *AccountRepositoryImpl) GetByID(ctx context.Context, id string) (*pkgmod
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrAccountNotFound
 		}
 		return nil, err
@@ -74,7 +75,7 @@ func (r *AccountRepositoryImpl) GetByUserID(ctx context.Context, userID string) 
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrAccountNotFound
 		}
 		return nil, err
@@ -188,7 +189,7 @@ func (r *TransactionRepositoryImpl) Create(ctx context.Context, tx *pkgmodels.Tr
 			Scan(ctx)
 
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return pkgmodels.ErrAccountNotFound
 			}
 			return err
@@ -252,7 +253,7 @@ func (r *TransactionRepositoryImpl) GetByID(ctx context.Context, id string) (*pk
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrTransactionNotFound
 		}
 		return nil, err
@@ -269,7 +270,7 @@ func (r *TransactionRepositoryImpl) GetByIdempotencyKey(ctx context.Context, key
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

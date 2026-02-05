@@ -45,7 +45,7 @@ func (o *Operations) ListExecutions(ctx context.Context, params ListExecutionsPa
 
 	executions := make([]*models.Execution, len(execModels))
 	for i, em := range execModels {
-		executions[i] = engine.ExecutionModelToDomain(em)
+		executions[i] = storagemodels.ExecutionModelToDomain(em)
 	}
 
 	return &ListExecutionsResult{
@@ -66,7 +66,7 @@ func (o *Operations) GetExecution(ctx context.Context, params GetExecutionParams
 		return nil, err
 	}
 
-	execution := engine.ExecutionModelToDomain(execModel)
+	execution := storagemodels.ExecutionModelToDomain(execModel)
 
 	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, execModel.WorkflowID)
 	if err == nil && workflowModel != nil {
@@ -202,7 +202,7 @@ func (o *Operations) GetNodeResult(ctx context.Context, params GetNodeResultPara
 
 	for _, ne := range execModel.NodeExecutions {
 		if logicalID, ok := nodeIDMap[ne.NodeID]; ok && logicalID == params.NodeID {
-			nodeExec := engine.NodeExecutionModelToDomain(ne)
+			nodeExec := storagemodels.NodeExecutionModelToDomain(ne)
 			nodeExec.NodeID = params.NodeID
 			return nodeExec, nil
 		}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 
 	"github.com/smilemakc/mbflow/internal/application/filestorage"
@@ -25,11 +26,16 @@ func (s *Server) setupRoutes() error {
 
 	s.router = gin.New()
 
+	s.router.MaxMultipartMemory = s.config.Server.MaxMultipartMemory
+
 	loggingMiddleware := rest.NewLoggingMiddleware(s.logger)
 	recoveryMiddleware := rest.NewRecoveryMiddleware(s.logger)
+	bodySizeMiddleware := rest.NewBodySizeMiddleware(s.logger, s.config.Server.MaxBodySize)
 
 	s.router.Use(recoveryMiddleware.Recovery())
 	s.router.Use(loggingMiddleware.RequestLogger())
+	s.router.Use(bodySizeMiddleware.LimitBodySize())
+	s.router.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	if s.config.Server.CORS {
 		allowedOrigins := s.config.Server.CORSAllowedOrigins

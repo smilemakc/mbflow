@@ -119,7 +119,7 @@ func (s *Server) initFileStorageManager() error {
 	fileStorageConfig.BasePath = s.config.FileStorage.StoragePath
 	fileStorageConfig.MaxFileSize = s.config.FileStorage.MaxFileSize
 
-	s.fileStorageManager = filestorage.NewStorageManager(fileStorageConfig)
+	s.fileStorageManager = filestorage.NewStorageManager(fileStorageConfig, s.logger)
 
 	s.logger.Info("File storage manager initialized",
 		"base_path", s.config.FileStorage.StoragePath,

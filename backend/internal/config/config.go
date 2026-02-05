@@ -35,6 +35,8 @@ type ServerConfig struct {
 	CORS               bool
 	CORSAllowedOrigins []string
 	APIKeys            []string
+	MaxBodySize        int64
+	MaxMultipartMemory int64
 }
 
 // DatabaseConfig holds database-related configuration.
@@ -166,6 +168,8 @@ func Load() (*Config, error) {
 			CORS:               getEnvAsBool("MBFLOW_CORS_ENABLED", true),
 			CORSAllowedOrigins: getEnvAsSlice("MBFLOW_CORS_ALLOWED_ORIGINS", []string{}),
 			APIKeys:            getEnvAsSlice("MBFLOW_API_KEYS", []string{}),
+			MaxBodySize:        getEnvAsInt64("MBFLOW_MAX_BODY_SIZE", 10*1024*1024),
+			MaxMultipartMemory: getEnvAsInt64("MBFLOW_MAX_MULTIPART_MEMORY", 32*1024*1024),
 		},
 		Database: DatabaseConfig{
 			URL:             getEnv("MBFLOW_DATABASE_URL", "postgres://mbflow:mbflow@localhost:5432/mbflow?sslmode=disable"),

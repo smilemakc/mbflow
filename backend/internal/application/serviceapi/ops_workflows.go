@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
@@ -49,7 +48,7 @@ func (o *Operations) ListWorkflows(ctx context.Context, params ListWorkflowsPara
 
 	workflows := make([]*models.Workflow, len(workflowModels))
 	for i, wm := range workflowModels {
-		workflows[i] = engine.WorkflowModelToDomain(wm)
+		workflows[i] = storagemodels.WorkflowModelToDomain(wm)
 	}
 
 	total, err := o.WorkflowRepo.CountWithFilters(ctx, filters)
@@ -75,7 +74,7 @@ func (o *Operations) GetWorkflow(ctx context.Context, params GetWorkflowParams) 
 		return nil, err
 	}
 
-	return engine.WorkflowModelToDomain(workflowModel), nil
+	return storagemodels.WorkflowModelToDomain(workflowModel), nil
 }
 
 // CreateWorkflowParams contains parameters for creating a workflow.
@@ -113,7 +112,7 @@ func (o *Operations) CreateWorkflow(ctx context.Context, params CreateWorkflowPa
 		return nil, err
 	}
 
-	return engine.WorkflowModelToDomain(workflowModel), nil
+	return storagemodels.WorkflowModelToDomain(workflowModel), nil
 }
 
 // NodeInput represents a node in an update request.
@@ -240,7 +239,7 @@ func (o *Operations) UpdateWorkflow(ctx context.Context, params UpdateWorkflowPa
 		return nil, err
 	}
 
-	return engine.WorkflowModelToDomain(updatedWorkflow), nil
+	return storagemodels.WorkflowModelToDomain(updatedWorkflow), nil
 }
 
 // DeleteWorkflowParams contains parameters for deleting a workflow.
@@ -271,7 +270,7 @@ func (o *Operations) PublishWorkflow(ctx context.Context, params PublishWorkflow
 		o.Logger.Error("Failed to publish workflow", "error", err, "workflow_id", params.WorkflowID)
 		return nil, err
 	}
-	return engine.WorkflowModelToDomain(workflowModel), nil
+	return storagemodels.WorkflowModelToDomain(workflowModel), nil
 }
 
 type UnpublishWorkflowParams struct {
@@ -289,7 +288,7 @@ func (o *Operations) UnpublishWorkflow(ctx context.Context, params UnpublishWork
 		o.Logger.Error("Failed to unpublish workflow", "error", err, "workflow_id", params.WorkflowID)
 		return nil, err
 	}
-	return engine.WorkflowModelToDomain(workflowModel), nil
+	return storagemodels.WorkflowModelToDomain(workflowModel), nil
 }
 
 type AttachWorkflowResourceParams struct {

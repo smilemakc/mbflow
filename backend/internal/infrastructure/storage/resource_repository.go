@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -84,7 +85,7 @@ func (r *ResourceRepositoryImpl) GetByID(ctx context.Context, id string) (pkgmod
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrResourceNotFound
 		}
 		return nil, err

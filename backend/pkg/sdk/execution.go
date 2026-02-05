@@ -295,7 +295,7 @@ func (e *ExecutionAPI) getEmbedded(ctx context.Context, executionID string) (*mo
 	}
 
 	// Convert to domain model
-	execution := engine.ExecutionModelToDomain(execModel)
+	execution := storagemodels.ExecutionModelToDomain(execModel)
 
 	return execution, nil
 }
@@ -339,7 +339,7 @@ func (e *ExecutionAPI) listEmbedded(ctx context.Context, opts *ExecutionListOpti
 	// Convert to domain models
 	executions := make([]*models.Execution, len(execModels))
 	for i, em := range execModels {
-		executions[i] = engine.ExecutionModelToDomain(em)
+		executions[i] = storagemodels.ExecutionModelToDomain(em)
 	}
 
 	return executions, nil
@@ -404,7 +404,7 @@ func (e *ExecutionAPI) getNodeResultEmbedded(ctx context.Context, executionID, n
 	for _, ne := range execModel.NodeExecutions {
 		if logicalID, ok := nodeIDMap[ne.NodeID]; ok && logicalID == nodeID {
 			// Convert to domain model
-			return engine.NodeExecutionModelToDomain(ne), nil
+			return storagemodels.NodeExecutionModelToDomain(ne), nil
 		}
 	}
 

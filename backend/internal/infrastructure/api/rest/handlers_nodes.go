@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
@@ -97,7 +96,7 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	}
 
 	// Convert to domain model
-	node := engine.NodeModelToDomain(nodeModel)
+	node := storagemodels.NodeModelToDomain(nodeModel)
 	respondJSON(c, http.StatusCreated, node)
 }
 
@@ -133,7 +132,7 @@ func (h *NodeHandlers) HandleListNodes(c *gin.Context) {
 	// Convert to domain models
 	nodes := make([]*models.Node, len(nodeModels))
 	for i, nm := range nodeModels {
-		nodes[i] = engine.NodeModelToDomain(nm)
+		nodes[i] = storagemodels.NodeModelToDomain(nm)
 	}
 
 	respondList(c, http.StatusOK, nodes, len(nodes), 0, 0)
@@ -184,7 +183,7 @@ func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
 		return
 	}
 
-	node := engine.NodeModelToDomain(nodeModel)
+	node := storagemodels.NodeModelToDomain(nodeModel)
 	respondJSON(c, http.StatusOK, node)
 }
 
@@ -269,7 +268,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 		return
 	}
 
-	node := engine.NodeModelToDomain(nodeModel)
+	node := storagemodels.NodeModelToDomain(nodeModel)
 	respondJSON(c, http.StatusOK, node)
 }
 

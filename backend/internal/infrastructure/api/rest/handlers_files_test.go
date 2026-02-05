@@ -26,16 +26,16 @@ func setupFileHandlersTest(t *testing.T) (*FileHandlers, *gin.Engine, *storage.F
 
 	fileRepo := storage.NewFileRepository(testDB.DB)
 
-	// Create storage manager with local filesystem
-	cfg := &filestorage.ManagerConfig{
-		BasePath: t.TempDir(), // Use temporary directory for tests
-	}
-	storageManager := filestorage.NewStorageManager(cfg)
-
 	log := logger.New(config.LoggingConfig{
 		Level:  "error",
 		Format: "text",
 	})
+
+	// Create storage manager with local filesystem
+	cfg := &filestorage.ManagerConfig{
+		BasePath: t.TempDir(), // Use temporary directory for tests
+	}
+	storageManager := filestorage.NewStorageManager(cfg, log)
 
 	handlers := NewFileHandlers(fileRepo, storageManager, log)
 

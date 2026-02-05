@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
@@ -192,7 +191,7 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	// Convert to domain model
-	edge := engine.EdgeModelToDomain(edgeModel)
+	edge := storagemodels.EdgeModelToDomain(edgeModel)
 	respondJSON(c, http.StatusCreated, edge)
 }
 
@@ -229,7 +228,7 @@ func (h *EdgeHandlers) HandleListEdges(c *gin.Context) {
 	// Convert to domain models
 	edges := make([]*models.Edge, len(edgeModels))
 	for i, em := range edgeModels {
-		edges[i] = engine.EdgeModelToDomain(em)
+		edges[i] = storagemodels.EdgeModelToDomain(em)
 	}
 
 	respondList(c, http.StatusOK, edges, len(edges), 0, 0)
@@ -280,7 +279,7 @@ func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
 		return
 	}
 
-	edge := engine.EdgeModelToDomain(edgeModel)
+	edge := storagemodels.EdgeModelToDomain(edgeModel)
 	respondJSON(c, http.StatusOK, edge)
 }
 
@@ -410,7 +409,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 		return
 	}
 
-	edge := engine.EdgeModelToDomain(edgeModel)
+	edge := storagemodels.EdgeModelToDomain(edgeModel)
 	respondJSON(c, http.StatusOK, edge)
 }
 

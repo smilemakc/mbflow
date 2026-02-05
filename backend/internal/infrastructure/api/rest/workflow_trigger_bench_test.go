@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/application/engine"
+	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 )
 
 // BenchmarkEventProcessingLatency measures the latency from event publication to execution start
@@ -271,7 +272,7 @@ func BenchmarkDAGValidation(b *testing.B) {
 	workflowModel := env.createWorkflowFromFixture(&testing.T{}, ctx)
 
 	// Convert to domain model
-	workflow := engine.WorkflowModelToDomain(workflowModel)
+	workflow := storagemodels.WorkflowModelToDomain(workflowModel)
 
 	b.ResetTimer()
 

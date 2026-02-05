@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -37,6 +38,7 @@ type StorageManager struct {
 	factories   map[models.StorageType]ProviderFactory
 	observers   map[string]FileObserver
 	validator   *MimeValidator
+	logger      *logger.Logger
 	mu          sync.RWMutex
 	cleanupDone chan struct{}
 }
@@ -49,7 +51,7 @@ type managedStorage struct {
 }
 
 // NewStorageManager creates a new storage manager
-func NewStorageManager(config *ManagerConfig) *StorageManager {
+func NewStorageManager(config *ManagerConfig, log *logger.Logger) *StorageManager {
 	if config == nil {
 		config = DefaultManagerConfig()
 	}
@@ -60,6 +62,7 @@ func NewStorageManager(config *ManagerConfig) *StorageManager {
 		factories:   make(map[models.StorageType]ProviderFactory),
 		observers:   make(map[string]FileObserver),
 		validator:   NewMimeValidator(),
+		logger:      log,
 		cleanupDone: make(chan struct{}),
 	}
 
@@ -242,9 +245,15 @@ func (m *StorageManager) notifyObservers(ctx context.Context, event *FileEvent) 
 	for _, obs := range observers {
 		filter := obs.Filter()
 		if filter == nil || filter.ShouldNotify(event) {
-			// Call observer in goroutine to avoid blocking
 			go func(o FileObserver) {
-				_ = o.OnFileEvent(ctx, event) // Ignore errors for now
+				if err := o.OnFileEvent(ctx, event); err != nil && m.logger != nil {
+					m.logger.Error("File observer error",
+						"observer", o.Name(),
+						"event_type", event.Type,
+						"storage_id", event.StorageID,
+						"error", err,
+					)
+				}
 			}(obs)
 		}
 	}

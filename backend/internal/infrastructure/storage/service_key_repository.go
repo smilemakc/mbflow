@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,7 +55,7 @@ func (r *ServiceKeyRepositoryImpl) FindByID(ctx context.Context, id uuid.UUID) (
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrServiceKeyNotFound
 		}
 		return nil, err

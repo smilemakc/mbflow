@@ -221,3 +221,299 @@ func WorkflowResourcesFromStorage(storage []*WorkflowResourceModel) []models.Wor
 	}
 	return result
 }
+
+// WorkflowModelToDomain converts storage WorkflowModel to domain Workflow
+func WorkflowModelToDomain(wm *WorkflowModel) *models.Workflow {
+	if wm == nil {
+		return nil
+	}
+
+	workflow := &models.Workflow{
+		ID:          wm.ID.String(),
+		Name:        wm.Name,
+		Description: wm.Description,
+		Status:      models.WorkflowStatus(wm.Status),
+		Variables:   make(map[string]interface{}),
+		Metadata:    make(map[string]interface{}),
+		CreatedAt:   wm.CreatedAt,
+		UpdatedAt:   wm.UpdatedAt,
+	}
+
+	if wm.CreatedBy != nil {
+		workflow.CreatedBy = wm.CreatedBy.String()
+	}
+
+	if wm.Variables != nil {
+		workflow.Variables = map[string]interface{}(wm.Variables)
+	}
+
+	if wm.Metadata != nil {
+		workflow.Metadata = map[string]interface{}(wm.Metadata)
+	}
+
+	workflow.Nodes = make([]*models.Node, 0, len(wm.Nodes))
+	for _, nm := range wm.Nodes {
+		workflow.Nodes = append(workflow.Nodes, NodeModelToDomain(nm))
+	}
+
+	workflow.Edges = make([]*models.Edge, 0, len(wm.Edges))
+	for _, em := range wm.Edges {
+		workflow.Edges = append(workflow.Edges, EdgeModelToDomain(em))
+	}
+
+	workflow.Resources = make([]models.WorkflowResource, 0, len(wm.Resources))
+	for _, rm := range wm.Resources {
+		wr := models.WorkflowResource{
+			ResourceID: rm.ResourceID.String(),
+			Alias:      rm.Alias,
+			AccessType: rm.AccessType,
+		}
+		if rm.Resource != nil {
+			wr.ResourceName = rm.Resource.Name
+			wr.ResourceType = rm.Resource.Type
+		}
+		workflow.Resources = append(workflow.Resources, wr)
+	}
+
+	return workflow
+}
+
+// NodeModelToDomain converts storage NodeModel to domain Node
+func NodeModelToDomain(nm *NodeModel) *models.Node {
+	if nm == nil {
+		return nil
+	}
+
+	node := &models.Node{
+		ID:     nm.NodeID,
+		Name:   nm.Name,
+		Type:   nm.Type,
+		Config: make(map[string]interface{}),
+	}
+
+	if nm.Config != nil {
+		node.Config = map[string]interface{}(nm.Config)
+	}
+
+	if nm.Position != nil {
+		posMap := map[string]interface{}(nm.Position)
+		if x, ok := posMap["x"].(float64); ok {
+			if y, ok := posMap["y"].(float64); ok {
+				node.Position = &models.Position{X: x, Y: y}
+			}
+		}
+	}
+
+	return node
+}
+
+// EdgeModelToDomain converts storage EdgeModel to domain Edge
+func EdgeModelToDomain(em *EdgeModel) *models.Edge {
+	if em == nil {
+		return nil
+	}
+
+	edge := &models.Edge{
+		ID:   em.EdgeID,
+		From: em.FromNodeID,
+		To:   em.ToNodeID,
+	}
+
+	if em.Condition != nil {
+		if expr, ok := em.Condition["expression"].(string); ok {
+			edge.Condition = expr
+		}
+	}
+
+	return edge
+}
+
+// ExecutionModelToDomain converts storage ExecutionModel to domain Execution
+func ExecutionModelToDomain(exm *ExecutionModel) *models.Execution {
+	if exm == nil {
+		return nil
+	}
+
+	exec := &models.Execution{
+		ID:         exm.ID.String(),
+		WorkflowID: exm.WorkflowID.String(),
+		Status:     models.ExecutionStatus(exm.Status),
+		Input:      make(map[string]interface{}),
+		Output:     make(map[string]interface{}),
+		Variables:  make(map[string]interface{}),
+	}
+
+	if exm.StartedAt != nil {
+		exec.StartedAt = *exm.StartedAt
+	}
+
+	if exm.InputData != nil {
+		exec.Input = exm.InputData
+	}
+
+	if exm.OutputData != nil {
+		exec.Output = exm.OutputData
+	}
+
+	if exm.Variables != nil {
+		exec.Variables = exm.Variables
+	}
+
+	if exm.CompletedAt != nil {
+		exec.CompletedAt = exm.CompletedAt
+	}
+
+	if exm.Error != "" {
+		exec.Error = exm.Error
+	}
+
+	if len(exm.NodeExecutions) > 0 {
+		exec.NodeExecutions = make([]*models.NodeExecution, len(exm.NodeExecutions))
+		for i, ne := range exm.NodeExecutions {
+			exec.NodeExecutions[i] = NodeExecutionModelToDomain(ne)
+		}
+	}
+
+	return exec
+}
+
+// ExecutionDomainToModel converts domain Execution to storage ExecutionModel
+func ExecutionDomainToModel(exec *models.Execution) *ExecutionModel {
+	if exec == nil {
+		return nil
+	}
+
+	exm := &ExecutionModel{
+		Status:     string(exec.Status),
+		InputData:  JSONBMap(exec.Input),
+		OutputData: JSONBMap(exec.Output),
+		Variables:  JSONBMap(exec.Variables),
+		StartedAt:  &exec.StartedAt,
+		Error:      exec.Error,
+	}
+
+	if exec.ID != "" {
+		if id, err := uuid.Parse(exec.ID); err == nil {
+			exm.ID = id
+		}
+	}
+
+	if exec.WorkflowID != "" {
+		if wfID, err := uuid.Parse(exec.WorkflowID); err == nil {
+			exm.WorkflowID = wfID
+		}
+	}
+
+	if exec.CompletedAt != nil {
+		exm.CompletedAt = exec.CompletedAt
+	}
+
+	if len(exec.NodeExecutions) > 0 {
+		exm.NodeExecutions = make([]*NodeExecutionModel, 0, len(exec.NodeExecutions))
+		for _, ne := range exec.NodeExecutions {
+			nem := NodeExecutionDomainToModel(ne)
+			if nem != nil {
+				exm.NodeExecutions = append(exm.NodeExecutions, nem)
+			}
+		}
+	}
+
+	return exm
+}
+
+// NodeExecutionModelToDomain converts storage NodeExecutionModel to domain NodeExecution
+func NodeExecutionModelToDomain(nem *NodeExecutionModel) *models.NodeExecution {
+	if nem == nil {
+		return nil
+	}
+
+	ne := &models.NodeExecution{
+		ID:             nem.ID.String(),
+		ExecutionID:    nem.ExecutionID.String(),
+		NodeID:         nem.NodeID.String(),
+		Status:         models.NodeExecutionStatus(nem.Status),
+		Input:          make(map[string]interface{}),
+		Output:         make(map[string]interface{}),
+		Config:         make(map[string]interface{}),
+		ResolvedConfig: make(map[string]interface{}),
+		RetryCount:     nem.RetryCount,
+	}
+
+	if nem.InputData != nil {
+		ne.Input = nem.InputData
+	}
+
+	if nem.OutputData != nil {
+		ne.Output = nem.OutputData
+	}
+
+	if nem.Config != nil {
+		ne.Config = nem.Config
+	}
+
+	if nem.ResolvedConfig != nil {
+		ne.ResolvedConfig = nem.ResolvedConfig
+	}
+
+	if nem.StartedAt != nil {
+		ne.StartedAt = *nem.StartedAt
+	}
+
+	if nem.CompletedAt != nil {
+		ne.CompletedAt = nem.CompletedAt
+	}
+
+	if nem.Error != "" {
+		ne.Error = nem.Error
+	}
+
+	return ne
+}
+
+// NodeExecutionDomainToModel converts domain NodeExecution to storage NodeExecutionModel
+func NodeExecutionDomainToModel(ne *models.NodeExecution) *NodeExecutionModel {
+	if ne == nil {
+		return nil
+	}
+
+	nem := &NodeExecutionModel{
+		Status:         string(ne.Status),
+		InputData:      JSONBMap(ne.Input),
+		OutputData:     JSONBMap(ne.Output),
+		Config:         JSONBMap(ne.Config),
+		ResolvedConfig: JSONBMap(ne.ResolvedConfig),
+		RetryCount:     ne.RetryCount,
+		Error:          ne.Error,
+	}
+
+	if ne.ID != "" {
+		if id, err := uuid.Parse(ne.ID); err == nil {
+			nem.ID = id
+		} else {
+			nem.ID = uuid.New()
+		}
+	} else {
+		nem.ID = uuid.New()
+	}
+
+	if ne.ExecutionID != "" {
+		if execID, err := uuid.Parse(ne.ExecutionID); err == nil {
+			nem.ExecutionID = execID
+		}
+	}
+
+	if ne.NodeID != "" {
+		if nodeID, err := uuid.Parse(ne.NodeID); err == nil {
+			nem.NodeID = nodeID
+		}
+	}
+
+	if !ne.StartedAt.IsZero() {
+		nem.StartedAt = &ne.StartedAt
+	}
+	if ne.CompletedAt != nil && !ne.CompletedAt.IsZero() {
+		nem.CompletedAt = ne.CompletedAt
+	}
+
+	return nem
+}
