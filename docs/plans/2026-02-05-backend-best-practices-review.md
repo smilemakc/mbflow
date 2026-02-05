@@ -28,7 +28,7 @@ Dual-mode: embedded SDK + remote HTTP/gRPC.
 | 7  | 2.2 Service API Tests            | DONE   | `4725292` | 7 test files, 212 tests for all serviceapi operations                          |
 | 8  | 1.1 SDK Internal Imports         | DONE   |           | Created pkg/engine/ interfaces, removed internal imports from pkg/sdk          |
 | 9  | 1.2 Global Registry Removal      | DONE   | `4725292` | Removed global var + convenience functions, kept Registry struct               |
-| 10 | 5.1 Repository Interface Cleanup | WIP    | `747640a` | Domain models + mappers added (Event, Trigger, AuditLog); interfaces deferred  |
+| 10 | 5.1 Repository Interface Cleanup | DEFER  | `747640a` | Mappers exist; interfaces blocked by dual-ID architecture (see notes below)    |
 | 11 | 5.2 Move Mapper Functions        | DONE   | `4725292` | Moved 7 mappers from engine/converters to storage/models/mappers               |
 | 12 | 4.1 Observer Error Logging       | DONE   | `4725292` | Added logger to StorageManager, observer errors now logged                     |
 | 13 | 5.3 Implement File Cleanup       | DONE   | `461042e` | StorageManager.Cleanup with logging (needs repo for full impl)                 |
@@ -46,7 +46,39 @@ Dual-mode: embedded SDK + remote HTTP/gRPC.
 | 25 | 2.5 Server Package Tests         | DONE   |           | Unit tests for options, getters, RegisterExecutor (10 tests)                   |
 
 **Completed:** 24/25 tasks + bonus fix (pre-existing failures)
-**Remaining:** Task 10 (WIP - domain models done, interfaces deferred)
+**Remaining:** Task 10 (DEFER - requires architectural redesign, see below)
+
+### Task 10 Deferral Notes
+
+The repository interface cleanup is blocked by a fundamental **dual-ID architecture issue**:
+
+1. **Storage Layer** uses database UUIDs (`uuid.UUID`) for foreign key relationships:
+   - `NodeExecutionModel.NodeID` references `NodeModel.ID` (database UUID)
+   - Foreign keys enforce referential integrity via UUIDs
+
+2. **Domain Layer** uses logical IDs (strings like `"node-1"`, `"http-request"`):
+   - `Node.ID` is the logical identifier from workflow definition
+   - Tests expect `NodeExecution.NodeID` to be logical ID
+
+3. **Current Workaround**: The `buildNodeExecutions` function maintains a `logicalToUUID` mapping by
+   receiving the storage `WorkflowModel` alongside the domain `Workflow`. This leaks storage concerns
+   into business logic.
+
+**To properly fix this, one of these approaches is needed:**
+
+A. **Unify IDs**: Store logical ID in a separate field, use consistent naming
+   - Add `LogicalNodeID string` to storage model
+   - Mappers convert between the two
+
+B. **Change FK strategy**: Use logical IDs as natural keys instead of surrogate UUIDs
+   - Significant database migration
+   - May impact query performance
+
+C. **Repository returns both**: Method like `FindByIDWithMapping(id) (*Workflow, map[string]UUID, error)`
+   - Exposes storage detail but keeps interface cleaner than current approach
+
+**Recommendation**: Option A is cleanest. Add explicit `logical_node_id` column, update mappers.
+Defer to dedicated migration plan
 
 ---
 
