@@ -20,7 +20,15 @@ func parseIntQuery(value string, defaultValue int) int {
 }
 
 func respondJSON(c *gin.Context, status int, data interface{}) {
-	c.JSON(status, data)
+	c.JSON(status, SuccessResponse{Data: data})
+}
+
+// respondList writes a paginated list response with standard envelope format
+func respondList(c *gin.Context, status int, data interface{}, total, limit, offset int) {
+	c.JSON(status, SuccessResponse{
+		Data: data,
+		Meta: &MetaInfo{Total: total, Limit: limit, Offset: offset},
+	})
 }
 
 func respondError(c *gin.Context, status int, message string) {

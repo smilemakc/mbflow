@@ -144,12 +144,7 @@ func (h *ServiceAPISystemKeyHandlers) ListSystemKeys(c *gin.Context) {
 		response[i] = toSystemKeyResponse(key)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"system_keys": response,
-		"total":       total,
-		"limit":       limit,
-		"offset":      offset,
-	})
+	respondList(c, http.StatusOK, response, int(total), limit, offset)
 }
 
 func (h *ServiceAPISystemKeyHandlers) GetSystemKey(c *gin.Context) {
@@ -211,7 +206,7 @@ func (h *ServiceAPISystemKeyHandlers) DeleteSystemKey(c *gin.Context) {
 		"admin_id", adminID,
 	)
 
-	c.JSON(http.StatusOK, gin.H{"message": "system key deleted successfully"})
+	respondJSON(c, http.StatusOK, gin.H{"message": "system key deleted successfully"})
 }
 
 func (h *ServiceAPISystemKeyHandlers) RevokeSystemKey(c *gin.Context) {
@@ -247,7 +242,7 @@ func (h *ServiceAPISystemKeyHandlers) RevokeSystemKey(c *gin.Context) {
 		"admin_id", adminID,
 	)
 
-	c.JSON(http.StatusOK, gin.H{"message": "system key revoked successfully"})
+	respondJSON(c, http.StatusOK, gin.H{"message": "system key revoked successfully"})
 }
 
 func toSystemKeyResponse(key *models.SystemKey) SystemKeyResponse {

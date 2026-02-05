@@ -232,10 +232,7 @@ func (h *EdgeHandlers) HandleListEdges(c *gin.Context) {
 		edges[i] = engine.EdgeModelToDomain(em)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"edges": edges,
-		"total": len(edges),
-	})
+	respondList(c, http.StatusOK, edges, len(edges), 0, 0)
 }
 
 // HandleGetEdge handles GET /api/v1/workflows/{workflow_id}/edges/{edgeId}
@@ -470,7 +467,5 @@ func (h *EdgeHandlers) HandleDeleteEdge(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "edge deleted successfully",
-	})
+	respondJSON(c, http.StatusOK, gin.H{"message": "edge deleted successfully"})
 }

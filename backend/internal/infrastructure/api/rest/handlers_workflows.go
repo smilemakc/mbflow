@@ -169,12 +169,7 @@ func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 		total = len(workflows)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"workflows": workflows,
-		"total":     total,
-		"limit":     limit,
-		"offset":    offset,
-	})
+	respondList(c, http.StatusOK, workflows, total, limit, offset)
 }
 
 // UpdateWorkflowRequest represents the request body for updating a workflow

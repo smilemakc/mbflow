@@ -55,10 +55,5 @@ func (h *ServiceAPIAuditHandlers) ListAuditLog(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"audit_logs": result.AuditLogs,
-		"total":      result.Total,
-		"limit":      params.Limit,
-		"offset":     params.Offset,
-	})
+	respondList(c, http.StatusOK, result.AuditLogs, int(result.Total), params.Limit, params.Offset)
 }

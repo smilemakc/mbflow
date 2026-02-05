@@ -168,12 +168,7 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 		executions[i] = engine.ExecutionModelToDomain(em)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"executions": executions,
-		"total":      len(executions),
-		"limit":      limit,
-		"offset":     offset,
-	})
+	respondList(c, http.StatusOK, executions, len(executions), limit, offset)
 }
 
 // HandleGetLogs handles GET /api/v1/executions/{id}/logs

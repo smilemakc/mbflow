@@ -174,12 +174,7 @@ func (h *TriggerHandlers) HandleListTriggers(c *gin.Context) {
 		total = len(triggers)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"triggers": triggers,
-		"total":    total,
-		"limit":    limit,
-		"offset":   offset,
-	})
+	respondList(c, http.StatusOK, triggers, total, limit, offset)
 }
 
 // HandleUpdateTrigger handles PUT /api/v1/triggers/{id}

@@ -40,12 +40,7 @@ func (h *ServiceAPITriggerHandlers) ListTriggers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"triggers": result.Triggers,
-		"total":    result.Total,
-		"limit":    params.Limit,
-		"offset":   params.Offset,
-	})
+	respondList(c, http.StatusOK, result.Triggers, result.Total, params.Limit, params.Offset)
 }
 
 func (h *ServiceAPITriggerHandlers) CreateTrigger(c *gin.Context) {

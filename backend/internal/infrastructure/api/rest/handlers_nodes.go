@@ -136,10 +136,7 @@ func (h *NodeHandlers) HandleListNodes(c *gin.Context) {
 		nodes[i] = engine.NodeModelToDomain(nm)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"nodes": nodes,
-		"total": len(nodes),
-	})
+	respondList(c, http.StatusOK, nodes, len(nodes), 0, 0)
 }
 
 // HandleGetNode handles GET /api/v1/workflows/{workflow_id}/nodes/{nodeId}
@@ -329,7 +326,5 @@ func (h *NodeHandlers) HandleDeleteNode(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "node deleted successfully",
-	})
+	respondJSON(c, http.StatusOK, gin.H{"message": "node deleted successfully"})
 }

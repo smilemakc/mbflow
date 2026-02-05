@@ -40,12 +40,7 @@ func (h *ServiceAPIWorkflowHandlers) ListWorkflows(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"workflows": result.Workflows,
-		"total":     result.Total,
-		"limit":     params.Limit,
-		"offset":    params.Offset,
-	})
+	respondList(c, http.StatusOK, result.Workflows, result.Total, params.Limit, params.Offset)
 }
 
 func (h *ServiceAPIWorkflowHandlers) GetWorkflow(c *gin.Context) {
