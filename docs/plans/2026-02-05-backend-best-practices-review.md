@@ -35,7 +35,7 @@ Dual-mode: embedded SDK + remote HTTP/gRPC.
 | 14 | 3.4 Request Body Size Limit      | DONE   | `4725292` | middleware_bodysize.go + MaxBodySize config                                    |
 | 15 | 3.5 Response Compression         | DONE   | `4725292` | gin-contrib/gzip middleware added                                              |
 | 16 | 2.4 Add t.Parallel()             | DONE   | `461042e` | Added to engine, auth, model tests (partial coverage)                          |
-| 17 | 1.3 Server Struct Decomposition  | DEFER  |           | Major refactoring (50+ fields) - requires dedicated planning                   |
+| 17 | 1.3 Server Struct Decomposition  | DONE   | `565c0ed` | Split into DataLayer, AuthLayer, ExecutionLayer, ServiceAPILayer, TriggerLayer |
 | 18 | 5.4 golangci-lint Config         | DONE   | `461042e` | .golangci.yml with govet, errcheck, staticcheck, revive                        |
 | 19 | 6.1 OpenAPI Documentation        | DONE   | `7386f3b` | Swagger setup, handler annotations, /swagger/* endpoint                        |
 | 20 | 4.2 Standardize ErrNoRows        | DONE   | `4725292` | Replaced 33 occurrences across 12 repository files                             |
@@ -45,8 +45,8 @@ Dual-mode: embedded SDK + remote HTTP/gRPC.
 | 24 | 6.4 Redis Rate Limiter           | DONE   | `1618581` | RedisRateLimiter + RedisLoginRateLimiter with 10 tests                         |
 | 25 | 2.5 Server Package Tests         | DONE   |           | Unit tests for options, getters, RegisterExecutor (10 tests)                   |
 
-**Completed:** 23/25 tasks + bonus fix (pre-existing failures)
-**Remaining:** Tasks 10 (WIP - domain models done, interfaces deferred) + 17 (DEFER - major refactoring)
+**Completed:** 24/25 tasks + bonus fix (pre-existing failures)
+**Remaining:** Task 10 (WIP - domain models done, interfaces deferred)
 
 ---
 
