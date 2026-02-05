@@ -43,7 +43,7 @@ func TestExecutionAPI_Run_NotAvailableInStandalone(t *testing.T) {
 
 	_, err = client.Executions().Run(ctx, "test-workflow-id", nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded execution requires ExecutionManager")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_RunSync_EmptyWorkflowID tests that empty workflow ID is rejected
@@ -80,7 +80,7 @@ func TestExecutionAPI_RunSync_NotAvailableInStandalone(t *testing.T) {
 
 	_, err = client.Executions().RunSync(ctx, "test-workflow-id", nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "embedded execution requires ExecutionManager")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_Get_EmptyExecutionID tests that empty execution ID is rejected
@@ -117,7 +117,7 @@ func TestExecutionAPI_Get_NotAvailableInStandalone(t *testing.T) {
 
 	_, err = client.Executions().Get(ctx, "test-execution-id")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "execution repository not initialized")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_List_ClosedClient tests that closed client returns error
@@ -142,7 +142,7 @@ func TestExecutionAPI_List_NotAvailableInStandalone(t *testing.T) {
 
 	_, err = client.Executions().List(ctx, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "execution repository not initialized")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_List_WithOptions tests listing with filter options
@@ -162,7 +162,7 @@ func TestExecutionAPI_List_WithOptions(t *testing.T) {
 
 	_, err = client.Executions().List(ctx, opts)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "execution repository not initialized")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_Cancel_EmptyExecutionID tests that empty execution ID is rejected
@@ -199,7 +199,7 @@ func TestExecutionAPI_Cancel_NotAvailableInStandalone(t *testing.T) {
 
 	err = client.Executions().Cancel(ctx, "test-execution-id")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "execution cancellation not yet implemented")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_Retry_EmptyExecutionID tests that empty execution ID is rejected
@@ -236,7 +236,7 @@ func TestExecutionAPI_Retry_NotAvailableInStandalone(t *testing.T) {
 
 	_, err = client.Executions().Retry(ctx, "test-execution-id")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "execution retry not yet implemented")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_Watch_EmptyExecutionID tests that empty execution ID is rejected
@@ -273,7 +273,7 @@ func TestExecutionAPI_Watch_NotAvailableInStandalone(t *testing.T) {
 
 	_, err = client.Executions().Watch(ctx, "test-execution-id")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "real-time execution watching not yet implemented")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_GetLogs_EmptyExecutionID tests that empty execution ID is rejected
@@ -300,8 +300,8 @@ func TestExecutionAPI_GetLogs_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestExecutionAPI_GetLogs_WithOptions tests getting logs with filter options
-func TestExecutionAPI_GetLogs_WithOptions(t *testing.T) {
+// TestExecutionAPI_GetLogs_NotAvailableInStandalone tests that GetLogs requires persistence
+func TestExecutionAPI_GetLogs_NotAvailableInStandalone(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
 	defer client.Close()
@@ -314,10 +314,9 @@ func TestExecutionAPI_GetLogs_WithOptions(t *testing.T) {
 		Limit:  100,
 	}
 
-	// For MVP, getLogsEmbedded returns empty logs (not error)
-	logs, err := client.Executions().GetLogs(ctx, "test-execution-id", opts)
-	assert.NoError(t, err)
-	assert.Empty(t, logs)
+	_, err = client.Executions().GetLogs(ctx, "test-execution-id", opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_StreamLogs_EmptyExecutionID tests that empty execution ID is rejected
@@ -391,7 +390,7 @@ func TestExecutionAPI_GetNodeResult_NotAvailableInStandalone(t *testing.T) {
 
 	_, err = client.Executions().GetNodeResult(ctx, "test-execution-id", "node1")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "repositories not initialized")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestExecutionAPI_ExecutionRequest_Creation tests ExecutionRequest struct

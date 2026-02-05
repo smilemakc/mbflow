@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -19,23 +19,11 @@ func TestExecuteWorkflowStandalone(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Create a simple workflow
+	// Create a simple workflow with transform node (no external calls)
 	workflow := &models.Workflow{
 		Name:        "Test Workflow",
 		Description: "Simple test workflow",
-		Variables: map[string]interface{}{
-			"api_base": "https://jsonplaceholder.typicode.com",
-		},
 		Nodes: []*models.Node{
-			{
-				ID:   "http-node",
-				Name: "HTTP Request",
-				Type: "http",
-				Config: map[string]interface{}{
-					"method": "GET",
-					"url":    "{{env.api_base}}/users/1",
-				},
-			},
 			{
 				ID:   "transform-node",
 				Name: "Transform",
@@ -43,13 +31,6 @@ func TestExecuteWorkflowStandalone(t *testing.T) {
 				Config: map[string]interface{}{
 					"type": "passthrough",
 				},
-			},
-		},
-		Edges: []*models.Edge{
-			{
-				ID:   "edge-1",
-				From: "http-node",
-				To:   "transform-node",
 			},
 		},
 	}
@@ -76,8 +57,8 @@ func TestExecuteWorkflowStandalone(t *testing.T) {
 		t.Errorf("Expected workflow name %s, got %s", workflow.Name, execution.WorkflowName)
 	}
 
-	if len(execution.NodeExecutions) != 2 {
-		t.Errorf("Expected 2 node executions, got %d", len(execution.NodeExecutions))
+	if len(execution.NodeExecutions) != 1 {
+		t.Errorf("Expected 1 node execution, got %d", len(execution.NodeExecutions))
 	}
 
 	// Verify all nodes completed successfully
