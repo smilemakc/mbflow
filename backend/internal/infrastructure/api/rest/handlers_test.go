@@ -59,13 +59,8 @@ func TestRespondJSON(t *testing.T) {
 	var response map[string]interface{}
 	parseJSON(t, w.Body.String(), &response)
 
-	data, ok := response["data"].(map[string]interface{})
-	if !ok {
-		t.Fatal("expected data field in response envelope")
-	}
-
-	if data["message"] != "success" {
-		t.Errorf("expected message=success, got %v", data["message"])
+	if response["message"] != "success" {
+		t.Errorf("expected message=success, got %v", response["message"])
 	}
 }
 
@@ -339,7 +334,7 @@ func TestRespondSuccess(t *testing.T) {
 	router := gin.New()
 
 	router.GET("/with-meta", func(c *gin.Context) {
-		respondSuccess(c, http.StatusOK, map[string]string{"key": "value"}, &MetaInfo{
+		respondSuccess(c, http.StatusOK, map[string]string{"key": "value"}, &listMeta{
 			Total:  100,
 			Limit:  10,
 			Offset: 0,
@@ -350,50 +345,44 @@ func TestRespondSuccess(t *testing.T) {
 		respondSuccess(c, http.StatusOK, map[string]string{"key": "value"}, nil)
 	})
 
-	tests := []struct {
-		name    string
-		path    string
-		hasMeta bool
-		hasData bool
-	}{
-		{
-			name:    "with meta",
-			path:    "/with-meta",
-			hasMeta: true,
-			hasData: true,
-		},
-		{
-			name:    "without meta",
-			path:    "/without-meta",
-			hasMeta: false,
-			hasData: true,
-		},
-	}
+	t.Run("with meta", func(t *testing.T) {
+		w := performRequest(router, "GET", "/with-meta", nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			w := performRequest(router, "GET", tt.path, nil)
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
+		}
 
-			if w.Code != http.StatusOK {
-				t.Errorf("expected status 200, got %d", w.Code)
-			}
+		var response map[string]interface{}
+		parseJSON(t, w.Body.String(), &response)
 
-			var response map[string]interface{}
-			parseJSON(t, w.Body.String(), &response)
+		if response["data"] == nil {
+			t.Error("expected data field")
+		}
+		if response["total"] == nil {
+			t.Error("expected total field")
+		}
+		if response["limit"] == nil {
+			t.Error("expected limit field")
+		}
+		if response["offset"] == nil {
+			t.Error("expected offset field")
+		}
+	})
 
-			if tt.hasData && response["data"] == nil {
-				t.Error("expected data field")
-			}
+	t.Run("without meta", func(t *testing.T) {
+		w := performRequest(router, "GET", "/without-meta", nil)
 
-			if tt.hasMeta && response["meta"] == nil {
-				t.Error("expected meta field")
-			}
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
+		}
 
-			if !tt.hasMeta && response["meta"] != nil {
-				t.Error("unexpected meta field")
-			}
-		})
-	}
+		var response map[string]string
+		parseJSON(t, w.Body.String(), &response)
+
+		if response["key"] != "value" {
+			t.Errorf("expected key=value, got %v", response["key"])
+		}
+	})
 }
 
 func TestRespondErrorWithDetails(t *testing.T) {

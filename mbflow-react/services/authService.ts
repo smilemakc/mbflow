@@ -130,7 +130,7 @@ class AuthService {
   /**
    * List all users (admin only)
    */
-  async listUsers(limit = 50, offset = 0): Promise<{ data: User[]; meta: { total: number } }> {
+  async listUsers(limit = 50, offset = 0): Promise<{ data: User[]; total: number }> {
     const response = await apiClient.get('/admin/users', {
       params: { limit, offset },
     });

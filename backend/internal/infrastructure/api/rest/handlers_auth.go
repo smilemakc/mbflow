@@ -106,7 +106,7 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 	var err error
 
 	// Check if we should use provider manager (for gRPC/gateway modes)
-	if h.providerManager.ShouldHandleAuth() {
+	if h.providerManager != nil && h.providerManager.ShouldHandleAuth() {
 		// Use provider manager for authentication
 		providerResult, providerErr := h.providerManager.Authenticate(c.Request.Context(), &auth.Credentials{
 			Email:    req.Email,
@@ -373,7 +373,7 @@ func (h *AuthHandlers) HandleAdminListUsers(c *gin.Context) {
 		return
 	}
 
-	respondSuccess(c, http.StatusOK, users, &MetaInfo{
+	respondSuccess(c, http.StatusOK, users, &listMeta{
 		Total:  total,
 		Limit:  limit,
 		Offset: offset,

@@ -344,11 +344,20 @@ func (s *storageWrapper) Store(ctx context.Context, entry *models.FileEntry, rea
 	return entry, nil
 }
 
-// Get retrieves a file
+// Get retrieves a file by path. The fileID parameter is treated as the storage
+// path (as returned by Store). Callers that need metadata should fetch it from
+// the repository separately; only a minimal FileEntry with the path is returned.
 func (s *storageWrapper) Get(ctx context.Context, fileID string) (*models.FileEntry, io.ReadCloser, error) {
-	// TODO: Get metadata from repository
-	// For now, this requires repository integration
-	return nil, nil, fmt.Errorf("not implemented: requires repository integration")
+	reader, err := s.provider.Get(ctx, fileID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get file: %w", err)
+	}
+	entry := &models.FileEntry{
+		ID:        fileID,
+		StorageID: s.storage.storageID,
+		Path:      fileID,
+	}
+	return entry, reader, nil
 }
 
 // Delete removes a file

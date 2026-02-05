@@ -184,7 +184,7 @@ func TestHandlers_RunExecution_WorkflowNotFound(t *testing.T) {
 
 	w := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 // ========== GET EXECUTION TESTS ==========

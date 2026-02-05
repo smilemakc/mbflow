@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse, ApiListResponse } from '../lib/api';
+import { apiClient, ApiListResponse } from '../lib/api';
 import { DAG, AppNode, AppEdge } from '@/types';
 import type { WorkflowResource } from '@/types/workflow';
 import {
@@ -34,17 +34,17 @@ export const workflowService = {
 
   // Get a single workflow by ID
   getById: async (id: string) => {
-    const response = await apiClient.get<ApiResponse<WorkflowApiResponse>>(`/workflows/${id}`);
-    return workflowFromApi(response.data.data);
+    const response = await apiClient.get<WorkflowApiResponse>(`/workflows/${id}`);
+    return workflowFromApi(response.data);
   },
 
   // Create new workflow
   create: async (name: string, description?: string) => {
-    const response = await apiClient.post<ApiResponse<WorkflowApiResponse>>('/workflows', {
+    const response = await apiClient.post<WorkflowApiResponse>('/workflows', {
       name,
       description: description || '',
     });
-    return workflowFromApi(response.data.data);
+    return workflowFromApi(response.data);
   },
 
   // Save (Update existing workflow with nodes and edges)
@@ -66,8 +66,8 @@ export const workflowService = {
       resources: dag.resources,
     });
 
-    const response = await apiClient.put<ApiResponse<WorkflowApiResponse>>(`/workflows/${dag.id}`, payload);
-    return workflowFromApi(response.data.data);
+    const response = await apiClient.put<WorkflowApiResponse>(`/workflows/${dag.id}`, payload);
+    return workflowFromApi(response.data);
   },
 
   // Delete workflow
@@ -77,7 +77,7 @@ export const workflowService = {
 
   // Add resource to workflow
   attachResource: (workflowId: string, resourceId: string, alias: string, accessType?: string) =>
-    apiClient.post<ApiResponse<WorkflowResource>>(`/workflows/${workflowId}/resources`, {
+    apiClient.post<WorkflowResource>(`/workflows/${workflowId}/resources`, {
       resource_id: resourceId,
       alias,
       access_type: accessType || 'read'
@@ -89,9 +89,9 @@ export const workflowService = {
 
   // Get workflow resources
   getResources: (workflowId: string) =>
-    apiClient.get<ApiResponse<{ resources: WorkflowResource[] }>>(`/workflows/${workflowId}/resources`),
+    apiClient.get<{ resources: WorkflowResource[] }>(`/workflows/${workflowId}/resources`),
 
   // Update resource alias
   updateResourceAlias: (workflowId: string, resourceId: string, alias: string) =>
-    apiClient.put<ApiResponse<WorkflowResource>>(`/workflows/${workflowId}/resources/${resourceId}`, { alias }),
+    apiClient.put<WorkflowResource>(`/workflows/${workflowId}/resources/${resourceId}`, { alias }),
 };

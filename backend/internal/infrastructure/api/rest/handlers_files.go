@@ -308,8 +308,8 @@ func (h *FileHandlers) HandleGetFile(c *gin.Context) {
 		return
 	}
 
-	// Get file content
-	entry, reader, err := store.Get(c.Request.Context(), fileID)
+	// Get file content using the stored path
+	_, reader, err := store.Get(c.Request.Context(), fileModel.Path)
 	if err != nil {
 		h.logger.Error("Failed to get file content", "error", err, "file_id", fileID)
 		respondError(c, http.StatusInternalServerError, "failed to retrieve file")
@@ -317,12 +317,12 @@ func (h *FileHandlers) HandleGetFile(c *gin.Context) {
 	}
 	defer reader.Close()
 
-	// Set headers for download
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", entry.Name))
-	c.Header("Content-Type", entry.MimeType)
+	// Set headers for download using metadata from DB
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileModel.Name))
+	c.Header("Content-Type", fileModel.MimeType)
 
 	// Stream file
-	c.DataFromReader(http.StatusOK, entry.Size, entry.MimeType, reader, nil)
+	c.DataFromReader(http.StatusOK, fileModel.Size, fileModel.MimeType, reader, nil)
 }
 
 // HandleGetFileMetadata handles GET /api/v1/files/:id/metadata

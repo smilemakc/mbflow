@@ -24,14 +24,16 @@ func parseIntQuery(value string, defaultValue int) int {
 }
 
 func respondJSON(c *gin.Context, status int, data interface{}) {
-	c.JSON(status, SuccessResponse{Data: data})
+	c.JSON(status, data)
 }
 
-// respondList writes a paginated list response with standard envelope format
+// respondList writes a paginated list response with flat structure
 func respondList(c *gin.Context, status int, data interface{}, total, limit, offset int) {
-	c.JSON(status, SuccessResponse{
-		Data: data,
-		Meta: &MetaInfo{Total: total, Limit: limit, Offset: offset},
+	c.JSON(status, gin.H{
+		"data":   data,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
 	})
 }
 
@@ -59,29 +61,25 @@ func respondAPIErrorWithRequestID(c *gin.Context, err error) {
 	c.JSON(apiErr.HTTPStatus, apiErr)
 }
 
-// SuccessResponse represents a successful response with metadata
-type SuccessResponse struct {
-	Data interface{} `json:"data"`
-	Meta *MetaInfo   `json:"meta,omitempty"`
-}
-
-// MetaInfo contains metadata about the response
-type MetaInfo struct {
-	Total  int `json:"total"`
-	Limit  int `json:"limit"`
-	Offset int `json:"offset"`
-}
-
-// respondSuccess writes a successful response with metadata
-func respondSuccess(c *gin.Context, status int, data interface{}, meta *MetaInfo) {
+// respondSuccess writes a successful response, optionally with pagination metadata
+func respondSuccess(c *gin.Context, status int, data interface{}, meta *listMeta) {
 	if meta != nil {
-		c.JSON(status, SuccessResponse{
-			Data: data,
-			Meta: meta,
+		c.JSON(status, gin.H{
+			"data":   data,
+			"total":  meta.Total,
+			"limit":  meta.Limit,
+			"offset": meta.Offset,
 		})
 	} else {
-		c.JSON(status, gin.H{"data": data})
+		c.JSON(status, data)
 	}
+}
+
+// listMeta contains pagination metadata for list responses
+type listMeta struct {
+	Total  int
+	Limit  int
+	Offset int
 }
 
 func bindJSON(c *gin.Context, obj interface{}) error {

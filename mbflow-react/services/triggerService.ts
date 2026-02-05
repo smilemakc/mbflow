@@ -3,7 +3,7 @@
  * Ported from Vue: /mbflow-ui/src/api/triggers.ts
  */
 
-import { apiClient, ApiResponse, ApiListResponse } from '../lib/api';
+import { apiClient, ApiListResponse } from '../lib/api';
 import type {
   Trigger,
   TriggerCreateRequest,
@@ -20,7 +20,7 @@ export const triggerService = {
     const response = await apiClient.get<ApiListResponse<Trigger>>('/triggers', { params });
     return {
       triggers: response.data.data,
-      total: response.data.meta.total,
+      total: response.data.total,
     };
   },
 
@@ -28,24 +28,24 @@ export const triggerService = {
    * Get a single trigger by ID
    */
   async getTrigger(id: string): Promise<Trigger> {
-    const response = await apiClient.get<ApiResponse<Trigger>>(`/triggers/${id}`);
-    return response.data.data;
+    const response = await apiClient.get<Trigger>(`/triggers/${id}`);
+    return response.data;
   },
 
   /**
    * Create a new trigger
    */
   async createTrigger(data: TriggerCreateRequest): Promise<Trigger> {
-    const response = await apiClient.post<ApiResponse<Trigger>>('/triggers', data);
-    return response.data.data;
+    const response = await apiClient.post<Trigger>('/triggers', data);
+    return response.data;
   },
 
   /**
    * Update an existing trigger
    */
   async updateTrigger(id: string, data: TriggerUpdateRequest): Promise<Trigger> {
-    const response = await apiClient.put<ApiResponse<Trigger>>(`/triggers/${id}`, data);
-    return response.data.data;
+    const response = await apiClient.put<Trigger>(`/triggers/${id}`, data);
+    return response.data;
   },
 
   /**
@@ -59,27 +59,27 @@ export const triggerService = {
    * Manually execute a trigger
    */
   async executeTrigger(id: string, input?: Record<string, any>): Promise<TriggerExecutionResponse> {
-    const response = await apiClient.post<ApiResponse<TriggerExecutionResponse>>(
+    const response = await apiClient.post<TriggerExecutionResponse>(
       `/triggers/${id}/execute`,
       input ? { input } : undefined
     );
-    return response.data.data;
+    return response.data;
   },
 
   /**
    * Enable a trigger
    */
   async enableTrigger(id: string): Promise<Trigger> {
-    const response = await apiClient.post<ApiResponse<Trigger>>(`/triggers/${id}/enable`);
-    return response.data.data;
+    const response = await apiClient.post<Trigger>(`/triggers/${id}/enable`);
+    return response.data;
   },
 
   /**
    * Disable a trigger
    */
   async disableTrigger(id: string): Promise<Trigger> {
-    const response = await apiClient.post<ApiResponse<Trigger>>(`/triggers/${id}/disable`);
-    return response.data.data;
+    const response = await apiClient.post<Trigger>(`/triggers/${id}/disable`);
+    return response.data;
   },
 };
 

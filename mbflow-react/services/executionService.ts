@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse, ApiListResponse } from '../lib/api';
+import { apiClient, ApiListResponse } from '../lib/api';
 import { NodeExecutionResult, ExecutionLog } from '@/types';
 import {
   executionFromApi,
@@ -31,23 +31,23 @@ interface LogsResponse {
 export const executionService = {
   // Trigger a new execution
   trigger: async (workflowId: string, input?: Record<string, any>) => {
-    const response = await apiClient.post<ApiResponse<ExecutionApiResponse>>(`/executions/run/${workflowId}`, {
+    const response = await apiClient.post<ExecutionApiResponse>(`/executions/run/${workflowId}`, {
       input: input || {},
       async: true,
     });
-    return executionFromApi(response.data.data);
+    return executionFromApi(response.data);
   },
 
   // Get status of a running execution
   getStatus: async (executionId: string) => {
-    const response = await apiClient.get<ApiResponse<ExecutionApiResponse>>(`/executions/${executionId}`);
-    return executionFromApi(response.data.data);
+    const response = await apiClient.get<ExecutionApiResponse>(`/executions/${executionId}`);
+    return executionFromApi(response.data);
   },
 
   // Get logs for an execution
   getLogs: async (executionId: string) => {
-    const response = await apiClient.get<ApiResponse<LogsResponse>>(`/executions/${executionId}/logs`);
-    const logsData = response.data.data;
+    const response = await apiClient.get<LogsResponse>(`/executions/${executionId}/logs`);
+    const logsData = response.data;
     return logsData.logs.map(log => ({
       id: `${log.timestamp}_${log.event_type}`,
       nodeId: log.data?.node_id || null,
@@ -90,17 +90,17 @@ export const executionService = {
     );
     return {
       executions: response.data.data.map(executionFromApi),
-      total: response.data.meta.total,
-      limit: response.data.meta.limit,
-      offset: response.data.meta.offset,
+      total: response.data.total,
+      limit: response.data.limit,
+      offset: response.data.offset,
     };
   },
 
   // Retry a failed execution
   retry: async (executionId: string) => {
-    const response = await apiClient.post<ApiResponse<ExecutionApiResponse>>(
+    const response = await apiClient.post<ExecutionApiResponse>(
       `/executions/${executionId}/retry`
     );
-    return executionFromApi(response.data.data);
+    return executionFromApi(response.data);
   }
 };
