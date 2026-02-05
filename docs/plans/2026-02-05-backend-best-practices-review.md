@@ -28,25 +28,25 @@ Dual-mode: embedded SDK + remote HTTP/gRPC.
 | 7  | 2.2 Service API Tests            | DONE   | `4725292` | 7 test files, 212 tests for all serviceapi operations                          |
 | 8  | 1.1 SDK Internal Imports         | DONE   |           | Created pkg/engine/ interfaces, removed internal imports from pkg/sdk          |
 | 9  | 1.2 Global Registry Removal      | DONE   | `4725292` | Removed global var + convenience functions, kept Registry struct               |
-| 10 | 5.1 Repository Interface Cleanup | WIP    |           | Domain models + mappers added (Event, Trigger, AuditLog); interfaces deferred  |
+| 10 | 5.1 Repository Interface Cleanup | WIP    | `747640a` | Domain models + mappers added (Event, Trigger, AuditLog); interfaces deferred  |
 | 11 | 5.2 Move Mapper Functions        | DONE   | `4725292` | Moved 7 mappers from engine/converters to storage/models/mappers               |
 | 12 | 4.1 Observer Error Logging       | DONE   | `4725292` | Added logger to StorageManager, observer errors now logged                     |
 | 13 | 5.3 Implement File Cleanup       | DONE   | `461042e` | StorageManager.Cleanup with logging (needs repo for full impl)                 |
 | 14 | 3.4 Request Body Size Limit      | DONE   | `4725292` | middleware_bodysize.go + MaxBodySize config                                    |
 | 15 | 3.5 Response Compression         | DONE   | `4725292` | gin-contrib/gzip middleware added                                              |
 | 16 | 2.4 Add t.Parallel()             | DONE   | `461042e` | Added to engine, auth, model tests (partial coverage)                          |
-| 17 | 1.3 Server Struct Decomposition  | TODO   |           | Break Server god-object into sub-components                                    |
+| 17 | 1.3 Server Struct Decomposition  | DEFER  |           | Major refactoring (50+ fields) - requires dedicated planning                   |
 | 18 | 5.4 golangci-lint Config         | DONE   | `461042e` | .golangci.yml with govet, errcheck, staticcheck, revive                        |
-| 19 | 6.1 OpenAPI Documentation        | TODO   |           | Add swag annotations                                                           |
+| 19 | 6.1 OpenAPI Documentation        | DONE   | `7386f3b` | Swagger setup, handler annotations, /swagger/* endpoint                        |
 | 20 | 4.2 Standardize ErrNoRows        | DONE   | `4725292` | Replaced 33 occurrences across 12 repository files                             |
 | 21 | 4.3 errors.Join Usage            | DONE   | `461042e` | Replaced AggregatedError with errors.Join in dag_executor                      |
-| 22 | 6.2 Distributed Tracing          | DONE   |           | OpenTelemetry tracing package + config + 13 tests                              |
-| 23 | 6.3 Typed Executor Config        | TODO   |           | Typed config structs per executor                                              |
-| 24 | 6.4 Redis Rate Limiter           | DONE   |           | RedisRateLimiter + RedisLoginRateLimiter with 10 tests                         |
+| 22 | 6.2 Distributed Tracing          | DONE   | `8860517` | OpenTelemetry tracing package + config + 13 tests                              |
+| 23 | 6.3 Typed Executor Config        | DONE   | `564bf79` | HTTPConfig, LLMConfig, TransformConfig + validation + 10 tests                 |
+| 24 | 6.4 Redis Rate Limiter           | DONE   | `1618581` | RedisRateLimiter + RedisLoginRateLimiter with 10 tests                         |
 | 25 | 2.5 Server Package Tests         | DONE   |           | Unit tests for options, getters, RegisterExecutor (10 tests)                   |
 
-**Completed:** 21/25 tasks + bonus fix (pre-existing failures)
-**Remaining estimated effort:** ~40 hours
+**Completed:** 23/25 tasks + bonus fix (pre-existing failures)
+**Remaining:** Tasks 10 (WIP - domain models done, interfaces deferred) + 17 (DEFER - major refactoring)
 
 ---
 
