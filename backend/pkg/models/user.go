@@ -203,6 +203,27 @@ func (r *Role) HasPermission(permission string) bool {
 	return false
 }
 
+// AuditLog represents an audit log entry for user actions.
+type AuditLog struct {
+	ID           string                 `json:"id"`
+	UserID       *string                `json:"user_id,omitempty"`
+	Action       string                 `json:"action"`
+	ResourceType string                 `json:"resource_type,omitempty"`
+	ResourceID   *string                `json:"resource_id,omitempty"`
+	IPAddress    string                 `json:"ip_address,omitempty"`
+	UserAgent    string                 `json:"user_agent,omitempty"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	CreatedAt    time.Time              `json:"created_at"`
+}
+
+// Validate validates the audit log structure.
+func (a *AuditLog) Validate() error {
+	if a.Action == "" {
+		return &ValidationError{Field: "action", Message: "action is required"}
+	}
+	return nil
+}
+
 // getRolePermissions returns a mapping of role names to their permissions.
 func getRolePermissions() map[string][]string {
 	return map[string][]string{

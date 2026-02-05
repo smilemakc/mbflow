@@ -28,7 +28,7 @@ Dual-mode: embedded SDK + remote HTTP/gRPC.
 | 7  | 2.2 Service API Tests            | DONE   | `4725292` | 7 test files, 212 tests for all serviceapi operations                          |
 | 8  | 1.1 SDK Internal Imports         | DONE   |           | Created pkg/engine/ interfaces, removed internal imports from pkg/sdk          |
 | 9  | 1.2 Global Registry Removal      | DONE   | `4725292` | Removed global var + convenience functions, kept Registry struct               |
-| 10 | 5.1 Repository Interface Cleanup | TODO   |           | Interfaces should use domain models, not storage models                        |
+| 10 | 5.1 Repository Interface Cleanup | WIP    |           | Domain models created (Event, AuditLog); interfaces pending                    |
 | 11 | 5.2 Move Mapper Functions        | DONE   | `4725292` | Moved 7 mappers from engine/converters to storage/models/mappers               |
 | 12 | 4.1 Observer Error Logging       | DONE   | `4725292` | Added logger to StorageManager, observer errors now logged                     |
 | 13 | 5.3 Implement File Cleanup       | DONE   | `461042e` | StorageManager.Cleanup with logging (needs repo for full impl)                 |
