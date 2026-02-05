@@ -40,12 +40,12 @@ Dual-mode: embedded SDK + remote HTTP/gRPC.
 | 19 | 6.1 OpenAPI Documentation        | TODO   |           | Add swag annotations                                                           |
 | 20 | 4.2 Standardize ErrNoRows        | DONE   | `4725292` | Replaced 33 occurrences across 12 repository files                             |
 | 21 | 4.3 errors.Join Usage            | DONE   | `461042e` | Replaced AggregatedError with errors.Join in dag_executor                      |
-| 22 | 6.2 Distributed Tracing          | TODO   |           | OpenTelemetry middleware                                                       |
+| 22 | 6.2 Distributed Tracing          | DONE   |           | OpenTelemetry tracing package + config + 13 tests                              |
 | 23 | 6.3 Typed Executor Config        | TODO   |           | Typed config structs per executor                                              |
 | 24 | 6.4 Redis Rate Limiter           | DONE   |           | RedisRateLimiter + RedisLoginRateLimiter with 10 tests                         |
 | 25 | 2.5 Server Package Tests         | DONE   |           | Unit tests for options, getters, RegisterExecutor (10 tests)                   |
 
-**Completed:** 20/25 tasks + bonus fix (pre-existing failures)
+**Completed:** 21/25 tasks + bonus fix (pre-existing failures)
 **Remaining estimated effort:** ~40 hours
 
 ---
