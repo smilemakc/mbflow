@@ -35,18 +35,13 @@ func NewWorkflowHandlers(workflowRepo repository.WorkflowRepository, log *logger
 // HandleCreateWorkflow handles POST /api/v1/workflows
 func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 	var req struct {
-		Name        string                 `json:"name"`
+		Name        string                 `json:"name" binding:"required"`
 		Description string                 `json:"description,omitempty"`
 		Variables   map[string]interface{} `json:"variables,omitempty"`
 		Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
-		return
-	}
-
-	if req.Name == "" {
-		respondAPIError(c, NewAPIError("NAME_REQUIRED", "Workflow name is required", http.StatusBadRequest))
 		return
 	}
 
@@ -195,25 +190,25 @@ type UpdateWorkflowRequest struct {
 
 // ResourceRequest represents a resource attachment in the request body
 type ResourceRequest struct {
-	ResourceID string `json:"resource_id" validate:"required"`
-	Alias      string `json:"alias" validate:"required,min=1,max=100"`
-	AccessType string `json:"access_type" validate:"omitempty,oneof=read write admin"`
+	ResourceID string `json:"resource_id" binding:"required"`
+	Alias      string `json:"alias" binding:"required,min=1,max=100"`
+	AccessType string `json:"access_type" binding:"omitempty,oneof=read write admin"`
 }
 
 // NodeRequest represents a node in the request body
 type NodeRequest struct {
-	ID       string                 `json:"id" validate:"required,max=100"`
-	Name     string                 `json:"name" validate:"required,max=255"`
-	Type     string                 `json:"type" validate:"required,oneof=http transform llm conditional merge split delay webhook"`
+	ID       string                 `json:"id" binding:"required,max=100"`
+	Name     string                 `json:"name" binding:"required,max=255"`
+	Type     string                 `json:"type" binding:"required"`
 	Config   map[string]interface{} `json:"config,omitempty"`
 	Position map[string]interface{} `json:"position,omitempty"`
 }
 
 // EdgeRequest represents an edge in the request body
 type EdgeRequest struct {
-	ID        string                 `json:"id" validate:"required,max=100"`
-	From      string                 `json:"from" validate:"required,max=100"`
-	To        string                 `json:"to" validate:"required,max=100"`
+	ID        string                 `json:"id" binding:"required,max=100"`
+	From      string                 `json:"from" binding:"required,max=100"`
+	To        string                 `json:"to" binding:"required,max=100"`
 	Condition map[string]interface{} `json:"condition,omitempty"`
 }
 

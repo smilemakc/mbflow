@@ -82,31 +82,14 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	var req struct {
-		ID        string                 `json:"id"`
-		From      string                 `json:"from"`
-		To        string                 `json:"to"`
+		ID        string                 `json:"id" binding:"required"`
+		From      string                 `json:"from" binding:"required"`
+		To        string                 `json:"to" binding:"required"`
 		Condition string                 `json:"condition,omitempty"`
 		Metadata  map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in AddEdge", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.ID == "" {
-		respondError(c, http.StatusBadRequest, "edge ID is required")
-		return
-	}
-
-	if req.From == "" {
-		respondError(c, http.StatusBadRequest, "source node (from) is required")
-		return
-	}
-
-	if req.To == "" {
-		respondError(c, http.StatusBadRequest, "target node (to) is required")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
@@ -333,9 +316,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 		Metadata  map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in UpdateEdge", "error", err, "workflow_id", workflowUUID, "edge_id", edgeID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 

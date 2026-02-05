@@ -73,7 +73,7 @@ func (h *ServiceAPIWorkflowHandlers) GetWorkflow(c *gin.Context) {
 
 func (h *ServiceAPIWorkflowHandlers) CreateWorkflow(c *gin.Context) {
 	var req struct {
-		Name        string         `json:"name"`
+		Name        string         `json:"name" binding:"required"`
 		Description string         `json:"description,omitempty"`
 		Variables   map[string]any `json:"variables,omitempty"`
 		Metadata    map[string]any `json:"metadata,omitempty"`

@@ -35,31 +35,16 @@ func NewTriggerHandlers(
 // HandleCreateTrigger handles POST /api/v1/triggers
 func (h *TriggerHandlers) HandleCreateTrigger(c *gin.Context) {
 	var req struct {
-		WorkflowID  string                 `json:"workflow_id"`
-		Name        string                 `json:"name"`
+		WorkflowID  string                 `json:"workflow_id" binding:"required,uuid"`
+		Name        string                 `json:"name" binding:"required"`
 		Description string                 `json:"description,omitempty"`
-		Type        string                 `json:"type"`
+		Type        string                 `json:"type" binding:"required"`
 		Config      map[string]interface{} `json:"config"`
 		Enabled     bool                   `json:"enabled"`
 		Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
-		return
-	}
-
-	if req.WorkflowID == "" {
-		respondAPIError(c, NewAPIError("WORKFLOW_ID_REQUIRED", "workflow_id is required", http.StatusBadRequest))
-		return
-	}
-
-	if req.Name == "" {
-		respondAPIError(c, NewAPIError("NAME_REQUIRED", "name is required", http.StatusBadRequest))
-		return
-	}
-
-	if req.Type == "" {
-		respondAPIError(c, NewAPIError("TYPE_REQUIRED", "type is required", http.StatusBadRequest))
 		return
 	}
 

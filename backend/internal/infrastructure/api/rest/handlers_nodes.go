@@ -44,33 +44,16 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	}
 
 	var req struct {
-		ID          string                 `json:"id"`
-		Name        string                 `json:"name"`
-		Type        string                 `json:"type"`
+		ID          string                 `json:"id" binding:"required"`
+		Name        string                 `json:"name" binding:"required"`
+		Type        string                 `json:"type" binding:"required"`
 		Description string                 `json:"description,omitempty"`
 		Config      map[string]interface{} `json:"config"`
 		Position    *models.Position       `json:"position,omitempty"`
 		Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in AddNode", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.ID == "" {
-		respondError(c, http.StatusBadRequest, "node ID is required")
-		return
-	}
-
-	if req.Name == "" {
-		respondError(c, http.StatusBadRequest, "node name is required")
-		return
-	}
-
-	if req.Type == "" {
-		respondError(c, http.StatusBadRequest, "node type is required")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
@@ -239,9 +222,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 		Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in UpdateNode", "error", err, "workflow_id", workflowUUID, "node_id", nodeID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
