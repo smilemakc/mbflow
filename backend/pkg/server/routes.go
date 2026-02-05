@@ -32,8 +32,30 @@ func (s *Server) setupRoutes() error {
 	s.router.Use(loggingMiddleware.RequestLogger())
 
 	if s.config.Server.CORS {
+		allowedOrigins := s.config.Server.CORSAllowedOrigins
+		allowAll := len(allowedOrigins) == 0 && s.config.Logging.Level == "debug"
+
+		if !allowAll && len(allowedOrigins) == 0 {
+			s.logger.Warn("CORS enabled but no allowed origins configured (MBFLOW_CORS_ALLOWED_ORIGINS). Set origins or use debug log level for wildcard.")
+		}
+
+		originSet := make(map[string]struct{}, len(allowedOrigins))
+		for _, o := range allowedOrigins {
+			originSet[o] = struct{}{}
+		}
+
 		s.router.Use(func(c *gin.Context) {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+			origin := c.GetHeader("Origin")
+
+			if allowAll {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+			} else if origin != "" {
+				if _, ok := originSet[origin]; ok {
+					c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+					c.Writer.Header().Set("Vary", "Origin")
+				}
+			}
+
 			c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 			c.Writer.Header().Set("Access-Control-Max-Age", "86400")
@@ -45,7 +67,12 @@ func (s *Server) setupRoutes() error {
 
 			c.Next()
 		})
-		s.logger.Info("CORS enabled")
+
+		if allowAll {
+			s.logger.Info("CORS enabled with wildcard origin (debug mode)")
+		} else {
+			s.logger.Info("CORS enabled", "allowed_origins", allowedOrigins)
+		}
 	}
 
 	s.setupHealthEndpoints()

@@ -27,13 +27,14 @@ type Config struct {
 
 // ServerConfig holds server-related configuration.
 type ServerConfig struct {
-	Port            int
-	Host            string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	ShutdownTimeout time.Duration
-	CORS            bool
-	APIKeys         []string
+	Port               int
+	Host               string
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
+	ShutdownTimeout    time.Duration
+	CORS               bool
+	CORSAllowedOrigins []string
+	APIKeys            []string
 }
 
 // DatabaseConfig holds database-related configuration.
@@ -157,13 +158,14 @@ func Load() (*Config, error) {
 	godotenv.Load()
 	cfg := &Config{
 		Server: ServerConfig{
-			Port:            getEnvAsInt("MBFLOW_PORT", 8585),
-			Host:            getEnv("MBFLOW_HOST", "0.0.0.0"),
-			ReadTimeout:     getEnvAsDuration("MBFLOW_READ_TIMEOUT", 15*time.Second),
-			WriteTimeout:    getEnvAsDuration("MBFLOW_WRITE_TIMEOUT", 15*time.Second),
-			ShutdownTimeout: getEnvAsDuration("MBFLOW_SHUTDOWN_TIMEOUT", 30*time.Second),
-			CORS:            getEnvAsBool("MBFLOW_CORS_ENABLED", true),
-			APIKeys:         getEnvAsSlice("MBFLOW_API_KEYS", []string{}),
+			Port:               getEnvAsInt("MBFLOW_PORT", 8585),
+			Host:               getEnv("MBFLOW_HOST", "0.0.0.0"),
+			ReadTimeout:        getEnvAsDuration("MBFLOW_READ_TIMEOUT", 15*time.Second),
+			WriteTimeout:       getEnvAsDuration("MBFLOW_WRITE_TIMEOUT", 15*time.Second),
+			ShutdownTimeout:    getEnvAsDuration("MBFLOW_SHUTDOWN_TIMEOUT", 30*time.Second),
+			CORS:               getEnvAsBool("MBFLOW_CORS_ENABLED", true),
+			CORSAllowedOrigins: getEnvAsSlice("MBFLOW_CORS_ALLOWED_ORIGINS", []string{}),
+			APIKeys:            getEnvAsSlice("MBFLOW_API_KEYS", []string{}),
 		},
 		Database: DatabaseConfig{
 			URL:             getEnv("MBFLOW_DATABASE_URL", "postgres://mbflow:mbflow@localhost:5432/mbflow?sslmode=disable"),
