@@ -1,3 +1,6 @@
+//go:build grpc_provider_fixed
+// +build grpc_provider_fixed
+
 package auth
 
 import (
