@@ -39,7 +39,7 @@ func main() {
 		log.Fatalf("Failed to build workflow: %v", err)
 	}
 
-	fmt.Println("=== OpenAI Responses API Basic Example ===\n")
+	fmt.Println("=== OpenAI Responses API Basic Example ===")
 	fmt.Printf("Workflow: %s\n", workflow.Name)
 	fmt.Printf("Node: %s (provider: %s, model: %s)\n\n",
 		workflow.Nodes[0].Name,

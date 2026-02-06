@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -378,53 +379,14 @@ func findInvalidEdges(workflow *models.Workflow) []string {
 	return errors
 }
 
-// topologicalSort returns nodes in topological order using Kahn's algorithm.
+// topologicalSort returns nodes in topological order using shared engine implementation.
 func topologicalSort(workflow *models.Workflow) ([]string, error) {
-	// Build adjacency list and in-degree map
-	graph := make(map[string][]string)
-	inDegree := make(map[string]int)
-
-	// Initialize all nodes with 0 in-degree
-	for _, node := range workflow.Nodes {
-		inDegree[node.ID] = 0
+	dag := engine.BuildDAG(workflow)
+	waves, err := engine.TopologicalSort(dag)
+	if err != nil {
+		return nil, err
 	}
-
-	// Build graph and calculate in-degrees
-	for _, edge := range workflow.Edges {
-		graph[edge.From] = append(graph[edge.From], edge.To)
-		inDegree[edge.To]++
-	}
-
-	// Find all nodes with in-degree 0 (start nodes)
-	var queue []string
-	for nodeID, degree := range inDegree {
-		if degree == 0 {
-			queue = append(queue, nodeID)
-		}
-	}
-
-	var result []string
-	for len(queue) > 0 {
-		// Dequeue
-		nodeID := queue[0]
-		queue = queue[1:]
-		result = append(result, nodeID)
-
-		// Reduce in-degree for neighbors
-		for _, neighbor := range graph[nodeID] {
-			inDegree[neighbor]--
-			if inDegree[neighbor] == 0 {
-				queue = append(queue, neighbor)
-			}
-		}
-	}
-
-	// If result doesn't contain all nodes, there's a cycle
-	if len(result) != len(workflow.Nodes) {
-		return nil, fmt.Errorf("workflow contains a cycle")
-	}
-
-	return result, nil
+	return engine.FlattenWaves(waves), nil
 }
 
 // generateID generates a new UUID string

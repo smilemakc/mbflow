@@ -7,7 +7,8 @@ help:
 	@echo "Available targets:"
 	@echo "  build         - Build the server binary"
 	@echo "  run           - Run the server locally"
-	@echo "  test          - Run all tests"
+	@echo "  test          - Run tests (embedded postgres, no Docker)"
+	@echo "  test-integration - Run integration tests (requires Docker)"
 	@echo "  test-cover    - Run tests with coverage"
 	@echo "  test-race     - Run tests with race detector"
 	@echo "  clean         - Remove build artifacts"
@@ -43,8 +44,12 @@ run-dev:
 
 # Test targets
 test:
-	@echo "Running tests..."
+	@echo "Running tests (embedded postgres, no Docker)..."
 	go test ./...
+
+test-integration:
+	@echo "Running integration tests (requires Docker)..."
+	go test -tags=integration ./...
 
 test-cover:
 	@echo "Running tests with coverage..."

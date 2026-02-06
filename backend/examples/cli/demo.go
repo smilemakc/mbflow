@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== MBFlow CLI Visualization Demo ===\n")
+	fmt.Println("=== MBFlow CLI Visualization Demo ===")
 
 	// Load workflow from JSON file
 	data, err := os.ReadFile("test_workflow.json")

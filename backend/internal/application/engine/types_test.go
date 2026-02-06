@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	pkgengine "github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -52,7 +53,7 @@ func TestNewExecutionState(t *testing.T) {
 		"var1": "val1",
 	}
 
-	execState := NewExecutionState("exec-123", "wf-123", workflow, input, variables)
+	execState := pkgengine.NewExecutionState("exec-123", "wf-123", workflow, input, variables)
 
 	if execState == nil {
 		t.Fatal("NewExecutionState() returned nil")
@@ -92,7 +93,7 @@ func TestNewExecutionState(t *testing.T) {
 }
 
 func TestExecutionState_SetAndGetNodeOutput(t *testing.T) {
-	execState := NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
+	execState := pkgengine.NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
 
 	output := map[string]interface{}{
 		"result": "success",
@@ -114,7 +115,6 @@ func TestExecutionState_SetAndGetNodeOutput(t *testing.T) {
 		t.Errorf("expected result=success, got %v", retrievedMap["result"])
 	}
 
-	// Test non-existent node
 	_, ok = execState.GetNodeOutput("non-existent")
 	if ok {
 		t.Error("expected not to find non-existent node output")
@@ -122,7 +122,7 @@ func TestExecutionState_SetAndGetNodeOutput(t *testing.T) {
 }
 
 func TestExecutionState_SetAndGetNodeError(t *testing.T) {
-	execState := NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
+	execState := pkgengine.NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
 
 	err := models.ErrNodeExecutionFailed
 
@@ -137,7 +137,6 @@ func TestExecutionState_SetAndGetNodeError(t *testing.T) {
 		t.Errorf("expected error %v, got %v", err, retrieved)
 	}
 
-	// Test non-existent node
 	_, ok = execState.GetNodeError("non-existent")
 	if ok {
 		t.Error("expected not to find non-existent node error")
@@ -145,7 +144,7 @@ func TestExecutionState_SetAndGetNodeError(t *testing.T) {
 }
 
 func TestExecutionState_SetAndGetNodeStatus(t *testing.T) {
-	execState := NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
+	execState := pkgengine.NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
 
 	status := models.NodeExecutionStatusCompleted
 
@@ -160,7 +159,6 @@ func TestExecutionState_SetAndGetNodeStatus(t *testing.T) {
 		t.Errorf("expected status %v, got %v", status, retrieved)
 	}
 
-	// Test non-existent node
 	_, ok = execState.GetNodeStatus("non-existent")
 	if ok {
 		t.Error("expected not to find non-existent node status")
@@ -168,10 +166,9 @@ func TestExecutionState_SetAndGetNodeStatus(t *testing.T) {
 }
 
 func TestExecutionState_Concurrent(t *testing.T) {
-	execState := NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
+	execState := pkgengine.NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
 	done := make(chan bool)
 
-	// Test concurrent operations
 	go func() {
 		for i := 0; i < 100; i++ {
 			execState.SetNodeOutput("node-1", map[string]interface{}{"count": i})
@@ -200,12 +197,10 @@ func TestExecutionState_Concurrent(t *testing.T) {
 		done <- true
 	}()
 
-	// Wait for all goroutines
 	for i := 0; i < 4; i++ {
 		<-done
 	}
 
-	// Verify state is still consistent
 	_, ok := execState.GetNodeOutput("node-1")
 	if !ok {
 		t.Error("execution state corrupted after concurrent access")
@@ -213,7 +208,7 @@ func TestExecutionState_Concurrent(t *testing.T) {
 }
 
 func TestNodeContext_Structure(t *testing.T) {
-	nodeCtx := &NodeContext{
+	nodeCtx := &pkgengine.NodeContext{
 		ExecutionID: "exec-123",
 		NodeID:      "node-1",
 		Node: &models.Node{
@@ -299,16 +294,14 @@ func TestExecutionOptions_CustomValues(t *testing.T) {
 
 func TestExecutionState_GetNodeStartTime(t *testing.T) {
 	workflow := &models.Workflow{ID: "wf-1", Name: "Test"}
-	state := NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
+	state := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
 	nodeID := "node1"
 
-	// Test when not set
 	_, ok := state.GetNodeStartTime(nodeID)
 	if ok {
 		t.Error("start time should not exist initially")
 	}
 
-	// Set and get
 	now := time.Now()
 	state.SetNodeStartTime(nodeID, now)
 	startTime, ok := state.GetNodeStartTime(nodeID)
@@ -322,16 +315,14 @@ func TestExecutionState_GetNodeStartTime(t *testing.T) {
 
 func TestExecutionState_GetNodeEndTime(t *testing.T) {
 	workflow := &models.Workflow{ID: "wf-1", Name: "Test"}
-	state := NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
+	state := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
 	nodeID := "node1"
 
-	// Test when not set
 	_, ok := state.GetNodeEndTime(nodeID)
 	if ok {
 		t.Error("end time should not exist initially")
 	}
 
-	// Set and get
 	now := time.Now()
 	state.SetNodeEndTime(nodeID, now)
 	endTime, ok := state.GetNodeEndTime(nodeID)
@@ -345,16 +336,14 @@ func TestExecutionState_GetNodeEndTime(t *testing.T) {
 
 func TestExecutionState_GetNodeInput(t *testing.T) {
 	workflow := &models.Workflow{ID: "wf-1", Name: "Test"}
-	state := NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
+	state := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
 	nodeID := "node1"
 
-	// Test when not set
 	_, ok := state.GetNodeInput(nodeID)
 	if ok {
 		t.Error("input should not exist initially")
 	}
 
-	// Set and get
 	input := map[string]interface{}{
 		"user": "john",
 		"age":  30,
@@ -372,16 +361,14 @@ func TestExecutionState_GetNodeInput(t *testing.T) {
 
 func TestExecutionState_GetNodeConfig(t *testing.T) {
 	workflow := &models.Workflow{ID: "wf-1", Name: "Test"}
-	state := NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
+	state := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
 	nodeID := "node1"
 
-	// Test when not set
 	_, ok := state.GetNodeConfig(nodeID)
 	if ok {
 		t.Error("config should not exist initially")
 	}
 
-	// Set and get
 	config := map[string]interface{}{
 		"url":     "https://api.example.com",
 		"timeout": 30,
@@ -398,16 +385,14 @@ func TestExecutionState_GetNodeConfig(t *testing.T) {
 
 func TestExecutionState_GetNodeResolvedConfig(t *testing.T) {
 	workflow := &models.Workflow{ID: "wf-1", Name: "Test"}
-	state := NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
+	state := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
 	nodeID := "node1"
 
-	// Test when not set
 	_, ok := state.GetNodeResolvedConfig(nodeID)
 	if ok {
 		t.Error("resolved config should not exist initially")
 	}
 
-	// Set and get
 	config := map[string]interface{}{
 		"url":    "https://api.example.com/users/123",
 		"apiKey": "resolved-key-456",
@@ -424,26 +409,22 @@ func TestExecutionState_GetNodeResolvedConfig(t *testing.T) {
 
 func TestExecutionState_ClearNodeOutput(t *testing.T) {
 	workflow := &models.Workflow{ID: "wf-1", Name: "Test"}
-	state := NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
+	state := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
 	nodeID := "node1"
 
-	// Set output
 	output := map[string]interface{}{
 		"result": "success",
 		"data":   []int{1, 2, 3},
 	}
 	state.SetNodeOutput(nodeID, output)
 
-	// Verify it exists
 	_, ok := state.GetNodeOutput(nodeID)
 	if !ok {
 		t.Error("output should exist after setting")
 	}
 
-	// Clear it
 	state.ClearNodeOutput(nodeID)
 
-	// Verify it's gone
 	_, ok = state.GetNodeOutput(nodeID)
 	if ok {
 		t.Error("output should not exist after clearing")
@@ -452,15 +433,13 @@ func TestExecutionState_ClearNodeOutput(t *testing.T) {
 
 func TestExecutionState_GetTotalMemoryUsage(t *testing.T) {
 	workflow := &models.Workflow{ID: "wf-1", Name: "Test"}
-	state := NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
+	state := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
 
-	// Empty state
 	usage := state.GetTotalMemoryUsage()
 	if usage != 0 {
 		t.Errorf("expected 0 usage for empty state, got %d", usage)
 	}
 
-	// Add some outputs
 	state.SetNodeOutput("node1", "small string")
 	state.SetNodeOutput("node2", map[string]interface{}{
 		"key1": "value1",
@@ -468,13 +447,11 @@ func TestExecutionState_GetTotalMemoryUsage(t *testing.T) {
 	})
 	state.SetNodeOutput("node3", []byte{1, 2, 3, 4, 5})
 
-	// Should have non-zero usage
 	usage = state.GetTotalMemoryUsage()
 	if usage <= 0 {
 		t.Error("expected non-zero usage after adding outputs")
 	}
 
-	// Clear one output, usage should decrease
 	state.ClearNodeOutput("node2")
 	newUsage := state.GetTotalMemoryUsage()
 	if newUsage >= usage {

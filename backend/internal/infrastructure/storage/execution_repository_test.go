@@ -2,75 +2,21 @@ package storage
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/migrations"
+	"github.com/smilemakc/mbflow/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
 
-func setupExecutionRepoTest(t *testing.T) (*ExecutionRepository, *bun.DB, func()) {
-	ctx := context.Background()
-
-	// Start PostgreSQL container
-	req := testcontainers.ContainerRequest{
-		Image:        "postgres:16-alpine",
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"POSTGRES_USER":     "test",
-			"POSTGRES_PASSWORD": "test",
-			"POSTGRES_DB":       "mbflow_test",
-		},
-		WaitingFor: wait.ForLog("database system is ready to accept connections"),
-	}
-
-	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	host, err := postgres.Host(ctx)
-	require.NoError(t, err)
-
-	port, err := postgres.MappedPort(ctx, "5432")
-	require.NoError(t, err)
-
-	// Connect to database
-	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
-
-	// Wait a bit for the database to be fully ready
-	time.Sleep(500 * time.Millisecond)
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
-
-	// Run migrations
-	migrator, err := NewMigrator(db, migrations.FS)
-	require.NoError(t, err)
-	err = migrator.Init(ctx)
-	require.NoError(t, err)
-	err = migrator.Up(ctx)
-	require.NoError(t, err)
-
-	repo := NewExecutionRepository(db)
-
-	cleanup := func() {
-		db.Close()
-		postgres.Terminate(ctx)
-	}
-
-	return repo, db, cleanup
+func setupExecutionRepoTest(t *testing.T) (*ExecutionRepository, bun.IDB, func()) {
+	t.Helper()
+	db, cleanup := testutil.SetupTestTx(t)
+	return NewExecutionRepository(db), db, cleanup
 }
 
 func createTestWorkflow(t *testing.T, workflowRepo *WorkflowRepository) *models.WorkflowModel {
@@ -115,6 +61,7 @@ func createTestWorkflow(t *testing.T, workflowRepo *WorkflowRepository) *models.
 // ========== CREATE TESTS ==========
 
 func TestExecutionRepo_Create_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -142,6 +89,7 @@ func TestExecutionRepo_Create_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_Create_GeneratesID(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -162,6 +110,7 @@ func TestExecutionRepo_Create_GeneratesID(t *testing.T) {
 // ========== UPDATE TESTS ==========
 
 func TestExecutionRepo_Update_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -198,6 +147,7 @@ func TestExecutionRepo_Update_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_Update_WithNodeExecutions(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -246,6 +196,7 @@ func TestExecutionRepo_Update_WithNodeExecutions(t *testing.T) {
 // ========== DELETE TESTS ==========
 
 func TestExecutionRepo_Delete_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -273,6 +224,7 @@ func TestExecutionRepo_Delete_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_Delete_CascadesNodeExecutions(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -313,6 +265,7 @@ func TestExecutionRepo_Delete_CascadesNodeExecutions(t *testing.T) {
 // ========== FIND BY ID TESTS ==========
 
 func TestExecutionRepo_FindByID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -337,6 +290,7 @@ func TestExecutionRepo_FindByID_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_FindByID_NotFound(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -347,6 +301,7 @@ func TestExecutionRepo_FindByID_NotFound(t *testing.T) {
 }
 
 func TestExecutionRepo_FindByID_WithRelations(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -387,6 +342,7 @@ func TestExecutionRepo_FindByID_WithRelations(t *testing.T) {
 // ========== FIND BY WORKFLOW ID TESTS ==========
 
 func TestExecutionRepo_FindByWorkflowID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -410,6 +366,7 @@ func TestExecutionRepo_FindByWorkflowID_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_FindByWorkflowID_Pagination(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -444,6 +401,7 @@ func TestExecutionRepo_FindByWorkflowID_Pagination(t *testing.T) {
 // ========== FIND BY STATUS TESTS ==========
 
 func TestExecutionRepo_FindByStatus_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -476,6 +434,7 @@ func TestExecutionRepo_FindByStatus_Success(t *testing.T) {
 // ========== FIND ALL TESTS ==========
 
 func TestExecutionRepo_FindAll_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -501,6 +460,7 @@ func TestExecutionRepo_FindAll_Success(t *testing.T) {
 // ========== FIND RUNNING TESTS ==========
 
 func TestExecutionRepo_FindRunning_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -531,6 +491,7 @@ func TestExecutionRepo_FindRunning_Success(t *testing.T) {
 // ========== COUNT TESTS ==========
 
 func TestExecutionRepo_Count_Total(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -554,6 +515,7 @@ func TestExecutionRepo_Count_Total(t *testing.T) {
 }
 
 func TestExecutionRepo_CountByWorkflowID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -577,6 +539,7 @@ func TestExecutionRepo_CountByWorkflowID_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_CountByStatus_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -607,6 +570,7 @@ func TestExecutionRepo_CountByStatus_Success(t *testing.T) {
 // ========== NODE EXECUTION TESTS ==========
 
 func TestExecutionRepo_CreateNodeExecution_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -635,6 +599,7 @@ func TestExecutionRepo_CreateNodeExecution_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_UpdateNodeExecution_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -675,6 +640,7 @@ func TestExecutionRepo_UpdateNodeExecution_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_DeleteNodeExecution_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -711,6 +677,7 @@ func TestExecutionRepo_DeleteNodeExecution_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_FindNodeExecutionByID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -744,6 +711,7 @@ func TestExecutionRepo_FindNodeExecutionByID_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_FindNodeExecutionsByExecutionID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -777,6 +745,7 @@ func TestExecutionRepo_FindNodeExecutionsByExecutionID_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_FindNodeExecutionsByExecutionID_Empty(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -800,6 +769,7 @@ func TestExecutionRepo_FindNodeExecutionsByExecutionID_Empty(t *testing.T) {
 // ========== NODE EXECUTION QUERY TESTS ==========
 
 func TestExecutionRepo_FindNodeExecutionsByWave_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -841,6 +811,7 @@ func TestExecutionRepo_FindNodeExecutionsByWave_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_FindNodeExecutionsByStatus_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -879,6 +850,7 @@ func TestExecutionRepo_FindNodeExecutionsByStatus_Success(t *testing.T) {
 // ========== STATISTICS TESTS ==========
 
 func TestExecutionRepo_GetStatistics_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 
@@ -921,6 +893,7 @@ func TestExecutionRepo_GetStatistics_Success(t *testing.T) {
 }
 
 func TestExecutionRepo_GetStatistics_AllWorkflows(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupExecutionRepoTest(t)
 	defer cleanup()
 

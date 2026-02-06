@@ -15,11 +15,11 @@ var _ repository.ServiceAuditLogRepository = (*ServiceAuditLogRepoImpl)(nil)
 
 // ServiceAuditLogRepoImpl implements the ServiceAuditLogRepository interface
 type ServiceAuditLogRepoImpl struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewServiceAuditLogRepo creates a new ServiceAuditLogRepoImpl
-func NewServiceAuditLogRepo(db *bun.DB) *ServiceAuditLogRepoImpl {
+func NewServiceAuditLogRepo(db bun.IDB) *ServiceAuditLogRepoImpl {
 	return &ServiceAuditLogRepoImpl{db: db}
 }
 

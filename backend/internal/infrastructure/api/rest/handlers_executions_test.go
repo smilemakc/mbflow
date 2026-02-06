@@ -24,12 +24,12 @@ func setupExecutionHandlersTest(t *testing.T) (*ExecutionHandlers, *gin.Engine, 
 	t.Helper()
 
 	// Setup test database
-	testDB := testutil.SetupTestDB(t)
+	db, cleanup := testutil.SetupTestTx(t)
 
 	// Create repositories
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
-	executionRepo := storage.NewExecutionRepository(testDB.DB)
-	eventRepo := storage.NewEventRepository(testDB.DB)
+	workflowRepo := storage.NewWorkflowRepository(db)
+	executionRepo := storage.NewExecutionRepository(db)
+	eventRepo := storage.NewEventRepository(db)
 
 	// Create logger
 	log := logger.New(config.LoggingConfig{
@@ -77,16 +77,13 @@ func setupExecutionHandlersTest(t *testing.T) (*ExecutionHandlers, *gin.Engine, 
 		api.POST("/executions/:id/retry", handlers.HandleRetryExecution)
 	}
 
-	cleanup := func() {
-		testDB.Cleanup(t)
-	}
-
 	return handlers, router, workflowRepo, cleanup
 }
 
 // ========== RUN EXECUTION TESTS ==========
 
 func TestHandlers_RunExecution_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -118,6 +115,7 @@ func TestHandlers_RunExecution_Success(t *testing.T) {
 }
 
 func TestHandlers_RunExecution_WithWorkflowIDInPath(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -147,6 +145,7 @@ func TestHandlers_RunExecution_WithWorkflowIDInPath(t *testing.T) {
 }
 
 func TestHandlers_RunExecution_MissingWorkflowID(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -162,6 +161,7 @@ func TestHandlers_RunExecution_MissingWorkflowID(t *testing.T) {
 }
 
 func TestHandlers_RunExecution_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -171,6 +171,7 @@ func TestHandlers_RunExecution_InvalidJSON(t *testing.T) {
 }
 
 func TestHandlers_RunExecution_WorkflowNotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -190,6 +191,7 @@ func TestHandlers_RunExecution_WorkflowNotFound(t *testing.T) {
 // ========== GET EXECUTION TESTS ==========
 
 func TestHandlers_GetExecution_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -224,6 +226,7 @@ func TestHandlers_GetExecution_Success(t *testing.T) {
 }
 
 func TestHandlers_GetExecution_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -234,6 +237,7 @@ func TestHandlers_GetExecution_NotFound(t *testing.T) {
 }
 
 func TestHandlers_GetExecution_InvalidID(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -245,6 +249,7 @@ func TestHandlers_GetExecution_InvalidID(t *testing.T) {
 // ========== LIST EXECUTIONS TESTS ==========
 
 func TestHandlers_ListExecutions_Empty(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -259,6 +264,7 @@ func TestHandlers_ListExecutions_Empty(t *testing.T) {
 }
 
 func TestHandlers_ListExecutions_WithData(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -290,6 +296,7 @@ func TestHandlers_ListExecutions_WithData(t *testing.T) {
 }
 
 func TestHandlers_ListExecutions_Pagination(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -327,6 +334,7 @@ func TestHandlers_ListExecutions_Pagination(t *testing.T) {
 }
 
 func TestHandlers_ListExecutions_FilterByWorkflowID(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -374,6 +382,7 @@ func TestHandlers_ListExecutions_FilterByWorkflowID(t *testing.T) {
 }
 
 func TestHandlers_ListExecutions_FilterByStatus(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -409,6 +418,7 @@ func TestHandlers_ListExecutions_FilterByStatus(t *testing.T) {
 // ========== GET LOGS TESTS ==========
 
 func TestHandlers_GetLogs_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -441,6 +451,7 @@ func TestHandlers_GetLogs_Success(t *testing.T) {
 }
 
 func TestHandlers_GetLogs_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -457,6 +468,7 @@ func TestHandlers_GetLogs_NotFound(t *testing.T) {
 }
 
 func TestHandlers_GetLogs_InvalidID(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -468,6 +480,7 @@ func TestHandlers_GetLogs_InvalidID(t *testing.T) {
 // ========== GET NODE RESULT TESTS ==========
 
 func TestHandlers_GetNodeResult_InvalidExecutionID(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -477,6 +490,7 @@ func TestHandlers_GetNodeResult_InvalidExecutionID(t *testing.T) {
 }
 
 func TestHandlers_GetNodeResult_ExecutionNotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -490,6 +504,7 @@ func TestHandlers_GetNodeResult_ExecutionNotFound(t *testing.T) {
 // ========== CANCEL EXECUTION TESTS (Placeholder) ==========
 
 func TestHandlers_CancelExecution_NotImplemented(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
@@ -504,6 +519,7 @@ func TestHandlers_CancelExecution_NotImplemented(t *testing.T) {
 // ========== RETRY EXECUTION TESTS (Placeholder) ==========
 
 func TestHandlers_RetryExecution_NotImplemented(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 

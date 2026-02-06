@@ -18,11 +18,11 @@ var _ repository.ExecutionRepository = (*ExecutionRepository)(nil)
 
 // ExecutionRepository implements repository.ExecutionRepository using Bun ORM
 type ExecutionRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewExecutionRepository creates a new ExecutionRepository
-func NewExecutionRepository(db *bun.DB) *ExecutionRepository {
+func NewExecutionRepository(db bun.IDB) *ExecutionRepository {
 	return &ExecutionRepository{db: db}
 }
 

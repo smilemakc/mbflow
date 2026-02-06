@@ -27,8 +27,8 @@ func TestTopologicalSort_SimpleDAG(t *testing.T) {
 		},
 	}
 
-	dag := buildDAG(workflow)
-	waves, err := topologicalSort(dag)
+	dag := BuildDAG(workflow)
+	waves, err := TopologicalSort(dag)
 
 	if err != nil {
 		t.Fatalf("topological sort failed: %v", err)
@@ -75,8 +75,8 @@ func TestTopologicalSort_ParallelDAG(t *testing.T) {
 		},
 	}
 
-	dag := buildDAG(workflow)
-	waves, err := topologicalSort(dag)
+	dag := BuildDAG(workflow)
+	waves, err := TopologicalSort(dag)
 
 	if err != nil {
 		t.Fatalf("topological sort failed: %v", err)
@@ -121,8 +121,8 @@ func TestTopologicalSort_CycleDetection(t *testing.T) {
 		},
 	}
 
-	dag := buildDAG(workflow)
-	_, err := topologicalSort(dag)
+	dag := BuildDAG(workflow)
+	_, err := TopologicalSort(dag)
 
 	if err == nil {
 		t.Error("expected error for cyclic graph, got nil")
@@ -154,7 +154,7 @@ func TestDAGExecutor_Execute_Success(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil) // no observer for tests
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier()) // no observer for tests
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -236,7 +236,7 @@ func TestDAGExecutor_Execute_ParallelExecution(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil) // no observer for tests
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier()) // no observer for tests
 
 	// Create workflow with parallel branches
 	workflow := &models.Workflow{
@@ -288,7 +288,7 @@ func TestGetParentNodes(t *testing.T) {
 	}
 
 	node3 := workflow.Nodes[2]
-	parents := getParentNodes(workflow, node3)
+	parents := GetParentNodes(workflow, node3)
 
 	if len(parents) != 2 {
 		t.Errorf("expected 2 parents, got %d", len(parents))
@@ -332,7 +332,7 @@ func TestDAGExecutor_ConditionalEdge_TrueBranch(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	// Workflow: start -> conditional -> true-branch, false-branch
 	workflow := &models.Workflow{
@@ -399,7 +399,7 @@ func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	// Workflow: start -> conditional -> true-branch, false-branch
 	workflow := &models.Workflow{
@@ -465,7 +465,7 @@ func TestDAGExecutor_MultiParentWithConditionalEdges(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	// Workflow simulating content_generation pattern:
 	// generate -> analyze -> merge (conditional: score >= 80)
@@ -533,7 +533,7 @@ func TestDAGExecutor_MultiParentAllConditionsFail(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	// Workflow where merge has two incoming edges, both with failing conditions
 	workflow := &models.Workflow{
@@ -643,7 +643,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
 			registry.Register("test", mockExec)
 
 			nodeExec := NewNodeExecutor(registry)
-			dagExec := NewDAGExecutor(nodeExec, nil)
+			dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 			workflow := &models.Workflow{
 				ID:   "wf-1",
@@ -702,7 +702,7 @@ func TestDAGExecutor_ConditionalEdge_UnknownSourceHandle(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -755,7 +755,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -807,7 +807,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -851,7 +851,7 @@ func TestDAGExecutor_EdgeCondition_CompilationError(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -893,7 +893,7 @@ func TestDAGExecutor_EdgeCondition_RuntimeError(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -935,7 +935,7 @@ func TestDAGExecutor_EdgeCondition_NonBooleanResult(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -977,7 +977,7 @@ func TestDAGExecutor_EdgeCondition_EmptyCondition(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -1019,7 +1019,7 @@ func TestDAGExecutor_shouldExecuteNode_InvalidEdge(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -1078,7 +1078,7 @@ func TestDAGExecutor_shouldExecuteNode_SourceNotCompleted(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -1126,7 +1126,7 @@ func TestDAGExecutor_shouldExecuteNode_SourceFailed(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -1170,7 +1170,7 @@ func stringContains(s, substr string) bool {
 func TestPtrString(t *testing.T) {
 	t.Parallel()
 	str := "test string"
-	ptr := ptrString(str)
+	ptr := PtrString(str)
 
 	if ptr == nil {
 		t.Fatal("ptrString returned nil")

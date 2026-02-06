@@ -78,14 +78,32 @@ type Event struct {
 	Metadata map[string]interface{}
 }
 
+// ConditionEvaluator evaluates edge conditions.
+// Simple impl: string matching. Full impl: expr-lang with caching.
+type ConditionEvaluator interface {
+	// Evaluate evaluates a condition expression against node output.
+	// Returns true if the condition passes.
+	Evaluate(condition string, nodeOutput interface{}) (bool, error)
+}
+
+// ExecutionNotifier receives execution lifecycle events.
+// NoOp impl: for standalone. Observer impl: for full engine.
+type ExecutionNotifier interface {
+	// Notify sends an execution event.
+	Notify(ctx context.Context, event ExecutionEvent)
+}
+
 // EventType constants for execution events.
 const (
 	EventTypeExecutionStarted   = "execution.started"
 	EventTypeExecutionCompleted = "execution.completed"
 	EventTypeExecutionFailed    = "execution.failed"
 	EventTypeExecutionCancelled = "execution.cancelled"
+	EventTypeWaveStarted        = "wave.started"
+	EventTypeWaveCompleted      = "wave.completed"
 	EventTypeNodeStarted        = "node.started"
 	EventTypeNodeCompleted      = "node.completed"
 	EventTypeNodeFailed         = "node.failed"
 	EventTypeNodeSkipped        = "node.skipped"
+	EventTypeNodeRetrying       = "node.retrying"
 )

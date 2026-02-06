@@ -9,129 +9,25 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/migrations"
+	"github.com/smilemakc/mbflow/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
 
-// setupWorkflowRepoTest creates a test database with PostgreSQL container
-func setupWorkflowRepoTest(t *testing.T) (*WorkflowRepository, *bun.DB, func()) {
-	ctx := context.Background()
-
-	// Start PostgreSQL container
-	req := testcontainers.ContainerRequest{
-		Image:        "postgres:16-alpine",
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"POSTGRES_USER":     "test",
-			"POSTGRES_PASSWORD": "test",
-			"POSTGRES_DB":       "mbflow_test",
-		},
-		WaitingFor: wait.ForLog("database system is ready to accept connections"),
-	}
-
-	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	host, err := postgres.Host(ctx)
-	require.NoError(t, err)
-
-	port, err := postgres.MappedPort(ctx, "5432")
-	require.NoError(t, err)
-
-	// Connect to database
-	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
-
-	// Wait for DB to be ready
-	time.Sleep(500 * time.Millisecond)
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
-
-	// Run migrations
-	migrator, err := NewMigrator(db, migrations.FS)
-	require.NoError(t, err)
-
-	err = migrator.Init(ctx)
-	require.NoError(t, err)
-
-	err = migrator.Up(ctx)
-	require.NoError(t, err)
-
-	repo := NewWorkflowRepository(db)
-
-	cleanup := func() {
-		db.Close()
-		postgres.Terminate(ctx)
-	}
-
-	return repo, db, cleanup
+func setupWorkflowRepoTest(t *testing.T) (*WorkflowRepository, bun.IDB, func()) {
+	t.Helper()
+	db, cleanup := testutil.SetupTestTx(t)
+	return NewWorkflowRepository(db), db, cleanup
 }
 
-// setupTestDBWithContainer creates a test database using Docker container (safe, isolated)
-func setupTestDBWithContainer(t *testing.T) (*bun.DB, func()) {
-	ctx := context.Background()
-
-	// Start PostgreSQL container
-	req := testcontainers.ContainerRequest{
-		Image:        "postgres:16-alpine",
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"POSTGRES_USER":     "test",
-			"POSTGRES_PASSWORD": "test",
-			"POSTGRES_DB":       "mbflow_test",
-		},
-		WaitingFor: wait.ForLog("database system is ready to accept connections"),
-	}
-
-	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	host, err := postgres.Host(ctx)
-	require.NoError(t, err)
-
-	port, err := postgres.MappedPort(ctx, "5432")
-	require.NoError(t, err)
-
-	// Connect to database
-	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
-
-	// Wait for DB to be ready
-	time.Sleep(500 * time.Millisecond)
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
-
-	// Run migrations
-	migrator, err := NewMigrator(db, migrations.FS)
-	require.NoError(t, err)
-
-	err = migrator.Init(ctx)
-	require.NoError(t, err)
-
-	err = migrator.Up(ctx)
-	require.NoError(t, err)
-
-	cleanup := func() {
-		db.Close()
-		postgres.Terminate(ctx)
-	}
-
-	return db, cleanup
+func setupTestDBWithContainer(t *testing.T) (bun.IDB, func()) {
+	t.Helper()
+	return testutil.SetupTestTx(t)
 }
 
 func TestWorkflowRepository_SyncNodesWithExecutionHistory(t *testing.T) {
+	t.Parallel()
 	db, cleanup := setupTestDBWithContainer(t)
 	defer cleanup()
 
@@ -334,6 +230,7 @@ func TestWorkflowRepository_SyncNodesWithExecutionHistory(t *testing.T) {
 // Test Workflow CRUD Operations
 
 func TestWorkflowRepo_Create_BasicWorkflow(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -354,6 +251,7 @@ func TestWorkflowRepo_Create_BasicWorkflow(t *testing.T) {
 }
 
 func TestWorkflowRepo_Create_WithNodesAndEdges(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -404,6 +302,7 @@ func TestWorkflowRepo_Create_WithNodesAndEdges(t *testing.T) {
 }
 
 func TestWorkflowRepo_FindByID_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -424,6 +323,7 @@ func TestWorkflowRepo_FindByID_Success(t *testing.T) {
 }
 
 func TestWorkflowRepo_FindByID_NotFound(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -433,6 +333,7 @@ func TestWorkflowRepo_FindByID_NotFound(t *testing.T) {
 }
 
 func TestWorkflowRepo_FindByIDWithRelations_LoadsNodesAndEdges(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -460,6 +361,7 @@ func TestWorkflowRepo_FindByIDWithRelations_LoadsNodesAndEdges(t *testing.T) {
 }
 
 func TestWorkflowRepo_FindByName_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -479,6 +381,7 @@ func TestWorkflowRepo_FindByName_Success(t *testing.T) {
 }
 
 func TestWorkflowRepo_Update_Metadata(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -511,6 +414,7 @@ func TestWorkflowRepo_Update_Metadata(t *testing.T) {
 }
 
 func TestWorkflowRepo_Delete_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -534,6 +438,7 @@ func TestWorkflowRepo_Delete_Success(t *testing.T) {
 }
 
 func TestWorkflowRepo_FindAll_Pagination(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -565,6 +470,7 @@ func TestWorkflowRepo_FindAll_Pagination(t *testing.T) {
 }
 
 func TestWorkflowRepo_FindByStatus_FilterActive(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -596,6 +502,7 @@ func TestWorkflowRepo_FindByStatus_FilterActive(t *testing.T) {
 }
 
 func TestWorkflowRepo_Count_Total(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -617,6 +524,7 @@ func TestWorkflowRepo_Count_Total(t *testing.T) {
 }
 
 func TestWorkflowRepo_CountByStatus_FilterDraft(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -649,6 +557,7 @@ func TestWorkflowRepo_CountByStatus_FilterDraft(t *testing.T) {
 // Test Node Operations
 
 func TestWorkflowRepo_CreateNode_AddToWorkflow(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -677,6 +586,7 @@ func TestWorkflowRepo_CreateNode_AddToWorkflow(t *testing.T) {
 }
 
 func TestWorkflowRepo_FindNodesByWorkflowID_ReturnsAll(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -703,6 +613,7 @@ func TestWorkflowRepo_FindNodesByWorkflowID_ReturnsAll(t *testing.T) {
 // Test DAG Validation
 
 func TestWorkflowRepo_ValidateDAG_ValidDAG(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 
@@ -730,6 +641,7 @@ func TestWorkflowRepo_ValidateDAG_ValidDAG(t *testing.T) {
 }
 
 func TestWorkflowRepo_ValidateDAG_DetectsCycle(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupWorkflowRepoTest(t)
 	defer cleanup()
 

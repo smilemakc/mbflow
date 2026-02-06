@@ -22,11 +22,11 @@ func setupTriggerHandlersTest(t *testing.T) (*TriggerHandlers, *gin.Engine, *sto
 	t.Helper()
 
 	// Setup test database
-	testDB := testutil.SetupTestDB(t)
+	db, cleanup := testutil.SetupTestTx(t)
 
 	// Create repositories
-	triggerRepo := storage.NewTriggerRepository(testDB.DB)
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
+	triggerRepo := storage.NewTriggerRepository(db)
+	workflowRepo := storage.NewWorkflowRepository(db)
 
 	// Create logger
 	log := logger.New(config.LoggingConfig{
@@ -59,16 +59,13 @@ func setupTriggerHandlersTest(t *testing.T) (*TriggerHandlers, *gin.Engine, *sto
 		api.POST("/triggers/:id/manual", handlers.HandleTriggerManual)
 	}
 
-	cleanup := func() {
-		testDB.Cleanup(t)
-	}
-
 	return handlers, router, workflowRepo, cleanup
 }
 
 // ========== CREATE TRIGGER TESTS ==========
 
 func TestHandlers_CreateTrigger_Cron(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -103,6 +100,7 @@ func TestHandlers_CreateTrigger_Cron(t *testing.T) {
 }
 
 func TestHandlers_CreateTrigger_Webhook(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -136,6 +134,7 @@ func TestHandlers_CreateTrigger_Webhook(t *testing.T) {
 }
 
 func TestHandlers_CreateTrigger_MissingName(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -159,6 +158,7 @@ func TestHandlers_CreateTrigger_MissingName(t *testing.T) {
 }
 
 func TestHandlers_CreateTrigger_InvalidWorkflowID(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -180,6 +180,7 @@ func TestHandlers_CreateTrigger_InvalidWorkflowID(t *testing.T) {
 // ========== GET TRIGGER TESTS ==========
 
 func TestHandlers_GetTrigger_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -222,6 +223,7 @@ func TestHandlers_GetTrigger_Success(t *testing.T) {
 }
 
 func TestHandlers_GetTrigger_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -232,6 +234,7 @@ func TestHandlers_GetTrigger_NotFound(t *testing.T) {
 }
 
 func TestHandlers_GetTrigger_InvalidID(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -243,6 +246,7 @@ func TestHandlers_GetTrigger_InvalidID(t *testing.T) {
 // ========== LIST TRIGGERS TESTS ==========
 
 func TestHandlers_ListTriggers_Empty(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -256,6 +260,7 @@ func TestHandlers_ListTriggers_Empty(t *testing.T) {
 }
 
 func TestHandlers_ListTriggers_WithData(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -288,6 +293,7 @@ func TestHandlers_ListTriggers_WithData(t *testing.T) {
 }
 
 func TestHandlers_ListTriggers_FilterByWorkflowID(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -340,6 +346,7 @@ func TestHandlers_ListTriggers_FilterByWorkflowID(t *testing.T) {
 // ========== UPDATE TRIGGER TESTS ==========
 
 func TestHandlers_UpdateTrigger_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -379,6 +386,7 @@ func TestHandlers_UpdateTrigger_Success(t *testing.T) {
 }
 
 func TestHandlers_UpdateTrigger_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -395,6 +403,7 @@ func TestHandlers_UpdateTrigger_NotFound(t *testing.T) {
 // ========== DELETE TRIGGER TESTS ==========
 
 func TestHandlers_DeleteTrigger_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -426,6 +435,7 @@ func TestHandlers_DeleteTrigger_Success(t *testing.T) {
 }
 
 func TestHandlers_DeleteTrigger_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -439,6 +449,7 @@ func TestHandlers_DeleteTrigger_NotFound(t *testing.T) {
 // ========== ENABLE/DISABLE TRIGGER TESTS ==========
 
 func TestHandlers_EnableTrigger_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -475,6 +486,7 @@ func TestHandlers_EnableTrigger_Success(t *testing.T) {
 }
 
 func TestHandlers_DisableTrigger_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
@@ -513,6 +525,7 @@ func TestHandlers_DisableTrigger_Success(t *testing.T) {
 // ========== MANUAL TRIGGER TEST ==========
 
 func TestHandlers_TriggerManual_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 

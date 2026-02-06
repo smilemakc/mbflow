@@ -19,11 +19,11 @@ var _ repository.WorkflowRepository = (*WorkflowRepository)(nil)
 
 // WorkflowRepository implements repository.WorkflowRepository using Bun ORM
 type WorkflowRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewWorkflowRepository creates a new WorkflowRepository
-func NewWorkflowRepository(db *bun.DB) *WorkflowRepository {
+func NewWorkflowRepository(db bun.IDB) *WorkflowRepository {
 	return &WorkflowRepository{db: db}
 }
 

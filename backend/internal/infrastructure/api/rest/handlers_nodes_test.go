@@ -17,8 +17,8 @@ import (
 )
 
 func setupNodeHandlersTest(t *testing.T) (*NodeHandlers, *gin.Engine, *storage.WorkflowRepository, func()) {
-	testDB := testutil.SetupTestDB(t)
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
+	db, cleanup := testutil.SetupTestTx(t)
+	workflowRepo := storage.NewWorkflowRepository(db)
 	log := logger.New(config.LoggingConfig{Level: "error", Format: "text"})
 	handlers := NewNodeHandlers(workflowRepo, log)
 
@@ -32,12 +32,13 @@ func setupNodeHandlersTest(t *testing.T) (*NodeHandlers, *gin.Engine, *storage.W
 		api.DELETE("/nodes/:nodeId", handlers.HandleDeleteNode)
 	}
 
-	return handlers, router, workflowRepo, func() { testDB.Cleanup(t) }
+	return handlers, router, workflowRepo, cleanup
 }
 
 // ========== ADD NODE TESTS ==========
 
 func TestHandlers_AddNode_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -72,6 +73,7 @@ func TestHandlers_AddNode_Success(t *testing.T) {
 }
 
 func TestHandlers_AddNode_WorkflowNotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -89,6 +91,7 @@ func TestHandlers_AddNode_WorkflowNotFound(t *testing.T) {
 }
 
 func TestHandlers_AddNode_DuplicateID(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -113,6 +116,7 @@ func TestHandlers_AddNode_DuplicateID(t *testing.T) {
 // ========== LIST NODES TESTS ==========
 
 func TestHandlers_ListNodes_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -132,6 +136,7 @@ func TestHandlers_ListNodes_Success(t *testing.T) {
 }
 
 func TestHandlers_ListNodes_WorkflowNotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -145,6 +150,7 @@ func TestHandlers_ListNodes_WorkflowNotFound(t *testing.T) {
 // ========== GET NODE TESTS ==========
 
 func TestHandlers_GetNode_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -164,6 +170,7 @@ func TestHandlers_GetNode_Success(t *testing.T) {
 }
 
 func TestHandlers_GetNode_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -181,6 +188,7 @@ func TestHandlers_GetNode_NotFound(t *testing.T) {
 // ========== UPDATE NODE TESTS ==========
 
 func TestHandlers_UpdateNode_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -207,6 +215,7 @@ func TestHandlers_UpdateNode_Success(t *testing.T) {
 }
 
 func TestHandlers_UpdateNode_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -228,6 +237,7 @@ func TestHandlers_UpdateNode_NotFound(t *testing.T) {
 // ========== DELETE NODE TESTS ==========
 
 func TestHandlers_DeleteNode_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
@@ -248,6 +258,7 @@ func TestHandlers_DeleteNode_Success(t *testing.T) {
 }
 
 func TestHandlers_DeleteNode_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 

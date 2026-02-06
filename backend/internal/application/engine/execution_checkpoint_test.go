@@ -3,6 +3,7 @@ package engine
 import (
 	"testing"
 
+	pkgengine "github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -18,7 +19,7 @@ func TestCreateCheckpoint(t *testing.T) {
 		Edges: []*models.Edge{},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{"key": "value"})
+	execState := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{"key": "value"})
 
 	// Set some node statuses and outputs
 	execState.SetNodeStatus("node-1", models.NodeExecutionStatusCompleted)

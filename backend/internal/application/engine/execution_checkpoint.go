@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	pkgengine "github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
-// ExecutionCheckpoint represents a snapshot of execution state at a specific wave
+// ExecutionCheckpoint represents a snapshot of execution state at a specific wave.
 type ExecutionCheckpoint struct {
 	ExecutionID    string                                `json:"execution_id"`
 	WorkflowID     string                                `json:"workflow_id"`
@@ -20,31 +21,25 @@ type ExecutionCheckpoint struct {
 	Variables      map[string]interface{}                `json:"variables"`
 }
 
-// CreateCheckpoint creates a checkpoint from current execution state
-func CreateCheckpoint(execState *ExecutionState, waveIndex int) *ExecutionCheckpoint {
-	execState.mu.RLock()
-	defer execState.mu.RUnlock()
-
-	// Collect completed nodes
+// CreateCheckpoint creates a checkpoint from current execution state.
+func CreateCheckpoint(execState *pkgengine.ExecutionState, waveIndex int) *ExecutionCheckpoint {
 	completedNodes := []string{}
-	for nodeID, status := range execState.NodeStatus {
-		if status == models.NodeExecutionStatusCompleted {
-			completedNodes = append(completedNodes, nodeID)
+	outputs := make(map[string]interface{})
+	statuses := make(map[string]models.NodeExecutionStatus)
+	variables := make(map[string]interface{})
+
+	for _, node := range execState.Workflow.Nodes {
+		if status, ok := execState.GetNodeStatus(node.ID); ok {
+			statuses[node.ID] = status
+			if status == models.NodeExecutionStatusCompleted {
+				completedNodes = append(completedNodes, node.ID)
+			}
+		}
+		if output, ok := execState.GetNodeOutput(node.ID); ok {
+			outputs[node.ID] = output
 		}
 	}
 
-	// Deep copy outputs and statuses
-	outputs := make(map[string]interface{})
-	for k, v := range execState.NodeOutputs {
-		outputs[k] = v
-	}
-
-	statuses := make(map[string]models.NodeExecutionStatus)
-	for k, v := range execState.NodeStatus {
-		statuses[k] = v
-	}
-
-	variables := make(map[string]interface{})
 	for k, v := range execState.Variables {
 		variables[k] = v
 	}
@@ -61,9 +56,9 @@ func CreateCheckpoint(execState *ExecutionState, waveIndex int) *ExecutionCheckp
 	}
 }
 
-// RestoreFromCheckpoint restores execution state from a checkpoint
-func RestoreFromCheckpoint(checkpoint *ExecutionCheckpoint, workflow *models.Workflow, input map[string]interface{}) *ExecutionState {
-	execState := NewExecutionState(
+// RestoreFromCheckpoint restores execution state from a checkpoint.
+func RestoreFromCheckpoint(checkpoint *ExecutionCheckpoint, workflow *models.Workflow, input map[string]interface{}) *pkgengine.ExecutionState {
+	execState := pkgengine.NewExecutionState(
 		checkpoint.ExecutionID,
 		checkpoint.WorkflowID,
 		workflow,
@@ -71,25 +66,22 @@ func RestoreFromCheckpoint(checkpoint *ExecutionCheckpoint, workflow *models.Wor
 		checkpoint.Variables,
 	)
 
-	// Restore node outputs and statuses
-	execState.mu.Lock()
 	for k, v := range checkpoint.NodeOutputs {
-		execState.NodeOutputs[k] = v
+		execState.SetNodeOutput(k, v)
 	}
 	for k, v := range checkpoint.NodeStatuses {
-		execState.NodeStatus[k] = v
+		execState.SetNodeStatus(k, v)
 	}
-	execState.mu.Unlock()
 
 	return execState
 }
 
-// Serialize converts checkpoint to JSON
+// Serialize converts checkpoint to JSON.
 func (cp *ExecutionCheckpoint) Serialize() ([]byte, error) {
 	return json.Marshal(cp)
 }
 
-// DeserializeCheckpoint creates a checkpoint from JSON
+// DeserializeCheckpoint creates a checkpoint from JSON.
 func DeserializeCheckpoint(data []byte) (*ExecutionCheckpoint, error) {
 	var cp ExecutionCheckpoint
 	if err := json.Unmarshal(data, &cp); err != nil {
@@ -98,13 +90,12 @@ func DeserializeCheckpoint(data []byte) (*ExecutionCheckpoint, error) {
 	return &cp, nil
 }
 
-// ValidateCheckpoint validates that a checkpoint is compatible with a workflow
+// ValidateCheckpoint validates that a checkpoint is compatible with a workflow.
 func ValidateCheckpoint(checkpoint *ExecutionCheckpoint, workflow *models.Workflow) error {
 	if checkpoint.WorkflowID != workflow.ID {
 		return fmt.Errorf("checkpoint workflow ID (%s) does not match workflow ID (%s)", checkpoint.WorkflowID, workflow.ID)
 	}
 
-	// Verify that all completed nodes exist in workflow
 	nodeIDs := make(map[string]bool)
 	for _, node := range workflow.Nodes {
 		nodeIDs[node.ID] = true
@@ -119,12 +110,12 @@ func ValidateCheckpoint(checkpoint *ExecutionCheckpoint, workflow *models.Workfl
 	return nil
 }
 
-// GetNextWaveIndex returns the wave index to resume from
+// GetNextWaveIndex returns the wave index to resume from.
 func (cp *ExecutionCheckpoint) GetNextWaveIndex() int {
 	return cp.WaveIndex + 1
 }
 
-// IsNodeCompleted checks if a node was completed in this checkpoint
+// IsNodeCompleted checks if a node was completed in this checkpoint.
 func (cp *ExecutionCheckpoint) IsNodeCompleted(nodeID string) bool {
 	for _, id := range cp.CompletedNodes {
 		if id == nodeID {
@@ -134,35 +125,35 @@ func (cp *ExecutionCheckpoint) IsNodeCompleted(nodeID string) bool {
 	return false
 }
 
-// CheckpointManager manages checkpoint storage and retrieval
+// CheckpointManager manages checkpoint storage and retrieval.
 type CheckpointManager struct {
-	checkpoints map[string]*ExecutionCheckpoint // executionID -> latest checkpoint
+	checkpoints map[string]*ExecutionCheckpoint
 }
 
-// NewCheckpointManager creates a new checkpoint manager
+// NewCheckpointManager creates a new checkpoint manager.
 func NewCheckpointManager() *CheckpointManager {
 	return &CheckpointManager{
 		checkpoints: make(map[string]*ExecutionCheckpoint),
 	}
 }
 
-// SaveCheckpoint stores a checkpoint
+// SaveCheckpoint stores a checkpoint.
 func (cm *CheckpointManager) SaveCheckpoint(checkpoint *ExecutionCheckpoint) {
 	cm.checkpoints[checkpoint.ExecutionID] = checkpoint
 }
 
-// GetCheckpoint retrieves the latest checkpoint for an execution
+// GetCheckpoint retrieves the latest checkpoint for an execution.
 func (cm *CheckpointManager) GetCheckpoint(executionID string) (*ExecutionCheckpoint, bool) {
 	cp, ok := cm.checkpoints[executionID]
 	return cp, ok
 }
 
-// DeleteCheckpoint removes a checkpoint
+// DeleteCheckpoint removes a checkpoint.
 func (cm *CheckpointManager) DeleteCheckpoint(executionID string) {
 	delete(cm.checkpoints, executionID)
 }
 
-// ListCheckpoints returns all checkpoints
+// ListCheckpoints returns all checkpoints.
 func (cm *CheckpointManager) ListCheckpoints() []*ExecutionCheckpoint {
 	checkpoints := make([]*ExecutionCheckpoint, 0, len(cm.checkpoints))
 	for _, cp := range cm.checkpoints {

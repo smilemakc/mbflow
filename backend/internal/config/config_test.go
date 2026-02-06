@@ -14,6 +14,8 @@ import (
 func TestConfig_Load_DefaultValues(t *testing.T) {
 	// Clear all environment variables
 	clearEnv()
+	os.Setenv("MBFLOW_JWT_SECRET", "test-secret-key-that-is-at-least-32-chars-long")
+	defer os.Unsetenv("MBFLOW_JWT_SECRET")
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -52,42 +54,43 @@ func TestConfig_Load_DefaultValues(t *testing.T) {
 
 func TestConfig_Load_CustomValues(t *testing.T) {
 	clearEnv()
+	os.Setenv("MBFLOW_JWT_SECRET", "test-secret-key-that-is-at-least-32-chars-long")
 
 	// Set custom environment variables
-	os.Setenv("PORT", "9090")
-	os.Setenv("HOST", "127.0.0.1")
-	os.Setenv("READ_TIMEOUT", "30s")
-	os.Setenv("WRITE_TIMEOUT", "30s")
-	os.Setenv("SHUTDOWN_TIMEOUT", "60s")
-	os.Setenv("CORS_ENABLED", "false")
-	os.Setenv("API_KEYS", "key1,key2,key3")
+	os.Setenv("MBFLOW_PORT", "9090")
+	os.Setenv("MBFLOW_HOST", "127.0.0.1")
+	os.Setenv("MBFLOW_READ_TIMEOUT", "30s")
+	os.Setenv("MBFLOW_WRITE_TIMEOUT", "30s")
+	os.Setenv("MBFLOW_SHUTDOWN_TIMEOUT", "60s")
+	os.Setenv("MBFLOW_CORS_ENABLED", "false")
+	os.Setenv("MBFLOW_API_KEYS", "key1,key2,key3")
 
-	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/testdb")
-	os.Setenv("DB_MAX_CONNECTIONS", "50")
-	os.Setenv("DB_MIN_CONNECTIONS", "10")
-	os.Setenv("DB_MAX_IDLE_TIME", "1h")
-	os.Setenv("DB_MAX_CONN_LIFETIME", "2h")
+	os.Setenv("MBFLOW_DATABASE_URL", "postgres://user:pass@localhost:5432/testdb")
+	os.Setenv("MBFLOW_DB_MAX_CONNECTIONS", "50")
+	os.Setenv("MBFLOW_DB_MIN_CONNECTIONS", "10")
+	os.Setenv("MBFLOW_DB_MAX_IDLE_TIME", "1h")
+	os.Setenv("MBFLOW_DB_MAX_CONN_LIFETIME", "2h")
 
-	os.Setenv("REDIS_URL", "redis://localhost:6380")
-	os.Setenv("REDIS_PASSWORD", "secret")
-	os.Setenv("REDIS_DB", "1")
-	os.Setenv("REDIS_POOL_SIZE", "20")
+	os.Setenv("MBFLOW_REDIS_URL", "redis://localhost:6380")
+	os.Setenv("MBFLOW_REDIS_PASSWORD", "secret")
+	os.Setenv("MBFLOW_REDIS_DB", "1")
+	os.Setenv("MBFLOW_REDIS_POOL_SIZE", "20")
 
-	os.Setenv("LOG_LEVEL", "debug")
-	os.Setenv("LOG_FORMAT", "text")
+	os.Setenv("MBFLOW_LOG_LEVEL", "debug")
+	os.Setenv("MBFLOW_LOG_FORMAT", "text")
 
-	os.Setenv("OBSERVER_DB_ENABLED", "false")
-	os.Setenv("OBSERVER_HTTP_ENABLED", "true")
-	os.Setenv("OBSERVER_HTTP_URL", "http://example.com/webhook")
-	os.Setenv("OBSERVER_HTTP_METHOD", "PUT")
-	os.Setenv("OBSERVER_HTTP_TIMEOUT", "20s")
-	os.Setenv("OBSERVER_HTTP_MAX_RETRIES", "5")
-	os.Setenv("OBSERVER_HTTP_RETRY_DELAY", "2s")
-	os.Setenv("OBSERVER_HTTP_HEADERS", "Authorization:Bearer token,Content-Type:application/json")
-	os.Setenv("OBSERVER_LOGGER_ENABLED", "false")
-	os.Setenv("OBSERVER_WEBSOCKET_ENABLED", "false")
-	os.Setenv("OBSERVER_WEBSOCKET_BUFFER_SIZE", "512")
-	os.Setenv("OBSERVER_BUFFER_SIZE", "200")
+	os.Setenv("MBFLOW_OBSERVER_DB_ENABLED", "false")
+	os.Setenv("MBFLOW_OBSERVER_HTTP_ENABLED", "true")
+	os.Setenv("MBFLOW_OBSERVER_HTTP_URL", "http://example.com/webhook")
+	os.Setenv("MBFLOW_OBSERVER_HTTP_METHOD", "PUT")
+	os.Setenv("MBFLOW_OBSERVER_HTTP_TIMEOUT", "20s")
+	os.Setenv("MBFLOW_OBSERVER_HTTP_MAX_RETRIES", "5")
+	os.Setenv("MBFLOW_OBSERVER_HTTP_RETRY_DELAY", "2s")
+	os.Setenv("MBFLOW_OBSERVER_HTTP_HEADERS", "Authorization:Bearer token,Content-Type:application/json")
+	os.Setenv("MBFLOW_OBSERVER_LOGGER_ENABLED", "false")
+	os.Setenv("MBFLOW_OBSERVER_WEBSOCKET_ENABLED", "false")
+	os.Setenv("MBFLOW_OBSERVER_WEBSOCKET_BUFFER_SIZE", "512")
+	os.Setenv("MBFLOW_OBSERVER_BUFFER_SIZE", "200")
 
 	defer clearEnv()
 
@@ -131,12 +134,13 @@ func TestConfig_Load_CustomValues(t *testing.T) {
 
 func TestConfig_Load_InvalidValuesUsesDefaults(t *testing.T) {
 	clearEnv()
+	os.Setenv("MBFLOW_JWT_SECRET", "test-secret-key-that-is-at-least-32-chars-long")
 
 	// Set invalid environment variables (should use defaults)
-	os.Setenv("PORT", "invalid")
-	os.Setenv("DB_MAX_CONNECTIONS", "not_a_number")
-	os.Setenv("READ_TIMEOUT", "invalid_duration")
-	os.Setenv("CORS_ENABLED", "not_a_bool")
+	os.Setenv("MBFLOW_PORT", "invalid")
+	os.Setenv("MBFLOW_DB_MAX_CONNECTIONS", "not_a_number")
+	os.Setenv("MBFLOW_READ_TIMEOUT", "invalid_duration")
+	os.Setenv("MBFLOW_CORS_ENABLED", "not_a_bool")
 
 	defer clearEnv()
 
@@ -167,6 +171,7 @@ func TestConfig_Validate_Success(t *testing.T) {
 			Level:  "info",
 			Format: "json",
 		},
+		Auth: validAuthConfig(),
 	}
 
 	err := cfg.Validate()
@@ -226,6 +231,7 @@ func TestConfig_Validate_ValidPorts(t *testing.T) {
 					Level:  "info",
 					Format: "json",
 				},
+				Auth: validAuthConfig(),
 			}
 
 			err := cfg.Validate()
@@ -363,6 +369,7 @@ func TestConfig_Validate_ValidLogLevels(t *testing.T) {
 					Level:  level,
 					Format: "json",
 				},
+				Auth: validAuthConfig(),
 			}
 
 			err := cfg.Validate()
@@ -416,6 +423,7 @@ func TestConfig_Validate_ValidLogFormats(t *testing.T) {
 					Level:  "info",
 					Format: format,
 				},
+				Auth: validAuthConfig(),
 			}
 
 			err := cfg.Validate()
@@ -667,16 +675,31 @@ func TestParseHTTPHeaders_InvalidFormat(t *testing.T) {
 
 // ==================== Helper Functions ====================
 
+// validAuthConfig returns an AuthConfig that passes validation.
+func validAuthConfig() AuthConfig {
+	return AuthConfig{
+		Mode:              "builtin",
+		JWTSecret:         "test-secret-key-that-is-at-least-32-chars-long",
+		MinPasswordLength: 8,
+	}
+}
+
 func clearEnv() {
 	// Clear all MBFlow-related environment variables
 	envVars := []string{
-		"PORT", "HOST", "READ_TIMEOUT", "WRITE_TIMEOUT", "SHUTDOWN_TIMEOUT", "CORS_ENABLED", "API_KEYS",
-		"DATABASE_URL", "DB_MAX_CONNECTIONS", "DB_MIN_CONNECTIONS", "DB_MAX_IDLE_TIME", "DB_MAX_CONN_LIFETIME",
-		"REDIS_URL", "REDIS_PASSWORD", "REDIS_DB", "REDIS_POOL_SIZE",
-		"LOG_LEVEL", "LOG_FORMAT",
-		"OBSERVER_DB_ENABLED", "OBSERVER_HTTP_ENABLED", "OBSERVER_HTTP_URL", "OBSERVER_HTTP_METHOD",
-		"OBSERVER_HTTP_TIMEOUT", "OBSERVER_HTTP_MAX_RETRIES", "OBSERVER_HTTP_RETRY_DELAY", "OBSERVER_HTTP_HEADERS",
-		"OBSERVER_LOGGER_ENABLED", "OBSERVER_WEBSOCKET_ENABLED", "OBSERVER_WEBSOCKET_BUFFER_SIZE", "OBSERVER_BUFFER_SIZE",
+		"MBFLOW_PORT", "MBFLOW_HOST", "MBFLOW_READ_TIMEOUT", "MBFLOW_WRITE_TIMEOUT", "MBFLOW_SHUTDOWN_TIMEOUT",
+		"MBFLOW_CORS_ENABLED", "MBFLOW_CORS_ALLOWED_ORIGINS", "MBFLOW_API_KEYS",
+		"MBFLOW_MAX_BODY_SIZE", "MBFLOW_MAX_MULTIPART_MEMORY",
+		"MBFLOW_DATABASE_URL", "MBFLOW_DB_MAX_CONNECTIONS", "MBFLOW_DB_MIN_CONNECTIONS",
+		"MBFLOW_DB_MAX_IDLE_TIME", "MBFLOW_DB_MAX_CONN_LIFETIME",
+		"MBFLOW_REDIS_URL", "MBFLOW_REDIS_PASSWORD", "MBFLOW_REDIS_DB", "MBFLOW_REDIS_POOL_SIZE",
+		"MBFLOW_LOG_LEVEL", "MBFLOW_LOG_FORMAT",
+		"MBFLOW_OBSERVER_DB_ENABLED", "MBFLOW_OBSERVER_HTTP_ENABLED", "MBFLOW_OBSERVER_HTTP_URL", "MBFLOW_OBSERVER_HTTP_METHOD",
+		"MBFLOW_OBSERVER_HTTP_TIMEOUT", "MBFLOW_OBSERVER_HTTP_MAX_RETRIES", "MBFLOW_OBSERVER_HTTP_RETRY_DELAY", "MBFLOW_OBSERVER_HTTP_HEADERS",
+		"MBFLOW_OBSERVER_LOGGER_ENABLED", "MBFLOW_OBSERVER_WEBSOCKET_ENABLED", "MBFLOW_OBSERVER_WEBSOCKET_BUFFER_SIZE", "MBFLOW_OBSERVER_BUFFER_SIZE",
+		"MBFLOW_AUTH_MODE", "MBFLOW_JWT_SECRET", "MBFLOW_JWT_EXPIRATION_HOURS", "MBFLOW_JWT_REFRESH_DAYS",
+		"MBFLOW_SESSION_DURATION", "MBFLOW_MAX_SESSIONS_PER_USER", "MBFLOW_MIN_PASSWORD_LENGTH",
+		"MBFLOW_AUTH_GATEWAY_URL", "MBFLOW_AUTH_CLIENT_ID", "MBFLOW_AUTH_GRPC_ADDRESS",
 	}
 
 	for _, key := range envVars {

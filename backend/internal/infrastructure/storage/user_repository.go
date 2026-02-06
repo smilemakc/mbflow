@@ -18,11 +18,11 @@ var _ repository.UserRepository = (*UserRepository)(nil)
 
 // UserRepository implements repository.UserRepository using Bun ORM
 type UserRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewUserRepository creates a new UserRepository
-func NewUserRepository(db *bun.DB) *UserRepository {
+func NewUserRepository(db bun.IDB) *UserRepository {
 	return &UserRepository{db: db}
 }
 

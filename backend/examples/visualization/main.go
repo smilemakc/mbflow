@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== MBFlow Workflow Visualization Example ===\n")
+	fmt.Println("=== MBFlow Workflow Visualization Example ===")
 
 	// Create a sample workflow: User Onboarding
 	workflow := createUserOnboardingWorkflow()

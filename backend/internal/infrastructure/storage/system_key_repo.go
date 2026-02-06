@@ -18,11 +18,11 @@ var _ repository.SystemKeyRepository = (*SystemKeyRepoImpl)(nil)
 
 // SystemKeyRepoImpl implements the SystemKeyRepository interface
 type SystemKeyRepoImpl struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewSystemKeyRepo creates a new SystemKeyRepoImpl
-func NewSystemKeyRepo(db *bun.DB) *SystemKeyRepoImpl {
+func NewSystemKeyRepo(db bun.IDB) *SystemKeyRepoImpl {
 	return &SystemKeyRepoImpl{db: db}
 }
 

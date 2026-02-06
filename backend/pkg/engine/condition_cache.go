@@ -2,13 +2,14 @@ package engine
 
 import (
 	"container/list"
+	"fmt"
 	"sync"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 )
 
-// ConditionCache is a thread-safe LRU cache for compiled expression programs
+// ConditionCache is a thread-safe LRU cache for compiled expression programs.
 type ConditionCache struct {
 	capacity int
 	cache    map[string]*list.Element
@@ -16,16 +17,16 @@ type ConditionCache struct {
 	mu       sync.RWMutex
 }
 
-// cacheEntry represents a cached compiled expression
+// cacheEntry represents a cached compiled expression.
 type cacheEntry struct {
 	key     string
 	program *vm.Program
 }
 
-// NewConditionCache creates a new condition cache with the specified capacity
+// NewConditionCache creates a new condition cache with the specified capacity.
 func NewConditionCache(capacity int) *ConditionCache {
 	if capacity <= 0 {
-		capacity = 100 // Default capacity
+		capacity = 100
 	}
 
 	return &ConditionCache{
@@ -35,14 +36,12 @@ func NewConditionCache(capacity int) *ConditionCache {
 	}
 }
 
-// Get retrieves a compiled program from cache
-// Returns (program, true) if found, (nil, false) if not found
+// Get retrieves a compiled program from cache.
 func (cc *ConditionCache) Get(condition string) (*vm.Program, bool) {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
 	if element, found := cc.cache[condition]; found {
-		// Move to front (most recently used)
 		cc.lruList.MoveToFront(element)
 		entry := element.Value.(*cacheEntry)
 		return entry.program, true
@@ -51,19 +50,17 @@ func (cc *ConditionCache) Get(condition string) (*vm.Program, bool) {
 	return nil, false
 }
 
-// Put stores a compiled program in cache
+// Put stores a compiled program in cache.
 func (cc *ConditionCache) Put(condition string, program *vm.Program) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
-	// Check if already exists
 	if element, found := cc.cache[condition]; found {
 		cc.lruList.MoveToFront(element)
 		element.Value.(*cacheEntry).program = program
 		return
 	}
 
-	// Add new entry
 	entry := &cacheEntry{
 		key:     condition,
 		program: program,
@@ -71,14 +68,12 @@ func (cc *ConditionCache) Put(condition string, program *vm.Program) {
 	element := cc.lruList.PushFront(entry)
 	cc.cache[condition] = element
 
-	// Evict if over capacity
 	if cc.lruList.Len() > cc.capacity {
 		cc.evictOldest()
 	}
 }
 
-// evictOldest removes the least recently used entry
-// Must be called with lock held
+// evictOldest removes the least recently used entry (must be called with lock held).
 func (cc *ConditionCache) evictOldest() {
 	oldest := cc.lruList.Back()
 	if oldest != nil {
@@ -88,14 +83,14 @@ func (cc *ConditionCache) evictOldest() {
 	}
 }
 
-// Len returns the current number of cached items
+// Len returns the current number of cached items.
 func (cc *ConditionCache) Len() int {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 	return cc.lruList.Len()
 }
 
-// Clear removes all entries from cache
+// Clear removes all entries from cache.
 func (cc *ConditionCache) Clear() {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
@@ -103,22 +98,57 @@ func (cc *ConditionCache) Clear() {
 	cc.lruList = list.New()
 }
 
-// CompileAndCache compiles an expression and caches it
-// Returns the compiled program or an error
+// CompileAndCache compiles an expression and caches it.
 func (cc *ConditionCache) CompileAndCache(condition string, env interface{}) (*vm.Program, error) {
-	// Try to get from cache first
 	if program, found := cc.Get(condition); found {
 		return program, nil
 	}
 
-	// Compile the expression
 	program, err := expr.Compile(condition, expr.Env(env), expr.AsBool())
 	if err != nil {
 		return nil, err
 	}
 
-	// Cache the compiled program
 	cc.Put(condition, program)
 
 	return program, nil
+}
+
+// ExprConditionEvaluator implements ConditionEvaluator using expr-lang with caching.
+type ExprConditionEvaluator struct {
+	cache *ConditionCache
+}
+
+// NewExprConditionEvaluator creates a new ExprConditionEvaluator.
+func NewExprConditionEvaluator() *ExprConditionEvaluator {
+	return &ExprConditionEvaluator{
+		cache: NewConditionCache(100),
+	}
+}
+
+// Evaluate evaluates a condition expression against node output using expr-lang.
+func (e *ExprConditionEvaluator) Evaluate(condition string, nodeOutput interface{}) (bool, error) {
+	if condition == "" {
+		return true, nil
+	}
+
+	env := map[string]interface{}{
+		"output": nodeOutput,
+	}
+
+	program, err := e.cache.CompileAndCache(condition, env)
+	if err != nil {
+		return false, fmt.Errorf("failed to compile condition: %w", err)
+	}
+
+	result, err := expr.Run(program, env)
+	if err != nil {
+		return false, fmt.Errorf("failed to evaluate condition: %w", err)
+	}
+
+	if boolResult, ok := result.(bool); ok {
+		return boolResult, nil
+	}
+
+	return false, fmt.Errorf("condition must return boolean, got: %T", result)
 }
