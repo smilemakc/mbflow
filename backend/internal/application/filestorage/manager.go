@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -37,6 +38,7 @@ type StorageManager struct {
 	factories   map[models.StorageType]ProviderFactory
 	observers   map[string]FileObserver
 	validator   *MimeValidator
+	logger      *logger.Logger
 	mu          sync.RWMutex
 	cleanupDone chan struct{}
 }
@@ -49,7 +51,7 @@ type managedStorage struct {
 }
 
 // NewStorageManager creates a new storage manager
-func NewStorageManager(config *ManagerConfig) *StorageManager {
+func NewStorageManager(config *ManagerConfig, log *logger.Logger) *StorageManager {
 	if config == nil {
 		config = DefaultManagerConfig()
 	}
@@ -60,6 +62,7 @@ func NewStorageManager(config *ManagerConfig) *StorageManager {
 		factories:   make(map[models.StorageType]ProviderFactory),
 		observers:   make(map[string]FileObserver),
 		validator:   NewMimeValidator(),
+		logger:      log,
 		cleanupDone: make(chan struct{}),
 	}
 
@@ -242,18 +245,65 @@ func (m *StorageManager) notifyObservers(ctx context.Context, event *FileEvent) 
 	for _, obs := range observers {
 		filter := obs.Filter()
 		if filter == nil || filter.ShouldNotify(event) {
-			// Call observer in goroutine to avoid blocking
 			go func(o FileObserver) {
-				_ = o.OnFileEvent(ctx, event) // Ignore errors for now
+				if err := o.OnFileEvent(ctx, event); err != nil && m.logger != nil {
+					m.logger.Error("File observer error",
+						"observer", o.Name(),
+						"event_type", event.Type,
+						"storage_id", event.StorageID,
+						"error", err,
+					)
+				}
 			}(obs)
 		}
 	}
 }
 
-// Cleanup removes expired files from all storages
+// Cleanup removes expired files from all storages.
+// Note: Full cleanup implementation requires repository integration to query
+// file metadata and expiration times. This method currently logs cleanup activity
+// but returns 0 deleted files until repository layer is integrated.
 func (m *StorageManager) Cleanup(ctx context.Context) (int, error) {
-	// TODO: Implement cleanup with repository integration
-	return 0, nil
+	m.mu.RLock()
+	storageCount := len(m.storages)
+	storageIDs := make([]string, 0, storageCount)
+	for id := range m.storages {
+		storageIDs = append(storageIDs, id)
+	}
+	m.mu.RUnlock()
+
+	if m.logger != nil {
+		m.logger.Info("Starting file cleanup",
+			"storage_count", storageCount,
+		)
+	}
+
+	deletedCount := 0
+
+	for _, storageID := range storageIDs {
+		m.mu.RLock()
+		storage, exists := m.storages[storageID]
+		m.mu.RUnlock()
+
+		if !exists {
+			continue
+		}
+
+		if m.logger != nil {
+			m.logger.Debug("Storage cleanup check",
+				"storage_id", storageID,
+				"storage_type", storage.provider.Type(),
+			)
+		}
+	}
+
+	if m.logger != nil {
+		m.logger.Info("File cleanup completed",
+			"deleted_count", deletedCount,
+		)
+	}
+
+	return deletedCount, nil
 }
 
 // cleanupRoutine runs periodic cleanup
@@ -344,11 +394,20 @@ func (s *storageWrapper) Store(ctx context.Context, entry *models.FileEntry, rea
 	return entry, nil
 }
 
-// Get retrieves a file
+// Get retrieves a file by path. The fileID parameter is treated as the storage
+// path (as returned by Store). Callers that need metadata should fetch it from
+// the repository separately; only a minimal FileEntry with the path is returned.
 func (s *storageWrapper) Get(ctx context.Context, fileID string) (*models.FileEntry, io.ReadCloser, error) {
-	// TODO: Get metadata from repository
-	// For now, this requires repository integration
-	return nil, nil, fmt.Errorf("not implemented: requires repository integration")
+	reader, err := s.provider.Get(ctx, fileID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get file: %w", err)
+	}
+	entry := &models.FileEntry{
+		ID:        fileID,
+		StorageID: s.storage.storageID,
+		Path:      fileID,
+	}
+	return entry, reader, nil
 }
 
 // Delete removes a file

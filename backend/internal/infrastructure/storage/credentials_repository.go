@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -96,7 +97,7 @@ func (r *CredentialsRepositoryImpl) GetCredentials(ctx context.Context, resource
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrResourceNotFound
 		}
 		return nil, err

@@ -5,6 +5,17 @@ import { toast } from './toast';
 const API_URL = (import.meta as any).env?.VITE_API_URL || '/api/v1';
 
 /**
+ * Paginated list response
+ * Backend returns: { data: T[], total, limit, offset }
+ */
+export interface ApiListResponse<T> {
+  data: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/**
  * APIError - структура ошибки от backend
  * Новый формат: { code: string, message: string, details?: object }
  * Legacy формат: { error: string }

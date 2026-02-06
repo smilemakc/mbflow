@@ -30,6 +30,7 @@ func (m *mockExecutor) Execute(ctx context.Context, config map[string]interface{
 
 // TestNodeExecutor_Execute_TemplateResolution tests that templates are resolved correctly
 func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
+	t.Parallel()
 	// Create mock executor that verifies templates were resolved
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
@@ -120,6 +121,7 @@ func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
 
 // TestNodeExecutor_Execute_ExecutionVariablesOverride tests that execution variables override workflow variables
 func TestNodeExecutor_Execute_ExecutionVariablesOverride(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			// Verify that execution var overrode workflow var
@@ -170,6 +172,7 @@ func TestNodeExecutor_Execute_ExecutionVariablesOverride(t *testing.T) {
 
 // TestNodeExecutor_Execute_MultipleParentOutputs tests namespace collision avoidance with multiple parents
 func TestPrepareNodeContext_MultipleParents(t *testing.T) {
+	t.Parallel()
 	execState := &ExecutionState{
 		ExecutionID: "exec-123",
 		WorkflowID:  "wf-123",
@@ -226,6 +229,7 @@ func TestPrepareNodeContext_MultipleParents(t *testing.T) {
 
 // TestNodeExecutor_Execute_NoParents tests that execution input is used when node has no parents
 func TestPrepareNodeContext_NoParents(t *testing.T) {
+	t.Parallel()
 	execState := &ExecutionState{
 		ExecutionID: "exec-123",
 		WorkflowID:  "wf-123",

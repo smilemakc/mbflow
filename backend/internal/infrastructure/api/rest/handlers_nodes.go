@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
@@ -44,33 +43,16 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	}
 
 	var req struct {
-		ID          string                 `json:"id"`
-		Name        string                 `json:"name"`
-		Type        string                 `json:"type"`
+		ID          string                 `json:"id" binding:"required"`
+		Name        string                 `json:"name" binding:"required"`
+		Type        string                 `json:"type" binding:"required"`
 		Description string                 `json:"description,omitempty"`
 		Config      map[string]interface{} `json:"config"`
 		Position    *models.Position       `json:"position,omitempty"`
 		Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in AddNode", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.ID == "" {
-		respondError(c, http.StatusBadRequest, "node ID is required")
-		return
-	}
-
-	if req.Name == "" {
-		respondError(c, http.StatusBadRequest, "node name is required")
-		return
-	}
-
-	if req.Type == "" {
-		respondError(c, http.StatusBadRequest, "node type is required")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
@@ -114,7 +96,7 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	}
 
 	// Convert to domain model
-	node := engine.NodeModelToDomain(nodeModel)
+	node := storagemodels.NodeModelToDomain(nodeModel)
 	respondJSON(c, http.StatusCreated, node)
 }
 
@@ -150,13 +132,10 @@ func (h *NodeHandlers) HandleListNodes(c *gin.Context) {
 	// Convert to domain models
 	nodes := make([]*models.Node, len(nodeModels))
 	for i, nm := range nodeModels {
-		nodes[i] = engine.NodeModelToDomain(nm)
+		nodes[i] = storagemodels.NodeModelToDomain(nm)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"nodes": nodes,
-		"total": len(nodes),
-	})
+	respondList(c, http.StatusOK, nodes, len(nodes), 0, 0)
 }
 
 // HandleGetNode handles GET /api/v1/workflows/{workflow_id}/nodes/{nodeId}
@@ -204,7 +183,7 @@ func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
 		return
 	}
 
-	node := engine.NodeModelToDomain(nodeModel)
+	node := storagemodels.NodeModelToDomain(nodeModel)
 	respondJSON(c, http.StatusOK, node)
 }
 
@@ -239,9 +218,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 		Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in UpdateNode", "error", err, "workflow_id", workflowUUID, "node_id", nodeID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
@@ -291,7 +268,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 		return
 	}
 
-	node := engine.NodeModelToDomain(nodeModel)
+	node := storagemodels.NodeModelToDomain(nodeModel)
 	respondJSON(c, http.StatusOK, node)
 }
 
@@ -348,7 +325,5 @@ func (h *NodeHandlers) HandleDeleteNode(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "node deleted successfully",
-	})
+	respondJSON(c, http.StatusOK, gin.H{"message": "node deleted successfully"})
 }

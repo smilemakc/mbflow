@@ -70,12 +70,45 @@ func MakeRequestWithHeaders(t *testing.T, router *gin.Engine, method, path strin
 	return w
 }
 
-// ParseResponse helper function to parse JSON response
+// ParseResponse helper function to parse JSON response directly into result.
 func ParseResponse(t *testing.T, w *httptest.ResponseRecorder, result interface{}) {
 	t.Helper()
 
-	err := json.Unmarshal(w.Body.Bytes(), result)
-	require.NoError(t, err, "Failed to parse response: %s", w.Body.String())
+	body := w.Body.Bytes()
+	err := json.Unmarshal(body, result)
+	require.NoError(t, err, "Failed to parse response: %s", string(body))
+}
+
+// ParseListResponse parses a list response with flat {data: [...], total, limit, offset} structure.
+// Stores the data array in result and returns a map with total/limit/offset.
+func ParseListResponse(t *testing.T, w *httptest.ResponseRecorder, result interface{}) map[string]interface{} {
+	t.Helper()
+
+	var envelope struct {
+		Data   json.RawMessage `json:"data"`
+		Total  *int            `json:"total"`
+		Limit  *int            `json:"limit"`
+		Offset *int            `json:"offset"`
+	}
+	body := w.Body.Bytes()
+	err := json.Unmarshal(body, &envelope)
+	require.NoError(t, err, "Failed to parse list response: %s", string(body))
+	require.NotNil(t, envelope.Data, "Response missing 'data' field: %s", string(body))
+
+	err = json.Unmarshal(envelope.Data, result)
+	require.NoError(t, err, "Failed to parse list data: %s", string(body))
+
+	meta := map[string]interface{}{}
+	if envelope.Total != nil {
+		meta["total"] = float64(*envelope.Total)
+	}
+	if envelope.Limit != nil {
+		meta["limit"] = float64(*envelope.Limit)
+	}
+	if envelope.Offset != nil {
+		meta["offset"] = float64(*envelope.Offset)
+	}
+	return meta
 }
 
 // AssertJSONResponse asserts the response status code and parses JSON

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -193,149 +192,60 @@ type ValidationResult struct {
 	Errors []string `json:"errors,omitempty"`
 }
 
-// Embedded mode implementations
+// Embedded mode implementations (standalone mode - in-memory only, no database persistence)
+// For full persistence support, use pkg/server.Server directly.
+
+var errWorkflowPersistenceNotAvailable = fmt.Errorf("workflow persistence not available in standalone mode; use remote mode or pkg/server.Server")
+
+// createEmbedded creates a workflow in-memory for standalone execution.
+// The workflow is populated with IDs and timestamps but NOT persisted to database.
 func (w *WorkflowAPI) createEmbedded(ctx context.Context, workflow *models.Workflow) (*models.Workflow, error) {
-	// If no repository available, fallback to in-memory mode
-	if w.client.workflowRepo == nil {
-		// Generate ID if not provided
-		if workflow.ID == "" {
-			workflow.ID = generateID()
-		}
-
-		// Set timestamps
-		now := time.Now()
-		workflow.CreatedAt = now
-		workflow.UpdatedAt = now
-
-		// Set status
-		if workflow.Status == "" {
-			workflow.Status = models.WorkflowStatusActive
-		}
-
-		// Generate node IDs if not provided
-		for _, node := range workflow.Nodes {
-			if node.ID == "" {
-				node.ID = generateID()
-			}
-		}
-
-		// Generate edge IDs if not provided
-		for _, edge := range workflow.Edges {
-			if edge.ID == "" {
-				edge.ID = generateID()
-			}
-		}
-
-		return workflow, nil
+	// Generate ID if not provided
+	if workflow.ID == "" {
+		workflow.ID = generateID()
 	}
 
-	// Use repository for persistence
-	storageWorkflow, err := workflowToStorageForCreate(workflow)
-	if err != nil {
-		return nil, err
+	// Set timestamps
+	now := time.Now()
+	workflow.CreatedAt = now
+	workflow.UpdatedAt = now
+
+	// Set status
+	if workflow.Status == "" {
+		workflow.Status = models.WorkflowStatusActive
 	}
 
-	// Set default status
-	if storageWorkflow.Status == "" {
-		storageWorkflow.Status = string(models.WorkflowStatusActive)
+	// Generate node IDs if not provided
+	for _, node := range workflow.Nodes {
+		if node.ID == "" {
+			node.ID = generateID()
+		}
 	}
 
-	// Create in database
-	if err := w.client.workflowRepo.Create(ctx, storageWorkflow); err != nil {
-		return nil, fmt.Errorf("failed to create workflow: %w", err)
+	// Generate edge IDs if not provided
+	for _, edge := range workflow.Edges {
+		if edge.ID == "" {
+			edge.ID = generateID()
+		}
 	}
 
-	// Convert back to domain model
-	return workflowFromStorage(storageWorkflow), nil
+	return workflow, nil
 }
 
 func (w *WorkflowAPI) getEmbedded(ctx context.Context, workflowID string) (*models.Workflow, error) {
-	if w.client.workflowRepo == nil {
-		return nil, fmt.Errorf("embedded mode get not available: no repository configured")
-	}
-
-	id, err := uuid.Parse(workflowID)
-	if err != nil {
-		return nil, models.ErrInvalidWorkflowID
-	}
-
-	storageWorkflow, err := w.client.workflowRepo.FindByIDWithRelations(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow: %w", err)
-	}
-
-	return workflowFromStorage(storageWorkflow), nil
+	return nil, errWorkflowPersistenceNotAvailable
 }
 
 func (w *WorkflowAPI) listEmbedded(ctx context.Context, opts *ListOptions) ([]*models.Workflow, error) {
-	if w.client.workflowRepo == nil {
-		return nil, fmt.Errorf("embedded mode list not available: no repository configured")
-	}
-
-	if opts == nil {
-		opts = &ListOptions{Limit: 100, Offset: 0}
-	}
-
-	var storageWorkflows []*storagemodels.WorkflowModel
-	var err error
-
-	if opts.Status != "" {
-		storageWorkflows, err = w.client.workflowRepo.FindByStatus(ctx, opts.Status, opts.Limit, opts.Offset)
-	} else {
-		storageWorkflows, err = w.client.workflowRepo.FindAll(ctx, opts.Limit, opts.Offset)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to list workflows: %w", err)
-	}
-
-	workflows := make([]*models.Workflow, len(storageWorkflows))
-	for i, sw := range storageWorkflows {
-		workflows[i] = workflowFromStorage(sw)
-	}
-
-	return workflows, nil
+	return nil, errWorkflowPersistenceNotAvailable
 }
 
 func (w *WorkflowAPI) updateEmbedded(ctx context.Context, workflow *models.Workflow) (*models.Workflow, error) {
-	if w.client.workflowRepo == nil {
-		return nil, fmt.Errorf("embedded mode update not available: no repository configured")
-	}
-
-	storageWorkflow, err := workflowToStorageForUpdate(workflow)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update in database (smart merge with UUID preservation)
-	if err := w.client.workflowRepo.Update(ctx, storageWorkflow); err != nil {
-		return nil, fmt.Errorf("failed to update workflow: %w", err)
-	}
-
-	// Fetch updated workflow to get current state
-	updated, err := w.client.workflowRepo.FindByIDWithRelations(ctx, storageWorkflow.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch updated workflow: %w", err)
-	}
-
-	return workflowFromStorage(updated), nil
+	return nil, errWorkflowPersistenceNotAvailable
 }
 
 func (w *WorkflowAPI) deleteEmbedded(ctx context.Context, workflowID string) error {
-	if w.client.workflowRepo == nil {
-		return fmt.Errorf("embedded mode delete not available: no repository configured")
-	}
-
-	id, err := uuid.Parse(workflowID)
-	if err != nil {
-		return models.ErrInvalidWorkflowID
-	}
-
-	if err := w.client.workflowRepo.Delete(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete workflow: %w", err)
-	}
-
-	return nil
+	return errWorkflowPersistenceNotAvailable
 }
 
 // Remote mode implementations

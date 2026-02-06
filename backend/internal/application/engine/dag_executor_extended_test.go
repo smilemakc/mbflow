@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -320,29 +321,25 @@ func TestSortNodesByPriority(t *testing.T) {
 	}
 }
 
-// TestAggregatedError tests aggregated error functionality
+// TestAggregatedError tests aggregated error functionality using errors.Join
 func TestAggregatedError(t *testing.T) {
 	err1 := errors.New("error 1")
 	err2 := errors.New("error 2")
 
-	aggErr := &AggregatedError{
-		Message: "multiple errors",
-		Errors:  []error{err1, err2},
-	}
+	joinedErr := errors.Join(err1, err2)
+	wrappedErr := fmt.Errorf("multiple errors: %w", joinedErr)
 
-	errMsg := aggErr.Error()
+	errMsg := wrappedErr.Error()
 	if errMsg == "" {
 		t.Error("expected non-empty error message")
 	}
 
-	// Test empty errors
-	emptyAggErr := &AggregatedError{
-		Message: "no errors",
-		Errors:  []error{},
+	if !errors.Is(wrappedErr, err1) {
+		t.Error("expected wrapped error to contain err1")
 	}
 
-	if emptyAggErr.Error() != "no errors" {
-		t.Errorf("expected 'no errors', got %s", emptyAggErr.Error())
+	if !errors.Is(wrappedErr, err2) {
+		t.Error("expected wrapped error to contain err2")
 	}
 }
 

@@ -13,7 +13,7 @@ import (
 
 // TestWorkflowModelToDomain_Nil tests conversion of nil workflow
 func TestWorkflowModelToDomain_Nil(t *testing.T) {
-	result := WorkflowModelToDomain(nil)
+	result := storagemodels.WorkflowModelToDomain(nil)
 	assert.Nil(t, result)
 }
 
@@ -67,7 +67,7 @@ func TestWorkflowModelToDomain_Complete(t *testing.T) {
 		UpdatedAt: updatedAt,
 	}
 
-	result := WorkflowModelToDomain(storageWorkflow)
+	result := storagemodels.WorkflowModelToDomain(storageWorkflow)
 	require.NotNil(t, result)
 
 	assert.Equal(t, wfID.String(), result.ID)
@@ -115,7 +115,7 @@ func TestWorkflowModelToDomain_EmptyCollections(t *testing.T) {
 		Edges: []*storagemodels.EdgeModel{},
 	}
 
-	result := WorkflowModelToDomain(storageWorkflow)
+	result := storagemodels.WorkflowModelToDomain(storageWorkflow)
 	require.NotNil(t, result)
 
 	assert.Empty(t, result.Nodes)
@@ -126,7 +126,7 @@ func TestWorkflowModelToDomain_EmptyCollections(t *testing.T) {
 
 // TestNodeModelToDomain_Nil tests conversion of nil node
 func TestNodeModelToDomain_Nil(t *testing.T) {
-	result := NodeModelToDomain(nil)
+	result := storagemodels.NodeModelToDomain(nil)
 	assert.Nil(t, result)
 }
 
@@ -143,7 +143,7 @@ func TestNodeModelToDomain_WithPosition(t *testing.T) {
 		Position: storagemodels.JSONBMap{"x": 150.5, "y": 250.75},
 	}
 
-	result := NodeModelToDomain(storageNode)
+	result := storagemodels.NodeModelToDomain(storageNode)
 	require.NotNil(t, result)
 
 	assert.Equal(t, "test-node", result.ID)
@@ -165,7 +165,7 @@ func TestNodeModelToDomain_WithoutPosition(t *testing.T) {
 		Config: storagemodels.JSONBMap{"type": "passthrough"},
 	}
 
-	result := NodeModelToDomain(storageNode)
+	result := storagemodels.NodeModelToDomain(storageNode)
 	require.NotNil(t, result)
 
 	assert.Nil(t, result.Position)
@@ -181,7 +181,7 @@ func TestNodeModelToDomain_InvalidPosition(t *testing.T) {
 		Position: storagemodels.JSONBMap{"x": "invalid", "y": 100.0},
 	}
 
-	result := NodeModelToDomain(storageNode)
+	result := storagemodels.NodeModelToDomain(storageNode)
 	require.NotNil(t, result)
 
 	// Invalid position should result in nil Position
@@ -190,7 +190,7 @@ func TestNodeModelToDomain_InvalidPosition(t *testing.T) {
 
 // TestEdgeModelToDomain_Nil tests conversion of nil edge
 func TestEdgeModelToDomain_Nil(t *testing.T) {
-	result := EdgeModelToDomain(nil)
+	result := storagemodels.EdgeModelToDomain(nil)
 	assert.Nil(t, result)
 }
 
@@ -203,7 +203,7 @@ func TestEdgeModelToDomain_WithCondition(t *testing.T) {
 		Condition:  storagemodels.JSONBMap{"expression": "output.value > 10"},
 	}
 
-	result := EdgeModelToDomain(storageEdge)
+	result := storagemodels.EdgeModelToDomain(storageEdge)
 	require.NotNil(t, result)
 
 	assert.Equal(t, "edge-1", result.ID)
@@ -220,7 +220,7 @@ func TestEdgeModelToDomain_WithoutCondition(t *testing.T) {
 		ToNodeID:   "node2",
 	}
 
-	result := EdgeModelToDomain(storageEdge)
+	result := storagemodels.EdgeModelToDomain(storageEdge)
 	require.NotNil(t, result)
 
 	assert.Equal(t, "edge-2", result.ID)
@@ -236,7 +236,7 @@ func TestEdgeModelToDomain_InvalidCondition(t *testing.T) {
 		Condition:  storagemodels.JSONBMap{"invalid": 123},
 	}
 
-	result := EdgeModelToDomain(storageEdge)
+	result := storagemodels.EdgeModelToDomain(storageEdge)
 	require.NotNil(t, result)
 
 	// Invalid condition should result in empty string
@@ -245,7 +245,7 @@ func TestEdgeModelToDomain_InvalidCondition(t *testing.T) {
 
 // TestExecutionModelToDomain_Nil tests conversion of nil execution
 func TestExecutionModelToDomain_Nil(t *testing.T) {
-	result := ExecutionModelToDomain(nil)
+	result := storagemodels.ExecutionModelToDomain(nil)
 	assert.Nil(t, result)
 }
 
@@ -281,7 +281,7 @@ func TestExecutionModelToDomain_Complete(t *testing.T) {
 		},
 	}
 
-	result := ExecutionModelToDomain(storageExec)
+	result := storagemodels.ExecutionModelToDomain(storageExec)
 	require.NotNil(t, result)
 
 	assert.Equal(t, execID.String(), result.ID)
@@ -314,7 +314,7 @@ func TestExecutionModelToDomain_WithError(t *testing.T) {
 		Error:      "node execution failed: timeout",
 	}
 
-	result := ExecutionModelToDomain(storageExec)
+	result := storagemodels.ExecutionModelToDomain(storageExec)
 	require.NotNil(t, result)
 
 	assert.Equal(t, models.ExecutionStatus("failed"), result.Status)
@@ -324,7 +324,7 @@ func TestExecutionModelToDomain_WithError(t *testing.T) {
 
 // TestExecutionDomainToModel_Nil tests conversion of nil execution
 func TestExecutionDomainToModel_Nil(t *testing.T) {
-	result := ExecutionDomainToModel(nil)
+	result := storagemodels.ExecutionDomainToModel(nil)
 	assert.Nil(t, result)
 }
 
@@ -355,7 +355,7 @@ func TestExecutionDomainToModel_Complete(t *testing.T) {
 		},
 	}
 
-	result := ExecutionDomainToModel(domainExec)
+	result := storagemodels.ExecutionDomainToModel(domainExec)
 	require.NotNil(t, result)
 
 	assert.Equal(t, execID, result.ID)
@@ -380,7 +380,7 @@ func TestExecutionDomainToModel_InvalidUUIDs(t *testing.T) {
 		StartedAt:  time.Now(),
 	}
 
-	result := ExecutionDomainToModel(domainExec)
+	result := storagemodels.ExecutionDomainToModel(domainExec)
 	require.NotNil(t, result)
 
 	// Invalid UUIDs should result in zero UUID
@@ -390,7 +390,7 @@ func TestExecutionDomainToModel_InvalidUUIDs(t *testing.T) {
 
 // TestNodeExecutionModelToDomain_Nil tests conversion of nil node execution
 func TestNodeExecutionModelToDomain_Nil(t *testing.T) {
-	result := NodeExecutionModelToDomain(nil)
+	result := storagemodels.NodeExecutionModelToDomain(nil)
 	assert.Nil(t, result)
 }
 
@@ -417,7 +417,7 @@ func TestNodeExecutionModelToDomain_Complete(t *testing.T) {
 		Error:          "",
 	}
 
-	result := NodeExecutionModelToDomain(storageNE)
+	result := storagemodels.NodeExecutionModelToDomain(storageNE)
 	require.NotNil(t, result)
 
 	assert.Equal(t, neID.String(), result.ID)
@@ -437,7 +437,7 @@ func TestNodeExecutionModelToDomain_Complete(t *testing.T) {
 
 // TestNodeExecutionDomainToModel_Nil tests conversion of nil node execution
 func TestNodeExecutionDomainToModel_Nil(t *testing.T) {
-	result := NodeExecutionDomainToModel(nil)
+	result := storagemodels.NodeExecutionDomainToModel(nil)
 	assert.Nil(t, result)
 }
 
@@ -464,7 +464,7 @@ func TestNodeExecutionDomainToModel_Complete(t *testing.T) {
 		Error:          "",
 	}
 
-	result := NodeExecutionDomainToModel(domainNE)
+	result := storagemodels.NodeExecutionDomainToModel(domainNE)
 	require.NotNil(t, result)
 
 	assert.Equal(t, neID, result.ID)
@@ -492,7 +492,7 @@ func TestNodeExecutionDomainToModel_GeneratesID(t *testing.T) {
 		StartedAt:   time.Now(),
 	}
 
-	result := NodeExecutionDomainToModel(domainNE)
+	result := storagemodels.NodeExecutionDomainToModel(domainNE)
 	require.NotNil(t, result)
 
 	// Should generate a new UUID for empty ID
@@ -509,7 +509,7 @@ func TestNodeExecutionDomainToModel_InvalidID(t *testing.T) {
 		StartedAt:   time.Now(),
 	}
 
-	result := NodeExecutionDomainToModel(domainNE)
+	result := storagemodels.NodeExecutionDomainToModel(domainNE)
 	require.NotNil(t, result)
 
 	// Should generate a new UUID for invalid ID
@@ -527,7 +527,7 @@ func TestNodeExecutionDomainToModel_ZeroTimestamps(t *testing.T) {
 		CompletedAt: nil,
 	}
 
-	result := NodeExecutionDomainToModel(domainNE)
+	result := storagemodels.NodeExecutionDomainToModel(domainNE)
 	require.NotNil(t, result)
 
 	// Zero timestamps should not be set

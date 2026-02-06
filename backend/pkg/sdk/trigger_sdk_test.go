@@ -44,7 +44,7 @@ func TestTriggerAPI_Create_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Create_NoRepository tests that Create returns error when no repository configured
+// TestTriggerAPI_Create_NoRepository tests that Create returns error when not available in standalone mode
 func TestTriggerAPI_Create_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestTriggerAPI_Create_NoRepository(t *testing.T) {
 
 	_, err = client.Triggers().Create(ctx, trigger)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_Get_EmptyID tests that empty trigger ID is rejected
@@ -89,7 +89,7 @@ func TestTriggerAPI_Get_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Get_NoRepository tests that Get returns error when no repository configured
+// TestTriggerAPI_Get_NoRepository tests that Get returns error when not available in standalone mode
 func TestTriggerAPI_Get_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestTriggerAPI_Get_NoRepository(t *testing.T) {
 
 	_, err = client.Triggers().Get(ctx, "550e8400-e29b-41d4-a716-446655440000")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_List_ClosedClient tests that closed client returns error
@@ -114,7 +114,7 @@ func TestTriggerAPI_List_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_List_NoRepository tests that List returns error when no repository configured
+// TestTriggerAPI_List_NoRepository tests that List returns error when not available in standalone mode
 func TestTriggerAPI_List_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestTriggerAPI_List_NoRepository(t *testing.T) {
 
 	_, err = client.Triggers().List(ctx, nil)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_List_WithOptions tests listing with filter options
@@ -146,7 +146,7 @@ func TestTriggerAPI_List_WithOptions(t *testing.T) {
 
 	_, err = client.Triggers().List(ctx, opts)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_Update_EmptyID tests that empty trigger ID is rejected
@@ -208,7 +208,7 @@ func TestTriggerAPI_Update_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Update_NoRepository tests that Update returns error when no repository configured
+// TestTriggerAPI_Update_NoRepository tests that Update returns error when not available in standalone mode
 func TestTriggerAPI_Update_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -226,7 +226,7 @@ func TestTriggerAPI_Update_NoRepository(t *testing.T) {
 
 	_, err = client.Triggers().Update(ctx, trigger)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_Delete_EmptyID tests that empty trigger ID is rejected
@@ -254,7 +254,7 @@ func TestTriggerAPI_Delete_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Delete_NoRepository tests that Delete returns error when no repository configured
+// TestTriggerAPI_Delete_NoRepository tests that Delete returns error when not available in standalone mode
 func TestTriggerAPI_Delete_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -264,7 +264,7 @@ func TestTriggerAPI_Delete_NoRepository(t *testing.T) {
 
 	err = client.Triggers().Delete(ctx, "550e8400-e29b-41d4-a716-446655440000")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_Enable_EmptyID tests that empty trigger ID is rejected
@@ -292,7 +292,7 @@ func TestTriggerAPI_Enable_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Enable_NoRepository tests that Enable returns error when no repository configured
+// TestTriggerAPI_Enable_NoRepository tests that Enable returns error when not available in standalone mode
 func TestTriggerAPI_Enable_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -302,7 +302,7 @@ func TestTriggerAPI_Enable_NoRepository(t *testing.T) {
 
 	err = client.Triggers().Enable(ctx, "550e8400-e29b-41d4-a716-446655440000")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_Disable_EmptyID tests that empty trigger ID is rejected
@@ -330,7 +330,7 @@ func TestTriggerAPI_Disable_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Disable_NoRepository tests that Disable returns error when no repository configured
+// TestTriggerAPI_Disable_NoRepository tests that Disable returns error when not available in standalone mode
 func TestTriggerAPI_Disable_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -340,7 +340,7 @@ func TestTriggerAPI_Disable_NoRepository(t *testing.T) {
 
 	err = client.Triggers().Disable(ctx, "550e8400-e29b-41d4-a716-446655440000")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_Trigger_EmptyID tests that empty trigger ID is rejected
@@ -368,7 +368,7 @@ func TestTriggerAPI_Trigger_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_Trigger_NoRepository tests that Trigger returns error when no repository configured
+// TestTriggerAPI_Trigger_NoRepository tests that Trigger returns error when not available in standalone mode
 func TestTriggerAPI_Trigger_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -382,7 +382,7 @@ func TestTriggerAPI_Trigger_NoRepository(t *testing.T) {
 
 	_, err = client.Triggers().Trigger(ctx, "550e8400-e29b-41d4-a716-446655440000", input)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_GetWebhookURL_EmptyID tests that empty trigger ID is rejected
@@ -435,7 +435,7 @@ func TestTriggerAPI_GetHistory_ClosedClient(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
-// TestTriggerAPI_GetHistory_NoRepository tests that GetHistory returns error when no repository configured
+// TestTriggerAPI_GetHistory_NoRepository tests that GetHistory returns error when not available in standalone mode
 func TestTriggerAPI_GetHistory_NoRepository(t *testing.T) {
 	client, err := NewStandaloneClient()
 	require.NoError(t, err)
@@ -451,7 +451,7 @@ func TestTriggerAPI_GetHistory_NoRepository(t *testing.T) {
 
 	_, err = client.Triggers().GetHistory(ctx, "550e8400-e29b-41d4-a716-446655440000", opts)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no repository configured")
+	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
 
 // TestTriggerAPI_TriggerListOptions_Creation tests TriggerListOptions struct

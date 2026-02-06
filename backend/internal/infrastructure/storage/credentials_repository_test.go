@@ -361,6 +361,9 @@ func setupCredentialsTestDB(t *testing.T) (*bun.DB, func()) {
 	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
 	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
 
+	// Register m2m junction models required by bun for relation queries
+	db.RegisterModel((*models.UserRoleModel)(nil))
+
 	// Run migrations
 	migrator, err := NewMigrator(db, migrations.FS)
 	require.NoError(t, err)

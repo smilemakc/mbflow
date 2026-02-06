@@ -5,6 +5,7 @@ import (
 )
 
 func TestNewAccount(t *testing.T) {
+	t.Parallel()
 	account := NewAccount("user-123")
 
 	if account.UserID != "user-123" {
@@ -22,6 +23,7 @@ func TestNewAccount(t *testing.T) {
 }
 
 func TestAccount_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		account *Account
@@ -50,6 +52,7 @@ func TestAccount_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.account.Validate()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Account.Validate() error = %v, wantErr %v", err, tt.wantErr)
@@ -59,6 +62,7 @@ func TestAccount_Validate(t *testing.T) {
 }
 
 func TestAccount_HasSufficientBalance(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		balance  float64
@@ -93,6 +97,7 @@ func TestAccount_HasSufficientBalance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			account := NewAccount("user-123")
 			account.Balance = tt.balance
 

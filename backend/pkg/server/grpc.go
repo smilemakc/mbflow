@@ -17,35 +17,35 @@ func (s *Server) setupGRPCServer() error {
 		return nil
 	}
 
-	s.serviceAPIOps = &serviceapi.Operations{
-		WorkflowRepo:    s.workflowRepo,
-		ExecutionRepo:   s.executionRepo,
-		TriggerRepo:     s.triggerRepo,
-		CredentialsRepo: s.credentialsRepo,
-		ExecutionMgr:    s.executionManager,
-		ExecutorManager: s.executorManager,
-		EncryptionSvc:   s.encryptionService,
-		AuditService:    s.auditService,
+	s.serviceAPI.Operations = &serviceapi.Operations{
+		WorkflowRepo:    s.data.WorkflowRepo,
+		ExecutionRepo:   s.data.ExecutionRepo,
+		TriggerRepo:     s.data.TriggerRepo,
+		CredentialsRepo: s.data.CredentialsRepo,
+		ExecutionMgr:    s.execution.ExecutionManager,
+		ExecutorManager: s.execution.ExecutorManager,
+		EncryptionSvc:   s.auth.EncryptionService,
+		AuditService:    s.serviceAPI.AuditService,
 		Logger:          s.logger,
 	}
 
-	s.serviceAPIGRPC = serviceapigrpc.NewServiceAPIServer(s.serviceAPIOps)
+	s.serviceAPI.GRPCServer = serviceapigrpc.NewServiceAPIServer(s.serviceAPI.Operations)
 
-	s.grpcServer = grpc.NewServer(
+	s.serviceAPI.GRPCServerInstance = grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			serviceapigrpc.SystemKeyAuthInterceptor(s.systemKeyService_),
-			serviceapigrpc.ImpersonationInterceptor(s.userRepo, s.config.ServiceAPI.SystemUserID),
-			serviceapigrpc.AuditInterceptor(s.auditService, s.logger),
+			serviceapigrpc.SystemKeyAuthInterceptor(s.serviceAPI.SystemKeyService),
+			serviceapigrpc.ImpersonationInterceptor(s.data.UserRepo, s.config.ServiceAPI.SystemUserID),
+			serviceapigrpc.AuditInterceptor(s.serviceAPI.AuditService, s.logger),
 		),
 	)
 
-	serviceapipb.RegisterMBFlowServiceAPIServer(s.grpcServer, s.serviceAPIGRPC)
+	serviceapipb.RegisterMBFlowServiceAPIServer(s.serviceAPI.GRPCServerInstance, s.serviceAPI.GRPCServer)
 
 	lis, err := net.Listen("tcp", s.config.GRPCServiceAPI.Address)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", s.config.GRPCServiceAPI.Address, err)
 	}
-	s.grpcListener = lis
+	s.serviceAPI.GRPCListener = lis
 
 	s.logger.Info("gRPC Service API server configured",
 		"address", s.config.GRPCServiceAPI.Address,

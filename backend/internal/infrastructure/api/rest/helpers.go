@@ -1,10 +1,14 @@
 package rest
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 // parseIntQuery parses integer query parameter with default value
@@ -21,6 +25,16 @@ func parseIntQuery(value string, defaultValue int) int {
 
 func respondJSON(c *gin.Context, status int, data interface{}) {
 	c.JSON(status, data)
+}
+
+// respondList writes a paginated list response with flat structure
+func respondList(c *gin.Context, status int, data interface{}, total, limit, offset int) {
+	c.JSON(status, gin.H{
+		"data":   data,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }
 
 func respondError(c *gin.Context, status int, message string) {
@@ -47,34 +61,51 @@ func respondAPIErrorWithRequestID(c *gin.Context, err error) {
 	c.JSON(apiErr.HTTPStatus, apiErr)
 }
 
-// SuccessResponse represents a successful response with metadata
-type SuccessResponse struct {
-	Data interface{} `json:"data"`
-	Meta *MetaInfo   `json:"meta,omitempty"`
-}
-
-// MetaInfo contains metadata about the response
-type MetaInfo struct {
-	Total  int `json:"total,omitempty"`
-	Limit  int `json:"limit,omitempty"`
-	Offset int `json:"offset,omitempty"`
-}
-
-// respondSuccess writes a successful response with metadata
-func respondSuccess(c *gin.Context, status int, data interface{}, meta *MetaInfo) {
+// respondSuccess writes a successful response, optionally with pagination metadata
+func respondSuccess(c *gin.Context, status int, data interface{}, meta *listMeta) {
 	if meta != nil {
-		c.JSON(status, SuccessResponse{
-			Data: data,
-			Meta: meta,
+		c.JSON(status, gin.H{
+			"data":   data,
+			"total":  meta.Total,
+			"limit":  meta.Limit,
+			"offset": meta.Offset,
 		})
 	} else {
-		c.JSON(status, gin.H{"data": data})
+		c.JSON(status, data)
 	}
+}
+
+// listMeta contains pagination metadata for list responses
+type listMeta struct {
+	Total  int
+	Limit  int
+	Offset int
 }
 
 func bindJSON(c *gin.Context, obj interface{}) error {
 	if err := c.ShouldBindJSON(obj); err != nil {
-		respondAPIError(c, ErrInvalidJSON)
+		var ve validator.ValidationErrors
+		if ok := errors.As(err, &ve); ok {
+			msgs := make([]string, 0, len(ve))
+			for _, fe := range ve {
+				field := strings.ToLower(fe.Field())
+				switch fe.Tag() {
+				case "required":
+					msgs = append(msgs, fmt.Sprintf("%s is required", field))
+				case "uuid":
+					msgs = append(msgs, fmt.Sprintf("%s must be a valid UUID", field))
+				case "min":
+					msgs = append(msgs, fmt.Sprintf("%s must be at least %s characters", field, fe.Param()))
+				case "max":
+					msgs = append(msgs, fmt.Sprintf("%s must be at most %s characters", field, fe.Param()))
+				default:
+					msgs = append(msgs, fmt.Sprintf("%s is invalid", field))
+				}
+			}
+			respondError(c, http.StatusBadRequest, strings.Join(msgs, "; "))
+		} else {
+			respondAPIError(c, ErrInvalidJSON)
+		}
 		return err
 	}
 	return nil

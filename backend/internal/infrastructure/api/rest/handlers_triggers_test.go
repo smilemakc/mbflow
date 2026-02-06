@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
@@ -33,8 +34,15 @@ func setupTriggerHandlersTest(t *testing.T) (*TriggerHandlers, *gin.Engine, *sto
 		Format: "text",
 	})
 
+	// Create operations
+	ops := &serviceapi.Operations{
+		TriggerRepo:  triggerRepo,
+		WorkflowRepo: workflowRepo,
+		Logger:       log,
+	}
+
 	// Create handlers
-	handlers := NewTriggerHandlers(triggerRepo, workflowRepo, log)
+	handlers := NewTriggerHandlers(ops, log)
 
 	// Setup router
 	gin.SetMode(gin.TestMode)
@@ -242,10 +250,8 @@ func TestHandlers_ListTriggers_Empty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
-
-	triggers := result["triggers"].([]interface{})
+	var triggers []interface{}
+	testutil.ParseListResponse(t, w, &triggers)
 	assert.Empty(t, triggers)
 }
 
@@ -276,10 +282,8 @@ func TestHandlers_ListTriggers_WithData(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
-
-	triggers := result["triggers"].([]interface{})
+	var triggers []interface{}
+	testutil.ParseListResponse(t, w, &triggers)
 	assert.Len(t, triggers, 3)
 }
 
@@ -328,10 +332,8 @@ func TestHandlers_ListTriggers_FilterByWorkflowID(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
-	testutil.ParseResponse(t, w, &result)
-
-	triggers := result["triggers"].([]interface{})
+	var triggers []interface{}
+	testutil.ParseListResponse(t, w, &triggers)
 	assert.Len(t, triggers, 2)
 }
 
@@ -520,11 +522,12 @@ func TestHandlers_TriggerManual_Success(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	// Create trigger
+	// Create trigger (must be enabled for manual execution)
 	createReq := map[string]interface{}{
 		"name":        "Manual Trigger",
 		"type":        "manual",
 		"workflow_id": workflowModel.ID.String(),
+		"enabled":     true,
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)

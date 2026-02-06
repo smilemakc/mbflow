@@ -362,7 +362,7 @@ func (r *ExecutionRepository) GetStatistics(ctx context.Context, workflowID *uui
 		}).
 		Group("status").
 		Scan(ctx, &statusCounts)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("failed to count by status: %w", err)
 	}
 

@@ -12,6 +12,7 @@ import (
 
 // TestTopologicalSort_SimpleDAG tests topological sort on a simple DAG
 func TestTopologicalSort_SimpleDAG(t *testing.T) {
+	t.Parallel()
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Test Workflow",
@@ -56,6 +57,7 @@ func TestTopologicalSort_SimpleDAG(t *testing.T) {
 
 // TestTopologicalSort_ParallelDAG tests topological sort with parallel branches
 func TestTopologicalSort_ParallelDAG(t *testing.T) {
+	t.Parallel()
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Test Workflow",
@@ -103,6 +105,7 @@ func TestTopologicalSort_ParallelDAG(t *testing.T) {
 
 // TestTopologicalSort_CycleDetection tests cycle detection
 func TestTopologicalSort_CycleDetection(t *testing.T) {
+	t.Parallel()
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Test Workflow",
@@ -132,6 +135,7 @@ func TestTopologicalSort_CycleDetection(t *testing.T) {
 
 // TestDAGExecutor_Execute_Success tests successful DAG execution
 func TestDAGExecutor_Execute_Success(t *testing.T) {
+	t.Parallel()
 	// Track execution order
 	var executionOrder []string
 	var mu sync.Mutex
@@ -202,6 +206,7 @@ func TestDAGExecutor_Execute_Success(t *testing.T) {
 
 // TestDAGExecutor_Execute_ParallelExecution tests parallel execution within waves
 func TestDAGExecutor_Execute_ParallelExecution(t *testing.T) {
+	t.Parallel()
 	// Track concurrent executions
 	var activeConcurrent int
 	var maxConcurrent int
@@ -269,6 +274,7 @@ func TestDAGExecutor_Execute_ParallelExecution(t *testing.T) {
 
 // TestGetParentNodes tests getting parent nodes
 func TestGetParentNodes(t *testing.T) {
+	t.Parallel()
 	workflow := &models.Workflow{
 		Nodes: []*models.Node{
 			{ID: "node-1", Name: "A"},
@@ -301,6 +307,7 @@ func TestGetParentNodes(t *testing.T) {
 
 // TestDAGExecutor_ConditionalEdge_TrueBranch tests that true branch is executed when conditional node returns true
 func TestDAGExecutor_ConditionalEdge_TrueBranch(t *testing.T) {
+	t.Parallel()
 	var executedNodes []string
 	var mu sync.Mutex
 
@@ -367,6 +374,7 @@ func TestDAGExecutor_ConditionalEdge_TrueBranch(t *testing.T) {
 
 // TestDAGExecutor_ConditionalEdge_FalseBranch tests that false branch is executed when conditional node returns false
 func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
+	t.Parallel()
 	var executedNodes []string
 	var mu sync.Mutex
 
@@ -434,6 +442,7 @@ func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
 // TestDAGExecutor_MultiParentWithConditionalEdges tests OR semantics for multi-parent nodes
 // A node with multiple incoming edges should execute if at least one edge passes its condition
 func TestDAGExecutor_MultiParentWithConditionalEdges(t *testing.T) {
+	t.Parallel()
 	var executedNodes []string
 	var mu sync.Mutex
 
@@ -501,6 +510,7 @@ func TestDAGExecutor_MultiParentWithConditionalEdges(t *testing.T) {
 
 // TestDAGExecutor_MultiParentAllConditionsFail tests that node is skipped when all incoming edges fail
 func TestDAGExecutor_MultiParentAllConditionsFail(t *testing.T) {
+	t.Parallel()
 	var executedNodes []string
 	var mu sync.Mutex
 
@@ -573,6 +583,7 @@ func TestDAGExecutor_MultiParentAllConditionsFail(t *testing.T) {
 
 // TestDAGExecutor_ConditionalEdge_MapOutputWithResult tests conditional with map output containing "result" key
 func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		result        bool
@@ -612,6 +623,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockExec := &mockExecutor{
 				executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 					nodeID := config["nodeID"].(string)
@@ -674,6 +686,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
 
 // TestDAGExecutor_ConditionalEdge_UnknownSourceHandle tests conditional with unknown sourceHandle
 func TestDAGExecutor_ConditionalEdge_UnknownSourceHandle(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			nodeID := config["nodeID"].(string)
@@ -722,6 +735,7 @@ func TestDAGExecutor_ConditionalEdge_UnknownSourceHandle(t *testing.T) {
 
 // TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult tests map output without "result" key
 func TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			nodeID := config["nodeID"].(string)
@@ -774,6 +788,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult(t *testing.T) {
 
 // TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult tests map with non-boolean "result"
 func TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			nodeID := config["nodeID"].(string)
@@ -825,6 +840,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult(t *testing.T) {
 
 // TestDAGExecutor_EdgeCondition_CompilationError tests edge with invalid condition syntax
 func TestDAGExecutor_EdgeCondition_CompilationError(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			return map[string]interface{}{"score": 50}, nil
@@ -866,6 +882,7 @@ func TestDAGExecutor_EdgeCondition_CompilationError(t *testing.T) {
 
 // TestDAGExecutor_EdgeCondition_RuntimeError tests edge condition with runtime error
 func TestDAGExecutor_EdgeCondition_RuntimeError(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			return map[string]interface{}{"data": "value"}, nil
@@ -907,6 +924,7 @@ func TestDAGExecutor_EdgeCondition_RuntimeError(t *testing.T) {
 
 // TestDAGExecutor_EdgeCondition_NonBooleanResult tests condition returning non-boolean
 func TestDAGExecutor_EdgeCondition_NonBooleanResult(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			return map[string]interface{}{"score": 50}, nil
@@ -948,6 +966,7 @@ func TestDAGExecutor_EdgeCondition_NonBooleanResult(t *testing.T) {
 
 // TestDAGExecutor_EdgeCondition_EmptyCondition tests edge with empty condition string
 func TestDAGExecutor_EdgeCondition_EmptyCondition(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			return map[string]interface{}{"result": "ok"}, nil
@@ -989,6 +1008,7 @@ func TestDAGExecutor_EdgeCondition_EmptyCondition(t *testing.T) {
 
 // TestDAGExecutor_shouldExecuteNode_InvalidEdge tests behavior when edge references non-existent source node
 func TestDAGExecutor_shouldExecuteNode_InvalidEdge(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			return map[string]interface{}{"result": "ok"}, nil
@@ -1044,6 +1064,7 @@ func TestDAGExecutor_shouldExecuteNode_InvalidEdge(t *testing.T) {
 
 // TestDAGExecutor_shouldExecuteNode_SourceNotCompleted tests when source node is in pending/running state
 func TestDAGExecutor_shouldExecuteNode_SourceNotCompleted(t *testing.T) {
+	t.Parallel()
 	// This tests the edge case where shouldExecuteNode encounters a source node that's not completed yet
 	// In normal wave execution this shouldn't happen, but we test the defensive check
 
@@ -1094,6 +1115,7 @@ func TestDAGExecutor_shouldExecuteNode_SourceNotCompleted(t *testing.T) {
 
 // TestDAGExecutor_shouldExecuteNode_SourceFailed tests when source node failed
 func TestDAGExecutor_shouldExecuteNode_SourceFailed(t *testing.T) {
+	t.Parallel()
 	mockExec := &mockExecutor{
 		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
 			return map[string]interface{}{"result": "ok"}, nil
@@ -1146,6 +1168,7 @@ func stringContains(s, substr string) bool {
 }
 
 func TestPtrString(t *testing.T) {
+	t.Parallel()
 	str := "test string"
 	ptr := ptrString(str)
 
@@ -1159,6 +1182,7 @@ func TestPtrString(t *testing.T) {
 }
 
 func TestContainsError(t *testing.T) {
+	t.Parallel()
 	err1 := errors.New("error 1")
 	err2 := errors.New("error 2")
 	err3 := errors.New("error 3")

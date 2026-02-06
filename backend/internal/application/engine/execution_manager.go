@@ -95,7 +95,7 @@ func (em *ExecutionManager) ExecuteAsync(
 
 		// Update status to running
 		execution.Status = models.ExecutionStatusRunning
-		executionModel := ExecutionDomainToModel(execution)
+		executionModel := storagemodels.ExecutionDomainToModel(execution)
 		if err := em.executionRepo.Update(bgCtx, executionModel); err != nil {
 			em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to update execution status: %w", err))
 			return
@@ -142,7 +142,7 @@ func (em *ExecutionManager) prepareExecution(
 		return nil, nil, nil, fmt.Errorf("failed to load workflow: %w", err)
 	}
 
-	workflow := WorkflowModelToDomain(workflowModel)
+	workflow := storagemodels.WorkflowModelToDomain(workflowModel)
 
 	// Create execution record
 	execution := &models.Execution{
@@ -156,7 +156,7 @@ func (em *ExecutionManager) prepareExecution(
 	}
 
 	// Save execution
-	executionModel := ExecutionDomainToModel(execution)
+	executionModel := storagemodels.ExecutionDomainToModel(execution)
 	if err := em.executionRepo.Create(ctx, executionModel); err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to create execution: %w", err)
 	}
@@ -221,7 +221,7 @@ func (em *ExecutionManager) finalizeExecution(
 	execution.NodeExecutions = em.buildNodeExecutions(execState, workflow, workflowModel)
 
 	// Update execution in database
-	executionModel := ExecutionDomainToModel(execution)
+	executionModel := storagemodels.ExecutionDomainToModel(execution)
 	if err := em.executionRepo.Update(ctx, executionModel); err != nil {
 		return fmt.Errorf("failed to update execution: %w", err)
 	}

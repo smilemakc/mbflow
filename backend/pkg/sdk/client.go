@@ -26,19 +26,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smilemakc/mbflow/internal/application/engine"
-	"github.com/smilemakc/mbflow/internal/application/observer"
-	"github.com/smilemakc/mbflow/internal/domain/repository"
-	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
-	"github.com/smilemakc/mbflow/migrations"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/executor/builtin"
 	"github.com/smilemakc/mbflow/pkg/models"
-	"github.com/uptrace/bun"
 )
 
 // Client is the main entry point for the MBFlow SDK.
 // It provides access to workflow, execution, and trigger management APIs.
+//
+// The SDK supports two modes:
+//   - Remote mode: Connects to a remote MBFlow API server via HTTP
+//   - Standalone mode: Executes workflows in-memory without persistence
+//
+// For embedded mode with database persistence, use pkg/server.Server directly.
 type Client struct {
 	config *ClientConfig
 	mu     sync.RWMutex
@@ -47,22 +48,14 @@ type Client struct {
 	workflows  *WorkflowAPI
 	executions *ExecutionAPI
 	triggers   *TriggerAPI
-	migrations *MigrationAPI
 
 	// HTTP client for remote mode
 	httpClient *http.Client
 
-	// Embedded mode components
-	db               *bun.DB
-	migrator         *storage.MigratorWithAccess
-	executorManager  executor.Manager
-	executionManager *engine.ExecutionManager
-	workflowRepo     repository.WorkflowRepository
-	executionRepo    repository.ExecutionRepository
-	eventRepo        repository.EventRepository
-	resourceRepo     repository.ResourceRepository
-	triggerRepo      repository.TriggerRepository
-	observerManager  *observer.ObserverManager
+	// Standalone mode components
+	executorManager    executor.Manager
+	standaloneExecutor engine.StandaloneExecutor
+	observerManager    engine.ObserverManager
 
 	// Lifecycle
 	closed bool
@@ -79,17 +72,17 @@ type ClientConfig struct {
 	HTTPClient *http.Client
 	Timeout    time.Duration
 
-	// Embedded mode settings
+	// Standalone mode settings (kept for backward compatibility, but ignored)
 	DatabaseURL    string
 	RedisURL       string
-	WebhookBaseURL string // Base URL for webhook endpoints (e.g., "http://localhost:8585")
-	AutoMigrate    bool   // If true, run migrations automatically on init
+	WebhookBaseURL string
+	AutoMigrate    bool
 
 	// Executor configuration
 	ExecutorManager executor.Manager
 
 	// Observer configuration (for real-time event notifications)
-	ObserverManager *observer.ObserverManager
+	ObserverManager engine.ObserverManager
 
 	// Logging
 	Logger Logger
@@ -151,7 +144,6 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	client.workflows = newWorkflowAPI(client)
 	client.executions = newExecutionAPI(client)
 	client.triggers = newTriggerAPI(client)
-	client.migrations = newMigrationAPI(client)
 
 	return client, nil
 }
@@ -191,14 +183,8 @@ func (c *Client) Triggers() *TriggerAPI {
 	return c.triggers
 }
 
-// Migrations returns the Migration API for database schema management.
-// Only available in embedded mode with database connection configured.
-func (c *Client) Migrations() *MigrationAPI {
-	return c.migrations
-}
-
-// RegisterExecutor registers a custom executor with the embedded engine.
-// Only available in embedded mode.
+// RegisterExecutor registers a custom executor with the standalone engine.
+// Only available in standalone/embedded mode.
 func (c *Client) RegisterExecutor(nodeType string, exec executor.Executor) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -229,17 +215,6 @@ func (c *Client) Close() error {
 	}
 
 	c.closed = true
-
-	// Close mode-specific resources
-	if c.config.Mode == ModeEmbedded {
-		// Close database connection
-		if c.db != nil {
-			if err := c.db.Close(); err != nil {
-				return fmt.Errorf("failed to close database connection: %w", err)
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -267,7 +242,8 @@ func (c *Client) initialize() error {
 	}
 }
 
-// initializeEmbedded sets up the embedded workflow engine.
+// initializeEmbedded sets up the standalone workflow engine.
+// Note: For embedded mode with database persistence, use pkg/server.Server directly.
 func (c *Client) initializeEmbedded() error {
 	// Initialize executor manager
 	if c.config.ExecutorManager != nil {
@@ -282,91 +258,22 @@ func (c *Client) initializeEmbedded() error {
 		return fmt.Errorf("failed to register built-in executors: %w", err)
 	}
 
-	// Initialize database connection if DatabaseURL provided
-	if c.config.DatabaseURL != "" {
-		dbConfig := &storage.Config{
-			DSN:             c.config.DatabaseURL,
-			MaxOpenConns:    20,
-			MaxIdleConns:    5,
-			ConnMaxLifetime: time.Hour,
-			ConnMaxIdleTime: 10 * time.Minute,
-			Debug:           false,
-		}
+	// Create standalone executor for in-memory workflow execution
+	c.standaloneExecutor = engine.NewStandaloneExecutor(c.executorManager)
 
-		db, err := storage.NewDB(dbConfig)
-		if err != nil {
-			return fmt.Errorf("failed to initialize database: %w", err)
-		}
-		c.db = db
-
-		// Initialize migrator with embedded migrations
-		migrator, err := storage.NewMigratorWithAccess(db, migrations.FS)
-		if err != nil {
-			return fmt.Errorf("failed to create migrator: %w", err)
-		}
-		c.migrator = migrator
-
-		// Run migrations automatically if configured
-		if c.config.AutoMigrate {
-			if err := c.runMigrations(); err != nil {
-				return fmt.Errorf("failed to run migrations: %w", err)
-			}
-		}
-
-		// Create repositories
-		c.workflowRepo = storage.NewWorkflowRepository(db)
-		c.executionRepo = storage.NewExecutionRepository(db)
-		c.triggerRepo = storage.NewTriggerRepository(db)
-		c.eventRepo = storage.NewEventRepository(db)
-		c.resourceRepo = storage.NewResourceRepository(db)
-
-		// Initialize observer manager if provided or create default
-		if c.config.ObserverManager != nil {
-			c.observerManager = c.config.ObserverManager
-		} else {
-			c.observerManager = observer.NewObserverManager()
-		}
-
-		// Create execution manager with all components
-		c.executionManager = engine.NewExecutionManager(
-			c.executorManager,
-			c.workflowRepo,
-			c.executionRepo,
-			c.eventRepo,
-			c.resourceRepo,
-			c.observerManager,
-		)
+	// Set observer manager if provided
+	if c.config.ObserverManager != nil {
+		c.observerManager = c.config.ObserverManager
 	}
 
 	return nil
 }
 
-// runMigrations runs database migrations using the stored migrator.
-func (c *Client) runMigrations() error {
-	ctx := context.Background()
-
-	if c.migrator == nil {
-		return fmt.Errorf("migrator not initialized")
-	}
-
-	// Initialize migration tables (creates bun_migrations table if not exists)
-	if err := c.migrator.Init(ctx); err != nil {
-		return fmt.Errorf("failed to initialize migrations: %w", err)
-	}
-
-	// Run pending migrations
-	if err := c.migrator.Up(ctx); err != nil {
-		return fmt.Errorf("failed to apply migrations: %w", err)
-	}
-
-	return nil
-}
-
-// getExecutionManager returns the execution manager (internal method for ExecutionAPI)
-func (c *Client) getExecutionManager() *engine.ExecutionManager {
+// getStandaloneExecutor returns the standalone executor
+func (c *Client) getStandaloneExecutor() engine.StandaloneExecutor {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.executionManager
+	return c.standaloneExecutor
 }
 
 // initializeRemote validates the remote connection.
@@ -437,19 +344,9 @@ func (c *Client) Health(ctx context.Context) (*HealthStatus, error) {
 
 	switch c.config.Mode {
 	case ModeEmbedded:
-		// Check database connectivity
-		if c.db != nil {
-			if err := c.db.PingContext(ctx); err != nil {
-				status.Status = "degraded"
-				status.Database = &ComponentHealth{
-					Status: "unhealthy",
-					Error:  err.Error(),
-				}
-			} else {
-				status.Database = &ComponentHealth{
-					Status: "healthy",
-				}
-			}
+		// Standalone mode - always healthy if executor is available
+		if c.standaloneExecutor != nil {
+			status.Status = "ok"
 		}
 
 	case ModeRemote:

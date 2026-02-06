@@ -7,11 +7,6 @@ import (
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
-// registry is the default global executor registry.
-var (
-	globalRegistry = NewRegistry()
-)
-
 // Registry implements the Manager interface with thread-safe executor registration.
 type Registry struct {
 	mu        sync.RWMutex
@@ -95,31 +90,4 @@ func (r *Registry) Unregister(nodeType string) error {
 
 	delete(r.executors, nodeType)
 	return nil
-}
-
-// Global registry functions for convenience
-
-// Register registers an executor in the global registry.
-func Register(nodeType string, executor Executor) error {
-	return globalRegistry.Register(nodeType, executor)
-}
-
-// Get retrieves an executor from the global registry.
-func Get(nodeType string) (Executor, error) {
-	return globalRegistry.Get(nodeType)
-}
-
-// Has checks if an executor is registered in the global registry.
-func Has(nodeType string) bool {
-	return globalRegistry.Has(nodeType)
-}
-
-// List returns all registered executor types from the global registry.
-func List() []string {
-	return globalRegistry.List()
-}
-
-// Unregister removes an executor from the global registry.
-func Unregister(nodeType string) error {
-	return globalRegistry.Unregister(nodeType)
 }

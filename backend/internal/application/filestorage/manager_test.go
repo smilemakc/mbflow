@@ -134,7 +134,7 @@ func (f *mockFactory) Create(config *models.StorageConfig) (Provider, error) {
 // ============== A. Initialization Tests ==============
 
 func TestStorageManager_New_DefaultConfig(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 
 	require.NotNil(t, manager)
 	assert.NotNil(t, manager.config)
@@ -155,7 +155,7 @@ func TestStorageManager_New_CustomConfig(t *testing.T) {
 		CleanupInterval: 30 * time.Minute,
 	}
 
-	manager := NewStorageManager(config)
+	manager := NewStorageManager(config, nil)
 
 	require.NotNil(t, manager)
 	assert.Equal(t, config, manager.config)
@@ -167,7 +167,7 @@ func TestStorageManager_New_CustomConfig(t *testing.T) {
 }
 
 func TestStorageManager_RegisterFactory_Success(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	factory := newMockFactory()
@@ -178,7 +178,7 @@ func TestStorageManager_RegisterFactory_Success(t *testing.T) {
 }
 
 func TestStorageManager_RegisterFactory_Duplicate(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	factory1 := newMockFactory()
@@ -192,7 +192,7 @@ func TestStorageManager_RegisterFactory_Duplicate(t *testing.T) {
 }
 
 func TestStorageManager_GetValidator_NotNil(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	validator := manager.GetValidator()
@@ -204,7 +204,7 @@ func TestStorageManager_GetValidator_NotNil(t *testing.T) {
 // ============== B. Storage Lifecycle Tests ==============
 
 func TestStorageManager_CreateStorage_Local_Success(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	// Register mock factory
@@ -223,7 +223,7 @@ func TestStorageManager_CreateStorage_Local_Success(t *testing.T) {
 }
 
 func TestStorageManager_CreateStorage_AlreadyExists(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -244,7 +244,7 @@ func TestStorageManager_CreateStorage_AlreadyExists(t *testing.T) {
 }
 
 func TestStorageManager_CreateStorage_InvalidType(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	config := &models.StorageConfig{
@@ -260,7 +260,7 @@ func TestStorageManager_CreateStorage_InvalidType(t *testing.T) {
 }
 
 func TestStorageManager_CreateStorage_FactoryError(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	// Register factory that returns error
@@ -283,7 +283,7 @@ func TestStorageManager_CreateStorage_FactoryError(t *testing.T) {
 }
 
 func TestStorageManager_GetStorage_Exists(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -304,7 +304,7 @@ func TestStorageManager_GetStorage_Exists(t *testing.T) {
 }
 
 func TestStorageManager_GetStorage_CreateOnDemand(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -318,7 +318,7 @@ func TestStorageManager_GetStorage_CreateOnDemand(t *testing.T) {
 }
 
 func TestStorageManager_GetStorage_Concurrent(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -347,7 +347,7 @@ func TestStorageManager_GetStorage_Concurrent(t *testing.T) {
 }
 
 func TestStorageManager_DeleteStorage_Success(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	mockProv := newMockProvider()
@@ -373,7 +373,7 @@ func TestStorageManager_DeleteStorage_Success(t *testing.T) {
 }
 
 func TestStorageManager_DeleteStorage_NotFound(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	err := manager.DeleteStorage("non-existent")
@@ -383,7 +383,7 @@ func TestStorageManager_DeleteStorage_NotFound(t *testing.T) {
 }
 
 func TestStorageManager_DeleteStorage_ProviderCloseError(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	mockProv := newMockProvider()
@@ -411,7 +411,7 @@ func TestStorageManager_DeleteStorage_ProviderCloseError(t *testing.T) {
 }
 
 func TestStorageManager_ListStorages_Empty(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	storages := manager.ListStorages()
@@ -420,7 +420,7 @@ func TestStorageManager_ListStorages_Empty(t *testing.T) {
 }
 
 func TestStorageManager_ListStorages_Multiple(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -444,7 +444,7 @@ func TestStorageManager_ListStorages_Multiple(t *testing.T) {
 }
 
 func TestStorageManager_HasStorage_True(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -460,7 +460,7 @@ func TestStorageManager_HasStorage_True(t *testing.T) {
 }
 
 func TestStorageManager_GetDefaultStorage_Success(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -475,7 +475,7 @@ func TestStorageManager_GetDefaultStorage_Success(t *testing.T) {
 // ============== C. Observer Management Tests ==============
 
 func TestStorageManager_RegisterObserver_Success(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	observer := newTestObserver("test-observer", nil)
@@ -487,7 +487,7 @@ func TestStorageManager_RegisterObserver_Success(t *testing.T) {
 }
 
 func TestStorageManager_RegisterObserver_Duplicate(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	observer := newTestObserver("test-observer", nil)
@@ -503,7 +503,7 @@ func TestStorageManager_RegisterObserver_Duplicate(t *testing.T) {
 }
 
 func TestStorageManager_UnregisterObserver_Success(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	observer := newTestObserver("test-observer", nil)
@@ -518,7 +518,7 @@ func TestStorageManager_UnregisterObserver_Success(t *testing.T) {
 }
 
 func TestStorageManager_UnregisterObserver_NotFound(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	err := manager.UnregisterObserver("non-existent")
@@ -528,7 +528,7 @@ func TestStorageManager_UnregisterObserver_NotFound(t *testing.T) {
 }
 
 func TestStorageManager_NotifyObservers_FileAdded(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	observer := newTestObserver("test-observer", nil)
@@ -547,7 +547,7 @@ func TestStorageManager_NotifyObservers_FileAdded(t *testing.T) {
 }
 
 func TestStorageManager_NotifyObservers_WithFilter(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	// Observer that only receives EventFileAdded
@@ -572,7 +572,7 @@ func TestStorageManager_NotifyObservers_WithFilter(t *testing.T) {
 }
 
 func TestStorageManager_NotifyObservers_Concurrent(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	observer := newTestObserver("test-observer", nil)
@@ -602,7 +602,7 @@ func TestStorageManager_NotifyObservers_Concurrent(t *testing.T) {
 }
 
 func TestStorageManager_NotifyObservers_Async(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	var notified atomic.Bool
@@ -632,7 +632,7 @@ func TestStorageManager_NotifyObservers_Async(t *testing.T) {
 // ============== D. Storage Wrapper Tests ==============
 
 func TestStorageWrapper_Store_MIMEValidation(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -668,7 +668,7 @@ func TestStorageWrapper_Store_FileSizeExceeded(t *testing.T) {
 		BasePath:    t.TempDir(),
 		MaxFileSize: 100, // 100 bytes limit
 	}
-	manager := NewStorageManager(config)
+	manager := NewStorageManager(config, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -689,7 +689,7 @@ func TestStorageWrapper_Store_FileSizeExceeded(t *testing.T) {
 }
 
 func TestStorageWrapper_Store_GenerateID(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -709,7 +709,7 @@ func TestStorageWrapper_Store_GenerateID(t *testing.T) {
 }
 
 func TestStorageWrapper_Store_SetTimestamps(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -738,7 +738,7 @@ func TestStorageWrapper_Store_ApplyDefaultTTL(t *testing.T) {
 		BasePath:   t.TempDir(),
 		DefaultTTL: time.Hour,
 	}
-	manager := NewStorageManager(config)
+	manager := NewStorageManager(config, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -769,7 +769,7 @@ func TestStorageWrapper_Store_ApplyDefaultTTL(t *testing.T) {
 }
 
 func TestStorageWrapper_Store_ObserverNotification(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	// Use EventTypeFilter to only receive EventFileAdded events
@@ -805,7 +805,7 @@ func TestStorageWrapper_Store_QuotaExceeded_Event(t *testing.T) {
 		BasePath:    t.TempDir(),
 		MaxFileSize: 50,
 	}
-	manager := NewStorageManager(config)
+	manager := NewStorageManager(config, nil)
 	defer manager.Close()
 
 	// Use EventTypeFilter to only receive QuotaExceeded events
@@ -837,7 +837,7 @@ func TestStorageWrapper_Store_QuotaExceeded_Event(t *testing.T) {
 }
 
 func TestStorageWrapper_GetUsage_Success(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -856,7 +856,7 @@ func TestStorageWrapper_GetUsage_MaxSizeCalculation(t *testing.T) {
 		BasePath:       t.TempDir(),
 		MaxStorageSize: 10000,
 	}
-	manager := NewStorageManager(config)
+	manager := NewStorageManager(config, nil)
 	defer manager.Close()
 
 	mockProv := newMockProvider()
@@ -890,7 +890,7 @@ func TestStorageWrapper_GetUsage_MaxSizeCalculation(t *testing.T) {
 }
 
 func TestStorageWrapper_GetUsage_UsagePercent(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	mockProv := newMockProvider()
@@ -931,7 +931,7 @@ func TestStorageManager_CleanupRoutine_Starts(t *testing.T) {
 		BasePath:        t.TempDir(),
 		CleanupInterval: 100 * time.Millisecond,
 	}
-	manager := NewStorageManager(config)
+	manager := NewStorageManager(config, nil)
 	defer manager.Close()
 
 	// Cleanup routine should start automatically
@@ -944,7 +944,7 @@ func TestStorageManager_Close_StopsCleanup(t *testing.T) {
 		BasePath:        t.TempDir(),
 		CleanupInterval: 10 * time.Millisecond,
 	}
-	manager := NewStorageManager(config)
+	manager := NewStorageManager(config, nil)
 
 	// Close should stop cleanup routine
 	err := manager.Close()
@@ -955,7 +955,7 @@ func TestStorageManager_Close_StopsCleanup(t *testing.T) {
 }
 
 func TestStorageManager_Close_ClosesAllStorages(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 
 	providers := make([]*mockProvider, 3)
 	for i := range providers {
@@ -993,7 +993,7 @@ func TestStorageManager_Close_ClosesAllStorages(t *testing.T) {
 // ============== F. Concurrency Tests ==============
 
 func TestStorageManager_Concurrent_CreateMultipleStorages(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -1022,7 +1022,7 @@ func TestStorageManager_Concurrent_CreateMultipleStorages(t *testing.T) {
 }
 
 func TestStorageManager_Concurrent_ObserverRegistration(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	var wg sync.WaitGroup
@@ -1044,7 +1044,7 @@ func TestStorageManager_Concurrent_ObserverRegistration(t *testing.T) {
 }
 
 func TestStorageManager_Concurrent_MixedOperations(t *testing.T) {
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())
@@ -1087,7 +1087,7 @@ func TestStorageManager_Concurrent_MixedOperations(t *testing.T) {
 
 func TestStorageManager_RaceDetection(t *testing.T) {
 	// This test is designed to be run with -race flag
-	manager := NewStorageManager(nil)
+	manager := NewStorageManager(nil, nil)
 	defer manager.Close()
 
 	manager.RegisterFactory(newMockFactory())

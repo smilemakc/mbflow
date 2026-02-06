@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/smilemakc/mbflow/internal/application/engine"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"

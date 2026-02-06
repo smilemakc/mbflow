@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -35,7 +36,7 @@ func (r *PricingPlanRepositoryImpl) GetByID(ctx context.Context, id string) (*pk
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrPricingPlanNotFound
 		}
 		return nil, err
@@ -72,7 +73,7 @@ func (r *PricingPlanRepositoryImpl) GetFreePlan(ctx context.Context, resourceTyp
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrPricingPlanNotFound
 		}
 		return nil, err

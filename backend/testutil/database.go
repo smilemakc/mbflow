@@ -16,6 +16,7 @@ import (
 	"github.com/uptrace/bun/driver/pgdriver"
 
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
+	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/migrations"
 )
 
@@ -90,6 +91,9 @@ func SetupTestDB(t *testing.T) *TestDB {
 	})
 	require.NoError(t, err, "Failed to connect to PostgreSQL")
 	testDB.DB = db
+
+	// Register m2m junction models required by bun for relation queries
+	db.RegisterModel((*storagemodels.UserRoleModel)(nil))
 
 	// Run migrations
 	migrator := testDB.createMigrator(t)

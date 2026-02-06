@@ -1,4 +1,4 @@
-import { apiClient } from '../lib/api';
+import { apiClient, ApiListResponse } from '../lib/api';
 import { NodeExecutionResult, ExecutionLog } from '@/types';
 import {
   executionFromApi,
@@ -15,13 +15,6 @@ export interface ExecutionStatusResponse {
   status: 'pending' | 'running' | 'completed' | 'failed';
   results: Record<string, NodeExecutionResult>;
   logs: ExecutionLog[];
-}
-
-interface ExecutionListResponse {
-  executions: ExecutionApiResponse[];
-  total: number;
-  limit: number;
-  offset: number;
 }
 
 interface LogsResponse {
@@ -54,7 +47,8 @@ export const executionService = {
   // Get logs for an execution
   getLogs: async (executionId: string) => {
     const response = await apiClient.get<LogsResponse>(`/executions/${executionId}/logs`);
-    return response.data.logs.map(log => ({
+    const logsData = response.data;
+    return logsData.logs.map(log => ({
       id: `${log.timestamp}_${log.event_type}`,
       nodeId: log.data?.node_id || null,
       level: log.level as 'info' | 'error' | 'success' | 'warning',
@@ -65,8 +59,8 @@ export const executionService = {
 
   // Get recent executions
   getRecent: async (limit = 5) => {
-    const response = await apiClient.get<ExecutionListResponse>(`/executions?limit=${limit}`);
-    return response.data.executions.map(executionFromApi);
+    const response = await apiClient.get<ApiListResponse<ExecutionApiResponse>>(`/executions?limit=${limit}`);
+    return response.data.data.map(executionFromApi);
   },
 
   // Cancel execution (not implemented on backend yet)
@@ -91,11 +85,11 @@ export const executionService = {
     if (params?.from) queryParams.append('from', params.from);
     if (params?.to) queryParams.append('to', params.to);
 
-    const response = await apiClient.get<ExecutionListResponse>(
+    const response = await apiClient.get<ApiListResponse<ExecutionApiResponse>>(
       `/executions?${queryParams.toString()}`
     );
     return {
-      executions: response.data.executions.map(executionFromApi),
+      executions: response.data.data.map(executionFromApi),
       total: response.data.total,
       limit: response.data.limit,
       offset: response.data.offset,

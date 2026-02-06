@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/smilemakc/mbflow/internal/application/observer"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/executor"
 )
 
@@ -171,7 +171,7 @@ func WithAutoMigrate() ClientOption {
 //	    sdk.WithEmbeddedMode(dbURL, ""),
 //	    sdk.WithObserverManager(obsManager),
 //	)
-func WithObserverManager(manager *observer.ObserverManager) ClientOption {
+func WithObserverManager(manager engine.ObserverManager) ClientOption {
 	return func(c *ClientConfig) error {
 		if manager == nil {
 			return fmt.Errorf("observer manager cannot be nil")

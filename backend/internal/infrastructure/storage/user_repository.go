@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -103,7 +104,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (*models.Us
 		Where("deleted_at IS NULL").
 		Scan(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find user by ID: %w", err)
@@ -120,7 +121,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models
 		Where("deleted_at IS NULL").
 		Scan(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find user by email: %w", err)
@@ -137,7 +138,7 @@ func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*
 		Where("deleted_at IS NULL").
 		Scan(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find user by username: %w", err)
@@ -155,7 +156,7 @@ func (r *UserRepository) FindByIDWithRoles(ctx context.Context, id uuid.UUID) (*
 		Where("u.deleted_at IS NULL").
 		Scan(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find user with roles: %w", err)
@@ -377,7 +378,7 @@ func (r *UserRepository) FindSessionByToken(ctx context.Context, token string) (
 		Where("s.expires_at > ?", time.Now()).
 		Scan(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find session by token: %w", err)
@@ -394,7 +395,7 @@ func (r *UserRepository) FindSessionByRefreshToken(ctx context.Context, refreshT
 		Where("s.refresh_token = ?", refreshToken).
 		Scan(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find session by refresh token: %w", err)
@@ -491,7 +492,7 @@ func (r *UserRepository) FindRoleByID(ctx context.Context, id uuid.UUID) (*model
 		Where("id = ?", id).
 		Scan(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find role by ID: %w", err)
@@ -507,7 +508,7 @@ func (r *UserRepository) FindRoleByName(ctx context.Context, name string) (*mode
 		Where("LOWER(name) = LOWER(?)", name).
 		Scan(ctx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find role by name: %w", err)

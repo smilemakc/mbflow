@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
@@ -82,31 +81,14 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	var req struct {
-		ID        string                 `json:"id"`
-		From      string                 `json:"from"`
-		To        string                 `json:"to"`
+		ID        string                 `json:"id" binding:"required"`
+		From      string                 `json:"from" binding:"required"`
+		To        string                 `json:"to" binding:"required"`
 		Condition string                 `json:"condition,omitempty"`
 		Metadata  map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in AddEdge", "error", err, "workflow_id", workflowUUID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.ID == "" {
-		respondError(c, http.StatusBadRequest, "edge ID is required")
-		return
-	}
-
-	if req.From == "" {
-		respondError(c, http.StatusBadRequest, "source node (from) is required")
-		return
-	}
-
-	if req.To == "" {
-		respondError(c, http.StatusBadRequest, "target node (to) is required")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
@@ -209,7 +191,7 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	// Convert to domain model
-	edge := engine.EdgeModelToDomain(edgeModel)
+	edge := storagemodels.EdgeModelToDomain(edgeModel)
 	respondJSON(c, http.StatusCreated, edge)
 }
 
@@ -246,13 +228,10 @@ func (h *EdgeHandlers) HandleListEdges(c *gin.Context) {
 	// Convert to domain models
 	edges := make([]*models.Edge, len(edgeModels))
 	for i, em := range edgeModels {
-		edges[i] = engine.EdgeModelToDomain(em)
+		edges[i] = storagemodels.EdgeModelToDomain(em)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"edges": edges,
-		"total": len(edges),
-	})
+	respondList(c, http.StatusOK, edges, len(edges), 0, 0)
 }
 
 // HandleGetEdge handles GET /api/v1/workflows/{workflow_id}/edges/{edgeId}
@@ -300,7 +279,7 @@ func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
 		return
 	}
 
-	edge := engine.EdgeModelToDomain(edgeModel)
+	edge := storagemodels.EdgeModelToDomain(edgeModel)
 	respondJSON(c, http.StatusOK, edge)
 }
 
@@ -333,9 +312,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 		Metadata  map[string]interface{} `json:"metadata,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind JSON in UpdateEdge", "error", err, "workflow_id", workflowUUID, "edge_id", edgeID)
-		respondError(c, http.StatusBadRequest, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
 		return
 	}
 
@@ -432,7 +409,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 		return
 	}
 
-	edge := engine.EdgeModelToDomain(edgeModel)
+	edge := storagemodels.EdgeModelToDomain(edgeModel)
 	respondJSON(c, http.StatusOK, edge)
 }
 
@@ -489,7 +466,5 @@ func (h *EdgeHandlers) HandleDeleteEdge(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "edge deleted successfully",
-	})
+	respondJSON(c, http.StatusOK, gin.H{"message": "edge deleted successfully"})
 }

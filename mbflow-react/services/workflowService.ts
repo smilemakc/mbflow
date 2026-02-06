@@ -1,4 +1,4 @@
-import { apiClient } from '../lib/api';
+import { apiClient, ApiListResponse } from '../lib/api';
 import { DAG, AppNode, AppEdge } from '@/types';
 import type { WorkflowResource } from '@/types/workflow';
 import {
@@ -12,13 +12,6 @@ export interface WorkflowPayload {
   description?: string;
   nodes: AppNode[];
   edges: AppEdge[];
-}
-
-interface WorkflowListResponse {
-  workflows: WorkflowApiResponse[];
-  total: number;
-  limit: number;
-  offset: number;
 }
 
 // DAG save payload with variables as Record (used by dagStore)
@@ -35,8 +28,8 @@ export interface DAGSavePayload {
 export const workflowService = {
   // Get all workflows
   getAll: async () => {
-    const response = await apiClient.get<WorkflowListResponse>('/workflows');
-    return response.data.workflows.map(workflowFromApi);
+    const response = await apiClient.get<ApiListResponse<WorkflowApiResponse>>('/workflows');
+    return response.data.data.map(workflowFromApi);
   },
 
   // Get a single workflow by ID

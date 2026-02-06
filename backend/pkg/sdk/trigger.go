@@ -3,10 +3,7 @@ package sdk
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/google/uuid"
-	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -229,347 +226,45 @@ type TriggerHistoryOptions struct {
 	Status    string
 }
 
-// Embedded mode implementations
+// Embedded mode implementations (standalone mode - no database persistence)
+// For full persistence support, use pkg/server.Server directly.
+
+var errTriggersNotAvailable = fmt.Errorf("trigger operations not available in standalone mode; use remote mode or pkg/server.Server for persistence")
 
 func (t *TriggerAPI) createEmbedded(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	if t.client.triggerRepo == nil {
-		return nil, fmt.Errorf("embedded mode create not available: no repository configured")
-	}
-
-	// Generate ID if not provided
-	if trigger.ID == "" {
-		trigger.ID = uuid.New().String()
-	}
-
-	// Set timestamps
-	now := time.Now()
-	trigger.CreatedAt = now
-	trigger.UpdatedAt = now
-
-	// Convert to storage model
-	storageTrigger, err := triggerDomainToStorage(trigger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert trigger: %w", err)
-	}
-
-	// Create in database
-	if err := t.client.triggerRepo.Create(ctx, storageTrigger); err != nil {
-		return nil, fmt.Errorf("failed to create trigger: %w", err)
-	}
-
-	// Return the created trigger
-	return triggerStorageToDomain(storageTrigger), nil
+	return nil, errTriggersNotAvailable
 }
 
 func (t *TriggerAPI) getEmbedded(ctx context.Context, triggerID string) (*models.Trigger, error) {
-	if t.client.triggerRepo == nil {
-		return nil, fmt.Errorf("embedded mode get not available: no repository configured")
-	}
-
-	id, err := uuid.Parse(triggerID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid trigger ID: %w", err)
-	}
-
-	storageTrigger, err := t.client.triggerRepo.FindByID(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get trigger: %w", err)
-	}
-
-	if storageTrigger == nil {
-		return nil, models.ErrTriggerNotFound
-	}
-
-	return triggerStorageToDomain(storageTrigger), nil
+	return nil, errTriggersNotAvailable
 }
 
 func (t *TriggerAPI) listEmbedded(ctx context.Context, opts *TriggerListOptions) ([]*models.Trigger, error) {
-	if t.client.triggerRepo == nil {
-		return nil, fmt.Errorf("embedded mode list not available: no repository configured")
-	}
-
-	if opts == nil {
-		opts = &TriggerListOptions{Limit: 100, Offset: 0}
-	}
-
-	var storageTriggers []*storagemodels.TriggerModel
-	var err error
-
-	// Apply filters
-	if opts.WorkflowID != "" {
-		workflowID, parseErr := uuid.Parse(opts.WorkflowID)
-		if parseErr != nil {
-			return nil, fmt.Errorf("invalid workflow ID: %w", parseErr)
-		}
-		storageTriggers, err = t.client.triggerRepo.FindByWorkflowID(ctx, workflowID)
-	} else if opts.Type != "" {
-		storageTriggers, err = t.client.triggerRepo.FindByType(ctx, opts.Type, opts.Limit, opts.Offset)
-	} else if opts.Enabled != nil && *opts.Enabled {
-		storageTriggers, err = t.client.triggerRepo.FindEnabled(ctx)
-	} else {
-		storageTriggers, err = t.client.triggerRepo.FindAll(ctx, opts.Limit, opts.Offset)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to list triggers: %w", err)
-	}
-
-	triggers := make([]*models.Trigger, len(storageTriggers))
-	for i, st := range storageTriggers {
-		triggers[i] = triggerStorageToDomain(st)
-	}
-
-	return triggers, nil
+	return nil, errTriggersNotAvailable
 }
 
 func (t *TriggerAPI) updateEmbedded(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	if t.client.triggerRepo == nil {
-		return nil, fmt.Errorf("embedded mode update not available: no repository configured")
-	}
-
-	// Update timestamp
-	trigger.UpdatedAt = time.Now()
-
-	// Convert to storage model
-	storageTrigger, err := triggerDomainToStorage(trigger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert trigger: %w", err)
-	}
-
-	// Update in database
-	if err := t.client.triggerRepo.Update(ctx, storageTrigger); err != nil {
-		return nil, fmt.Errorf("failed to update trigger: %w", err)
-	}
-
-	// Fetch updated trigger
-	updated, err := t.client.triggerRepo.FindByID(ctx, storageTrigger.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch updated trigger: %w", err)
-	}
-
-	if updated == nil {
-		return nil, models.ErrTriggerNotFound
-	}
-
-	return triggerStorageToDomain(updated), nil
+	return nil, errTriggersNotAvailable
 }
 
 func (t *TriggerAPI) deleteEmbedded(ctx context.Context, triggerID string) error {
-	if t.client.triggerRepo == nil {
-		return fmt.Errorf("embedded mode delete not available: no repository configured")
-	}
-
-	id, err := uuid.Parse(triggerID)
-	if err != nil {
-		return fmt.Errorf("invalid trigger ID: %w", err)
-	}
-
-	if err := t.client.triggerRepo.Delete(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete trigger: %w", err)
-	}
-
-	return nil
+	return errTriggersNotAvailable
 }
 
 func (t *TriggerAPI) enableEmbedded(ctx context.Context, triggerID string) error {
-	if t.client.triggerRepo == nil {
-		return fmt.Errorf("embedded mode enable not available: no repository configured")
-	}
-
-	id, err := uuid.Parse(triggerID)
-	if err != nil {
-		return fmt.Errorf("invalid trigger ID: %w", err)
-	}
-
-	if err := t.client.triggerRepo.Enable(ctx, id); err != nil {
-		return fmt.Errorf("failed to enable trigger: %w", err)
-	}
-
-	return nil
+	return errTriggersNotAvailable
 }
 
 func (t *TriggerAPI) disableEmbedded(ctx context.Context, triggerID string) error {
-	if t.client.triggerRepo == nil {
-		return fmt.Errorf("embedded mode disable not available: no repository configured")
-	}
-
-	id, err := uuid.Parse(triggerID)
-	if err != nil {
-		return fmt.Errorf("invalid trigger ID: %w", err)
-	}
-
-	if err := t.client.triggerRepo.Disable(ctx, id); err != nil {
-		return fmt.Errorf("failed to disable trigger: %w", err)
-	}
-
-	return nil
+	return errTriggersNotAvailable
 }
 
 func (t *TriggerAPI) triggerEmbedded(ctx context.Context, triggerID string, input map[string]interface{}) (*models.Execution, error) {
-	if t.client.triggerRepo == nil {
-		return nil, fmt.Errorf("embedded mode trigger not available: no repository configured")
-	}
-
-	// Get trigger
-	id, err := uuid.Parse(triggerID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid trigger ID: %w", err)
-	}
-
-	storageTrigger, err := t.client.triggerRepo.FindByID(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get trigger: %w", err)
-	}
-
-	if storageTrigger == nil {
-		return nil, models.ErrTriggerNotFound
-	}
-
-	if !storageTrigger.Enabled {
-		return nil, fmt.Errorf("trigger is disabled")
-	}
-
-	// Execute the workflow associated with this trigger
-	execution, err := t.client.Executions().Run(ctx, storageTrigger.WorkflowID.String(), input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute workflow: %w", err)
-	}
-
-	// Mark trigger as triggered (non-fatal error, just update last triggered time)
-	_ = t.client.triggerRepo.MarkTriggered(ctx, id)
-
-	return execution, nil
+	return nil, errTriggersNotAvailable
 }
 
 func (t *TriggerAPI) getHistoryEmbedded(ctx context.Context, triggerID string, opts *TriggerHistoryOptions) ([]*models.Execution, error) {
-	if t.client.triggerRepo == nil {
-		return nil, fmt.Errorf("embedded mode history not available: no repository configured")
-	}
-
-	// Get trigger to find workflow ID
-	id, err := uuid.Parse(triggerID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid trigger ID: %w", err)
-	}
-
-	storageTrigger, err := t.client.triggerRepo.FindByID(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get trigger: %w", err)
-	}
-
-	if storageTrigger == nil {
-		return nil, models.ErrTriggerNotFound
-	}
-
-	// Get executions for this workflow
-	listOpts := &ExecutionListOptions{
-		WorkflowID: storageTrigger.WorkflowID.String(),
-	}
-
-	if opts != nil {
-		listOpts.Limit = opts.Limit
-		listOpts.Offset = opts.Offset
-		listOpts.Status = opts.Status
-		listOpts.StartTime = opts.StartTime
-		listOpts.EndTime = opts.EndTime
-	}
-
-	return t.client.Executions().List(ctx, listOpts)
-}
-
-// triggerStorageToDomain converts storage TriggerModel to domain Trigger
-func triggerStorageToDomain(tm *storagemodels.TriggerModel) *models.Trigger {
-	if tm == nil {
-		return nil
-	}
-
-	trigger := &models.Trigger{
-		ID:         tm.ID.String(),
-		WorkflowID: tm.WorkflowID.String(),
-		Type:       models.TriggerType(tm.Type),
-		Config:     make(map[string]interface{}),
-		Enabled:    tm.Enabled,
-		CreatedAt:  tm.CreatedAt,
-		UpdatedAt:  tm.UpdatedAt,
-		LastRun:    tm.LastTriggeredAt,
-	}
-
-	// Extract name from config if present
-	if tm.Config != nil {
-		trigger.Config = map[string]interface{}(tm.Config)
-		if name, ok := tm.Config["name"].(string); ok {
-			trigger.Name = name
-		}
-		if description, ok := tm.Config["description"].(string); ok {
-			trigger.Description = description
-		}
-	}
-
-	// Generate name if not set
-	if trigger.Name == "" {
-		trigger.Name = fmt.Sprintf("%s-trigger-%s", tm.Type, tm.ID.String()[:8])
-	}
-
-	return trigger
-}
-
-// triggerDomainToStorage converts domain Trigger to storage TriggerModel
-func triggerDomainToStorage(trigger *models.Trigger) (*storagemodels.TriggerModel, error) {
-	if trigger == nil {
-		return nil, fmt.Errorf("trigger is nil")
-	}
-
-	// WorkflowID is mandatory
-	if trigger.WorkflowID == "" {
-		return nil, fmt.Errorf("workflow ID is required")
-	}
-
-	workflowID, err := uuid.Parse(trigger.WorkflowID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid workflow ID: %w", err)
-	}
-
-	tm := &storagemodels.TriggerModel{
-		Type:       string(trigger.Type),
-		WorkflowID: workflowID,
-		Enabled:    trigger.Enabled,
-		Config:     storagemodels.JSONBMap(trigger.Config),
-	}
-
-	// Parse ID
-	if trigger.ID != "" {
-		id, err := uuid.Parse(trigger.ID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid trigger ID: %w", err)
-		}
-		tm.ID = id
-	} else {
-		tm.ID = uuid.New()
-	}
-
-	// Store name and description in config
-	if tm.Config == nil {
-		tm.Config = make(storagemodels.JSONBMap)
-	}
-	if trigger.Name != "" {
-		tm.Config["name"] = trigger.Name
-	}
-	if trigger.Description != "" {
-		tm.Config["description"] = trigger.Description
-	}
-
-	// Set timestamps
-	if !trigger.CreatedAt.IsZero() {
-		tm.CreatedAt = trigger.CreatedAt
-	}
-	if !trigger.UpdatedAt.IsZero() {
-		tm.UpdatedAt = trigger.UpdatedAt
-	}
-	if trigger.LastRun != nil {
-		tm.LastTriggeredAt = trigger.LastRun
-	}
-
-	return tm, nil
+	return nil, errTriggersNotAvailable
 }
 
 // Remote mode implementations

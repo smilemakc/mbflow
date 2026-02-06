@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -117,7 +118,7 @@ func (r *RentalKeyRepositoryImpl) GetRentalKey(ctx context.Context, resourceID s
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pkgmodels.ErrRentalKeyNotFound
 		}
 		return nil, err
@@ -274,7 +275,7 @@ func (r *RentalKeyRepositoryImpl) GetDecryptedAPIKey(ctx context.Context, resour
 		Scan(ctx)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", pkgmodels.ErrRentalKeyNotFound
 		}
 		return "", err

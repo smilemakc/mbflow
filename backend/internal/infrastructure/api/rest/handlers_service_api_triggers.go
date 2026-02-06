@@ -40,20 +40,15 @@ func (h *ServiceAPITriggerHandlers) ListTriggers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"triggers": result.Triggers,
-		"total":    result.Total,
-		"limit":    params.Limit,
-		"offset":   params.Offset,
-	})
+	respondList(c, http.StatusOK, result.Triggers, result.Total, params.Limit, params.Offset)
 }
 
 func (h *ServiceAPITriggerHandlers) CreateTrigger(c *gin.Context) {
 	var req struct {
-		WorkflowID  string         `json:"workflow_id"`
-		Name        string         `json:"name"`
+		WorkflowID  string         `json:"workflow_id" binding:"required,uuid"`
+		Name        string         `json:"name" binding:"required"`
 		Description string         `json:"description,omitempty"`
-		Type        string         `json:"type"`
+		Type        string         `json:"type" binding:"required"`
 		Config      map[string]any `json:"config"`
 		Enabled     bool           `json:"enabled"`
 	}

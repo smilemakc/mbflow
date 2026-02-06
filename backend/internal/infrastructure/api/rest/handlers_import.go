@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/smilemakc/mbflow/internal/application/engine"
 	"github.com/smilemakc/mbflow/internal/application/importer"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
@@ -308,7 +307,7 @@ func (h *ImportHandlers) HandleExportWorkflow(c *gin.Context) {
 	}
 
 	// Convert to domain model
-	workflow := engine.WorkflowModelToDomain(workflowModel)
+	workflow := storagemodels.WorkflowModelToDomain(workflowModel)
 
 	// Get trigger if exists
 	var trigger *struct {

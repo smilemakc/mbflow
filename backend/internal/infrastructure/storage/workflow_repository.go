@@ -127,7 +127,7 @@ func (r *WorkflowRepository) syncNodes(
 		Model(&existingNodes).
 		Where("workflow_id = ?", workflowID).
 		Scan(ctx)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 
@@ -202,7 +202,7 @@ func (r *WorkflowRepository) syncEdges(
 		Model(&existingEdges).
 		Where("workflow_id = ?", workflowID).
 		Scan(ctx)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 
@@ -277,7 +277,7 @@ func (r *WorkflowRepository) syncResources(
 		Model(&existingResources).
 		Where("workflow_id = ?", workflowID).
 		Scan(ctx)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 

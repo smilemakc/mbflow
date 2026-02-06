@@ -174,12 +174,7 @@ func (h *ServiceKeyAdminHandlers) ListServiceKeys(c *gin.Context) {
 		response[i] = h.toResponse(key)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"service_keys": response,
-		"total":        total,
-		"limit":        limit,
-		"offset":       offset,
-	})
+	respondList(c, http.StatusOK, response, int(total), limit, offset)
 }
 
 // GetServiceKey returns a specific service key by ID

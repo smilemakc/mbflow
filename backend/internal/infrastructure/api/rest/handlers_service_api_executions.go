@@ -40,12 +40,7 @@ func (h *ServiceAPIExecutionHandlers) ListExecutions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"executions": result.Executions,
-		"total":      result.Total,
-		"limit":      params.Limit,
-		"offset":     params.Offset,
-	})
+	respondList(c, http.StatusOK, result.Executions, result.Total, params.Limit, params.Offset)
 }
 
 func (h *ServiceAPIExecutionHandlers) GetExecution(c *gin.Context) {

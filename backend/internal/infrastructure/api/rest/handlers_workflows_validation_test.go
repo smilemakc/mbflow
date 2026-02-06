@@ -1,11 +1,16 @@
 package rest
 
 import (
+	"fmt"
+	"net/http"
+	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smilemakc/mbflow/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage"
@@ -14,24 +19,42 @@ import (
 	"github.com/smilemakc/mbflow/testutil"
 )
 
-// TestValidateNodes_ValidTypes tests that all registered executor types are valid
-func TestValidateNodes_ValidTypes(t *testing.T) {
-	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup(t)
+func setupValidationTest(t *testing.T) (*gin.Engine, string, func()) {
+	t.Helper()
 
+	testDB := testutil.SetupTestDB(t)
 	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
-	log := logger.New(config.LoggingConfig{
-		Level:  "error",
-		Format: "text",
-	})
+	log := logger.New(config.LoggingConfig{Level: "error", Format: "text"})
 
 	executorManager := executor.NewManager()
 	require.NoError(t, builtin.RegisterBuiltins(executorManager))
 	require.NoError(t, builtin.RegisterAdapters(executorManager))
 
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
+	ops := &serviceapi.Operations{
+		WorkflowRepo:    workflowRepo,
+		ExecutorManager: executorManager,
+		Logger:          log,
+	}
+	handlers := NewWorkflowHandlers(ops, log)
 
-	// Test valid executor types
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	api := router.Group("/api/v1")
+	api.POST("/workflows", handlers.HandleCreateWorkflow)
+	api.PUT("/workflows/:workflow_id", handlers.HandleUpdateWorkflow)
+
+	createReq := map[string]interface{}{"name": "Validation Test Workflow"}
+	w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
+	require.Equal(t, http.StatusCreated, w.Code)
+	var created map[string]interface{}
+	testutil.ParseResponse(t, w, &created)
+	workflowID := created["id"].(string)
+
+	return router, workflowID, func() { testDB.Cleanup(t) }
+}
+
+// TestValidateNodes_ValidTypes tests that all registered executor types are valid
+func TestValidateNodes_ValidTypes(t *testing.T) {
 	validTypes := []string{
 		"http", "transform", "llm", "conditional", "merge",
 		"html_clean", "rss_parser", "base64_to_bytes",
@@ -39,225 +62,190 @@ func TestValidateNodes_ValidTypes(t *testing.T) {
 
 	for _, nodeType := range validTypes {
 		t.Run("valid_"+nodeType, func(t *testing.T) {
-			nodes := []NodeRequest{
-				{
-					ID:   "node-1",
-					Name: "Test Node",
-					Type: nodeType,
+			router, workflowID, cleanup := setupValidationTest(t)
+			defer cleanup()
+
+			updateReq := map[string]interface{}{
+				"name": "Updated Workflow",
+				"nodes": []map[string]interface{}{
+					{
+						"id":   "node-1",
+						"name": "Test Node",
+						"type": nodeType,
+					},
 				},
 			}
-			err := handlers.validateNodes(nodes)
-			assert.NoError(t, err, "Type %s should be valid", nodeType)
+
+			w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
+			assert.Equal(t, http.StatusOK, w.Code, "Type %s should be valid. Response: %s", nodeType, w.Body.String())
 		})
 	}
 }
 
 // TestValidateNodes_UIOnlyTypes tests that UI-only types are valid
 func TestValidateNodes_UIOnlyTypes(t *testing.T) {
-	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup(t)
+	router, workflowID, cleanup := setupValidationTest(t)
+	defer cleanup()
 
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
-	log := logger.New(config.LoggingConfig{
-		Level:  "error",
-		Format: "text",
-	})
-
-	executorManager := executor.NewManager()
-	require.NoError(t, builtin.RegisterBuiltins(executorManager))
-
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
-
-	nodes := []NodeRequest{
-		{
-			ID:   "comment-1",
-			Name: "Comment Node",
-			Type: "comment",
+	updateReq := map[string]interface{}{
+		"name": "Updated Workflow",
+		"nodes": []map[string]interface{}{
+			{
+				"id":   "comment-1",
+				"name": "Comment Node",
+				"type": "comment",
+			},
 		},
 	}
 
-	err := handlers.validateNodes(nodes)
-	assert.NoError(t, err, "Comment type should be valid (UI-only)")
+	w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
+	assert.Equal(t, http.StatusOK, w.Code, "Comment type should be valid (UI-only). Response: %s", w.Body.String())
 }
 
 // TestValidateNodes_InvalidType tests that unregistered types are rejected
 func TestValidateNodes_InvalidType(t *testing.T) {
-	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup(t)
+	router, workflowID, cleanup := setupValidationTest(t)
+	defer cleanup()
 
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
-	log := logger.New(config.LoggingConfig{
-		Level:  "error",
-		Format: "text",
-	})
-
-	executorManager := executor.NewManager()
-	require.NoError(t, builtin.RegisterBuiltins(executorManager))
-
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
-
-	nodes := []NodeRequest{
-		{
-			ID:   "node-1",
-			Name: "Invalid Node",
-			Type: "nonexistent_type",
+	updateReq := map[string]interface{}{
+		"name": "Updated Workflow",
+		"nodes": []map[string]interface{}{
+			{
+				"id":   "node-1",
+				"name": "Invalid Node",
+				"type": "nonexistent_type",
+			},
 		},
 	}
 
-	err := handlers.validateNodes(nodes)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid type 'nonexistent_type'")
+	w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid type 'nonexistent_type'")
 }
 
 // TestValidateNodes_MixedTypes tests validation with both valid and invalid types
 func TestValidateNodes_MixedTypes(t *testing.T) {
-	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup(t)
+	router, workflowID, cleanup := setupValidationTest(t)
+	defer cleanup()
 
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
-	log := logger.New(config.LoggingConfig{
-		Level:  "error",
-		Format: "text",
-	})
-
-	executorManager := executor.NewManager()
-	require.NoError(t, builtin.RegisterBuiltins(executorManager))
-	require.NoError(t, builtin.RegisterAdapters(executorManager))
-
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
-
-	// Valid nodes
-	validNodes := []NodeRequest{
-		{ID: "node-1", Name: "HTTP Node", Type: "http"},
-		{ID: "node-2", Name: "Transform Node", Type: "transform"},
-		{ID: "node-3", Name: "Comment Node", Type: "comment"},
-		{ID: "node-4", Name: "RSS Node", Type: "rss_parser"},
+	validNodes := []map[string]interface{}{
+		{"id": "node-1", "name": "HTTP Node", "type": "http"},
+		{"id": "node-2", "name": "Transform Node", "type": "transform"},
+		{"id": "node-3", "name": "Comment Node", "type": "comment"},
+		{"id": "node-4", "name": "RSS Node", "type": "rss_parser"},
 	}
 
-	err := handlers.validateNodes(validNodes)
-	assert.NoError(t, err)
-
-	// Invalid node mixed with valid ones
-	invalidNodes := []NodeRequest{
-		{ID: "node-1", Name: "HTTP Node", Type: "http"},
-		{ID: "node-2", Name: "Invalid Node", Type: "invalid_type"},
+	updateReq := map[string]interface{}{
+		"name":  "Updated Workflow",
+		"nodes": validNodes,
 	}
 
-	err = handlers.validateNodes(invalidNodes)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid type 'invalid_type'")
+	w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
+	assert.Equal(t, http.StatusOK, w.Code, "All valid nodes should pass. Response: %s", w.Body.String())
+
+	invalidNodes := []map[string]interface{}{
+		{"id": "node-1", "name": "HTTP Node", "type": "http"},
+		{"id": "node-2", "name": "Invalid Node", "type": "invalid_type"},
+	}
+
+	updateReq = map[string]interface{}{
+		"name":  "Updated Workflow",
+		"nodes": invalidNodes,
+	}
+
+	w = testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "invalid type 'invalid_type'")
 }
 
 // TestValidateNodes_RequiredFields tests required field validation
 func TestValidateNodes_RequiredFields(t *testing.T) {
-	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup(t)
-
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
-	log := logger.New(config.LoggingConfig{
-		Level:  "error",
-		Format: "text",
-	})
-
-	executorManager := executor.NewManager()
-	require.NoError(t, builtin.RegisterBuiltins(executorManager))
-
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
-
 	tests := []struct {
 		name        string
-		node        NodeRequest
+		node        map[string]interface{}
 		expectedErr string
 	}{
 		{
 			name:        "missing_id",
-			node:        NodeRequest{Name: "Test", Type: "http"},
-			expectedErr: "id is required",
+			node:        map[string]interface{}{"name": "Test", "type": "http"},
+			expectedErr: "id",
 		},
 		{
 			name:        "missing_name",
-			node:        NodeRequest{ID: "node-1", Type: "http"},
-			expectedErr: "name is required",
+			node:        map[string]interface{}{"id": "node-1", "type": "http"},
+			expectedErr: "name",
 		},
 		{
 			name:        "missing_type",
-			node:        NodeRequest{ID: "node-1", Name: "Test"},
-			expectedErr: "type is required",
+			node:        map[string]interface{}{"id": "node-1", "name": "Test"},
+			expectedErr: "type",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nodes := []NodeRequest{tt.node}
-			err := handlers.validateNodes(nodes)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), tt.expectedErr)
+			router, workflowID, cleanup := setupValidationTest(t)
+			defer cleanup()
+
+			updateReq := map[string]interface{}{
+				"name":  "Updated Workflow",
+				"nodes": []map[string]interface{}{tt.node},
+			}
+
+			w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
+			assert.Equal(t, http.StatusBadRequest, w.Code, "Should fail validation for %s", tt.name)
+
+			var errorResp map[string]interface{}
+			testutil.ParseResponse(t, w, &errorResp)
+
+			message, ok := errorResp["message"]
+			if !ok {
+				message = errorResp["error"]
+			}
+			messageStr := fmt.Sprintf("%v", message)
+			assert.True(t, strings.Contains(strings.ToLower(messageStr), strings.ToLower(tt.expectedErr)),
+				"Error message should contain '%s', got: %s", tt.expectedErr, messageStr)
 		})
 	}
 }
 
 // TestValidateNodes_DuplicateIDs tests duplicate node ID validation
 func TestValidateNodes_DuplicateIDs(t *testing.T) {
-	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup(t)
+	router, workflowID, cleanup := setupValidationTest(t)
+	defer cleanup()
 
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
-	log := logger.New(config.LoggingConfig{
-		Level:  "error",
-		Format: "text",
-	})
-
-	executorManager := executor.NewManager()
-	require.NoError(t, builtin.RegisterBuiltins(executorManager))
-
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
-
-	nodes := []NodeRequest{
-		{ID: "node-1", Name: "First", Type: "http"},
-		{ID: "node-1", Name: "Duplicate", Type: "transform"},
+	updateReq := map[string]interface{}{
+		"name": "Updated Workflow",
+		"nodes": []map[string]interface{}{
+			{"id": "node-1", "name": "First", "type": "http"},
+			{"id": "node-1", "name": "Duplicate", "type": "transform"},
+		},
 	}
 
-	err := handlers.validateNodes(nodes)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate node id: node-1")
+	w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
+	testutil.AssertErrorResponse(t, w, http.StatusBadRequest, "duplicate node id: node-1")
 }
 
 // TestValidateNodes_FieldLengths tests field length validation
 func TestValidateNodes_FieldLengths(t *testing.T) {
-	testDB := testutil.SetupTestDB(t)
-	defer testDB.Cleanup(t)
-
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
-	log := logger.New(config.LoggingConfig{
-		Level:  "error",
-		Format: "text",
-	})
-
-	executorManager := executor.NewManager()
-	require.NoError(t, builtin.RegisterBuiltins(executorManager))
-
-	handlers := NewWorkflowHandlers(workflowRepo, log, executorManager)
-
 	tests := []struct {
 		name        string
-		node        NodeRequest
+		node        map[string]interface{}
 		expectedErr string
 	}{
 		{
 			name: "id_too_long",
-			node: NodeRequest{
-				ID:   string(make([]byte, 101)), // 101 chars
-				Name: "Test",
-				Type: "http",
+			node: map[string]interface{}{
+				"id":   strings.Repeat("a", 101),
+				"name": "Test",
+				"type": "http",
 			},
 			expectedErr: "node id too long",
 		},
 		{
 			name: "name_too_long",
-			node: NodeRequest{
-				ID:   "node-1",
-				Name: string(make([]byte, 256)), // 256 chars
-				Type: "http",
+			node: map[string]interface{}{
+				"id":   "node-1",
+				"name": strings.Repeat("a", 256),
+				"type": "http",
 			},
 			expectedErr: "name too long",
 		},
@@ -265,10 +253,16 @@ func TestValidateNodes_FieldLengths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nodes := []NodeRequest{tt.node}
-			err := handlers.validateNodes(nodes)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), tt.expectedErr)
+			router, workflowID, cleanup := setupValidationTest(t)
+			defer cleanup()
+
+			updateReq := map[string]interface{}{
+				"name":  "Updated Workflow",
+				"nodes": []map[string]interface{}{tt.node},
+			}
+
+			w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
+			testutil.AssertErrorResponse(t, w, http.StatusBadRequest, tt.expectedErr)
 		})
 	}
 }

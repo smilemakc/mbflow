@@ -9,9 +9,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/internal/application/engine"
-	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
@@ -263,152 +260,46 @@ type LogEntry struct {
 	Fields      map[string]interface{} `json:"fields,omitempty"`
 }
 
-// Embedded mode implementations
-func (e *ExecutionAPI) runEmbedded(ctx context.Context, req *ExecutionRequest) (*models.Execution, error) {
-	// Check if ExecutionManager is available (full mode with persistence)
-	execManager := e.client.getExecutionManager()
-	if execManager != nil {
-		// Full mode with persistence
-		opts := engine.DefaultExecutionOptions()
-		return execManager.Execute(ctx, req.WorkflowID, req.Input, opts)
-	}
+// Embedded mode implementations (standalone mode - no database persistence)
+// For full persistence support, use pkg/server.Server directly.
 
-	// Fallback to standalone mode (no persistence)
-	return nil, fmt.Errorf("embedded execution requires ExecutionManager or use ExecuteWorkflowStandalone instead")
+var errStandaloneModeNotSupported = fmt.Errorf("operation not available in standalone mode; use remote mode or pkg/server.Server for persistence")
+
+func (e *ExecutionAPI) runEmbedded(ctx context.Context, req *ExecutionRequest) (*models.Execution, error) {
+	// Standalone mode doesn't support Run() - use ExecuteWorkflowStandalone() instead
+	return nil, fmt.Errorf("Run() not available in standalone mode; use ExecuteWorkflowStandalone() for in-memory execution or remote mode for persistence")
 }
 
 func (e *ExecutionAPI) getEmbedded(ctx context.Context, executionID string) (*models.Execution, error) {
-	if e.client.executionRepo == nil {
-		return nil, fmt.Errorf("execution repository not initialized")
-	}
-
-	// Parse UUID
-	execUUID, err := uuid.Parse(executionID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid execution ID: %w", err)
-	}
-
-	// Get execution with node executions
-	execModel, err := e.client.executionRepo.FindByIDWithRelations(ctx, execUUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find execution: %w", err)
-	}
-
-	// Convert to domain model
-	execution := engine.ExecutionModelToDomain(execModel)
-
-	return execution, nil
+	return nil, errStandaloneModeNotSupported
 }
 
 func (e *ExecutionAPI) listEmbedded(ctx context.Context, opts *ExecutionListOptions) ([]*models.Execution, error) {
-	if e.client.executionRepo == nil {
-		return nil, fmt.Errorf("execution repository not initialized")
-	}
-
-	// Set defaults
-	if opts == nil {
-		opts = &ExecutionListOptions{
-			Limit:  50,
-			Offset: 0,
-		}
-	}
-	if opts.Limit <= 0 {
-		opts.Limit = 50
-	}
-
-	var execModels []*storagemodels.ExecutionModel
-	var err error
-
-	// Route to appropriate repository method based on filters
-	if opts.WorkflowID != "" {
-		wfUUID, err := uuid.Parse(opts.WorkflowID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid workflow ID: %w", err)
-		}
-		execModels, err = e.client.executionRepo.FindByWorkflowID(ctx, wfUUID, opts.Limit, opts.Offset)
-	} else if opts.Status != "" {
-		execModels, err = e.client.executionRepo.FindByStatus(ctx, opts.Status, opts.Limit, opts.Offset)
-	} else {
-		execModels, err = e.client.executionRepo.FindAll(ctx, opts.Limit, opts.Offset)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to list executions: %w", err)
-	}
-
-	// Convert to domain models
-	executions := make([]*models.Execution, len(execModels))
-	for i, em := range execModels {
-		executions[i] = engine.ExecutionModelToDomain(em)
-	}
-
-	return executions, nil
+	return nil, errStandaloneModeNotSupported
 }
 
 func (e *ExecutionAPI) cancelEmbedded(ctx context.Context, executionID string) error {
-	// Deferred for MVP - requires context propagation through execution engine
-	return fmt.Errorf("execution cancellation not yet implemented")
+	return errStandaloneModeNotSupported
 }
 
 func (e *ExecutionAPI) retryEmbedded(ctx context.Context, executionID string) (*models.Execution, error) {
-	// Deferred for MVP - can be implemented in future iteration
-	return nil, fmt.Errorf("execution retry not yet implemented")
+	return nil, errStandaloneModeNotSupported
 }
 
 func (e *ExecutionAPI) watchEmbedded(ctx context.Context, executionID string) (<-chan *ExecutionUpdate, error) {
-	// Deferred for MVP - requires EventRepository.Stream()
-	return nil, fmt.Errorf("real-time execution watching not yet implemented")
+	return nil, errStandaloneModeNotSupported
 }
 
 func (e *ExecutionAPI) getLogsEmbedded(ctx context.Context, executionID string, opts *LogOptions) ([]LogEntry, error) {
-	// For MVP, return empty logs since EventRepository is deferred
-	// In full implementation, this would query eventRepo.FindByExecutionID()
-	return []LogEntry{}, nil
+	return nil, errStandaloneModeNotSupported
 }
 
 func (e *ExecutionAPI) streamLogsEmbedded(ctx context.Context, executionID string, opts *LogOptions) (io.ReadCloser, error) {
-	// Deferred for MVP - requires EventRepository.Stream()
-	return nil, fmt.Errorf("log streaming not yet implemented")
+	return nil, errStandaloneModeNotSupported
 }
 
 func (e *ExecutionAPI) getNodeResultEmbedded(ctx context.Context, executionID, nodeID string) (*models.NodeExecution, error) {
-	if e.client.executionRepo == nil || e.client.workflowRepo == nil {
-		return nil, fmt.Errorf("repositories not initialized")
-	}
-
-	// Parse UUID
-	execUUID, err := uuid.Parse(executionID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid execution ID: %w", err)
-	}
-
-	// Get execution with relations
-	execModel, err := e.client.executionRepo.FindByIDWithRelations(ctx, execUUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve execution: %w", err)
-	}
-
-	// Load workflow to map node UUIDs to logical IDs
-	workflowModel, err := e.client.workflowRepo.FindByIDWithRelations(ctx, execModel.WorkflowID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load workflow: %w", err)
-	}
-
-	// Build node ID mapping (UUID -> logical ID)
-	nodeIDMap := make(map[uuid.UUID]string)
-	for _, node := range workflowModel.Nodes {
-		nodeIDMap[node.ID] = node.NodeID
-	}
-
-	// Find matching node execution
-	for _, ne := range execModel.NodeExecutions {
-		if logicalID, ok := nodeIDMap[ne.NodeID]; ok && logicalID == nodeID {
-			// Convert to domain model
-			return engine.NodeExecutionModelToDomain(ne), nil
-		}
-	}
-
-	return nil, fmt.Errorf("node execution not found for node: %s", nodeID)
+	return nil, errStandaloneModeNotSupported
 }
 
 // Remote mode implementations

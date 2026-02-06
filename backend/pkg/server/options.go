@@ -28,7 +28,7 @@ func WithLogger(l *logger.Logger) Option {
 // WithExecutorManager sets a custom executor manager
 func WithExecutorManager(m executor.Manager) Option {
 	return func(s *Server) error {
-		s.executorManager = m
+		s.execution.ExecutorManager = m
 		return nil
 	}
 }

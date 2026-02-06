@@ -2,6 +2,8 @@ package serviceapi
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -43,7 +45,7 @@ func (o *Operations) ListExecutions(ctx context.Context, params ListExecutionsPa
 
 	executions := make([]*models.Execution, len(execModels))
 	for i, em := range execModels {
-		executions[i] = engine.ExecutionModelToDomain(em)
+		executions[i] = storagemodels.ExecutionModelToDomain(em)
 	}
 
 	return &ListExecutionsResult{
@@ -64,7 +66,7 @@ func (o *Operations) GetExecution(ctx context.Context, params GetExecutionParams
 		return nil, err
 	}
 
-	execution := engine.ExecutionModelToDomain(execModel)
+	execution := storagemodels.ExecutionModelToDomain(execModel)
 
 	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, execModel.WorkflowID)
 	if err == nil && workflowModel != nil {
@@ -135,4 +137,149 @@ type RetryExecutionParams struct {
 
 func (o *Operations) RetryExecution(ctx context.Context, params RetryExecutionParams) error {
 	return NewNotImplementedError("execution retry not yet implemented")
+}
+
+type GetExecutionLogsParams struct {
+	ExecutionID uuid.UUID
+}
+
+type ExecutionLogEntry struct {
+	Timestamp time.Time
+	EventType string
+	Level     string
+	Message   string
+	Data      map[string]any
+}
+
+type GetExecutionLogsResult struct {
+	Logs  []ExecutionLogEntry
+	Total int
+}
+
+func (o *Operations) GetExecutionLogs(ctx context.Context, params GetExecutionLogsParams) (*GetExecutionLogsResult, error) {
+	events, err := o.ExecutionRepo.GetEvents(ctx, params.ExecutionID)
+	if err != nil {
+		o.Logger.Error("Failed to get execution events", "error", err, "execution_id", params.ExecutionID)
+		return &GetExecutionLogsResult{Logs: []ExecutionLogEntry{}, Total: 0}, nil
+	}
+
+	logs := make([]ExecutionLogEntry, 0, len(events))
+	for _, event := range events {
+		logs = append(logs, ExecutionLogEntry{
+			Timestamp: event.CreatedAt,
+			EventType: event.EventType,
+			Level:     getLogLevel(event.EventType),
+			Message:   formatLogMessage(event.EventType, map[string]any(event.Payload)),
+			Data:      map[string]any(event.Payload),
+		})
+	}
+
+	return &GetExecutionLogsResult{Logs: logs, Total: len(logs)}, nil
+}
+
+type GetNodeResultParams struct {
+	ExecutionID uuid.UUID
+	NodeID      string
+}
+
+func (o *Operations) GetNodeResult(ctx context.Context, params GetNodeResultParams) (*models.NodeExecution, error) {
+	execModel, err := o.ExecutionRepo.FindByIDWithRelations(ctx, params.ExecutionID)
+	if err != nil {
+		o.Logger.Error("Failed to find execution in GetNodeResult", "error", err, "execution_id", params.ExecutionID)
+		return nil, err
+	}
+
+	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, execModel.WorkflowID)
+	if err != nil {
+		o.Logger.Error("Failed to find workflow in GetNodeResult", "error", err, "workflow_id", execModel.WorkflowID)
+		return nil, err
+	}
+
+	nodeIDMap := make(map[uuid.UUID]string)
+	for _, node := range workflowModel.Nodes {
+		nodeIDMap[node.ID] = node.NodeID
+	}
+
+	for _, ne := range execModel.NodeExecutions {
+		if logicalID, ok := nodeIDMap[ne.NodeID]; ok && logicalID == params.NodeID {
+			nodeExec := storagemodels.NodeExecutionModelToDomain(ne)
+			nodeExec.NodeID = params.NodeID
+			return nodeExec, nil
+		}
+	}
+
+	return nil, NewValidationError("NODE_EXECUTION_NOT_FOUND", "Node execution not found")
+}
+
+func getLogLevel(eventType string) string {
+	switch eventType {
+	case "execution.failed", "node.failed":
+		return "error"
+	case "execution.completed", "node.completed", "wave.completed":
+		return "success"
+	case "execution.started", "node.started", "wave.started":
+		return "info"
+	case "node.retrying":
+		return "warning"
+	default:
+		return "info"
+	}
+}
+
+func formatLogMessage(eventType string, payload map[string]any) string {
+	switch eventType {
+	case "execution.started":
+		return "Execution started"
+	case "execution.completed":
+		if duration, ok := payload["duration_ms"].(float64); ok {
+			return fmt.Sprintf("Execution completed in %dms", int64(duration))
+		}
+		return "Execution completed"
+	case "execution.failed":
+		if errMsg, ok := payload["error"].(string); ok {
+			return fmt.Sprintf("Execution failed: %s", errMsg)
+		}
+		return "Execution failed"
+	case "wave.started":
+		if waveIdx, ok := payload["wave_index"].(float64); ok {
+			if nodeCount, ok := payload["node_count"].(float64); ok {
+				return fmt.Sprintf("Wave %d started with %d nodes", int(waveIdx), int(nodeCount))
+			}
+			return fmt.Sprintf("Wave %d started", int(waveIdx))
+		}
+		return "Wave started"
+	case "wave.completed":
+		if waveIdx, ok := payload["wave_index"].(float64); ok {
+			return fmt.Sprintf("Wave %d completed", int(waveIdx))
+		}
+		return "Wave completed"
+	case "node.started":
+		if nodeName, ok := payload["node_name"].(string); ok {
+			return fmt.Sprintf("Node '%s' started", nodeName)
+		}
+		return "Node started"
+	case "node.completed":
+		if nodeName, ok := payload["node_name"].(string); ok {
+			if duration, ok := payload["duration_ms"].(float64); ok {
+				return fmt.Sprintf("Node '%s' completed in %dms", nodeName, int64(duration))
+			}
+			return fmt.Sprintf("Node '%s' completed", nodeName)
+		}
+		return "Node completed"
+	case "node.failed":
+		if nodeName, ok := payload["node_name"].(string); ok {
+			if errMsg, ok := payload["error"].(string); ok {
+				return fmt.Sprintf("Node '%s' failed: %s", nodeName, errMsg)
+			}
+			return fmt.Sprintf("Node '%s' failed", nodeName)
+		}
+		return "Node failed"
+	case "node.retrying":
+		if nodeName, ok := payload["node_name"].(string); ok {
+			return fmt.Sprintf("Node '%s' retrying", nodeName)
+		}
+		return "Node retrying"
+	default:
+		return eventType
+	}
 }

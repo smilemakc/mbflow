@@ -71,10 +71,6 @@ export interface TriggerListResponse {
   total: number;
 }
 
-export interface TriggerResponse {
-  trigger: Trigger;
-}
-
 export interface TriggerExecutionResponse {
   execution_id: string;
 }

@@ -13,27 +13,31 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	Server      ServerConfig
-	Database    DatabaseConfig
-	Redis       RedisConfig
-	Logging     LoggingConfig
-	Observer    ObserverConfig
-	Auth        AuthConfig
+	Server         ServerConfig
+	Database       DatabaseConfig
+	Redis          RedisConfig
+	Logging        LoggingConfig
+	Observer       ObserverConfig
+	Auth           AuthConfig
 	FileStorage    FileStorageConfig
 	ServiceKeys    ServiceKeysConfig
 	ServiceAPI     SystemAPIConfig
 	GRPCServiceAPI GRPCServiceAPIConfig
+	Tracing        TracingConfig
 }
 
 // ServerConfig holds server-related configuration.
 type ServerConfig struct {
-	Port            int
-	Host            string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	ShutdownTimeout time.Duration
-	CORS            bool
-	APIKeys         []string
+	Port               int
+	Host               string
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
+	ShutdownTimeout    time.Duration
+	CORS               bool
+	CORSAllowedOrigins []string
+	APIKeys            []string
+	MaxBodySize        int64
+	MaxMultipartMemory int64
 }
 
 // DatabaseConfig holds database-related configuration.
@@ -152,18 +156,30 @@ type GRPCServiceAPIConfig struct {
 	Address string
 }
 
+// TracingConfig holds distributed tracing configuration.
+type TracingConfig struct {
+	Enabled     bool
+	ServiceName string
+	Endpoint    string
+	Insecure    bool
+	SampleRate  float64
+}
+
 // Load loads the configuration from environment variables.
 func Load() (*Config, error) {
 	godotenv.Load()
 	cfg := &Config{
 		Server: ServerConfig{
-			Port:            getEnvAsInt("MBFLOW_PORT", 8585),
-			Host:            getEnv("MBFLOW_HOST", "0.0.0.0"),
-			ReadTimeout:     getEnvAsDuration("MBFLOW_READ_TIMEOUT", 15*time.Second),
-			WriteTimeout:    getEnvAsDuration("MBFLOW_WRITE_TIMEOUT", 15*time.Second),
-			ShutdownTimeout: getEnvAsDuration("MBFLOW_SHUTDOWN_TIMEOUT", 30*time.Second),
-			CORS:            getEnvAsBool("MBFLOW_CORS_ENABLED", true),
-			APIKeys:         getEnvAsSlice("MBFLOW_API_KEYS", []string{}),
+			Port:               getEnvAsInt("MBFLOW_PORT", 8585),
+			Host:               getEnv("MBFLOW_HOST", "0.0.0.0"),
+			ReadTimeout:        getEnvAsDuration("MBFLOW_READ_TIMEOUT", 15*time.Second),
+			WriteTimeout:       getEnvAsDuration("MBFLOW_WRITE_TIMEOUT", 15*time.Second),
+			ShutdownTimeout:    getEnvAsDuration("MBFLOW_SHUTDOWN_TIMEOUT", 30*time.Second),
+			CORS:               getEnvAsBool("MBFLOW_CORS_ENABLED", true),
+			CORSAllowedOrigins: getEnvAsSlice("MBFLOW_CORS_ALLOWED_ORIGINS", []string{}),
+			APIKeys:            getEnvAsSlice("MBFLOW_API_KEYS", []string{}),
+			MaxBodySize:        getEnvAsInt64("MBFLOW_MAX_BODY_SIZE", 10*1024*1024),
+			MaxMultipartMemory: getEnvAsInt64("MBFLOW_MAX_MULTIPART_MEMORY", 32*1024*1024),
 		},
 		Database: DatabaseConfig{
 			URL:             getEnv("MBFLOW_DATABASE_URL", "postgres://mbflow:mbflow@localhost:5432/mbflow?sslmode=disable"),
@@ -245,6 +261,13 @@ func Load() (*Config, error) {
 		GRPCServiceAPI: GRPCServiceAPIConfig{
 			Enabled: getEnvAsBool("GRPC_SERVICE_API_ENABLED", false),
 			Address: getEnv("GRPC_SERVICE_API_ADDRESS", ":50051"),
+		},
+		Tracing: TracingConfig{
+			Enabled:     getEnvAsBool("OTEL_ENABLED", false),
+			ServiceName: getEnv("OTEL_SERVICE_NAME", "mbflow"),
+			Endpoint:    getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318"),
+			Insecure:    getEnvAsBool("OTEL_EXPORTER_INSECURE", true),
+			SampleRate:  getEnvAsFloat("OTEL_SAMPLE_RATE", 1.0),
 		},
 	}
 
@@ -422,6 +445,20 @@ func getEnvAsInt64(key string, defaultValue int64) int64 {
 	}
 
 	value, err := strconv.ParseInt(valueStr, 10, 64)
+	if err != nil {
+		return defaultValue
+	}
+
+	return value
+}
+
+func getEnvAsFloat(key string, defaultValue float64) float64 {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+
+	value, err := strconv.ParseFloat(valueStr, 64)
 	if err != nil {
 		return defaultValue
 	}

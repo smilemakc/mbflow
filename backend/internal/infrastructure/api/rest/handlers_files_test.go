@@ -3,7 +3,6 @@ package rest
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -27,16 +26,16 @@ func setupFileHandlersTest(t *testing.T) (*FileHandlers, *gin.Engine, *storage.F
 
 	fileRepo := storage.NewFileRepository(testDB.DB)
 
-	// Create storage manager with local filesystem
-	cfg := &filestorage.ManagerConfig{
-		BasePath: t.TempDir(), // Use temporary directory for tests
-	}
-	storageManager := filestorage.NewStorageManager(cfg)
-
 	log := logger.New(config.LoggingConfig{
 		Level:  "error",
 		Format: "text",
 	})
+
+	// Create storage manager with local filesystem
+	cfg := &filestorage.ManagerConfig{
+		BasePath: t.TempDir(), // Use temporary directory for tests
+	}
+	storageManager := filestorage.NewStorageManager(cfg, log)
 
 	handlers := NewFileHandlers(fileRepo, storageManager, log)
 
@@ -178,7 +177,7 @@ func TestHandlers_UploadFile_Multipart_Success(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 
 	var result map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &result)
+	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
 	assert.Equal(t, "multipart-test.png", result["name"])
