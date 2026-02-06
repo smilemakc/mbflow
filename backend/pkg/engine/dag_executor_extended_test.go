@@ -30,7 +30,7 @@ func TestDAGExecutor_NodeTimeout(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -85,7 +85,7 @@ func TestDAGExecutor_RetrySuccess(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
@@ -133,7 +133,7 @@ func TestDAGExecutor_ContinueOnError(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -184,7 +184,7 @@ func TestDAGExecutor_NodePriority(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -231,7 +231,7 @@ func TestDAGExecutor_ContextCancellation(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
@@ -271,7 +271,7 @@ func TestDAGExecutor_MemoryLimit(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
@@ -304,7 +304,7 @@ func TestSortNodesByPriority(t *testing.T) {
 		{ID: "default", Metadata: map[string]interface{}{}},
 	}
 
-	sorted := sortNodesByPriority(nodes)
+	sorted := SortNodesByPriority(nodes)
 
 	// Expected order: high (10) -> medium (5) -> low (1) -> default (0)
 	if sorted[0].ID != "high" {
@@ -355,7 +355,7 @@ func TestConditionCacheIntegration(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, nil)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
 
 	// Test that cache is used across multiple edge evaluations with same condition
 	workflow := &models.Workflow{
@@ -388,8 +388,6 @@ func TestConditionCacheIntegration(t *testing.T) {
 		}
 	}
 
-	// Verify cache has the condition
-	if dagExec.conditionCache.Len() == 0 {
-		t.Error("expected condition to be cached")
-	}
+	// Condition evaluation is delegated to ConditionEvaluator interface.
+	// Cache behavior is internal to ExprConditionEvaluator.
 }

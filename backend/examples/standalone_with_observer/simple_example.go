@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/internal/application/observer"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
 )
@@ -56,10 +56,10 @@ func runSimpleExample() {
 		},
 	}
 
-	// Execute with observer
-	opts := &engine.ExecutionOptions{
-		ObserverManager: observerManager,
-	}
+	// Execute with default options
+	// Note: observer integration requires the full engine mode (not standalone)
+	_ = observerManager
+	opts := &engine.ExecutionOptions{}
 
 	input := map[string]interface{}{
 		"name": "World",

@@ -9,22 +9,23 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
+	pkgengine "github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/executor"
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
-// ExecutionManager manages workflow execution lifecycle
+// ExecutionManager manages workflow execution lifecycle.
 type ExecutionManager struct {
 	executorManager executor.Manager
 	workflowRepo    repository.WorkflowRepository
 	executionRepo   repository.ExecutionRepository
 	eventRepo       repository.EventRepository
 	resourceRepo    repository.ResourceRepository
-	dagExecutor     *DAGExecutor
+	dagExecutor     *pkgengine.DAGExecutor
 	observerManager *observer.ObserverManager
 }
 
-// NewExecutionManager creates a new execution manager
+// NewExecutionManager creates a new execution manager.
 func NewExecutionManager(
 	executorManager executor.Manager,
 	workflowRepo repository.WorkflowRepository,
@@ -33,8 +34,10 @@ func NewExecutionManager(
 	resourceRepo repository.ResourceRepository,
 	observerManager *observer.ObserverManager,
 ) *ExecutionManager {
-	nodeExecutor := NewNodeExecutor(executorManager)
-	dagExecutor := NewDAGExecutor(nodeExecutor, observerManager)
+	nodeExecutor := pkgengine.NewNodeExecutor(executorManager)
+	notifier := NewObserverNotifier(observerManager)
+	condEvaluator := pkgengine.NewExprConditionEvaluator()
+	dagExecutor := pkgengine.NewDAGExecutor(nodeExecutor, condEvaluator, notifier)
 
 	return &ExecutionManager{
 		executorManager: executorManager,
@@ -47,26 +50,22 @@ func NewExecutionManager(
 	}
 }
 
-// Execute executes a workflow synchronously (blocks until completion)
+// Execute executes a workflow synchronously (blocks until completion).
 func (em *ExecutionManager) Execute(
 	ctx context.Context,
 	workflowID string,
 	input map[string]interface{},
 	opts *ExecutionOptions,
 ) (*models.Execution, error) {
-	// Prepare execution (load workflow, create record)
 	execution, workflow, workflowModel, err := em.prepareExecution(ctx, workflowID, input, opts, models.ExecutionStatusRunning)
 	if err != nil {
 		return nil, err
 	}
 
-	// Notify execution started
 	em.notifyExecutionStarted(ctx, execution)
 
-	// Execute workflow DAG
 	execState, execErr := em.executeWorkflowDAG(ctx, execution, workflow, opts)
 
-	// Finalize execution (update status, save results)
 	if err := em.finalizeExecution(ctx, execution, workflow, workflowModel, execState, execErr); err != nil {
 		return nil, err
 	}
@@ -75,25 +74,20 @@ func (em *ExecutionManager) Execute(
 }
 
 // ExecuteAsync executes a workflow asynchronously.
-// It creates the execution record immediately and returns it,
-// while the actual workflow execution happens in a background goroutine.
 func (em *ExecutionManager) ExecuteAsync(
 	ctx context.Context,
 	workflowID string,
 	input map[string]interface{},
 	opts *ExecutionOptions,
 ) (*models.Execution, error) {
-	// Prepare execution (load workflow, create record with PENDING status)
 	execution, workflow, workflowModel, err := em.prepareExecution(ctx, workflowID, input, opts, models.ExecutionStatusPending)
 	if err != nil {
 		return nil, err
 	}
 
-	// Execute workflow in background goroutine
 	go func() {
 		bgCtx := context.Background()
 
-		// Update status to running
 		execution.Status = models.ExecutionStatusRunning
 		executionModel := storagemodels.ExecutionDomainToModel(execution)
 		if err := em.executionRepo.Update(bgCtx, executionModel); err != nil {
@@ -101,24 +95,20 @@ func (em *ExecutionManager) ExecuteAsync(
 			return
 		}
 
-		// Notify execution started
 		em.notifyExecutionStarted(bgCtx, execution)
 
-		// Build execution state
 		execState, execErr := em.executeWorkflowDAG(bgCtx, execution, workflow, opts)
 
-		// Finalize execution
 		if err := em.finalizeExecution(bgCtx, execution, workflow, workflowModel, execState, execErr); err != nil {
 			em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to finalize execution: %w", err))
 			return
 		}
 	}()
 
-	// Return execution immediately
 	return execution, nil
 }
 
-// prepareExecution loads workflow and creates execution record
+// prepareExecution loads workflow and creates execution record.
 func (em *ExecutionManager) prepareExecution(
 	ctx context.Context,
 	workflowID string,
@@ -126,12 +116,10 @@ func (em *ExecutionManager) prepareExecution(
 	opts *ExecutionOptions,
 	initialStatus models.ExecutionStatus,
 ) (*models.Execution, *models.Workflow, *storagemodels.WorkflowModel, error) {
-	// Use default options if not provided
 	if opts == nil {
 		opts = DefaultExecutionOptions()
 	}
 
-	// Load workflow
 	workflowUUID, err := uuid.Parse(workflowID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("invalid workflow ID: %w", err)
@@ -144,18 +132,16 @@ func (em *ExecutionManager) prepareExecution(
 
 	workflow := storagemodels.WorkflowModelToDomain(workflowModel)
 
-	// Create execution record
 	execution := &models.Execution{
 		ID:           uuid.New().String(),
 		WorkflowID:   workflow.ID,
 		WorkflowName: workflow.Name,
 		Status:       initialStatus,
 		Input:        input,
-		Variables:    em.mergeVariables(workflow.Variables, opts.Variables),
+		Variables:    pkgengine.MergeVariables(workflow.Variables, opts.Variables),
 		StartedAt:    time.Now(),
 	}
 
-	// Save execution
 	executionModel := storagemodels.ExecutionDomainToModel(execution)
 	if err := em.executionRepo.Create(ctx, executionModel); err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to create execution: %w", err)
@@ -164,15 +150,14 @@ func (em *ExecutionManager) prepareExecution(
 	return execution, workflow, workflowModel, nil
 }
 
-// executeWorkflowDAG executes the workflow DAG and returns execution state
+// executeWorkflowDAG executes the workflow DAG and returns execution state.
 func (em *ExecutionManager) executeWorkflowDAG(
 	ctx context.Context,
 	execution *models.Execution,
 	workflow *models.Workflow,
 	opts *ExecutionOptions,
-) (*ExecutionState, error) {
-	// Build execution state
-	execState := NewExecutionState(
+) (*pkgengine.ExecutionState, error) {
+	execState := pkgengine.NewExecutionState(
 		execution.ID,
 		workflow.ID,
 		workflow,
@@ -189,22 +174,23 @@ func (em *ExecutionManager) executeWorkflowDAG(
 		execState.Resources = resourceMap
 	}
 
-	// Execute DAG
-	execErr := em.dagExecutor.Execute(ctx, execState, opts)
+	// Convert internal options to pkg options
+	pkgOpts := convertToPkgOptions(opts)
+
+	execErr := em.dagExecutor.Execute(ctx, execState, pkgOpts)
 
 	return execState, execErr
 }
 
-// finalizeExecution updates execution with results and saves to database
+// finalizeExecution updates execution with results and saves to database.
 func (em *ExecutionManager) finalizeExecution(
 	ctx context.Context,
 	execution *models.Execution,
 	workflow *models.Workflow,
 	workflowModel *storagemodels.WorkflowModel,
-	execState *ExecutionState,
+	execState *pkgengine.ExecutionState,
 	execErr error,
 ) error {
-	// Update execution with results
 	now := time.Now()
 	execution.CompletedAt = &now
 	execution.Duration = execution.CalculateDuration()
@@ -217,22 +203,19 @@ func (em *ExecutionManager) finalizeExecution(
 		execution.Output = em.getFinalOutput(execState)
 	}
 
-	// Build node executions
 	execution.NodeExecutions = em.buildNodeExecutions(execState, workflow, workflowModel)
 
-	// Update execution in database
 	executionModel := storagemodels.ExecutionDomainToModel(execution)
 	if err := em.executionRepo.Update(ctx, executionModel); err != nil {
 		return fmt.Errorf("failed to update execution: %w", err)
 	}
 
-	// Notify execution completion
 	em.notifyExecutionCompletion(ctx, execution, execErr)
 
 	return nil
 }
 
-// notifyExecutionStarted sends execution started event
+// notifyExecutionStarted sends execution started event.
 func (em *ExecutionManager) notifyExecutionStarted(ctx context.Context, execution *models.Execution) {
 	if em.observerManager != nil {
 		event := observer.Event{
@@ -248,7 +231,7 @@ func (em *ExecutionManager) notifyExecutionStarted(ctx context.Context, executio
 	}
 }
 
-// notifyExecutionCompletion sends execution completion event
+// notifyExecutionCompletion sends execution completion event.
 func (em *ExecutionManager) notifyExecutionCompletion(ctx context.Context, execution *models.Execution, execErr error) {
 	if em.observerManager != nil {
 		duration := execution.Duration
@@ -276,7 +259,7 @@ func (em *ExecutionManager) notifyExecutionCompletion(ctx context.Context, execu
 	}
 }
 
-// notifyExecutionError sends execution error event
+// notifyExecutionError sends execution error event.
 func (em *ExecutionManager) notifyExecutionError(ctx context.Context, execution *models.Execution, err error) {
 	if em.observerManager != nil {
 		event := observer.Event{
@@ -290,44 +273,20 @@ func (em *ExecutionManager) notifyExecutionError(ctx context.Context, execution 
 	}
 }
 
-// mergeVariables merges workflow and execution variables.
-// Execution variables override workflow variables.
-func (em *ExecutionManager) mergeVariables(
-	workflowVars map[string]interface{},
-	executionVars map[string]interface{},
-) map[string]interface{} {
-	merged := make(map[string]interface{})
-
-	// Copy workflow variables
-	for k, v := range workflowVars {
-		merged[k] = v
-	}
-
-	// Execution variables override workflow variables
-	for k, v := range executionVars {
-		merged[k] = v
-	}
-
-	return merged
-}
-
-// getFinalOutput gets output from leaf nodes (nodes with no outgoing edges)
-func (em *ExecutionManager) getFinalOutput(execState *ExecutionState) map[string]interface{} {
-	// Find leaf nodes (nodes with no outgoing edges)
-	leafNodes := em.findLeafNodes(execState.Workflow)
+// getFinalOutput gets output from leaf nodes.
+func (em *ExecutionManager) getFinalOutput(execState *pkgengine.ExecutionState) map[string]interface{} {
+	leafNodes := pkgengine.FindLeafNodes(execState.Workflow)
 
 	if len(leafNodes) == 0 {
 		return nil
 	}
 
-	// If single leaf, return its output
 	if len(leafNodes) == 1 {
 		if output, ok := execState.GetNodeOutput(leafNodes[0].ID); ok {
-			return toMapInterface(output)
+			return pkgengine.ToMapInterface(output)
 		}
 	}
 
-	// Multiple leaves - merge outputs namespaced by node ID
 	merged := make(map[string]interface{})
 	for _, node := range leafNodes {
 		if output, ok := execState.GetNodeOutput(node.ID); ok {
@@ -338,30 +297,12 @@ func (em *ExecutionManager) getFinalOutput(execState *ExecutionState) map[string
 	return merged
 }
 
-// findLeafNodes finds nodes with no outgoing edges
-func (em *ExecutionManager) findLeafNodes(workflow *models.Workflow) []*models.Node {
-	hasOutgoing := make(map[string]bool)
-	for _, edge := range workflow.Edges {
-		hasOutgoing[edge.From] = true
-	}
-
-	leaves := []*models.Node{}
-	for _, node := range workflow.Nodes {
-		if !hasOutgoing[node.ID] {
-			leaves = append(leaves, node)
-		}
-	}
-
-	return leaves
-}
-
-// buildNodeExecutions builds NodeExecution records from execution state
+// buildNodeExecutions builds NodeExecution records from execution state.
 func (em *ExecutionManager) buildNodeExecutions(
-	execState *ExecutionState,
+	execState *pkgengine.ExecutionState,
 	workflow *models.Workflow,
 	workflowModel *storagemodels.WorkflowModel,
 ) []*models.NodeExecution {
-	// Build map from logical ID to UUID
 	logicalToUUID := make(map[string]string)
 	for _, nodeModel := range workflowModel.Nodes {
 		logicalToUUID[nodeModel.NodeID] = nodeModel.ID.String()
@@ -370,52 +311,43 @@ func (em *ExecutionManager) buildNodeExecutions(
 	nodeExecs := make([]*models.NodeExecution, 0, len(workflow.Nodes))
 
 	for _, node := range workflow.Nodes {
-		// Get the UUID for this logical node ID
 		nodeUUID, ok := logicalToUUID[node.ID]
 		if !ok {
-			// Skip nodes that don't have a UUID mapping
 			continue
 		}
 
 		nodeExec := &models.NodeExecution{
 			ID:          uuid.New().String(),
 			ExecutionID: execState.ExecutionID,
-			NodeID:      nodeUUID, // Use UUID instead of logical ID
+			NodeID:      nodeUUID,
 			NodeName:    node.Name,
 			NodeType:    node.Type,
 		}
 
-		// Get status
 		if status, ok := execState.GetNodeStatus(node.ID); ok {
 			nodeExec.Status = status
 		}
 
-		// Get input
 		if input, ok := execState.GetNodeInput(node.ID); ok {
-			nodeExec.Input = toMapInterface(input)
+			nodeExec.Input = pkgengine.ToMapInterface(input)
 		}
 
-		// Get output
 		if output, ok := execState.GetNodeOutput(node.ID); ok {
-			nodeExec.Output = toMapInterface(output)
+			nodeExec.Output = pkgengine.ToMapInterface(output)
 		}
 
-		// Get config (original)
 		if config, ok := execState.GetNodeConfig(node.ID); ok {
 			nodeExec.Config = config
 		}
 
-		// Get resolved config
 		if resolvedConfig, ok := execState.GetNodeResolvedConfig(node.ID); ok {
 			nodeExec.ResolvedConfig = resolvedConfig
 		}
 
-		// Get error
 		if err, ok := execState.GetNodeError(node.ID); ok {
 			nodeExec.Error = err.Error()
 		}
 
-		// Get timestamps
 		if startTime, ok := execState.GetNodeStartTime(node.ID); ok {
 			nodeExec.StartedAt = startTime
 		}
@@ -429,7 +361,7 @@ func (em *ExecutionManager) buildNodeExecutions(
 	return nodeExecs
 }
 
-// loadAndValidateResources loads workflow resources and validates ownership
+// loadAndValidateResources loads workflow resources and validates ownership.
 func (em *ExecutionManager) loadAndValidateResources(
 	ctx context.Context,
 	workflow *models.Workflow,
@@ -437,25 +369,21 @@ func (em *ExecutionManager) loadAndValidateResources(
 	resourceMap := make(map[string]interface{})
 
 	for _, wr := range workflow.Resources {
-		// Get the actual resource to verify ownership and get details
 		resource, err := em.resourceRepo.GetByID(ctx, wr.ResourceID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load resource %s (alias: %s): %w", wr.ResourceID, wr.Alias, err)
 		}
 
-		// Strict validation: check resource owner matches workflow owner
 		if workflow.CreatedBy != "" && resource.GetOwnerID() != workflow.CreatedBy {
 			return nil, fmt.Errorf("resource access denied: resource %s (alias: %s) owner does not match workflow owner",
 				wr.ResourceID, wr.Alias)
 		}
 
-		// Check resource is active
 		if resource.GetStatus() != models.ResourceStatusActive {
 			return nil, fmt.Errorf("resource %s (alias: %s) is not active (status: %s)",
 				wr.ResourceID, wr.Alias, resource.GetStatus())
 		}
 
-		// Build resource data for template context
 		resourceMap[wr.Alias] = map[string]interface{}{
 			"id":          resource.GetID(),
 			"name":        resource.GetName(),
@@ -465,4 +393,43 @@ func (em *ExecutionManager) loadAndValidateResources(
 	}
 
 	return resourceMap, nil
+}
+
+// convertToPkgOptions converts internal ExecutionOptions to pkg ExecutionOptions.
+func convertToPkgOptions(opts *ExecutionOptions) *pkgengine.ExecutionOptions {
+	if opts == nil {
+		return pkgengine.DefaultExecutionOptions()
+	}
+
+	pkgOpts := &pkgengine.ExecutionOptions{
+		Timeout:          opts.Timeout,
+		NodeTimeout:      opts.NodeTimeout,
+		ContinueOnError:  opts.ContinueOnError,
+		StrictMode:       opts.StrictMode,
+		MaxConcurrency:   opts.MaxParallelism,
+		MaxParallelism:   opts.MaxParallelism,
+		MaxOutputSize:    opts.MaxOutputSize,
+		MaxTotalMemory:   opts.MaxTotalMemory,
+		EnableMemoryOpts: opts.EnableMemoryOpts,
+		Variables:        opts.Variables,
+	}
+
+	if opts.RetryPolicy != nil {
+		strategy := pkgengine.BackoffConstant
+		switch opts.RetryPolicy.BackoffStrategy {
+		case BackoffLinear:
+			strategy = pkgengine.BackoffLinear
+		case BackoffExponential:
+			strategy = pkgengine.BackoffExponential
+		}
+		pkgOpts.RetryPolicy = &pkgengine.RetryPolicy{
+			MaxAttempts:     opts.RetryPolicy.MaxAttempts,
+			InitialDelay:    opts.RetryPolicy.InitialDelay,
+			MaxDelay:        opts.RetryPolicy.MaxDelay,
+			BackoffStrategy: strategy,
+			RetryOn:         opts.RetryPolicy.RetryableErrors,
+		}
+	}
+
+	return pkgOpts
 }

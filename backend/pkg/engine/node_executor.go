@@ -8,29 +8,39 @@ import (
 	"github.com/smilemakc/mbflow/pkg/models"
 )
 
-// NodeExecutor executes a single node with automatic template resolution
+// NodeExecutor executes a single node with automatic template resolution.
 type NodeExecutor struct {
 	executorManager executor.Manager
 }
 
-// NewNodeExecutor creates a new node executor
+// NewNodeExecutor creates a new node executor.
 func NewNodeExecutor(manager executor.Manager) *NodeExecutor {
 	return &NodeExecutor{
 		executorManager: manager,
 	}
 }
 
-// NodeExecutionResult contains the result of node execution along with metadata
+// NodeExecutionResult contains the result of node execution along with metadata.
 type NodeExecutionResult struct {
-	Output         interface{}            // Execution result
-	Input          interface{}            // Input passed to executor
-	Config         map[string]interface{} // Original config (before template resolution)
-	ResolvedConfig map[string]interface{} // Resolved config (after template resolution)
+	Output         interface{}
+	Input          interface{}
+	Config         map[string]interface{}
+	ResolvedConfig map[string]interface{}
+}
+
+// NodeContext holds context for single node execution.
+type NodeContext struct {
+	ExecutionID        string
+	NodeID             string
+	Node               *models.Node
+	WorkflowVariables  map[string]interface{}
+	ExecutionVariables map[string]interface{}
+	DirectParentOutput map[string]interface{}
+	Resources          map[string]interface{}
+	StrictMode         bool
 }
 
 // Execute executes a single node with automatic template resolution.
-//
-// This is the CRITICAL integration point where TemplateExecutorWrapper is applied.
 //
 // Flow:
 //  1. Get base executor from registry
@@ -40,41 +50,33 @@ type NodeExecutionResult struct {
 //  5. Execute with resolved config
 //  6. Return NodeExecutionResult with metadata
 func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (*NodeExecutionResult, error) {
-	// 1. Get base executor from registry
 	baseExecutor, err := ne.executorManager.Get(nodeCtx.Node.Type)
 	if err != nil {
 		return nil, fmt.Errorf("executor not found for type %s: %w", nodeCtx.Node.Type, err)
 	}
 
-	// 2. Build ExecutionContextData for template resolution
 	execCtxData := &executor.ExecutionContextData{
 		WorkflowVariables:  nodeCtx.WorkflowVariables,
 		ExecutionVariables: nodeCtx.ExecutionVariables,
-		ParentNodeOutput:   nodeCtx.DirectParentOutput, // ⭐ Key: output from immediate parent
-		Resources:          nodeCtx.Resources,          // ⭐ Resources for {{resource.alias.*}} templates
+		ParentNodeOutput:   nodeCtx.DirectParentOutput,
+		Resources:          nodeCtx.Resources,
 		StrictMode:         nodeCtx.StrictMode,
 	}
 
-	// 3. Create template engine from execution context
 	templateEngine := executor.NewTemplateEngine(execCtxData)
 
-	// 4. Resolve templates in config ⭐ THIS IS WHERE WE GET RESOLVED CONFIG
 	resolvedConfig, err := templateEngine.ResolveConfig(nodeCtx.Node.Config)
 	if err != nil {
 		return nil, fmt.Errorf("template resolution failed: %w", err)
 	}
 
-	// 5. Execute with resolved config
-	//   - {{input.field}} → already resolved in resolvedConfig
-	//   - {{env.var}} → already resolved in resolvedConfig
 	output, err := baseExecutor.Execute(ctx, resolvedConfig, nodeCtx.DirectParentOutput)
 
-	// 6. Return result with metadata (even on error - for debugging purposes)
 	result := &NodeExecutionResult{
-		Output:         output, // Will be nil on error
+		Output:         output,
 		Input:          nodeCtx.DirectParentOutput,
-		Config:         nodeCtx.Node.Config, // Original config
-		ResolvedConfig: resolvedConfig,      // Resolved config
+		Config:         nodeCtx.Node.Config,
+		ResolvedConfig: resolvedConfig,
 	}
 
 	if err != nil {
@@ -86,30 +88,25 @@ func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (*Nod
 
 // PrepareNodeContext builds NodeContext from execution state and node.
 //
-// This function handles:
-//   - Single parent: merges parent output with execution input (parent output takes precedence)
-//   - Multiple parents: merges outputs by parent node ID (namespace collision avoidance)
+// Input merging strategy:
 //   - No parents: uses execution input
+//   - Single parent: merges execution input with parent output (parent output takes precedence)
+//   - Multiple parents: merges outputs namespaced by parent node ID
 func PrepareNodeContext(
 	execState *ExecutionState,
 	node *models.Node,
 	parentNodes []*models.Node,
 	opts *ExecutionOptions,
 ) *NodeContext {
-	// Get direct parent output (for nodes with single parent)
 	var directParentOutput map[string]interface{}
 
 	if len(parentNodes) == 1 {
-		// Single parent - merge execution input with parent output
-		// This allows child nodes to access both execution input and parent output
 		directParentOutput = make(map[string]interface{})
 
-		// First, copy execution input
 		for k, v := range execState.Input {
 			directParentOutput[k] = v
 		}
 
-		// Then, overlay parent output (takes precedence)
 		parentID := parentNodes[0].ID
 		if output, ok := execState.GetNodeOutput(parentID); ok {
 			if outputMap, ok := output.(map[string]interface{}); ok {
@@ -119,10 +116,8 @@ func PrepareNodeContext(
 			}
 		}
 	} else if len(parentNodes) > 1 {
-		// Multiple parents - merge outputs with namespace by parent ID
 		directParentOutput = mergeParentOutputs(execState, parentNodes)
 	} else {
-		// No parents - use execution input
 		directParentOutput = execState.Input
 	}
 
@@ -139,24 +134,12 @@ func PrepareNodeContext(
 }
 
 // mergeParentOutputs merges outputs from multiple parent nodes.
-//
-// To avoid namespace collisions, outputs are namespaced by parent node ID:
-//
-//	{
-//	  "parent1-id": {parent1 output},
-//	  "parent2-id": {parent2 output}
-//	}
-//
-// Access in templates:
-//
-//	{{input.parent1-id.field}}
-//	{{input.parent2-id.data}}
+// Outputs are namespaced by parent node ID to avoid collisions.
 func mergeParentOutputs(execState *ExecutionState, parentNodes []*models.Node) map[string]interface{} {
 	merged := make(map[string]interface{})
 
 	for _, parent := range parentNodes {
 		if output, ok := execState.GetNodeOutput(parent.ID); ok {
-			// Namespace outputs by parent node ID to avoid collisions
 			merged[parent.ID] = output
 		}
 	}

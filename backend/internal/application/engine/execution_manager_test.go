@@ -3,15 +3,14 @@ package engine
 import (
 	"testing"
 
+	pkgengine "github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/stretchr/testify/assert"
 )
 
-// ==================== mergeVariables Tests ====================
+// ==================== MergeVariables Tests ====================
 
-func TestExecutionManager_MergeVariables(t *testing.T) {
-	em := &ExecutionManager{}
-
+func TestMergeVariables(t *testing.T) {
 	tests := []struct {
 		name          string
 		workflowVars  map[string]interface{}
@@ -70,17 +69,15 @@ func TestExecutionManager_MergeVariables(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := em.mergeVariables(tt.workflowVars, tt.executionVars)
+			result := pkgengine.MergeVariables(tt.workflowVars, tt.executionVars)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// ==================== findLeafNodes Tests ====================
+// ==================== FindLeafNodes Tests ====================
 
-func TestExecutionManager_FindLeafNodes(t *testing.T) {
-	em := &ExecutionManager{}
-
+func TestFindLeafNodes(t *testing.T) {
 	tests := []struct {
 		name     string
 		workflow *models.Workflow
@@ -172,7 +169,7 @@ func TestExecutionManager_FindLeafNodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			leaves := em.findLeafNodes(tt.workflow)
+			leaves := pkgengine.FindLeafNodes(tt.workflow)
 
 			// Extract IDs for comparison
 			leafIDs := make([]string, len(leaves))
@@ -193,7 +190,7 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		execState *ExecutionState
+		execState *pkgengine.ExecutionState
 		workflow  *models.Workflow
 		expected  map[string]interface{}
 	}{
@@ -208,8 +205,8 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 					{From: "node1", To: "node2"},
 				},
 			},
-			execState: func() *ExecutionState {
-				state := NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil)
+			execState: func() *pkgengine.ExecutionState {
+				state := pkgengine.NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil)
 				state.SetNodeOutput("node2", map[string]interface{}{"result": "success", "count": 42})
 				return state
 			}(),
@@ -228,8 +225,8 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 					{From: "root", To: "leaf2"},
 				},
 			},
-			execState: func() *ExecutionState {
-				state := NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil)
+			execState: func() *pkgengine.ExecutionState {
+				state := pkgengine.NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil)
 				state.SetNodeOutput("leaf1", map[string]interface{}{"data": "A"})
 				state.SetNodeOutput("leaf2", map[string]interface{}{"data": "B"})
 				return state
@@ -245,7 +242,7 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 				Nodes: []*models.Node{},
 				Edges: []*models.Edge{},
 			},
-			execState: NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil),
+			execState: pkgengine.NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil),
 			expected:  nil,
 		},
 		{
@@ -256,8 +253,8 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 				},
 				Edges: []*models.Edge{},
 			},
-			execState: func() *ExecutionState {
-				state := NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil)
+			execState: func() *pkgengine.ExecutionState {
+				state := pkgengine.NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil)
 				state.SetNodeOutput("node1", "string output")
 				return state
 			}(),

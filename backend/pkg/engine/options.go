@@ -41,10 +41,6 @@ type ExecutionOptions struct {
 
 	// Variables are workflow-level variables available to all nodes
 	Variables map[string]interface{}
-
-	// ObserverManager handles execution events (optional).
-	// Can be either engine.ObserverManager interface or *observer.ObserverManager from internal.
-	ObserverManager interface{}
 }
 
 // RetryPolicy configures retry behavior for node execution.
@@ -82,15 +78,15 @@ const (
 // DefaultExecutionOptions returns execution options with sensible defaults.
 func DefaultExecutionOptions() *ExecutionOptions {
 	return &ExecutionOptions{
-		Timeout:         5 * time.Minute,
-		NodeTimeout:     2 * time.Minute,
-		ContinueOnError: false,
-		StrictMode:      false,
-		MaxConcurrency:  10,
-		MaxParallelism:  10,
-		MaxOutputSize:   10 * 1024 * 1024, // 10MB
-		MaxTotalMemory:  0,                 // unlimited
+		Timeout:          5 * time.Minute,
+		NodeTimeout:      2 * time.Minute,
+		ContinueOnError:  false,
+		StrictMode:       false,
+		MaxConcurrency:   10,
+		MaxParallelism:   10,
+		MaxOutputSize:    10 * 1024 * 1024, // 10MB
+		MaxTotalMemory:   0,                // unlimited
 		EnableMemoryOpts: false,
-		Variables:       make(map[string]interface{}),
+		Variables:        make(map[string]interface{}),
 	}
 }

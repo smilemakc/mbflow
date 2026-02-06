@@ -9,7 +9,7 @@ import (
 
 func TestDefaultRetryPolicy(t *testing.T) {
 	t.Parallel()
-	policy := DefaultRetryPolicy()
+	policy := DefaultInternalRetryPolicy()
 
 	if policy.MaxAttempts != 3 {
 		t.Errorf("expected MaxAttempts 3, got %d", policy.MaxAttempts)
@@ -19,14 +19,14 @@ func TestDefaultRetryPolicy(t *testing.T) {
 		t.Errorf("expected InitialDelay 1s, got %v", policy.InitialDelay)
 	}
 
-	if policy.BackoffStrategy != BackoffExponential {
-		t.Errorf("expected BackoffExponential, got %v", policy.BackoffStrategy)
+	if policy.BackoffStrategy != InternalBackoffExponential {
+		t.Errorf("expected InternalBackoffExponential, got %v", policy.BackoffStrategy)
 	}
 }
 
 func TestNoRetryPolicy(t *testing.T) {
 	t.Parallel()
-	policy := NoRetryPolicy()
+	policy := NoInternalRetryPolicy()
 
 	if policy.MaxAttempts != 1 {
 		t.Errorf("expected MaxAttempts 1, got %d", policy.MaxAttempts)
@@ -76,7 +76,7 @@ func TestRetryPolicy_ShouldRetry(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			policy := &RetryPolicy{
+			policy := &InternalRetryPolicy{
 				RetryableErrors: tt.retryableErrors,
 			}
 
@@ -90,10 +90,10 @@ func TestRetryPolicy_ShouldRetry(t *testing.T) {
 
 func TestRetryPolicy_GetDelay_Constant(t *testing.T) {
 	t.Parallel()
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		InitialDelay:    100 * time.Millisecond,
 		MaxDelay:        1 * time.Second,
-		BackoffStrategy: BackoffConstant,
+		BackoffStrategy: InternalBackoffConstant,
 	}
 
 	tests := []struct {
@@ -117,10 +117,10 @@ func TestRetryPolicy_GetDelay_Constant(t *testing.T) {
 }
 
 func TestRetryPolicy_GetDelay_Linear(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		InitialDelay:    100 * time.Millisecond,
 		MaxDelay:        1 * time.Second,
-		BackoffStrategy: BackoffLinear,
+		BackoffStrategy: InternalBackoffLinear,
 	}
 
 	tests := []struct {
@@ -146,10 +146,10 @@ func TestRetryPolicy_GetDelay_Linear(t *testing.T) {
 }
 
 func TestRetryPolicy_GetDelay_Exponential(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		InitialDelay:    100 * time.Millisecond,
 		MaxDelay:        2 * time.Second,
-		BackoffStrategy: BackoffExponential,
+		BackoffStrategy: InternalBackoffExponential,
 	}
 
 	tests := []struct {
@@ -175,10 +175,10 @@ func TestRetryPolicy_GetDelay_Exponential(t *testing.T) {
 }
 
 func TestRetryPolicy_Execute_Success(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
-		BackoffStrategy: BackoffConstant,
+		BackoffStrategy: InternalBackoffConstant,
 	}
 
 	attempts := 0
@@ -200,10 +200,10 @@ func TestRetryPolicy_Execute_Success(t *testing.T) {
 }
 
 func TestRetryPolicy_Execute_SuccessAfterRetry(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
-		BackoffStrategy: BackoffConstant,
+		BackoffStrategy: InternalBackoffConstant,
 	}
 
 	attempts := 0
@@ -228,10 +228,10 @@ func TestRetryPolicy_Execute_SuccessAfterRetry(t *testing.T) {
 }
 
 func TestRetryPolicy_Execute_MaxAttemptsExceeded(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
-		BackoffStrategy: BackoffConstant,
+		BackoffStrategy: InternalBackoffConstant,
 	}
 
 	attempts := 0
@@ -253,10 +253,10 @@ func TestRetryPolicy_Execute_MaxAttemptsExceeded(t *testing.T) {
 }
 
 func TestRetryPolicy_Execute_NonRetryableError(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
-		BackoffStrategy: BackoffConstant,
+		BackoffStrategy: InternalBackoffConstant,
 		RetryableErrors: []string{"timeout"},
 	}
 
@@ -279,10 +279,10 @@ func TestRetryPolicy_Execute_NonRetryableError(t *testing.T) {
 }
 
 func TestRetryPolicy_Execute_ContextCancellation(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		MaxAttempts:     5,
 		InitialDelay:    50 * time.Millisecond,
-		BackoffStrategy: BackoffConstant,
+		BackoffStrategy: InternalBackoffConstant,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -310,10 +310,10 @@ func TestRetryPolicy_Execute_ContextCancellation(t *testing.T) {
 func TestRetryPolicy_Execute_OnRetryCallback(t *testing.T) {
 	callbackCalls := 0
 
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
-		BackoffStrategy: BackoffConstant,
+		BackoffStrategy: InternalBackoffConstant,
 		OnRetry: func(attempt int, err error) {
 			callbackCalls++
 			if attempt < 1 || attempt > 2 {
@@ -341,10 +341,10 @@ func TestRetryPolicy_Execute_OnRetryCallback(t *testing.T) {
 }
 
 func TestRetryPolicy_Execute_ZeroMaxAttempts(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		MaxAttempts:     0, // Should default to 1
 		InitialDelay:    10 * time.Millisecond,
-		BackoffStrategy: BackoffConstant,
+		BackoffStrategy: InternalBackoffConstant,
 	}
 
 	attempts := 0
@@ -400,9 +400,9 @@ func TestIsRetryableError(t *testing.T) {
 }
 
 func TestRetryPolicy_GetDelay_ZeroAttempt(t *testing.T) {
-	policy := &RetryPolicy{
+	policy := &InternalRetryPolicy{
 		InitialDelay:    100 * time.Millisecond,
-		BackoffStrategy: BackoffExponential,
+		BackoffStrategy: InternalBackoffExponential,
 	}
 
 	delay := policy.GetDelay(0)

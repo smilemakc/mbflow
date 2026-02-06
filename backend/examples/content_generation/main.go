@@ -24,11 +24,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/internal/application/observer"
 	"github.com/smilemakc/mbflow/internal/config"
 	"github.com/smilemakc/mbflow/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/pkg/builder"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
 	"github.com/smilemakc/mbflow/pkg/visualization"
@@ -135,10 +135,11 @@ func main() {
 	fmt.Println()
 
 	startTime := time.Now()
-	// Prepare execution options with observer manager
+	// Prepare execution options
+	// Note: observer integration requires the full engine mode (not standalone)
+	_ = observerManager
 	opts := &engine.ExecutionOptions{
-		MaxParallelism:  10,
-		ObserverManager: observerManager,
+		MaxParallelism: 10,
 	}
 
 	execution, err := client.ExecuteWorkflowStandalone(ctx, workflow, input, opts)

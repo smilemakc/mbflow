@@ -37,7 +37,7 @@ func TestFindNodeByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := findNodeByID(nodes, tt.nodeID)
+			result := FindNodeByID(nodes, tt.nodeID)
 			if result != tt.expected {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}
@@ -87,7 +87,7 @@ func TestCollectIncomingEdges(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := collectIncomingEdges(edges, tt.targetNodeID)
+			result := CollectIncomingEdges(edges, tt.targetNodeID)
 			if len(result) != tt.expectedLen {
 				t.Errorf("expected %d edges, got %d", tt.expectedLen, len(result))
 			}
@@ -143,7 +143,7 @@ func TestCollectOutgoingEdges(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := collectOutgoingEdges(edges, tt.sourceNodeID)
+			result := CollectOutgoingEdges(edges, tt.sourceNodeID)
 			if len(result) != tt.expectedLen {
 				t.Errorf("expected %d edges, got %d", tt.expectedLen, len(result))
 			}
@@ -222,7 +222,7 @@ func TestGetNodePriority(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getNodePriority(tt.node)
+			result := GetNodePriority(tt.node)
 			if result != tt.expected {
 				t.Errorf("expected %d, got %d", tt.expected, result)
 			}
@@ -288,7 +288,7 @@ func TestGetNodeTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getNodeTimeout(tt.node)
+			result := GetNodeTimeout(tt.node)
 			if result != tt.expected {
 				t.Errorf("expected %d, got %d", tt.expected, result)
 			}
