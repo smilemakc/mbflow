@@ -14,11 +14,11 @@ import (
 
 // FileRepository handles file database operations
 type FileRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewFileRepository creates a new FileRepository
-func NewFileRepository(db *bun.DB) *FileRepository {
+func NewFileRepository(db bun.IDB) *FileRepository {
 	return &FileRepository{db: db}
 }
 
@@ -253,11 +253,11 @@ func (r *FileRepository) DeleteExpired(ctx context.Context) (int64, error) {
 
 // StorageConfigRepository handles storage config database operations
 type StorageConfigRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewStorageConfigRepository creates a new StorageConfigRepository
-func NewStorageConfigRepository(db *bun.DB) *StorageConfigRepository {
+func NewStorageConfigRepository(db bun.IDB) *StorageConfigRepository {
 	return &StorageConfigRepository{db: db}
 }
 

@@ -24,10 +24,10 @@ func setupWorkflowHandlersTest(t *testing.T) (*WorkflowHandlers, *gin.Engine, fu
 	t.Helper()
 
 	// Setup test database
-	testDB := testutil.SetupTestDB(t)
+	db, cleanup := testutil.SetupTestTx(t)
 
 	// Create repository
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
+	workflowRepo := storage.NewWorkflowRepository(db)
 
 	// Create logger with minimal config
 	log := logger.New(config.LoggingConfig{
@@ -69,16 +69,13 @@ func setupWorkflowHandlersTest(t *testing.T) (*WorkflowHandlers, *gin.Engine, fu
 		api.GET("/workflows/:workflow_id/diagram", handlers.HandleGetWorkflowDiagram)
 	}
 
-	cleanup := func() {
-		testDB.Cleanup(t)
-	}
-
 	return handlers, router, cleanup
 }
 
 // ========== CREATE WORKFLOW TESTS ==========
 
 func TestHandlers_CreateWorkflow_Success(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -107,6 +104,7 @@ func TestHandlers_CreateWorkflow_Success(t *testing.T) {
 }
 
 func TestHandlers_CreateWorkflow_MissingName(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -120,6 +118,7 @@ func TestHandlers_CreateWorkflow_MissingName(t *testing.T) {
 }
 
 func TestHandlers_CreateWorkflow_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -133,6 +132,7 @@ func TestHandlers_CreateWorkflow_InvalidJSON(t *testing.T) {
 }
 
 func TestHandlers_CreateWorkflow_WithMinimalData(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -154,6 +154,7 @@ func TestHandlers_CreateWorkflow_WithMinimalData(t *testing.T) {
 // ========== GET WORKFLOW TESTS ==========
 
 func TestHandlers_GetWorkflow_Success(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -183,6 +184,7 @@ func TestHandlers_GetWorkflow_Success(t *testing.T) {
 }
 
 func TestHandlers_GetWorkflow_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -193,6 +195,7 @@ func TestHandlers_GetWorkflow_NotFound(t *testing.T) {
 }
 
 func TestHandlers_GetWorkflow_InvalidID(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -204,6 +207,7 @@ func TestHandlers_GetWorkflow_InvalidID(t *testing.T) {
 // ========== LIST WORKFLOWS TESTS ==========
 
 func TestHandlers_ListWorkflows_Empty(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -219,6 +223,7 @@ func TestHandlers_ListWorkflows_Empty(t *testing.T) {
 }
 
 func TestHandlers_ListWorkflows_WithData(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -244,6 +249,7 @@ func TestHandlers_ListWorkflows_WithData(t *testing.T) {
 }
 
 func TestHandlers_ListWorkflows_Pagination(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -272,6 +278,7 @@ func TestHandlers_ListWorkflows_Pagination(t *testing.T) {
 }
 
 func TestHandlers_ListWorkflows_FilterByStatus(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -296,6 +303,7 @@ func TestHandlers_ListWorkflows_FilterByStatus(t *testing.T) {
 // ========== UPDATE WORKFLOW TESTS ==========
 
 func TestHandlers_UpdateWorkflow_Success(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -327,6 +335,7 @@ func TestHandlers_UpdateWorkflow_Success(t *testing.T) {
 }
 
 func TestHandlers_UpdateWorkflow_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -341,6 +350,7 @@ func TestHandlers_UpdateWorkflow_NotFound(t *testing.T) {
 }
 
 func TestHandlers_UpdateWorkflow_InvalidID(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -356,6 +366,7 @@ func TestHandlers_UpdateWorkflow_InvalidID(t *testing.T) {
 // ========== DELETE WORKFLOW TESTS ==========
 
 func TestHandlers_DeleteWorkflow_Success(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -385,6 +396,7 @@ func TestHandlers_DeleteWorkflow_Success(t *testing.T) {
 }
 
 func TestHandlers_DeleteWorkflow_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -402,6 +414,7 @@ func TestHandlers_DeleteWorkflow_NotFound(t *testing.T) {
 }
 
 func TestHandlers_DeleteWorkflow_InvalidID(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -413,6 +426,7 @@ func TestHandlers_DeleteWorkflow_InvalidID(t *testing.T) {
 // ========== PUBLISH/UNPUBLISH TESTS ==========
 
 func TestHandlers_PublishWorkflow_Success(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -439,6 +453,7 @@ func TestHandlers_PublishWorkflow_Success(t *testing.T) {
 }
 
 func TestHandlers_UnpublishWorkflow_Success(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -471,6 +486,7 @@ func TestHandlers_UnpublishWorkflow_Success(t *testing.T) {
 // ========== DIAGRAM TESTS ==========
 
 func TestHandlers_GetWorkflowDiagram_Success(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -499,6 +515,7 @@ func TestHandlers_GetWorkflowDiagram_Success(t *testing.T) {
 }
 
 func TestHandlers_GetWorkflowDiagram_ASCIIFormat(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -526,6 +543,7 @@ func TestHandlers_GetWorkflowDiagram_ASCIIFormat(t *testing.T) {
 }
 
 func TestHandlers_GetWorkflowDiagram_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -541,10 +559,10 @@ func setupWorkflowHandlersTestWithAuth(t *testing.T, userID string, isAdmin bool
 	t.Helper()
 
 	// Setup test database
-	testDB := testutil.SetupTestDB(t)
+	db, cleanup := testutil.SetupTestTx(t)
 
 	// Create repository
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
+	workflowRepo := storage.NewWorkflowRepository(db)
 
 	// Create logger with minimal config
 	log := logger.New(config.LoggingConfig{
@@ -590,14 +608,11 @@ func setupWorkflowHandlersTestWithAuth(t *testing.T, userID string, isAdmin bool
 		api.GET("/workflows/:workflow_id/diagram", handlers.HandleGetWorkflowDiagram)
 	}
 
-	cleanup := func() {
-		testDB.Cleanup(t)
-	}
-
 	return handlers, router, cleanup
 }
 
 func TestHandlers_CreateWorkflow_WithoutAuthentication(t *testing.T) {
+	t.Parallel()
 	// No auth middleware - created_by should be empty
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
@@ -621,6 +636,7 @@ func TestHandlers_CreateWorkflow_WithoutAuthentication(t *testing.T) {
 }
 
 func TestHandlers_ListWorkflows_FilterByUserID_InvalidFormat(t *testing.T) {
+	t.Parallel()
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
@@ -630,6 +646,7 @@ func TestHandlers_ListWorkflows_FilterByUserID_InvalidFormat(t *testing.T) {
 }
 
 func TestHandlers_ListWorkflows_FilterByUserID_Admin(t *testing.T) {
+	t.Parallel()
 	adminUserID := uuid.New().String()
 	otherUserID := uuid.New()
 
@@ -652,6 +669,7 @@ func TestHandlers_ListWorkflows_FilterByUserID_Admin(t *testing.T) {
 }
 
 func TestHandlers_ListWorkflows_FilterByUserID_Forbidden(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New().String()
 	otherUserID := uuid.New().String()
 
@@ -668,6 +686,7 @@ func TestHandlers_ListWorkflows_FilterByUserID_Forbidden(t *testing.T) {
 }
 
 func TestHandlers_ListWorkflows_FilterByOwnUserID_Empty(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New().String()
 
 	// Setup as regular user
@@ -687,6 +706,7 @@ func TestHandlers_ListWorkflows_FilterByOwnUserID_Empty(t *testing.T) {
 }
 
 func TestHandlers_ListWorkflows_UnauthenticatedSeeAll(t *testing.T) {
+	t.Parallel()
 	// No auth - unauthenticated users see all workflows (backward compatibility)
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()

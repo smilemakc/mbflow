@@ -2,82 +2,26 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/internal/domain/repository"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/migrations"
+	"github.com/smilemakc/mbflow/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
 
-// setupTriggerRepoTest creates a test database with PostgreSQL container
-func setupTriggerRepoTest(t *testing.T) (*TriggerRepository, *bun.DB, func()) {
-	ctx := context.Background()
-
-	// Start PostgreSQL container
-	req := testcontainers.ContainerRequest{
-		Image:        "postgres:16-alpine",
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"POSTGRES_USER":     "test",
-			"POSTGRES_PASSWORD": "test",
-			"POSTGRES_DB":       "mbflow_test",
-		},
-		WaitingFor: wait.ForLog("database system is ready to accept connections"),
-	}
-
-	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	host, err := postgres.Host(ctx)
-	require.NoError(t, err)
-
-	port, err := postgres.MappedPort(ctx, "5432")
-	require.NoError(t, err)
-
-	// Connect to database
-	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
-
-	// Wait for DB to be ready
-	time.Sleep(500 * time.Millisecond)
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
-
-	// Run migrations
-	migrator, err := NewMigrator(db, migrations.FS)
-	require.NoError(t, err)
-
-	err = migrator.Init(ctx)
-	require.NoError(t, err)
-
-	err = migrator.Up(ctx)
-	require.NoError(t, err)
-
-	repo := NewTriggerRepository(db).(*TriggerRepository)
-
-	cleanup := func() {
-		db.Close()
-		postgres.Terminate(ctx)
-	}
-
-	return repo, db, cleanup
+func setupTriggerRepoTest(t *testing.T) (repository.TriggerRepository, bun.IDB, func()) {
+	t.Helper()
+	db, cleanup := testutil.SetupTestTx(t)
+	return NewTriggerRepository(db), db, cleanup
 }
 
-// createTestWorkflowForTrigger creates a minimal workflow for trigger tests
-func createTestWorkflowForTrigger(t *testing.T, db *bun.DB) *models.WorkflowModel {
+func createTestWorkflowForTrigger(t *testing.T, db bun.IDB) *models.WorkflowModel {
 	workflow := &models.WorkflowModel{
 		ID:          uuid.New(),
 		Name:        fmt.Sprintf("Test Workflow %s", uuid.New().String()[:8]), // Unique name
@@ -98,6 +42,7 @@ func createTestWorkflowForTrigger(t *testing.T, db *bun.DB) *models.WorkflowMode
 // Test Create Operations
 
 func TestTriggerRepo_Create_ManualTrigger(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -119,6 +64,7 @@ func TestTriggerRepo_Create_ManualTrigger(t *testing.T) {
 }
 
 func TestTriggerRepo_Create_CronTrigger(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -141,6 +87,7 @@ func TestTriggerRepo_Create_CronTrigger(t *testing.T) {
 }
 
 func TestTriggerRepo_Create_WebhookTrigger(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -162,6 +109,7 @@ func TestTriggerRepo_Create_WebhookTrigger(t *testing.T) {
 }
 
 func TestTriggerRepo_Create_IntervalTrigger(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -185,6 +133,7 @@ func TestTriggerRepo_Create_IntervalTrigger(t *testing.T) {
 // Test Update Operations
 
 func TestTriggerRepo_Update_Config(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -215,6 +164,7 @@ func TestTriggerRepo_Update_Config(t *testing.T) {
 }
 
 func TestTriggerRepo_Update_UpdatedAt(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -245,6 +195,7 @@ func TestTriggerRepo_Update_UpdatedAt(t *testing.T) {
 // Test Delete Operations
 
 func TestTriggerRepo_Delete_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -272,6 +223,7 @@ func TestTriggerRepo_Delete_Success(t *testing.T) {
 }
 
 func TestTriggerRepo_Delete_NotFound(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -283,6 +235,7 @@ func TestTriggerRepo_Delete_NotFound(t *testing.T) {
 // Test FindByID Operations
 
 func TestTriggerRepo_FindByID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -312,6 +265,7 @@ func TestTriggerRepo_FindByID_Success(t *testing.T) {
 }
 
 func TestTriggerRepo_FindByID_NotFound(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -324,6 +278,7 @@ func TestTriggerRepo_FindByID_NotFound(t *testing.T) {
 // Test FindByWorkflowID Operations
 
 func TestTriggerRepo_FindByWorkflowID_MultipleTriggers(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -365,6 +320,7 @@ func TestTriggerRepo_FindByWorkflowID_MultipleTriggers(t *testing.T) {
 }
 
 func TestTriggerRepo_FindByWorkflowID_Empty(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -377,6 +333,7 @@ func TestTriggerRepo_FindByWorkflowID_Empty(t *testing.T) {
 // Test FindByType Operations
 
 func TestTriggerRepo_FindByType_WithPagination(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -411,6 +368,7 @@ func TestTriggerRepo_FindByType_WithPagination(t *testing.T) {
 }
 
 func TestTriggerRepo_FindByType_Empty(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -422,6 +380,7 @@ func TestTriggerRepo_FindByType_Empty(t *testing.T) {
 // Test FindEnabled Operations
 
 func TestTriggerRepo_FindEnabled_OnlyEnabled(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -471,6 +430,7 @@ func TestTriggerRepo_FindEnabled_OnlyEnabled(t *testing.T) {
 // Test FindEnabledByType Operations
 
 func TestTriggerRepo_FindEnabledByType_FilterByBoth(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -524,6 +484,7 @@ func TestTriggerRepo_FindEnabledByType_FilterByBoth(t *testing.T) {
 // Test FindAll Operations
 
 func TestTriggerRepo_FindAll_Pagination(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -559,6 +520,7 @@ func TestTriggerRepo_FindAll_Pagination(t *testing.T) {
 // Test Count Operations
 
 func TestTriggerRepo_Count_Total(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -583,6 +545,7 @@ func TestTriggerRepo_Count_Total(t *testing.T) {
 }
 
 func TestTriggerRepo_CountByWorkflowID_FilterByWorkflow(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -625,6 +588,7 @@ func TestTriggerRepo_CountByWorkflowID_FilterByWorkflow(t *testing.T) {
 }
 
 func TestTriggerRepo_CountByType_FilterByType(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -668,6 +632,7 @@ func TestTriggerRepo_CountByType_FilterByType(t *testing.T) {
 // Test Enable/Disable Operations
 
 func TestTriggerRepo_Enable_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -695,6 +660,7 @@ func TestTriggerRepo_Enable_Success(t *testing.T) {
 }
 
 func TestTriggerRepo_Disable_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -724,6 +690,7 @@ func TestTriggerRepo_Disable_Success(t *testing.T) {
 // Test MarkTriggered Operations
 
 func TestTriggerRepo_MarkTriggered_UpdatesTimestamp(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -755,6 +722,7 @@ func TestTriggerRepo_MarkTriggered_UpdatesTimestamp(t *testing.T) {
 }
 
 func TestTriggerRepo_MarkTriggered_MultipleTimes(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupTriggerRepoTest(t)
 	defer cleanup()
 
@@ -797,6 +765,7 @@ func TestTriggerRepo_MarkTriggered_MultipleTimes(t *testing.T) {
 // Test Model Helper Methods
 
 func TestTriggerModel_TypeCheckers(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		triggerType  string
@@ -820,6 +789,7 @@ func TestTriggerModel_TypeCheckers(t *testing.T) {
 }
 
 func TestTriggerModel_GetCronExpression_ValidCron(t *testing.T) {
+	t.Parallel()
 	trigger := &models.TriggerModel{
 		Type: "cron",
 		Config: models.JSONBMap{
@@ -832,6 +802,7 @@ func TestTriggerModel_GetCronExpression_ValidCron(t *testing.T) {
 }
 
 func TestTriggerModel_GetCronExpression_NotCronType(t *testing.T) {
+	t.Parallel()
 	trigger := &models.TriggerModel{
 		Type: "webhook",
 		Config: models.JSONBMap{
@@ -844,6 +815,7 @@ func TestTriggerModel_GetCronExpression_NotCronType(t *testing.T) {
 }
 
 func TestTriggerModel_GetWebhookURL_ValidWebhook(t *testing.T) {
+	t.Parallel()
 	trigger := &models.TriggerModel{
 		Type: "webhook",
 		Config: models.JSONBMap{
@@ -856,6 +828,7 @@ func TestTriggerModel_GetWebhookURL_ValidWebhook(t *testing.T) {
 }
 
 func TestTriggerModel_GetIntervalDuration_ValidInterval(t *testing.T) {
+	t.Parallel()
 	trigger := &models.TriggerModel{
 		Type: "interval",
 		Config: models.JSONBMap{
@@ -868,6 +841,7 @@ func TestTriggerModel_GetIntervalDuration_ValidInterval(t *testing.T) {
 }
 
 func TestTriggerModel_MarkTriggered_SetsTimestamp(t *testing.T) {
+	t.Parallel()
 	trigger := &models.TriggerModel{
 		Type: "cron",
 	}

@@ -2,78 +2,25 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/migrations"
+	"github.com/smilemakc/mbflow/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
 
-func setupEventRepoTest(t *testing.T) (*EventRepository, *bun.DB, func()) {
-	ctx := context.Background()
-
-	// Start PostgreSQL container
-	req := testcontainers.ContainerRequest{
-		Image:        "postgres:16-alpine",
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"POSTGRES_USER":     "test",
-			"POSTGRES_PASSWORD": "test",
-			"POSTGRES_DB":       "mbflow_test",
-		},
-		WaitingFor: wait.ForLog("database system is ready to accept connections"),
-	}
-
-	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	host, err := postgres.Host(ctx)
-	require.NoError(t, err)
-
-	port, err := postgres.MappedPort(ctx, "5432")
-	require.NoError(t, err)
-
-	// Connect to database
-	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
-
-	// Wait a bit for the database to be fully ready
-	time.Sleep(500 * time.Millisecond)
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
-
-	// Run migrations
-	migrator, err := NewMigrator(db, migrations.FS)
-	require.NoError(t, err)
-	err = migrator.Init(ctx)
-	require.NoError(t, err)
-	err = migrator.Up(ctx)
-	require.NoError(t, err)
-
-	repo := NewEventRepository(db)
-
-	cleanup := func() {
-		db.Close()
-		postgres.Terminate(ctx)
-	}
-
-	return repo, db, cleanup
+func setupEventRepoTest(t *testing.T) (*EventRepository, bun.IDB, func()) {
+	t.Helper()
+	db, cleanup := testutil.SetupTestTx(t)
+	return NewEventRepository(db), db, cleanup
 }
 
-func createTestExecution(t *testing.T, db *bun.DB) *models.ExecutionModel {
+func createTestExecution(t *testing.T, db bun.IDB) *models.ExecutionModel {
 	workflowRepo := NewWorkflowRepository(db)
 
 	// Use unique workflow name to avoid duplicate key violations
@@ -104,6 +51,7 @@ func createTestExecution(t *testing.T, db *bun.DB) *models.ExecutionModel {
 // ========== APPEND TESTS ==========
 
 func TestEventRepo_Append_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -123,6 +71,7 @@ func TestEventRepo_Append_Success(t *testing.T) {
 }
 
 func TestEventRepo_Append_GeneratesSequence(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -143,6 +92,7 @@ func TestEventRepo_Append_GeneratesSequence(t *testing.T) {
 }
 
 func TestEventRepo_Append_InvalidExecutionID(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -159,6 +109,7 @@ func TestEventRepo_Append_InvalidExecutionID(t *testing.T) {
 // ========== APPEND BATCH TESTS ==========
 
 func TestEventRepo_AppendBatch_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -193,6 +144,7 @@ func TestEventRepo_AppendBatch_Success(t *testing.T) {
 }
 
 func TestEventRepo_AppendBatch_EmptySlice(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -203,6 +155,7 @@ func TestEventRepo_AppendBatch_EmptySlice(t *testing.T) {
 // ========== FIND BY EXECUTION ID TESTS ==========
 
 func TestEventRepo_FindByExecutionID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -236,6 +189,7 @@ func TestEventRepo_FindByExecutionID_Success(t *testing.T) {
 }
 
 func TestEventRepo_FindByExecutionID_Empty(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -249,6 +203,7 @@ func TestEventRepo_FindByExecutionID_Empty(t *testing.T) {
 // ========== FIND BY EXECUTION ID SINCE TESTS ==========
 
 func TestEventRepo_FindByExecutionIDSince_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -275,6 +230,7 @@ func TestEventRepo_FindByExecutionIDSince_Success(t *testing.T) {
 }
 
 func TestEventRepo_FindByExecutionIDSince_FromZero(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -300,6 +256,7 @@ func TestEventRepo_FindByExecutionIDSince_FromZero(t *testing.T) {
 // ========== FIND BY TYPE TESTS ==========
 
 func TestEventRepo_FindByType_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -330,6 +287,7 @@ func TestEventRepo_FindByType_Success(t *testing.T) {
 }
 
 func TestEventRepo_FindByType_Pagination(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -363,6 +321,7 @@ func TestEventRepo_FindByType_Pagination(t *testing.T) {
 // ========== FIND BY TIME RANGE TESTS ==========
 
 func TestEventRepo_FindByTimeRange_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -392,6 +351,7 @@ func TestEventRepo_FindByTimeRange_Success(t *testing.T) {
 }
 
 func TestEventRepo_FindByTimeRange_NarrowRange(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -418,6 +378,7 @@ func TestEventRepo_FindByTimeRange_NarrowRange(t *testing.T) {
 // ========== FIND LATEST TESTS ==========
 
 func TestEventRepo_FindLatestByExecutionID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -444,6 +405,7 @@ func TestEventRepo_FindLatestByExecutionID_Success(t *testing.T) {
 }
 
 func TestEventRepo_FindLatestByExecutionID_NotFound(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -457,6 +419,7 @@ func TestEventRepo_FindLatestByExecutionID_NotFound(t *testing.T) {
 // ========== COUNT TESTS ==========
 
 func TestEventRepo_Count_Total(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -488,6 +451,7 @@ func TestEventRepo_Count_Total(t *testing.T) {
 }
 
 func TestEventRepo_CountByExecutionID_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -510,6 +474,7 @@ func TestEventRepo_CountByExecutionID_Success(t *testing.T) {
 }
 
 func TestEventRepo_CountByType_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -545,6 +510,7 @@ func TestEventRepo_CountByType_Success(t *testing.T) {
 // ========== STREAM TESTS ==========
 
 func TestEventRepo_Stream_Success(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -594,6 +560,7 @@ collectLoop:
 }
 
 func TestEventRepo_Stream_FromBeginning(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupEventRepoTest(t)
 	defer cleanup()
 
@@ -644,6 +611,7 @@ collectLoop:
 // ========== EVENT TYPE HELPERS TESTS ==========
 
 func TestEventModel_IsWorkflowEvent(t *testing.T) {
+	t.Parallel()
 	workflowEvent := &models.EventModel{
 		EventType: models.EventTypeExecutionStarted,
 	}
@@ -656,6 +624,7 @@ func TestEventModel_IsWorkflowEvent(t *testing.T) {
 }
 
 func TestEventModel_IsNodeEvent(t *testing.T) {
+	t.Parallel()
 	nodeEvent := &models.EventModel{
 		EventType: models.EventTypeNodeStarted,
 	}

@@ -18,11 +18,11 @@ var _ repository.CredentialsRepository = (*CredentialsRepositoryImpl)(nil)
 
 // CredentialsRepositoryImpl implements the CredentialsRepository interface
 type CredentialsRepositoryImpl struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewCredentialsRepository creates a new CredentialsRepositoryImpl
-func NewCredentialsRepository(db *bun.DB) *CredentialsRepositoryImpl {
+func NewCredentialsRepository(db bun.IDB) *CredentialsRepositoryImpl {
 	return &CredentialsRepositoryImpl{db: db}
 }
 
@@ -151,7 +151,7 @@ func (r *CredentialsRepositoryImpl) GetCredentialsByProvider(ctx context.Context
 	err = r.db.NewSelect().
 		Model(&resourceModels).
 		Relation("Credentials", func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Where("rc.provider = ?", provider)
+			return q.Where("provider = ?", provider)
 		}).
 		Where("r.owner_id = ? AND r.deleted_at IS NULL", ownerUUID).
 		Where("r.type = ?", string(pkgmodels.ResourceTypeCredentials)).

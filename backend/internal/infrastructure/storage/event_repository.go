@@ -16,11 +16,11 @@ var _ repository.EventRepository = (*EventRepository)(nil)
 
 // EventRepository implements repository.EventRepository using Bun ORM
 type EventRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewEventRepository creates a new EventRepository
-func NewEventRepository(db *bun.DB) *EventRepository {
+func NewEventRepository(db bun.IDB) *EventRepository {
 	return &EventRepository{db: db}
 }
 
@@ -180,6 +180,24 @@ func (r *EventRepository) Stream(ctx context.Context, executionID uuid.UUID, fro
 		defer ticker.Stop()
 
 		lastSequence := fromSequence
+
+		// Initial fetch of existing events before entering the poll loop
+		initialEvents, err := r.FindByExecutionIDSince(ctx, executionID, lastSequence)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		for _, event := range initialEvents {
+			select {
+			case eventChan <- event:
+				if event.Sequence > lastSequence {
+					lastSequence = event.Sequence
+				}
+			case <-ctx.Done():
+				errChan <- ctx.Err()
+				return
+			}
+		}
 
 		for {
 			select {

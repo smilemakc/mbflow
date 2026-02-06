@@ -17,10 +17,10 @@ import (
 var _ repository.FileStorageRepository = (*ResourceRepositoryImpl)(nil)
 
 type ResourceRepositoryImpl struct {
-	db *bun.DB
+	db bun.IDB
 }
 
-func NewResourceRepository(db *bun.DB) *ResourceRepositoryImpl {
+func NewResourceRepository(db bun.IDB) *ResourceRepositoryImpl {
 	return &ResourceRepositoryImpl{db: db}
 }
 

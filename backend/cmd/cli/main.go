@@ -105,7 +105,7 @@ ENVIRONMENT VARIABLES:
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, usage)
+		fmt.Fprint(os.Stderr, usage)
 		os.Exit(1)
 	}
 
@@ -117,7 +117,7 @@ func main() {
 	case "workflow":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "Error: workflow command requires a subcommand (show, list)")
-			fmt.Fprintln(os.Stderr, usage)
+			fmt.Fprint(os.Stderr, usage)
 			os.Exit(1)
 		}
 		subcommand := os.Args[2]
@@ -134,7 +134,7 @@ func main() {
 	case "user":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "Error: user command requires a subcommand (create)")
-			fmt.Fprintln(os.Stderr, usage)
+			fmt.Fprint(os.Stderr, usage)
 			os.Exit(1)
 		}
 		subcommand := os.Args[2]
@@ -149,7 +149,7 @@ func main() {
 	case "admin":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "Error: admin command requires a subcommand (create)")
-			fmt.Fprintln(os.Stderr, usage)
+			fmt.Fprint(os.Stderr, usage)
 			os.Exit(1)
 		}
 		subcommand := os.Args[2]
@@ -165,11 +165,11 @@ func main() {
 		fmt.Printf("MBFlow CLI v%s\n", version)
 
 	case "help", "-h", "--help":
-		fmt.Println(usage)
+		fmt.Print(usage)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Error: unknown command: %s\n", command)
-		fmt.Fprintln(os.Stderr, usage)
+		fmt.Fprint(os.Stderr, usage)
 		os.Exit(1)
 	}
 }

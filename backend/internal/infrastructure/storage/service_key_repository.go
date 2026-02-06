@@ -18,11 +18,11 @@ var _ repository.ServiceKeyRepository = (*ServiceKeyRepositoryImpl)(nil)
 
 // ServiceKeyRepositoryImpl implements the ServiceKeyRepository interface
 type ServiceKeyRepositoryImpl struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewServiceKeyRepository creates a new ServiceKeyRepositoryImpl
-func NewServiceKeyRepository(db *bun.DB) *ServiceKeyRepositoryImpl {
+func NewServiceKeyRepository(db bun.IDB) *ServiceKeyRepositoryImpl {
 	return &ServiceKeyRepositoryImpl{db: db}
 }
 

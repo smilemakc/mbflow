@@ -2,80 +2,28 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/migrations"
+	"github.com/smilemakc/mbflow/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
 
-func setupFileRepoTest(t *testing.T) (*FileRepository, *bun.DB, func()) {
-	ctx := context.Background()
-
-	// Start PostgreSQL container
-	req := testcontainers.ContainerRequest{
-		Image:        "postgres:16-alpine",
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"POSTGRES_USER":     "test",
-			"POSTGRES_PASSWORD": "test",
-			"POSTGRES_DB":       "mbflow_test",
-		},
-		WaitingFor: wait.ForLog("database system is ready to accept connections"),
-	}
-
-	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	host, err := postgres.Host(ctx)
-	require.NoError(t, err)
-
-	port, err := postgres.MappedPort(ctx, "5432")
-	require.NoError(t, err)
-
-	// Connect to database
-	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
-
-	// Wait a bit for the database to be fully ready
-	time.Sleep(500 * time.Millisecond)
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
-
-	// Run migrations
-	migrator, err := NewMigrator(db, migrations.FS)
-	require.NoError(t, err)
-	err = migrator.Init(ctx)
-	require.NoError(t, err)
-	err = migrator.Up(ctx)
-	require.NoError(t, err)
-
-	repo := NewFileRepository(db)
-
-	cleanup := func() {
-		db.Close()
-		postgres.Terminate(ctx)
-	}
-
-	return repo, db, cleanup
+func setupFileRepoTest(t *testing.T) (*FileRepository, bun.IDB, func()) {
+	t.Helper()
+	db, cleanup := testutil.SetupTestTx(t)
+	return NewFileRepository(db), db, cleanup
 }
 
 // ========== CREATE TESTS ==========
 
 func TestFileRepo_Create_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -95,6 +43,7 @@ func TestFileRepo_Create_Success(t *testing.T) {
 }
 
 func TestFileRepo_Create_WithTTL(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -119,6 +68,7 @@ func TestFileRepo_Create_WithTTL(t *testing.T) {
 }
 
 func TestFileRepo_Create_WithWorkflowID(t *testing.T) {
+	t.Parallel()
 	repo, db, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -152,6 +102,7 @@ func TestFileRepo_Create_WithWorkflowID(t *testing.T) {
 // ========== UPDATE TESTS ==========
 
 func TestFileRepo_Update_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -184,6 +135,7 @@ func TestFileRepo_Update_Success(t *testing.T) {
 // ========== DELETE TESTS ==========
 
 func TestFileRepo_Delete_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -212,6 +164,7 @@ func TestFileRepo_Delete_Success(t *testing.T) {
 // ========== FIND BY ID TESTS ==========
 
 func TestFileRepo_FindByID_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -234,6 +187,7 @@ func TestFileRepo_FindByID_Success(t *testing.T) {
 }
 
 func TestFileRepo_FindByID_NotFound(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -245,6 +199,7 @@ func TestFileRepo_FindByID_NotFound(t *testing.T) {
 // ========== FIND BY STORAGE AND PATH TESTS ==========
 
 func TestFileRepo_FindByStorageAndPath_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -267,6 +222,7 @@ func TestFileRepo_FindByStorageAndPath_Success(t *testing.T) {
 }
 
 func TestFileRepo_FindByStorageAndPath_NotFound(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -278,6 +234,7 @@ func TestFileRepo_FindByStorageAndPath_NotFound(t *testing.T) {
 // ========== FIND BY QUERY TESTS ==========
 
 func TestFileRepo_FindByQuery_ByStorageID(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -300,6 +257,7 @@ func TestFileRepo_FindByQuery_ByStorageID(t *testing.T) {
 }
 
 func TestFileRepo_FindByQuery_ByTags(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -324,6 +282,7 @@ func TestFileRepo_FindByQuery_ByTags(t *testing.T) {
 }
 
 func TestFileRepo_FindByQuery_Pagination(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -360,6 +319,7 @@ func TestFileRepo_FindByQuery_Pagination(t *testing.T) {
 // ========== COUNT TESTS ==========
 
 func TestFileRepo_CountByQuery_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -386,6 +346,7 @@ func TestFileRepo_CountByQuery_Success(t *testing.T) {
 // ========== FIND EXPIRED TESTS ==========
 
 func TestFileRepo_FindExpired_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -438,6 +399,7 @@ func TestFileRepo_FindExpired_Success(t *testing.T) {
 // ========== STORAGE USAGE TESTS ==========
 
 func TestFileRepo_GetStorageUsage_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -467,6 +429,7 @@ func TestFileRepo_GetStorageUsage_Success(t *testing.T) {
 }
 
 func TestFileRepo_GetStorageUsage_EmptyStorage(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -479,6 +442,7 @@ func TestFileRepo_GetStorageUsage_EmptyStorage(t *testing.T) {
 // ========== DELETE BY STORAGE ID TESTS ==========
 
 func TestFileRepo_DeleteByStorageID_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -513,6 +477,7 @@ func TestFileRepo_DeleteByStorageID_Success(t *testing.T) {
 // ========== DELETE EXPIRED TESTS ==========
 
 func TestFileRepo_DeleteExpired_Success(t *testing.T) {
+	t.Parallel()
 	repo, _, cleanup := setupFileRepoTest(t)
 	defer cleanup()
 
@@ -560,6 +525,7 @@ func TestFileRepo_DeleteExpired_Success(t *testing.T) {
 // ========== FILE MODEL HELPER TESTS ==========
 
 func TestFileModel_IsExpired(t *testing.T) {
+	t.Parallel()
 	// Expired file
 	expiredTime := time.Now().Add(-1 * time.Hour)
 	expiredFile := &models.FileModel{

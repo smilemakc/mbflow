@@ -16,10 +16,10 @@ import (
 var _ repository.PricingPlanRepository = (*PricingPlanRepositoryImpl)(nil)
 
 type PricingPlanRepositoryImpl struct {
-	db *bun.DB
+	db bun.IDB
 }
 
-func NewPricingPlanRepository(db *bun.DB) *PricingPlanRepositoryImpl {
+func NewPricingPlanRepository(db bun.IDB) *PricingPlanRepositoryImpl {
 	return &PricingPlanRepositoryImpl{db: db}
 }
 

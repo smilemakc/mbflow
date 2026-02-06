@@ -14,11 +14,11 @@ import (
 
 // TriggerRepository implements repository.TriggerRepository
 type TriggerRepository struct {
-	db *bun.DB
+	db bun.IDB
 }
 
 // NewTriggerRepository creates a new TriggerRepository
-func NewTriggerRepository(db *bun.DB) repository.TriggerRepository {
+func NewTriggerRepository(db bun.IDB) repository.TriggerRepository {
 	return &TriggerRepository{db: db}
 }
 

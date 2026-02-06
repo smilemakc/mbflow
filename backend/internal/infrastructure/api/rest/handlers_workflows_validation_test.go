@@ -22,8 +22,8 @@ import (
 func setupValidationTest(t *testing.T) (*gin.Engine, string, func()) {
 	t.Helper()
 
-	testDB := testutil.SetupTestDB(t)
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
+	db, cleanup := testutil.SetupTestTx(t)
+	workflowRepo := storage.NewWorkflowRepository(db)
 	log := logger.New(config.LoggingConfig{Level: "error", Format: "text"})
 
 	executorManager := executor.NewManager()
@@ -50,11 +50,12 @@ func setupValidationTest(t *testing.T) (*gin.Engine, string, func()) {
 	testutil.ParseResponse(t, w, &created)
 	workflowID := created["id"].(string)
 
-	return router, workflowID, func() { testDB.Cleanup(t) }
+	return router, workflowID, cleanup
 }
 
 // TestValidateNodes_ValidTypes tests that all registered executor types are valid
 func TestValidateNodes_ValidTypes(t *testing.T) {
+	t.Parallel()
 	validTypes := []string{
 		"http", "transform", "llm", "conditional", "merge",
 		"html_clean", "rss_parser", "base64_to_bytes",
@@ -84,6 +85,7 @@ func TestValidateNodes_ValidTypes(t *testing.T) {
 
 // TestValidateNodes_UIOnlyTypes tests that UI-only types are valid
 func TestValidateNodes_UIOnlyTypes(t *testing.T) {
+	t.Parallel()
 	router, workflowID, cleanup := setupValidationTest(t)
 	defer cleanup()
 
@@ -104,6 +106,7 @@ func TestValidateNodes_UIOnlyTypes(t *testing.T) {
 
 // TestValidateNodes_InvalidType tests that unregistered types are rejected
 func TestValidateNodes_InvalidType(t *testing.T) {
+	t.Parallel()
 	router, workflowID, cleanup := setupValidationTest(t)
 	defer cleanup()
 
@@ -124,6 +127,7 @@ func TestValidateNodes_InvalidType(t *testing.T) {
 
 // TestValidateNodes_MixedTypes tests validation with both valid and invalid types
 func TestValidateNodes_MixedTypes(t *testing.T) {
+	t.Parallel()
 	router, workflowID, cleanup := setupValidationTest(t)
 	defer cleanup()
 
@@ -158,6 +162,7 @@ func TestValidateNodes_MixedTypes(t *testing.T) {
 
 // TestValidateNodes_RequiredFields tests required field validation
 func TestValidateNodes_RequiredFields(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		node        map[string]interface{}
@@ -209,6 +214,7 @@ func TestValidateNodes_RequiredFields(t *testing.T) {
 
 // TestValidateNodes_DuplicateIDs tests duplicate node ID validation
 func TestValidateNodes_DuplicateIDs(t *testing.T) {
+	t.Parallel()
 	router, workflowID, cleanup := setupValidationTest(t)
 	defer cleanup()
 
@@ -226,6 +232,7 @@ func TestValidateNodes_DuplicateIDs(t *testing.T) {
 
 // TestValidateNodes_FieldLengths tests field length validation
 func TestValidateNodes_FieldLengths(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		node        map[string]interface{}

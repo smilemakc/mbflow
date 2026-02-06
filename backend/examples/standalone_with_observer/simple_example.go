@@ -65,7 +65,7 @@ func runSimpleExample() {
 		"name": "World",
 	}
 
-	fmt.Println("=== Simple Observer Example ===\n")
+	fmt.Println("=== Simple Observer Example ===")
 
 	execution, err := client.ExecuteWorkflowStandalone(ctx, workflow, input, opts)
 	if err != nil {

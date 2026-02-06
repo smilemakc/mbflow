@@ -2,27 +2,22 @@ package storage
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 
 	"github.com/smilemakc/mbflow/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/migrations"
 	pkgmodels "github.com/smilemakc/mbflow/pkg/models"
+	"github.com/smilemakc/mbflow/testutil"
 )
 
 // TestCredentialsRepository_Create tests credential creation
 func TestCredentialsRepository_Create(t *testing.T) {
+	t.Parallel()
 	db, cleanup := setupCredentialsTestDB(t)
 	defer cleanup()
 
@@ -149,6 +144,7 @@ func TestCredentialsRepository_Create(t *testing.T) {
 
 // TestCredentialsRepository_GetByOwner tests retrieving credentials by owner
 func TestCredentialsRepository_GetByOwner(t *testing.T) {
+	t.Parallel()
 	db, cleanup := setupCredentialsTestDB(t)
 	defer cleanup()
 
@@ -199,6 +195,7 @@ func TestCredentialsRepository_GetByOwner(t *testing.T) {
 
 // TestCredentialsRepository_Update tests updating credentials
 func TestCredentialsRepository_Update(t *testing.T) {
+	t.Parallel()
 	db, cleanup := setupCredentialsTestDB(t)
 	defer cleanup()
 
@@ -240,6 +237,7 @@ func TestCredentialsRepository_Update(t *testing.T) {
 
 // TestCredentialsRepository_Delete tests soft-deleting credentials
 func TestCredentialsRepository_Delete(t *testing.T) {
+	t.Parallel()
 	db, cleanup := setupCredentialsTestDB(t)
 	defer cleanup()
 
@@ -272,6 +270,7 @@ func TestCredentialsRepository_Delete(t *testing.T) {
 
 // TestCredentialsRepository_IncrementUsage tests usage tracking
 func TestCredentialsRepository_IncrementUsage(t *testing.T) {
+	t.Parallel()
 	db, cleanup := setupCredentialsTestDB(t)
 	defer cleanup()
 
@@ -307,6 +306,7 @@ func TestCredentialsRepository_IncrementUsage(t *testing.T) {
 
 // TestCredentialsRepository_InvalidID tests error handling for invalid IDs
 func TestCredentialsRepository_InvalidID(t *testing.T) {
+	t.Parallel()
 	db, cleanup := setupCredentialsTestDB(t)
 	defer cleanup()
 
@@ -324,66 +324,12 @@ func TestCredentialsRepository_InvalidID(t *testing.T) {
 
 // Helper functions
 
-// setupCredentialsTestDB creates a test database using Docker container
-func setupCredentialsTestDB(t *testing.T) (*bun.DB, func()) {
-	ctx := context.Background()
-
-	// Start PostgreSQL container
-	req := testcontainers.ContainerRequest{
-		Image:        "postgres:16-alpine",
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"POSTGRES_USER":     "test",
-			"POSTGRES_PASSWORD": "test",
-			"POSTGRES_DB":       "mbflow_test",
-		},
-		WaitingFor: wait.ForLog("database system is ready to accept connections"),
-	}
-
-	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	host, err := postgres.Host(ctx)
-	require.NoError(t, err)
-
-	port, err := postgres.MappedPort(ctx, "5432")
-	require.NoError(t, err)
-
-	// Connect to database
-	dsn := fmt.Sprintf("postgres://test:test@%s:%s/mbflow_test?sslmode=disable", host, port.Port())
-
-	// Wait for DB to be ready
-	time.Sleep(500 * time.Millisecond)
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New(), bun.WithDiscardUnknownColumns())
-
-	// Register m2m junction models required by bun for relation queries
-	db.RegisterModel((*models.UserRoleModel)(nil))
-
-	// Run migrations
-	migrator, err := NewMigrator(db, migrations.FS)
-	require.NoError(t, err)
-
-	err = migrator.Init(ctx)
-	require.NoError(t, err)
-
-	err = migrator.Up(ctx)
-	require.NoError(t, err)
-
-	cleanup := func() {
-		db.Close()
-		postgres.Terminate(ctx)
-	}
-
-	return db, cleanup
+func setupCredentialsTestDB(t *testing.T) (bun.IDB, func()) {
+	t.Helper()
+	return testutil.SetupTestTx(t)
 }
 
-// createCredentialsTestUser creates a test user and returns the ID
-func createCredentialsTestUser(t *testing.T, db *bun.DB) string {
+func createCredentialsTestUser(t *testing.T, db bun.IDB) string {
 	ctx := context.Background()
 	userID := uuid.New()
 

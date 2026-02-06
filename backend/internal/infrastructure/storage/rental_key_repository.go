@@ -19,12 +19,12 @@ var _ repository.RentalKeyRepository = (*RentalKeyRepositoryImpl)(nil)
 
 // RentalKeyRepositoryImpl implements the RentalKeyRepository interface
 type RentalKeyRepositoryImpl struct {
-	db         *bun.DB
+	db         bun.IDB
 	encryption *crypto.EncryptionService
 }
 
 // NewRentalKeyRepository creates a new RentalKeyRepositoryImpl
-func NewRentalKeyRepository(db *bun.DB, encryption *crypto.EncryptionService) *RentalKeyRepositoryImpl {
+func NewRentalKeyRepository(db bun.IDB, encryption *crypto.EncryptionService) *RentalKeyRepositoryImpl {
 	return &RentalKeyRepositoryImpl{
 		db:         db,
 		encryption: encryption,

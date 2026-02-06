@@ -32,7 +32,7 @@ func main() {
 
 	ctx := context.Background()
 
-	fmt.Println("=== Service API Client Example ===\n")
+	fmt.Println("=== Service API Client Example ===")
 
 	fmt.Println("1. List all workflows")
 	workflows, total, err := client.Workflows.List(ctx, &sdk.ListOptions{

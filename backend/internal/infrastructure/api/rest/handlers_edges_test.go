@@ -17,8 +17,8 @@ import (
 )
 
 func setupEdgeHandlersTest(t *testing.T) (*EdgeHandlers, *gin.Engine, *storage.WorkflowRepository, func()) {
-	testDB := testutil.SetupTestDB(t)
-	workflowRepo := storage.NewWorkflowRepository(testDB.DB)
+	db, cleanup := testutil.SetupTestTx(t)
+	workflowRepo := storage.NewWorkflowRepository(db)
 	log := logger.New(config.LoggingConfig{Level: "error", Format: "text"})
 	handlers := NewEdgeHandlers(workflowRepo, log)
 
@@ -32,12 +32,13 @@ func setupEdgeHandlersTest(t *testing.T) (*EdgeHandlers, *gin.Engine, *storage.W
 		api.DELETE("/edges/:edgeId", handlers.HandleDeleteEdge)
 	}
 
-	return handlers, router, workflowRepo, func() { testDB.Cleanup(t) }
+	return handlers, router, workflowRepo, cleanup
 }
 
 // ========== ADD EDGE TESTS ==========
 
 func TestHandlers_AddEdge_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -65,6 +66,7 @@ func TestHandlers_AddEdge_Success(t *testing.T) {
 }
 
 func TestHandlers_AddEdge_WorkflowNotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -82,6 +84,7 @@ func TestHandlers_AddEdge_WorkflowNotFound(t *testing.T) {
 }
 
 func TestHandlers_AddEdge_CreatesCycle(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -104,6 +107,7 @@ func TestHandlers_AddEdge_CreatesCycle(t *testing.T) {
 }
 
 func TestHandlers_AddEdge_InvalidNodes(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -127,6 +131,7 @@ func TestHandlers_AddEdge_InvalidNodes(t *testing.T) {
 // ========== LIST EDGES TESTS ==========
 
 func TestHandlers_ListEdges_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -146,6 +151,7 @@ func TestHandlers_ListEdges_Success(t *testing.T) {
 }
 
 func TestHandlers_ListEdges_WorkflowNotFound(t *testing.T) {
+	t.Parallel()
 	_, router, _, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -159,6 +165,7 @@ func TestHandlers_ListEdges_WorkflowNotFound(t *testing.T) {
 // ========== GET EDGE TESTS ==========
 
 func TestHandlers_GetEdge_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -181,6 +188,7 @@ func TestHandlers_GetEdge_Success(t *testing.T) {
 }
 
 func TestHandlers_GetEdge_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -198,6 +206,7 @@ func TestHandlers_GetEdge_NotFound(t *testing.T) {
 // ========== UPDATE EDGE TESTS ==========
 
 func TestHandlers_UpdateEdge_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -223,6 +232,7 @@ func TestHandlers_UpdateEdge_Success(t *testing.T) {
 }
 
 func TestHandlers_UpdateEdge_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -244,6 +254,7 @@ func TestHandlers_UpdateEdge_NotFound(t *testing.T) {
 // ========== DELETE EDGE TESTS ==========
 
 func TestHandlers_DeleteEdge_Success(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
@@ -266,6 +277,7 @@ func TestHandlers_DeleteEdge_Success(t *testing.T) {
 }
 
 func TestHandlers_DeleteEdge_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router, workflowRepo, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 

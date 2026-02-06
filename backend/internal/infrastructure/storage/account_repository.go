@@ -18,10 +18,10 @@ var _ repository.AccountRepository = (*AccountRepositoryImpl)(nil)
 var _ repository.TransactionRepository = (*TransactionRepositoryImpl)(nil)
 
 type AccountRepositoryImpl struct {
-	db *bun.DB
+	db bun.IDB
 }
 
-func NewAccountRepository(db *bun.DB) *AccountRepositoryImpl {
+func NewAccountRepository(db bun.IDB) *AccountRepositoryImpl {
 	return &AccountRepositoryImpl{db: db}
 }
 
@@ -167,10 +167,10 @@ func (r *AccountRepositoryImpl) Close(ctx context.Context, id string) error {
 }
 
 type TransactionRepositoryImpl struct {
-	db *bun.DB
+	db bun.IDB
 }
 
-func NewTransactionRepository(db *bun.DB) *TransactionRepositoryImpl {
+func NewTransactionRepository(db bun.IDB) *TransactionRepositoryImpl {
 	return &TransactionRepositoryImpl{db: db}
 }
 

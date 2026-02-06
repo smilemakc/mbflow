@@ -2,6 +2,7 @@ package template
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -1387,22 +1388,8 @@ func TestEngine_ResolveConfig_WithResources(t *testing.T) {
 			if !tt.wantErr {
 				for key, expectedVal := range tt.want {
 					gotVal := result[key]
-					if gotVal != expectedVal {
-						// Check nested maps
-						if expectedMap, ok := expectedVal.(map[string]interface{}); ok {
-							gotMap, ok := gotVal.(map[string]interface{})
-							if !ok {
-								t.Errorf("ResolveConfig()[%s] is not a map", key)
-								continue
-							}
-							for nestedKey, nestedExpected := range expectedMap {
-								if gotMap[nestedKey] != nestedExpected {
-									t.Errorf("ResolveConfig()[%s][%s] = %v, want %v", key, nestedKey, gotMap[nestedKey], nestedExpected)
-								}
-							}
-						} else {
-							t.Errorf("ResolveConfig()[%s] = %v, want %v", key, gotVal, expectedVal)
-						}
+					if !reflect.DeepEqual(gotVal, expectedVal) {
+						t.Errorf("ResolveConfig()[%s] = %v, want %v", key, gotVal, expectedVal)
 					}
 				}
 			}
