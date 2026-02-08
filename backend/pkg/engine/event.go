@@ -21,4 +21,9 @@ type ExecutionEvent struct {
 	Timestamp   time.Time
 	Input       map[string]interface{}
 	Variables   map[string]interface{}
+
+	// Loop-related fields
+	LoopEdgeID    string `json:"-"`
+	LoopIteration int    `json:"-"`
+	LoopMaxIter   int    `json:"-"`
 }

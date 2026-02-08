@@ -8,10 +8,11 @@ import (
 
 // DAG represents workflow graph with indexed lookups.
 type DAG struct {
-	Nodes    map[string]*models.Node
-	Edges    map[string][]string // nodeID -> []childNodeIDs
-	InDegree map[string]int      // nodeID -> number of parents
-	Index    *DAGIndex           // Indexed lookups for O(1) access
+	Nodes     map[string]*models.Node
+	Edges     map[string][]string // nodeID -> []childNodeIDs
+	InDegree  map[string]int      // nodeID -> number of parents
+	Index     *DAGIndex           // Indexed lookups for O(1) access
+	LoopEdges []*models.Edge      // Loop (back) edges excluded from topological sort
 }
 
 // DAGIndex provides O(1) lookups for common operations.
@@ -44,6 +45,11 @@ func BuildDAG(workflow *models.Workflow) *DAG {
 	}
 
 	for _, edge := range workflow.Edges {
+		if edge.IsLoop() {
+			dag.LoopEdges = append(dag.LoopEdges, edge)
+			continue
+		}
+
 		dag.Edges[edge.From] = append(dag.Edges[edge.From], edge.To)
 		dag.InDegree[edge.To]++
 
@@ -97,6 +103,18 @@ func TopologicalSort(dag *DAG) ([][]*models.Node, error) {
 	}
 
 	return waves, nil
+}
+
+// findNodeWave returns the wave index for a given node ID, or -1 if not found.
+func findNodeWave(waves [][]*models.Node, nodeID string) int {
+	for waveIdx, wave := range waves {
+		for _, node := range wave {
+			if node.ID == nodeID {
+				return waveIdx
+			}
+		}
+	}
+	return -1
 }
 
 // FlattenWaves converts wave-based topology to flat sequential order.

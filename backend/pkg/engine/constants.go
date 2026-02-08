@@ -22,4 +22,7 @@ const (
 
 	// DefaultNodePriority is the default priority for nodes without explicit priority
 	DefaultNodePriority = 0
+
+	// DefaultMaxLoopIterations is the default maximum number of loop iterations
+	DefaultMaxLoopIterations = 10
 )

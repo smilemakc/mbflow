@@ -106,4 +106,6 @@ const (
 	EventTypeNodeFailed         = "node.failed"
 	EventTypeNodeSkipped        = "node.skipped"
 	EventTypeNodeRetrying       = "node.retrying"
+	EventTypeLoopIteration      = "loop.iteration"
+	EventTypeLoopExhausted      = "loop.exhausted"
 )

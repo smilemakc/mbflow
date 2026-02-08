@@ -93,6 +93,11 @@ type Position struct {
 	Y float64 `json:"y"`
 }
 
+// LoopConfig configures a loop edge that allows controlled re-execution of a wave range.
+type LoopConfig struct {
+	MaxIterations int `json:"max_iterations"`
+}
+
 // Edge represents a directed edge between two nodes in the DAG.
 type Edge struct {
 	ID           string                 `json:"id"`
@@ -100,8 +105,12 @@ type Edge struct {
 	To           string                 `json:"to"`
 	SourceHandle string                 `json:"source_handle,omitempty"`
 	Condition    string                 `json:"condition,omitempty"`
+	Loop         *LoopConfig            `json:"loop,omitempty"`
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
+
+// IsLoop returns true if this edge is a loop (back) edge.
+func (e *Edge) IsLoop() bool { return e.Loop != nil }
 
 // Validate validates the workflow structure.
 func (w *Workflow) Validate() error {
@@ -189,6 +198,15 @@ func (e *Edge) Validate() error {
 
 	if e.From == e.To {
 		return &ValidationError{Field: "edge", Message: "self-loop edges are not allowed"}
+	}
+
+	if e.Loop != nil {
+		if e.Loop.MaxIterations <= 0 {
+			return &ValidationError{Field: "loop.max_iterations", Message: "must be > 0"}
+		}
+		if e.Condition != "" {
+			return &ValidationError{Field: "loop", Message: "loop edges must not have conditions"}
+		}
 	}
 
 	return nil

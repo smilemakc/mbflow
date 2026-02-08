@@ -36,6 +36,31 @@ func CollectOutgoingEdges(edges []*models.Edge, sourceNodeID string) []*models.E
 	return outgoing
 }
 
+// CollectRegularIncomingEdges collects all non-loop edges that have the given node as target.
+func CollectRegularIncomingEdges(edges []*models.Edge, targetNodeID string) []*models.Edge {
+	var incoming []*models.Edge
+	for _, edge := range edges {
+		if edge.To == targetNodeID && !edge.IsLoop() {
+			incoming = append(incoming, edge)
+		}
+	}
+	return incoming
+}
+
+// GetRegularParentNodes returns parent nodes connected via non-loop edges.
+func GetRegularParentNodes(workflow *models.Workflow, node *models.Node) []*models.Node {
+	parents := []*models.Node{}
+	incomingEdges := CollectRegularIncomingEdges(workflow.Edges, node.ID)
+
+	for _, edge := range incomingEdges {
+		if parentNode := FindNodeByID(workflow.Nodes, edge.From); parentNode != nil {
+			parents = append(parents, parentNode)
+		}
+	}
+
+	return parents
+}
+
 // GetNodePriority extracts priority from node metadata, returns default if not found.
 func GetNodePriority(node *models.Node) int {
 	if node.Metadata == nil {

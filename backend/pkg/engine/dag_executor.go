@@ -40,10 +40,22 @@ func (de *DAGExecutor) Execute(
 		return fmt.Errorf("DAG validation failed: %w", err)
 	}
 
-	for waveIdx, wave := range waves {
-		if err := de.executeWave(ctx, execState, wave, waveIdx, opts); err != nil {
+	waveIdx := 0
+	for waveIdx < len(waves) {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("execution cancelled: %w", err)
+		}
+
+		if err := de.executeWave(ctx, execState, waves[waveIdx], waveIdx, opts); err != nil {
 			return fmt.Errorf("wave %d execution failed: %w", waveIdx, err)
 		}
+
+		if jumpTarget := de.processLoopEdges(ctx, execState, dag, waves, waveIdx); jumpTarget >= 0 {
+			waveIdx = jumpTarget
+			continue
+		}
+
+		waveIdx++
 	}
 
 	return nil
@@ -244,7 +256,7 @@ func (de *DAGExecutor) executeNode(
 		defer cancel()
 	}
 
-	parentNodes := GetParentNodes(execState.Workflow, node)
+	parentNodes := GetRegularParentNodes(execState.Workflow, node)
 	nodeExecCtx := PrepareNodeContext(execState, node, parentNodes, opts)
 
 	// Execute node with retry policy
@@ -358,6 +370,94 @@ func (de *DAGExecutor) executeNode(
 	return nil
 }
 
+// processLoopEdges checks if any loop edge should fire after the current wave.
+// Returns the wave index to jump to, or -1 if no loop fires.
+func (de *DAGExecutor) processLoopEdges(
+	ctx context.Context,
+	execState *ExecutionState,
+	dag *DAG,
+	waves [][]*models.Node,
+	currentWave int,
+) int {
+	for _, edge := range dag.LoopEdges {
+		// Check if loop source is in the current wave and completed
+		sourceWave := findNodeWave(waves, edge.From)
+		if sourceWave != currentWave {
+			continue
+		}
+
+		sourceStatus, _ := execState.GetNodeStatus(edge.From)
+		if sourceStatus != models.NodeExecutionStatusCompleted {
+			continue
+		}
+
+		maxIter := edge.Loop.MaxIterations
+		currentIter := execState.GetLoopIteration(edge.ID)
+
+		if currentIter >= maxIter {
+			de.safeNotify(ctx, ExecutionEvent{
+				Type:          EventTypeLoopExhausted,
+				ExecutionID:   execState.ExecutionID,
+				WorkflowID:    execState.WorkflowID,
+				Timestamp:     time.Now(),
+				NodeID:        edge.From,
+				LoopEdgeID:    edge.ID,
+				LoopIteration: currentIter,
+				LoopMaxIter:   maxIter,
+				Message:       fmt.Sprintf("loop %s exhausted after %d iterations", edge.ID, maxIter),
+			})
+			continue
+		}
+
+		// Fire the loop
+		newIter := execState.IncrementLoopIteration(edge.ID)
+
+		// Set loop input: output of source becomes input of target
+		if output, ok := execState.GetNodeOutput(edge.From); ok {
+			execState.SetLoopInput(edge.To, output)
+		}
+
+		targetWave := findNodeWave(waves, edge.To)
+		if targetWave < 0 {
+			continue
+		}
+
+		de.resetWaveRange(execState, waves, targetWave, currentWave)
+
+		de.safeNotify(ctx, ExecutionEvent{
+			Type:          EventTypeLoopIteration,
+			ExecutionID:   execState.ExecutionID,
+			WorkflowID:    execState.WorkflowID,
+			Timestamp:     time.Now(),
+			NodeID:        edge.To,
+			LoopEdgeID:    edge.ID,
+			LoopIteration: newIter,
+			LoopMaxIter:   maxIter,
+			Message:       fmt.Sprintf("loop %s iteration %d/%d: jumping from wave %d to wave %d", edge.ID, newIter, maxIter, currentWave, targetWave),
+		})
+
+		return targetWave
+	}
+
+	return -1
+}
+
+// resetWaveRange resets execution state for all nodes in waves [from, to].
+func (de *DAGExecutor) resetWaveRange(
+	execState *ExecutionState,
+	waves [][]*models.Node,
+	from, to int,
+) {
+	for waveIdx := from; waveIdx <= to; waveIdx++ {
+		if waveIdx < 0 || waveIdx >= len(waves) {
+			continue
+		}
+		for _, node := range waves[waveIdx] {
+			execState.ResetNodeForLoop(node.ID)
+		}
+	}
+}
+
 // safeNotify wraps notifications with panic recovery.
 func (de *DAGExecutor) safeNotify(ctx context.Context, event ExecutionEvent) {
 	if de.notifier == nil {
@@ -379,9 +479,14 @@ func (de *DAGExecutor) shouldExecuteNode(
 	execState *ExecutionState,
 	node *models.Node,
 ) (bool, string) {
+	// If node has loop input, it should always execute
+	if _, hasLoopInput := execState.GetLoopInput(node.ID); hasLoopInput {
+		return true, ""
+	}
+
 	workflow := execState.Workflow
 
-	incomingEdges := CollectIncomingEdges(workflow.Edges, node.ID)
+	incomingEdges := CollectRegularIncomingEdges(workflow.Edges, node.ID)
 
 	if len(incomingEdges) == 0 {
 		return true, ""
