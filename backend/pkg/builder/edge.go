@@ -8,12 +8,14 @@ import (
 
 // EdgeBuilder builds edge definitions.
 type EdgeBuilder struct {
-	id        string
-	from      string
-	to        string
-	condition string
-	metadata  map[string]interface{}
-	err       error
+	id           string
+	from         string
+	to           string
+	condition    string
+	sourceHandle string
+	loop         *models.LoopConfig
+	metadata     map[string]interface{}
+	err          error
 }
 
 // EdgeOption is a function that configures an EdgeBuilder.
@@ -48,11 +50,13 @@ func (eb *EdgeBuilder) Build() (*models.Edge, error) {
 	}
 
 	edge := &models.Edge{
-		ID:        eb.id,
-		From:      eb.from,
-		To:        eb.to,
-		Condition: eb.condition,
-		Metadata:  eb.metadata,
+		ID:           eb.id,
+		From:         eb.from,
+		To:           eb.to,
+		SourceHandle: eb.sourceHandle,
+		Condition:    eb.condition,
+		Loop:         eb.loop,
+		Metadata:     eb.metadata,
 	}
 
 	if err := edge.Validate(); err != nil {
@@ -127,6 +131,46 @@ func WithEdgeMetadata(key string, value interface{}) EdgeOption {
 			return fmt.Errorf("metadata key cannot be empty")
 		}
 		eb.metadata[key] = value
+		return nil
+	}
+}
+
+// WithSourceHandle sets the source handle for conditional routing.
+// Used with conditional nodes to specify which branch (e.g. "true" or "false") this edge comes from.
+func WithSourceHandle(handle string) EdgeOption {
+	return func(eb *EdgeBuilder) error {
+		if handle == "" {
+			return fmt.Errorf("source handle cannot be empty")
+		}
+		eb.sourceHandle = handle
+		return nil
+	}
+}
+
+// FromTrueBranch creates an edge from the "true" branch of a conditional node.
+func FromTrueBranch() EdgeOption {
+	return func(eb *EdgeBuilder) error {
+		eb.sourceHandle = "true"
+		return nil
+	}
+}
+
+// FromFalseBranch creates an edge from the "false" branch of a conditional node.
+func FromFalseBranch() EdgeOption {
+	return func(eb *EdgeBuilder) error {
+		eb.sourceHandle = "false"
+		return nil
+	}
+}
+
+// WithLoop marks this edge as a loop (back) edge with the specified max iterations.
+// Loop edges are excluded from topological sort and enable controlled re-execution of wave ranges.
+func WithLoop(maxIterations int) EdgeOption {
+	return func(eb *EdgeBuilder) error {
+		if maxIterations <= 0 {
+			return fmt.Errorf("max iterations must be > 0")
+		}
+		eb.loop = &models.LoopConfig{MaxIterations: maxIterations}
 		return nil
 	}
 }
