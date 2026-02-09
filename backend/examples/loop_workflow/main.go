@@ -2,17 +2,26 @@
 //
 // This example demonstrates the loop edge feature in MBFlow:
 // - Generate an article draft (LLM)
-// - Review and score the content (LLM → JSON)
-// - Conditional routing: score >= 80 → publish, otherwise → improve
+// - Review and score the content (LLM → JSON with score + article)
+// - Parse the review JSON into structured data (JQ transform)
+// - Edge-condition routing: score >= 80 → format, otherwise → improve
 // - Loop edge: improve → review (max 3 iterations)
 // - Final formatting and SEO generation
 //
 // The workflow showcases:
 // 1. Loop edges with max_iterations for controlled retry cycles
-// 2. Conditional branching via SourceHandle (true/false)
-// 3. Builder API with WithLoop(), FromTrueBranch(), FromFalseBranch()
+// 2. Edge conditions for quality-based routing
+// 3. Builder API with WithLoop() and WithCondition()
 // 4. Mermaid visualization with dotted loop edges
-// 5. Wave-based parallel execution
+// 5. JQ transform for JSON parsing
+//
+// Data flow through the loop:
+//
+//	generate → review (LLM outputs JSON: {score, issues, article})
+//	  → parse_review (JQ: extracts structured data from JSON string)
+//	    → [score >= 80] → format → seo
+//	    → [score < 80]  → improve (gets article + issues from parse_review)
+//	                        ↺ loop(max=3) → review
 package main
 
 import (
@@ -145,16 +154,25 @@ func main() {
 //
 // Flow:
 //
-//	generate → review → check_score
-//	                       ├─ [true]  → format → seo
-//	                       └─ [false] → improve
-//	                                     └─ loop(max=3) → review
+//	generate → review → parse_review
+//	                       ├─ [score >= 80] → format → seo
+//	                       └─ [score < 80]  → improve
+//	                                           ↺ loop(max=3) → review
+//
+// Data flow note:
+// The LLM executor wraps all output in {"content": "..."}, so the review node's
+// JSON response (score, issues, article) is a string inside content.
+// The parse_review JQ node extracts it into a proper object with top-level fields.
+// The review prompt echoes back the article text so it survives through the pipeline.
 func buildWorkflow(apiKey string) *models.Workflow {
+	// JQ filter: parse the JSON string from LLM's "content" field
+	// into a structured object with score, issues, and article
+	parseReviewFilter := `.content | fromjson`
+
 	return builder.NewWorkflow("Iterative Article Review",
 		builder.WithDescription("Generate, review, and iteratively improve articles with loop-based retry"),
 		builder.WithVariable("openai_api_key", apiKey),
 		builder.WithVariable("model", "gpt-4o"),
-		builder.WithVariable("quality_threshold", 80),
 		builder.WithAutoLayout(),
 		builder.WithTags("loop-edges", "content-review", "iterative"),
 	).
@@ -170,7 +188,7 @@ func buildWorkflow(apiKey string) *models.Workflow {
 				builder.LLMMaxTokens(2000),
 			),
 		).
-		// Step 2: Review content quality (returns JSON with score)
+		// Step 2: Review content quality (returns JSON with score + echoed article)
 		AddNode(
 			builder.NewOpenAINode(
 				"review",
@@ -180,16 +198,21 @@ func buildWorkflow(apiKey string) *models.Workflow {
 				builder.LLMAPIKey("{{env.openai_api_key}}"),
 				builder.LLMTemperature(0.0),
 				builder.LLMJSONMode(),
-				builder.LLMMaxTokens(500),
+				builder.LLMMaxTokens(4000),
 			),
 		).
-		// Step 3: Check if quality score meets threshold
+		// Step 3: Parse the review JSON string into structured data
+		// Input:  {"content": "{\"score\":75,\"issues\":[...],\"article\":\"...\"}"}
+		// Output: {"score": 75, "issues": [...], "article": "..."}
 		AddNode(
-			builder.NewNode("check_score", "conditional", "Quality Check",
-				builder.WithConfigValue("condition", "input.score >= 80"),
+			builder.NewJQNode(
+				"parse_review",
+				"Parse Review",
+				parseReviewFilter,
 			),
 		).
-		// Step 4: Improve content (runs on false branch)
+		// Step 4: Improve content (runs when score < 80)
+		// Receives: {score, issues, article} from parse_review
 		AddNode(
 			builder.NewOpenAINode(
 				"improve",
@@ -201,16 +224,13 @@ func buildWorkflow(apiKey string) *models.Workflow {
 				builder.LLMMaxTokens(2000),
 			),
 		).
-		// Step 5: Format final output (runs on true branch)
+		// Step 5: Format final output (runs when score >= 80)
+		// Receives: {score, issues, article} from parse_review
 		AddNode(
 			builder.NewExpressionNode(
 				"format",
 				"Format Output",
-				`{
-					"article": input.content,
-					"quality_score": input.score,
-					"status": "approved"
-				}`,
+				`{"article": input.article, "quality_score": input.score, "status": "approved"}`,
 			),
 		).
 		// Step 6: Generate SEO metadata
@@ -228,10 +248,10 @@ func buildWorkflow(apiKey string) *models.Workflow {
 		).
 		// Edges: linear flow
 		Connect("generate", "review").
-		// Conditional branching from check_score
-		Connect("review", "check_score").
-		Connect("check_score", "format", builder.FromTrueBranch()).
-		Connect("check_score", "improve", builder.FromFalseBranch()).
+		Connect("review", "parse_review").
+		// Quality-based routing via edge conditions
+		Connect("parse_review", "format", builder.WithCondition("output.score >= 80")).
+		Connect("parse_review", "improve", builder.WithCondition("output.score < 80")).
 		// Continue after format
 		Connect("format", "seo").
 		// Loop edge: improve → review (retry up to 3 times)
@@ -306,7 +326,6 @@ func displayOutput(execution *models.Execution) {
 	fmt.Println("-----------------------------------------------------------------")
 
 	outputJSON, _ := json.MarshalIndent(execution.Output, "  ", "  ")
-	// Truncate long output for display
 	outputStr := string(outputJSON)
 	if len(outputStr) > 2000 {
 		outputStr = outputStr[:2000] + "\n  ... (truncated)"
@@ -318,7 +337,6 @@ func displayOutput(execution *models.Execution) {
 }
 
 func displayLoopStats(execution *models.Execution) {
-	// Count how many times review and improve nodes executed
 	reviewCount := 0
 	improveCount := 0
 	for _, nodeExec := range execution.NodeExecutions {
@@ -363,16 +381,17 @@ func showUsage() {
 	fmt.Println()
 	fmt.Println("How the loop works:")
 	fmt.Println("  1. 'generate' creates an initial article draft")
-	fmt.Println("  2. 'review' scores the content (0-100)")
-	fmt.Println("  3. 'check_score' routes based on score >= 80")
-	fmt.Println("     - true:  'format' -> 'seo' (publish path)")
-	fmt.Println("     - false: 'improve' fixes issues")
-	fmt.Println("  4. Loop edge sends improved content back to 'review'")
-	fmt.Println("  5. Repeat up to 3 times until quality passes")
+	fmt.Println("  2. 'review' scores the content and echoes article in JSON")
+	fmt.Println("  3. 'parse_review' extracts score, issues, article from JSON")
+	fmt.Println("  4. Edge conditions route based on score:")
+	fmt.Println("     - score >= 80: 'format' -> 'seo' (publish path)")
+	fmt.Println("     - score < 80:  'improve' fixes issues")
+	fmt.Println("  5. Loop edge sends improved content back to 'review'")
+	fmt.Println("  6. Repeat up to 3 times until quality passes")
 	fmt.Println()
 	fmt.Println("Expected behavior:")
-	fmt.Println("  - First try: ~30s (generate + review)")
-	fmt.Println("  - Each loop iteration: ~20s (improve + review)")
+	fmt.Println("  - First try: ~30s (generate + review + parse)")
+	fmt.Println("  - Each loop iteration: ~20s (improve + review + parse)")
 	fmt.Println("  - Total with 2 iterations: ~70s")
 	fmt.Println("=================================================================")
 }

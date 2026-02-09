@@ -19,7 +19,11 @@ Requirements:
 
 Output the article in plain text with clear section headings.`
 
-// reviewPrompt analyzes content quality and returns a structured JSON score
+// reviewPrompt analyzes content quality and returns a structured JSON score.
+// IMPORTANT: The review must echo the article back in its JSON output so that
+// downstream nodes (improve, format) can access both the score AND the article.
+// This is necessary because the LLM executor wraps output in {"content": "..."}
+// which overwrites the original article content field.
 const reviewPrompt = `You are a strict content quality reviewer.
 
 Task: Review the following article and provide a quality score with feedback.
@@ -33,37 +37,34 @@ Evaluate on these criteria:
 3. Structure and flow (0-25)
 4. Engagement and readability (0-25)
 
-Respond in JSON format:
+IMPORTANT: You MUST respond with valid JSON in exactly this format:
 {
   "score": <total score 0-100>,
-  "criteria": {
-    "clarity": <0-25>,
-    "depth": <0-25>,
-    "structure": <0-25>,
-    "engagement": <0-25>
-  },
   "issues": ["<issue1>", "<issue2>"],
-  "strengths": ["<strength1>", "<strength2>"]
+  "strengths": ["<strength1>", "<strength2>"],
+  "article": "<copy the FULL article text here exactly as provided above>"
 }
 
-Be honest and critical. Only scores above 80 indicate publication-ready quality.`
+Be honest and critical. Only scores above 80 indicate publication-ready quality.
+You MUST include the full article text in the "article" field.`
 
-// improvePrompt fixes identified issues in the content
+// improvePrompt fixes identified issues in the content.
+// Input comes from parse_review which provides: article, score, issues.
 const improvePrompt = `You are a professional editor improving content based on reviewer feedback.
 
-Task: Improve the article by addressing the identified issues while preserving strengths.
+Task: Improve the article by addressing the identified issues.
 
 Current Article:
-{{input.content}}
+{{input.article}}
 
-Review Feedback:
-{{input.review}}
+Review Score: {{input.score}}/100
+Issues Found: {{input.issues}}
 
 Instructions:
 1. Fix all issues mentioned in the review
-2. Preserve the strengths noted by the reviewer
-3. Maintain the same general structure and length
-4. Improve overall quality to achieve a score above 80
+2. Maintain the same general structure and length
+3. Improve overall quality to achieve a score above 80
+4. Keep the same topic and audience focus
 
 Output the improved article in plain text with clear section headings.`
 
