@@ -26,4 +26,12 @@ type ExecutionEvent struct {
 	LoopEdgeID    string `json:"-"`
 	LoopIteration int    `json:"-"`
 	LoopMaxIter   int    `json:"-"`
+
+	// Sub-workflow related fields
+	SubWorkflowTotal      int    `json:"sub_workflow_total,omitempty"`
+	SubWorkflowCompleted  int    `json:"sub_workflow_completed,omitempty"`
+	SubWorkflowFailed     int    `json:"sub_workflow_failed,omitempty"`
+	SubWorkflowRunning    int    `json:"sub_workflow_running,omitempty"`
+	SubWorkflowItemIndex  int    `json:"sub_workflow_item_index,omitempty"`
+	SubWorkflowItemExecID string `json:"sub_workflow_item_exec_id,omitempty"`
 }

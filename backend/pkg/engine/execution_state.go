@@ -32,6 +32,12 @@ type ExecutionState struct {
 	LoopIterations map[string]int         // edgeID -> iteration count
 	LoopInputs     map[string]interface{} // nodeID -> loop input override
 
+	// Sub-workflow parent tracking
+	ParentExecutionID string
+	ParentNodeID      string
+	ItemIndex         *int
+	ItemKey           string
+
 	mu sync.RWMutex
 }
 

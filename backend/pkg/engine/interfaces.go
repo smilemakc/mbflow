@@ -105,7 +105,10 @@ const (
 	EventTypeNodeCompleted      = "node.completed"
 	EventTypeNodeFailed         = "node.failed"
 	EventTypeNodeSkipped        = "node.skipped"
-	EventTypeNodeRetrying       = "node.retrying"
-	EventTypeLoopIteration      = "loop.iteration"
-	EventTypeLoopExhausted      = "loop.exhausted"
+	EventTypeNodeRetrying             = "node.retrying"
+	EventTypeLoopIteration            = "loop.iteration"
+	EventTypeLoopExhausted            = "loop.exhausted"
+	EventTypeSubWorkflowProgress      = "sub_workflow.progress"
+	EventTypeSubWorkflowItemCompleted = "sub_workflow.item_completed"
+	EventTypeSubWorkflowItemFailed    = "sub_workflow.item_failed"
 )
