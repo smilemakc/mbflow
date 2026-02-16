@@ -41,7 +41,10 @@ export enum NodeType {
 
     // External integrations
     GOOGLE_SHEETS = 'google_sheets',
-    GOOGLE_DRIVE = 'google_drive'
+    GOOGLE_DRIVE = 'google_drive',
+
+    // Advanced workflow patterns
+    SUB_WORKFLOW = 'sub_workflow'
 }
 
 // Type representing all possible NodeType values
@@ -90,6 +93,7 @@ export interface NodeData extends Record<string, unknown> {
     icon?: string;
     status?: NodeStatus; // Visual status indicator
     type?: NodeType; // Explicit type in data for easy access
+    nodeType?: NodeType; // Alternative naming for consistency
     lastRun?: {
         duration: number;
         timestamp: number;
@@ -99,6 +103,12 @@ export interface NodeData extends Record<string, unknown> {
     executionInput?: Record<string, any>;
     executionOutput?: Record<string, any>;
     executionError?: string;
+    subWorkflowProgress?: {
+        total: number;
+        completed: number;
+        failed: number;
+        running: number;
+    };
 }
 
 export type AppNode = ReactFlowNode<NodeData>;

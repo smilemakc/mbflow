@@ -81,6 +81,12 @@ export interface ExecutionEvent {
     error?: string;
     input?: Record<string, any>;
     output?: Record<string, any>;
+    sub_workflow_total?: number;
+    sub_workflow_completed?: number;
+    sub_workflow_failed?: number;
+    sub_workflow_running?: number;
+    sub_workflow_item_index?: number;
+    sub_workflow_item_exec_id?: string;
   };
   control?: Record<string, any>;
   timestamp: string;

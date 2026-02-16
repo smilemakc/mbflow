@@ -156,6 +156,29 @@ export function useWorkflowExecutionAnimation() {
           }
           break;
 
+        case 'sub_workflow.progress':
+        case 'sub_workflow.item_completed':
+        case 'sub_workflow.item_failed':
+          if (execEvent.node_id) {
+            const node = nodes.find((n) => n.id === execEvent.node_id);
+            if (node && node.data) {
+              const total = execEvent.sub_workflow_total || 0;
+              const completed = execEvent.sub_workflow_completed || 0;
+              const failed = execEvent.sub_workflow_failed || 0;
+              const running = total - completed - failed;
+
+              updateNodeData(execEvent.node_id, {
+                subWorkflowProgress: {
+                  total,
+                  completed,
+                  failed,
+                  running: running > 0 ? running : 0,
+                },
+              });
+            }
+          }
+          break;
+
         case 'execution.completed':
         case 'execution.failed':
           nodes.forEach((node) => {
