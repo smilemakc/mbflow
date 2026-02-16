@@ -37,7 +37,7 @@ func NewExecutionManager(
 	nodeExecutor := pkgengine.NewNodeExecutor(executorManager)
 	notifier := NewObserverNotifier(observerManager)
 	condEvaluator := pkgengine.NewExprConditionEvaluator()
-	dagExecutor := pkgengine.NewDAGExecutor(nodeExecutor, condEvaluator, notifier)
+	dagExecutor := pkgengine.NewDAGExecutor(nodeExecutor, condEvaluator, notifier, pkgengine.NewNilWorkflowLoader())
 
 	return &ExecutionManager{
 		executorManager: executorManager,

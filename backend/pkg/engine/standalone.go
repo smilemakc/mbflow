@@ -24,6 +24,7 @@ func NewStandaloneExecutor(executorManager executor.Manager) StandaloneExecutor 
 			nodeExecutor,
 			NewExprConditionEvaluator(),
 			NewNoOpNotifier(),
+			NewNilWorkflowLoader(),
 		),
 	}
 }

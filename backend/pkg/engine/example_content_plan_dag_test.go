@@ -273,7 +273,7 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 	notifier := &recordingNotifier{}
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), notifier)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), notifier, NewNilWorkflowLoader())
 
 	// ── Build workflow ──
 	// Node helper

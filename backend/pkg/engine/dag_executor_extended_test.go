@@ -30,7 +30,7 @@ func TestDAGExecutor_NodeTimeout(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -85,7 +85,7 @@ func TestDAGExecutor_RetrySuccess(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
@@ -133,7 +133,7 @@ func TestDAGExecutor_ContinueOnError(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -184,7 +184,7 @@ func TestDAGExecutor_NodePriority(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -231,7 +231,7 @@ func TestDAGExecutor_ContextCancellation(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
@@ -271,7 +271,7 @@ func TestDAGExecutor_MemoryLimit(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
@@ -355,7 +355,7 @@ func TestConditionCacheIntegration(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	// Test that cache is used across multiple edge evaluations with same condition
 	workflow := &models.Workflow{

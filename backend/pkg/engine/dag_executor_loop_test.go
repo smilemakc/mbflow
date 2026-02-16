@@ -48,7 +48,7 @@ func TestLoopEdge_BasicLoop(t *testing.T) {
 	registry.Register("fix", mockFix)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -117,7 +117,7 @@ func TestLoopEdge_LoopExhausted(t *testing.T) {
 	registry.Register("fix", mockFix)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -186,7 +186,7 @@ func TestLoopEdge_ImmediateSuccess(t *testing.T) {
 	registry.Register("fix", mockFix)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -312,7 +312,7 @@ func TestLoopEdge_InputPropagation(t *testing.T) {
 	registry.Register("n3", mockN3)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -379,7 +379,7 @@ func TestLoopEdge_ContextCancellation(t *testing.T) {
 	registry.Register("conditional", mockValidate)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -440,7 +440,7 @@ func TestLoopEdge_MultipleLoops(t *testing.T) {
 	registry.Register("conditional", mockA2)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	// Use sequential chains to avoid interference
 	workflow := &models.Workflow{
@@ -594,7 +594,7 @@ func TestLoopEdge_Events(t *testing.T) {
 	nodeExec := NewNodeExecutor(registry)
 
 	recorder := &recordingNotifier{}
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), recorder)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), recorder, NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -678,7 +678,7 @@ func TestLoopEdge_ResetClearsState(t *testing.T) {
 	registry.Register("conditional", mockN2)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -778,7 +778,7 @@ func TestLoopEdge_ComplexWorkflow(t *testing.T) {
 	registry.Register("conditional", mockProcess)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -968,7 +968,7 @@ func TestLoopEdge_MaxIterationsReached(t *testing.T) {
 	registry.Register("conditional", mockValidate)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), recorder)
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), recorder, NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",

@@ -16,14 +16,16 @@ type DAGExecutor struct {
 	nodeExecutor       *NodeExecutor
 	conditionEvaluator ConditionEvaluator
 	notifier           ExecutionNotifier
+	workflowLoader     WorkflowLoader
 }
 
 // NewDAGExecutor creates a new DAG executor.
-func NewDAGExecutor(nodeExecutor *NodeExecutor, conditionEvaluator ConditionEvaluator, notifier ExecutionNotifier) *DAGExecutor {
+func NewDAGExecutor(nodeExecutor *NodeExecutor, conditionEvaluator ConditionEvaluator, notifier ExecutionNotifier, workflowLoader WorkflowLoader) *DAGExecutor {
 	return &DAGExecutor{
 		nodeExecutor:       nodeExecutor,
 		conditionEvaluator: conditionEvaluator,
 		notifier:           notifier,
+		workflowLoader:     workflowLoader,
 	}
 }
 
@@ -242,6 +244,11 @@ func (de *DAGExecutor) executeNode(
 		NodeName:    node.Name,
 		NodeType:    node.Type,
 	})
+
+	// Sub-workflow fan-out: handled by engine, not by executor
+	if node.Type == "sub_workflow" {
+		return de.executeSubWorkflow(ctx, execState, node, opts)
+	}
 
 	// Create node-specific context with timeout
 	nodeCtx := ctx
