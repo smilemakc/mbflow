@@ -100,7 +100,18 @@ func PrepareNodeContext(
 ) *NodeContext {
 	var directParentOutput map[string]interface{}
 
-	if len(parentNodes) == 1 {
+	if loopInput, ok := execState.GetLoopInput(node.ID); ok {
+		directParentOutput = make(map[string]interface{})
+		for k, v := range execState.Input {
+			directParentOutput[k] = v
+		}
+		if loopMap, ok := loopInput.(map[string]interface{}); ok {
+			for k, v := range loopMap {
+				directParentOutput[k] = v
+			}
+		}
+		execState.ClearLoopInput(node.ID)
+	} else if len(parentNodes) == 1 {
 		directParentOutput = make(map[string]interface{})
 
 		for k, v := range execState.Input {

@@ -92,7 +92,7 @@ func (r *MermaidRenderer) Render(workflow *models.Workflow, opts *RenderOptions)
 				// Check if all edges have no conditions
 				allNoConditions := true
 				for _, edge := range edges {
-					if opts.ShowConditions && edge.Condition != "" {
+					if (opts.ShowConditions && edge.Condition != "") || edge.IsLoop() {
 						allNoConditions = false
 						break
 					}
@@ -291,6 +291,12 @@ func (r *MermaidRenderer) extractKeyConfig(node *models.Node) string {
 
 // renderEdge formats an edge connection.
 func (r *MermaidRenderer) renderEdge(edge *models.Edge, opts *RenderOptions) string {
+	// Loop edges use dotted lines with iteration label
+	if edge.IsLoop() {
+		label := fmt.Sprintf("loop (max %d)", edge.Loop.MaxIterations)
+		return fmt.Sprintf(`%s -. "%s" .-> %s`, edge.From, label, edge.To)
+	}
+
 	// Check if edge has a condition
 	if opts.ShowConditions && edge.Condition != "" {
 		// Escape HTML entities in condition

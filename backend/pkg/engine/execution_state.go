@@ -28,6 +28,10 @@ type ExecutionState struct {
 	NodeConfigs         map[string]map[string]interface{}     // nodeID -> original config
 	NodeResolvedConfigs map[string]map[string]interface{}     // nodeID -> resolved config
 
+	// Loop tracking
+	LoopIterations map[string]int         // edgeID -> iteration count
+	LoopInputs     map[string]interface{} // nodeID -> loop input override
+
 	mu sync.RWMutex
 }
 
@@ -48,6 +52,8 @@ func NewExecutionState(executionID, workflowID string, workflow *models.Workflow
 		NodeEndTimes:        make(map[string]time.Time),
 		NodeConfigs:         make(map[string]map[string]interface{}),
 		NodeResolvedConfigs: make(map[string]map[string]interface{}),
+		LoopIterations:      make(map[string]int),
+		LoopInputs:          make(map[string]interface{}),
 	}
 }
 
@@ -169,6 +175,57 @@ func (es *ExecutionState) GetNodeResolvedConfig(nodeID string) (map[string]inter
 	defer es.mu.RUnlock()
 	config, ok := es.NodeResolvedConfigs[nodeID]
 	return config, ok
+}
+
+// GetLoopIteration returns the current iteration count for a loop edge.
+func (es *ExecutionState) GetLoopIteration(edgeID string) int {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+	return es.LoopIterations[edgeID]
+}
+
+// IncrementLoopIteration increments and returns the new iteration count for a loop edge.
+func (es *ExecutionState) IncrementLoopIteration(edgeID string) int {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.LoopIterations[edgeID]++
+	return es.LoopIterations[edgeID]
+}
+
+// SetLoopInput sets a loop input override for a node.
+func (es *ExecutionState) SetLoopInput(nodeID string, input interface{}) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	es.LoopInputs[nodeID] = input
+}
+
+// GetLoopInput returns the loop input for a node, if any.
+func (es *ExecutionState) GetLoopInput(nodeID string) (interface{}, bool) {
+	es.mu.RLock()
+	defer es.mu.RUnlock()
+	input, ok := es.LoopInputs[nodeID]
+	return input, ok
+}
+
+// ClearLoopInput removes the loop input for a node.
+func (es *ExecutionState) ClearLoopInput(nodeID string) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	delete(es.LoopInputs, nodeID)
+}
+
+// ResetNodeForLoop clears all execution state for a node so it can be re-executed in a loop.
+func (es *ExecutionState) ResetNodeForLoop(nodeID string) {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	delete(es.NodeOutputs, nodeID)
+	delete(es.NodeInputs, nodeID)
+	delete(es.NodeErrors, nodeID)
+	delete(es.NodeStatus, nodeID)
+	delete(es.NodeStartTimes, nodeID)
+	delete(es.NodeEndTimes, nodeID)
+	delete(es.NodeConfigs, nodeID)
+	delete(es.NodeResolvedConfigs, nodeID)
 }
 
 // ClearNodeOutput removes output for a specific node (for memory optimization).
