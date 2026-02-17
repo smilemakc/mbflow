@@ -1,2 +1,2 @@
-// Package builder provides fluent builders for constructing MBFlow workflow definitions.
+// Package builder provides a fluent API for constructing MBFlow workflow definitions.
 package builder
