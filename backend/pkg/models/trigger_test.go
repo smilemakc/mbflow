@@ -26,7 +26,7 @@ func TestTrigger_Validate_ManualTrigger_Success(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Manual Trigger",
 		Type:       TriggerTypeManual,
-		Config:     map[string]interface{}{},
+		Config:     map[string]any{},
 		Enabled:    true,
 	}
 
@@ -38,7 +38,7 @@ func TestTrigger_Validate_MissingWorkflowID(t *testing.T) {
 	trigger := &Trigger{
 		Name:    "Test Trigger",
 		Type:    TriggerTypeManual,
-		Config:  map[string]interface{}{},
+		Config:  map[string]any{},
 		Enabled: true,
 	}
 
@@ -51,7 +51,7 @@ func TestTrigger_Validate_MissingName(t *testing.T) {
 	trigger := &Trigger{
 		WorkflowID: "wf_123",
 		Type:       TriggerTypeManual,
-		Config:     map[string]interface{}{},
+		Config:     map[string]any{},
 		Enabled:    true,
 	}
 
@@ -64,7 +64,7 @@ func TestTrigger_Validate_MissingType(t *testing.T) {
 	trigger := &Trigger{
 		WorkflowID: "wf_123",
 		Name:       "Test Trigger",
-		Config:     map[string]interface{}{},
+		Config:     map[string]any{},
 		Enabled:    true,
 	}
 
@@ -78,7 +78,7 @@ func TestTrigger_Validate_InvalidType(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Test Trigger",
 		Type:       TriggerType("invalid"),
-		Config:     map[string]interface{}{},
+		Config:     map[string]any{},
 		Enabled:    true,
 	}
 
@@ -94,7 +94,7 @@ func TestTrigger_Validate_CronTrigger_Success(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Daily Cron",
 		Type:       TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 0 * * *", // Daily at midnight
 			"timezone": "UTC",
 		},
@@ -110,7 +110,7 @@ func TestTrigger_Validate_CronTrigger_MissingSchedule(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Daily Cron",
 		Type:       TriggerTypeCron,
-		Config:     map[string]interface{}{},
+		Config:     map[string]any{},
 		Enabled:    true,
 	}
 
@@ -124,7 +124,7 @@ func TestTrigger_Validate_CronTrigger_EmptySchedule(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Daily Cron",
 		Type:       TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "",
 		},
 		Enabled: true,
@@ -140,7 +140,7 @@ func TestTrigger_Validate_CronTrigger_InvalidScheduleType(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Daily Cron",
 		Type:       TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": 123, // Should be string
 		},
 		Enabled: true,
@@ -158,7 +158,7 @@ func TestTrigger_Validate_WebhookTrigger_Success(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Webhook Trigger",
 		Type:       TriggerTypeWebhook,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"secret": "my-secret-token",
 		},
 		Enabled: true,
@@ -174,7 +174,7 @@ func TestTrigger_Validate_WebhookTrigger_NoConfig(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Webhook Trigger",
 		Type:       TriggerTypeWebhook,
-		Config:     map[string]interface{}{},
+		Config:     map[string]any{},
 		Enabled:    true,
 	}
 
@@ -189,7 +189,7 @@ func TestTrigger_Validate_EventTrigger_Success(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Event Trigger",
 		Type:       TriggerTypeEvent,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"event_type": "user.created",
 			"source":     "user-service",
 		},
@@ -205,7 +205,7 @@ func TestTrigger_Validate_EventTrigger_MissingEventType(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Event Trigger",
 		Type:       TriggerTypeEvent,
-		Config:     map[string]interface{}{},
+		Config:     map[string]any{},
 		Enabled:    true,
 	}
 
@@ -219,7 +219,7 @@ func TestTrigger_Validate_EventTrigger_EmptyEventType(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Event Trigger",
 		Type:       TriggerTypeEvent,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"event_type": "",
 		},
 		Enabled: true,
@@ -235,7 +235,7 @@ func TestTrigger_Validate_EventTrigger_InvalidEventTypeType(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Event Trigger",
 		Type:       TriggerTypeEvent,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"event_type": 123, // Should be string
 		},
 		Enabled: true,
@@ -253,7 +253,7 @@ func TestTrigger_Validate_IntervalTrigger_NumberSuccess(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Interval Trigger",
 		Type:       TriggerTypeInterval,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"interval": float64(30), // 30 seconds
 		},
 		Enabled: true,
@@ -278,7 +278,7 @@ func TestTrigger_Validate_IntervalTrigger_DurationStringSuccess(t *testing.T) {
 				WorkflowID: "wf_123",
 				Name:       "Interval Trigger",
 				Type:       TriggerTypeInterval,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"interval": interval,
 				},
 				Enabled: true,
@@ -295,7 +295,7 @@ func TestTrigger_Validate_IntervalTrigger_MissingInterval(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Interval Trigger",
 		Type:       TriggerTypeInterval,
-		Config:     map[string]interface{}{},
+		Config:     map[string]any{},
 		Enabled:    true,
 	}
 
@@ -309,7 +309,7 @@ func TestTrigger_Validate_IntervalTrigger_ZeroInterval(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Interval Trigger",
 		Type:       TriggerTypeInterval,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"interval": float64(0),
 		},
 		Enabled: true,
@@ -325,7 +325,7 @@ func TestTrigger_Validate_IntervalTrigger_NegativeInterval(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Interval Trigger",
 		Type:       TriggerTypeInterval,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"interval": float64(-10),
 		},
 		Enabled: true,
@@ -341,7 +341,7 @@ func TestTrigger_Validate_IntervalTrigger_InvalidDurationFormat(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Interval Trigger",
 		Type:       TriggerTypeInterval,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"interval": "invalid duration",
 		},
 		Enabled: true,
@@ -357,7 +357,7 @@ func TestTrigger_Validate_IntervalTrigger_InvalidType(t *testing.T) {
 		WorkflowID: "wf_123",
 		Name:       "Interval Trigger",
 		Type:       TriggerTypeInterval,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"interval": true, // Invalid type (bool)
 		},
 		Enabled: true,
@@ -381,7 +381,7 @@ func TestTrigger_JSONMarshaling(t *testing.T) {
 		Name:        "Test Trigger",
 		Description: "Test trigger description",
 		Type:        TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 * * * *",
 		},
 		Enabled:   true,
@@ -389,7 +389,7 @@ func TestTrigger_JSONMarshaling(t *testing.T) {
 		UpdatedAt: now,
 		LastRun:   &lastRun,
 		NextRun:   &nextRun,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"author": "system",
 		},
 	}
@@ -489,7 +489,7 @@ func TestWebhookConfig_Empty(t *testing.T) {
 func TestEventConfig_JSONMarshaling(t *testing.T) {
 	config := &EventConfig{
 		EventType: "user.created",
-		Filter: map[string]interface{}{
+		Filter: map[string]any{
 			"status": "active",
 			"role":   "admin",
 		},
@@ -588,7 +588,7 @@ func TestTrigger_AllTypes_Validation(t *testing.T) {
 				WorkflowID: "wf_123",
 				Name:       "Manual",
 				Type:       TriggerTypeManual,
-				Config:     map[string]interface{}{},
+				Config:     map[string]any{},
 				Enabled:    true,
 			},
 			wantErr: false,
@@ -599,7 +599,7 @@ func TestTrigger_AllTypes_Validation(t *testing.T) {
 				WorkflowID: "wf_123",
 				Name:       "Hourly Cron",
 				Type:       TriggerTypeCron,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"schedule": "0 * * * *",
 				},
 				Enabled: true,
@@ -612,7 +612,7 @@ func TestTrigger_AllTypes_Validation(t *testing.T) {
 				WorkflowID: "wf_123",
 				Name:       "Webhook",
 				Type:       TriggerTypeWebhook,
-				Config:     map[string]interface{}{},
+				Config:     map[string]any{},
 				Enabled:    true,
 			},
 			wantErr: false,
@@ -623,7 +623,7 @@ func TestTrigger_AllTypes_Validation(t *testing.T) {
 				WorkflowID: "wf_123",
 				Name:       "Event",
 				Type:       TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.created",
 				},
 				Enabled: true,
@@ -636,7 +636,7 @@ func TestTrigger_AllTypes_Validation(t *testing.T) {
 				WorkflowID: "wf_123",
 				Name:       "Interval",
 				Type:       TriggerTypeInterval,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"interval": "5m",
 				},
 				Enabled: true,

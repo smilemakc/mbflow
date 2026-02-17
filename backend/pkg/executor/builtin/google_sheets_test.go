@@ -12,13 +12,13 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "valid read config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":      "read",
 				"spreadsheet_id": "1234567890abcdef",
 				"credentials":    validCredentials,
@@ -29,7 +29,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid write config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":          "write",
 				"spreadsheet_id":     "1234567890abcdef",
 				"credentials":        validCredentials,
@@ -40,7 +40,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid append config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":          "append",
 				"spreadsheet_id":     "1234567890abcdef",
 				"credentials":        validCredentials,
@@ -52,7 +52,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing operation",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"spreadsheet_id": "1234567890abcdef",
 				"credentials":    validCredentials,
 			},
@@ -61,7 +61,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing spreadsheet_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "read",
 				"credentials": validCredentials,
 			},
@@ -70,7 +70,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing credentials",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":      "read",
 				"spreadsheet_id": "1234567890abcdef",
 			},
@@ -79,7 +79,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid operation",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":      "delete",
 				"spreadsheet_id": "1234567890abcdef",
 				"credentials":    validCredentials,
@@ -89,7 +89,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "empty spreadsheet_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":      "read",
 				"spreadsheet_id": "",
 				"credentials":    validCredentials,
@@ -99,7 +99,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid credentials JSON",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":      "read",
 				"spreadsheet_id": "1234567890abcdef",
 				"credentials":    "not a json",
@@ -109,7 +109,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid value_input_option",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":          "write",
 				"spreadsheet_id":     "1234567890abcdef",
 				"credentials":        validCredentials,
@@ -120,7 +120,7 @@ func TestGoogleSheetsExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid major_dimension",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":       "read",
 				"spreadsheet_id":  "1234567890abcdef",
 				"credentials":     validCredentials,
@@ -156,19 +156,19 @@ func TestGoogleSheetsExecutor_ExtractValuesFromInput(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		input   interface{}
+		input   any
 		columns []string
-		want    [][]interface{}
+		want    [][]any
 		wantErr bool
 	}{
 		{
 			name: "2D array direct",
-			input: [][]interface{}{
+			input: [][]any{
 				{"A1", "B1", "C1"},
 				{"A2", "B2", "C2"},
 			},
 			columns: nil,
-			want: [][]interface{}{
+			want: [][]any{
 				{"A1", "B1", "C1"},
 				{"A2", "B2", "C2"},
 			},
@@ -176,12 +176,12 @@ func TestGoogleSheetsExecutor_ExtractValuesFromInput(t *testing.T) {
 		},
 		{
 			name: "array of arrays",
-			input: []interface{}{
-				[]interface{}{"A1", "B1"},
-				[]interface{}{"A2", "B2"},
+			input: []any{
+				[]any{"A1", "B1"},
+				[]any{"A2", "B2"},
 			},
 			columns: nil,
-			want: [][]interface{}{
+			want: [][]any{
 				{"A1", "B1"},
 				{"A2", "B2"},
 			},
@@ -189,12 +189,12 @@ func TestGoogleSheetsExecutor_ExtractValuesFromInput(t *testing.T) {
 		},
 		{
 			name: "array of objects with columns",
-			input: []interface{}{
-				map[string]interface{}{"name": "John", "age": 30},
-				map[string]interface{}{"name": "Jane", "age": 25},
+			input: []any{
+				map[string]any{"name": "John", "age": 30},
+				map[string]any{"name": "Jane", "age": 25},
 			},
 			columns: []string{"name", "age"},
-			want: [][]interface{}{
+			want: [][]any{
 				{"John", 30},
 				{"Jane", 25},
 			},
@@ -202,12 +202,12 @@ func TestGoogleSheetsExecutor_ExtractValuesFromInput(t *testing.T) {
 		},
 		{
 			name: "array of objects without columns (alphabetical)",
-			input: []interface{}{
-				map[string]interface{}{"name": "John", "age": 30},
-				map[string]interface{}{"name": "Jane", "age": 25},
+			input: []any{
+				map[string]any{"name": "John", "age": 30},
+				map[string]any{"name": "Jane", "age": 25},
 			},
 			columns: nil,
-			want: [][]interface{}{
+			want: [][]any{
 				{30, "John"}, // age, name (alphabetical)
 				{25, "Jane"},
 			},
@@ -215,14 +215,14 @@ func TestGoogleSheetsExecutor_ExtractValuesFromInput(t *testing.T) {
 		},
 		{
 			name: "map with data field",
-			input: map[string]interface{}{
-				"data": [][]interface{}{
+			input: map[string]any{
+				"data": [][]any{
 					{"A1", "B1"},
 					{"A2", "B2"},
 				},
 			},
 			columns: nil,
-			want: [][]interface{}{
+			want: [][]any{
 				{"A1", "B1"},
 				{"A2", "B2"},
 			},
@@ -235,7 +235,7 @@ func TestGoogleSheetsExecutor_ExtractValuesFromInput(t *testing.T) {
 				["A2", "B2"]
 			]`,
 			columns: nil,
-			want: [][]interface{}{
+			want: [][]any{
 				{"A1", "B1"},
 				{"A2", "B2"},
 			},
@@ -249,41 +249,41 @@ func TestGoogleSheetsExecutor_ExtractValuesFromInput(t *testing.T) {
 		},
 		{
 			name: "single object as single row",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"title": "Test",
 				"value": 42,
 			},
 			columns: []string{"title", "value"},
-			want: [][]interface{}{
+			want: [][]any{
 				{"Test", 42},
 			},
 			wantErr: false,
 		},
 		{
 			name: "object with nested array",
-			input: []interface{}{
-				map[string]interface{}{
+			input: []any{
+				map[string]any{
 					"title":      "Article",
-					"categories": []interface{}{"news", "tech"},
+					"categories": []any{"news", "tech"},
 				},
 			},
 			columns: []string{"title", "categories"},
-			want: [][]interface{}{
+			want: [][]any{
 				{"Article", `["news","tech"]`}, // array serialized as JSON
 			},
 			wantErr: false,
 		},
 		{
 			name: "RSS-like object",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"author":      "",
-				"categories":  []interface{}{"soccer"},
+				"categories":  []any{"soccer"},
 				"title":       "Test Article",
 				"description": "Description text",
 				"link":        "https://example.com",
 			},
 			columns: []string{"title", "description", "link", "categories"},
-			want: [][]interface{}{
+			want: [][]any{
 				{"Test Article", "Description text", "https://example.com", `["soccer"]`},
 			},
 			wantErr: false,
@@ -333,32 +333,32 @@ func TestGoogleSheetsExecutor_ExtractColumns(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		config map[string]interface{}
+		config map[string]any
 		want   []string
 	}{
 		{
 			name:   "no columns",
-			config: map[string]interface{}{},
+			config: map[string]any{},
 			want:   nil,
 		},
 		{
 			name:   "empty string",
-			config: map[string]interface{}{"columns": ""},
+			config: map[string]any{"columns": ""},
 			want:   nil,
 		},
 		{
 			name:   "comma-separated string",
-			config: map[string]interface{}{"columns": "title, description, link"},
+			config: map[string]any{"columns": "title, description, link"},
 			want:   []string{"title", "description", "link"},
 		},
 		{
 			name:   "array of strings",
-			config: map[string]interface{}{"columns": []interface{}{"title", "description", "link"}},
+			config: map[string]any{"columns": []any{"title", "description", "link"}},
 			want:   []string{"title", "description", "link"},
 		},
 		{
 			name:   "string array type",
-			config: map[string]interface{}{"columns": []string{"a", "b", "c"}},
+			config: map[string]any{"columns": []string{"a", "b", "c"}},
 			want:   []string{"a", "b", "c"},
 		},
 	}
@@ -384,7 +384,7 @@ func TestGoogleSheetsExecutor_SerializeValue(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		want  string
 	}{
 		{
@@ -414,12 +414,12 @@ func TestGoogleSheetsExecutor_SerializeValue(t *testing.T) {
 		},
 		{
 			name:  "array",
-			input: []interface{}{"a", "b"},
+			input: []any{"a", "b"},
 			want:  `["a","b"]`,
 		},
 		{
 			name:  "nested object",
-			input: map[string]interface{}{"key": "value"},
+			input: map[string]any{"key": "value"},
 			want:  `{"key":"value"}`,
 		},
 	}
@@ -436,7 +436,7 @@ func TestGoogleSheetsExecutor_SerializeValue(t *testing.T) {
 }
 
 // toString converts any value to string for comparison
-func toString(v interface{}) string {
+func toString(v any) string {
 	switch val := v.(type) {
 	case string:
 		return val
@@ -518,37 +518,37 @@ func TestGoogleSheetsExecutor_CalculateDefaultRange(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		values         [][]interface{}
+		values         [][]any
 		majorDimension string
 		want           string
 	}{
 		{
 			name:           "empty ROWS",
-			values:         [][]interface{}{},
+			values:         [][]any{},
 			majorDimension: "ROWS",
 			want:           "A1",
 		},
 		{
 			name:           "empty COLUMNS",
-			values:         [][]interface{}{},
+			values:         [][]any{},
 			majorDimension: "COLUMNS",
 			want:           "A1",
 		},
 		{
 			name:           "single cell ROWS",
-			values:         [][]interface{}{{"A"}},
+			values:         [][]any{{"A"}},
 			majorDimension: "ROWS",
 			want:           "A1:A1",
 		},
 		{
 			name:           "single cell COLUMNS",
-			values:         [][]interface{}{{"A"}},
+			values:         [][]any{{"A"}},
 			majorDimension: "COLUMNS",
 			want:           "A1:A1",
 		},
 		{
 			name: "3x5 grid ROWS",
-			values: [][]interface{}{
+			values: [][]any{
 				{"A", "B", "C", "D", "E"},
 				{"1", "2", "3", "4", "5"},
 				{"X", "Y", "Z", "W", "V"},
@@ -558,7 +558,7 @@ func TestGoogleSheetsExecutor_CalculateDefaultRange(t *testing.T) {
 		},
 		{
 			name: "3x5 grid COLUMNS - 3 arrays of 5 elements = 5 rows x 3 columns",
-			values: [][]interface{}{
+			values: [][]any{
 				{"A", "B", "C", "D", "E"}, // column 1
 				{"1", "2", "3", "4", "5"}, // column 2
 				{"X", "Y", "Z", "W", "V"}, // column 3
@@ -568,7 +568,7 @@ func TestGoogleSheetsExecutor_CalculateDefaultRange(t *testing.T) {
 		},
 		{
 			name: "varying row lengths ROWS",
-			values: [][]interface{}{
+			values: [][]any{
 				{"A", "B"},
 				{"1", "2", "3", "4"},
 				{"X"},
@@ -578,7 +578,7 @@ func TestGoogleSheetsExecutor_CalculateDefaultRange(t *testing.T) {
 		},
 		{
 			name: "varying lengths COLUMNS - 3 columns with varying rows",
-			values: [][]interface{}{
+			values: [][]any{
 				{"A", "B"},           // column 1 with 2 rows
 				{"1", "2", "3", "4"}, // column 2 with 4 rows
 				{"X"},                // column 3 with 1 row
@@ -611,10 +611,10 @@ func TestGoogleSheetsExecutor_CalculateDefaultRange(t *testing.T) {
 }
 
 // make30x8Values creates a test dataset simulating 30 RSS items with 8 fields each
-func make30x8Values() [][]interface{} {
-	result := make([][]interface{}, 30)
+func make30x8Values() [][]any {
+	result := make([][]any, 30)
 	for i := 0; i < 30; i++ {
-		result[i] = make([]interface{}, 8)
+		result[i] = make([]any, 8)
 		for j := 0; j < 8; j++ {
 			result[i][j] = "value"
 		}
@@ -678,7 +678,7 @@ func TestGoogleSheetsExecutor_Execute_ValidationOnly(t *testing.T) {
 	ctx := context.Background()
 
 	// Test with invalid credentials format (should fail before API call)
-	config := map[string]interface{}{
+	config := map[string]any{
 		"operation":      "read",
 		"spreadsheet_id": "test123",
 		"credentials":    "invalid json",

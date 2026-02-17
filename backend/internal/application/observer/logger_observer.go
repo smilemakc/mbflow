@@ -61,7 +61,7 @@ func (o *LoggerObserver) OnEvent(ctx context.Context, event Event) error {
 		return nil // No logger configured, skip silently
 	}
 
-	fields := []interface{}{
+	fields := []any{
 		"event_type", string(event.Type),
 		"execution_id", event.ExecutionID,
 		"workflow_id", event.WorkflowID,

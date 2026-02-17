@@ -11,7 +11,7 @@ import (
 // and other consumers without requiring internal package imports.
 type ExecutionRunner interface {
 	// Execute starts a new workflow execution with the given input.
-	Execute(ctx context.Context, workflow *models.Workflow, input map[string]interface{}, opts *ExecutionOptions) (*models.Execution, error)
+	Execute(ctx context.Context, workflow *models.Workflow, input map[string]any, opts *ExecutionOptions) (*models.Execution, error)
 
 	// GetExecution retrieves an execution by ID.
 	GetExecution(ctx context.Context, executionID string) (*models.Execution, error)
@@ -25,7 +25,7 @@ type ExecutionRunner interface {
 type StandaloneExecutor interface {
 	// ExecuteStandalone executes a workflow synchronously without persistence.
 	// All execution happens in-memory and no data is stored to a database.
-	ExecuteStandalone(ctx context.Context, workflow *models.Workflow, input map[string]interface{}, opts *ExecutionOptions) (*models.Execution, error)
+	ExecuteStandalone(ctx context.Context, workflow *models.Workflow, input map[string]any, opts *ExecutionOptions) (*models.Execution, error)
 }
 
 // ObserverManager manages execution event observers.
@@ -75,7 +75,7 @@ type Event struct {
 	Error string
 
 	// Metadata contains additional event-specific data
-	Metadata map[string]interface{}
+	Metadata map[string]any
 }
 
 // ConditionEvaluator evaluates edge conditions.
@@ -83,7 +83,7 @@ type Event struct {
 type ConditionEvaluator interface {
 	// Evaluate evaluates a condition expression against node output.
 	// Returns true if the condition passes.
-	Evaluate(condition string, nodeOutput interface{}) (bool, error)
+	Evaluate(condition string, nodeOutput any) (bool, error)
 }
 
 // ExecutionNotifier receives execution lifecycle events.
@@ -95,17 +95,20 @@ type ExecutionNotifier interface {
 
 // EventType constants for execution events.
 const (
-	EventTypeExecutionStarted   = "execution.started"
-	EventTypeExecutionCompleted = "execution.completed"
-	EventTypeExecutionFailed    = "execution.failed"
-	EventTypeExecutionCancelled = "execution.cancelled"
-	EventTypeWaveStarted        = "wave.started"
-	EventTypeWaveCompleted      = "wave.completed"
-	EventTypeNodeStarted        = "node.started"
-	EventTypeNodeCompleted      = "node.completed"
-	EventTypeNodeFailed         = "node.failed"
-	EventTypeNodeSkipped        = "node.skipped"
-	EventTypeNodeRetrying       = "node.retrying"
-	EventTypeLoopIteration      = "loop.iteration"
-	EventTypeLoopExhausted      = "loop.exhausted"
+	EventTypeExecutionStarted         = "execution.started"
+	EventTypeExecutionCompleted       = "execution.completed"
+	EventTypeExecutionFailed          = "execution.failed"
+	EventTypeExecutionCancelled       = "execution.cancelled"
+	EventTypeWaveStarted              = "wave.started"
+	EventTypeWaveCompleted            = "wave.completed"
+	EventTypeNodeStarted              = "node.started"
+	EventTypeNodeCompleted            = "node.completed"
+	EventTypeNodeFailed               = "node.failed"
+	EventTypeNodeSkipped              = "node.skipped"
+	EventTypeNodeRetrying             = "node.retrying"
+	EventTypeLoopIteration            = "loop.iteration"
+	EventTypeLoopExhausted            = "loop.exhausted"
+	EventTypeSubWorkflowProgress      = "sub_workflow.progress"
+	EventTypeSubWorkflowItemCompleted = "sub_workflow.item_completed"
+	EventTypeSubWorkflowItemFailed    = "sub_workflow.item_failed"
 )

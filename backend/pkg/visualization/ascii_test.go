@@ -80,8 +80,8 @@ func TestASCIIRenderer_Render(t *testing.T) {
 			workflow: &models.Workflow{
 				Name: "Detailed Workflow",
 				Nodes: []*models.Node{
-					{ID: "a", Name: "Node A", Type: "http", Config: map[string]interface{}{"method": "GET", "url": "/api/test"}},
-					{ID: "b", Name: "Node B", Type: "http", Config: map[string]interface{}{"method": "POST", "url": "/api/create"}},
+					{ID: "a", Name: "Node A", Type: "http", Config: map[string]any{"method": "GET", "url": "/api/test"}},
+					{ID: "b", Name: "Node B", Type: "http", Config: map[string]any{"method": "POST", "url": "/api/create"}},
 				},
 				Edges: []*models.Edge{
 					{ID: "e1", From: "a", To: "b"},
@@ -250,7 +250,7 @@ func TestASCIIRenderer_ConfigExtraction(t *testing.T) {
 			node: &models.Node{
 				ID:   "http1",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "POST",
 					"url":    "https://api.example.com/users",
 				},
@@ -262,7 +262,7 @@ func TestASCIIRenderer_ConfigExtraction(t *testing.T) {
 			node: &models.Node{
 				ID:   "llm1",
 				Type: "llm",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"provider": "openai",
 					"model":    "gpt-4",
 				},
@@ -274,7 +274,7 @@ func TestASCIIRenderer_ConfigExtraction(t *testing.T) {
 			node: &models.Node{
 				ID:   "transform1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "expression",
 				},
 			},
@@ -285,7 +285,7 @@ func TestASCIIRenderer_ConfigExtraction(t *testing.T) {
 			node: &models.Node{
 				ID:     "empty",
 				Type:   "custom",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			want: "",
 		},

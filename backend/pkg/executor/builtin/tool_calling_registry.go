@@ -20,17 +20,17 @@ type ToolCallingRegistry struct {
 
 // WorkflowExecutor интерфейс для выполнения workflow
 type WorkflowExecutor interface {
-	ExecuteWorkflow(ctx context.Context, workflowID string, input map[string]interface{}) (interface{}, error)
+	ExecuteWorkflow(ctx context.Context, workflowID string, input map[string]any) (any, error)
 }
 
 // CodeExecutor интерфейс для выполнения кода
 type CodeExecutor interface {
-	ExecuteCode(ctx context.Context, language, code string, args map[string]interface{}) (interface{}, error)
+	ExecuteCode(ctx context.Context, language, code string, args map[string]any) (any, error)
 }
 
 // OpenAPIExecutor интерфейс для OpenAPI calls
 type OpenAPIExecutor interface {
-	ExecuteOperation(ctx context.Context, spec, operationID, baseURL string, args map[string]interface{}, auth map[string]interface{}) (interface{}, error)
+	ExecuteOperation(ctx context.Context, spec, operationID, baseURL string, args map[string]any, auth map[string]any) (any, error)
 }
 
 // NewToolCallingRegistry создает новый registry
@@ -66,9 +66,9 @@ func (r *ToolCallingRegistry) ExecuteFunction(
 	ctx context.Context,
 	funcDef *models.FunctionDefinition,
 	argumentsJSON string,
-) (interface{}, error) {
+) (any, error) {
 	// Парсим аргументы
-	var args map[string]interface{}
+	var args map[string]any
 	if argumentsJSON != "" {
 		if err := json.Unmarshal([]byte(argumentsJSON), &args); err != nil {
 			return nil, fmt.Errorf("failed to parse arguments: %w", err)
@@ -92,8 +92,8 @@ func (r *ToolCallingRegistry) ExecuteFunction(
 func (r *ToolCallingRegistry) executeBuiltin(
 	ctx context.Context,
 	funcDef *models.FunctionDefinition,
-	args map[string]interface{},
-) (interface{}, error) {
+	args map[string]any,
+) (any, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -112,8 +112,8 @@ func (r *ToolCallingRegistry) executeBuiltin(
 func (r *ToolCallingRegistry) executeSubWorkflow(
 	ctx context.Context,
 	funcDef *models.FunctionDefinition,
-	args map[string]interface{},
-) (interface{}, error) {
+	args map[string]any,
+) (any, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -122,7 +122,7 @@ func (r *ToolCallingRegistry) executeSubWorkflow(
 	}
 
 	// Мапинг аргументов на workflow variables
-	workflowInput := make(map[string]interface{})
+	workflowInput := make(map[string]any)
 	for argName, workflowVar := range funcDef.InputMapping {
 		if val, ok := args[argName]; ok {
 			workflowInput[workflowVar] = val
@@ -146,8 +146,8 @@ func (r *ToolCallingRegistry) executeSubWorkflow(
 func (r *ToolCallingRegistry) executeCustomCode(
 	ctx context.Context,
 	funcDef *models.FunctionDefinition,
-	args map[string]interface{},
-) (interface{}, error) {
+	args map[string]any,
+) (any, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -161,8 +161,8 @@ func (r *ToolCallingRegistry) executeCustomCode(
 func (r *ToolCallingRegistry) executeOpenAPI(
 	ctx context.Context,
 	funcDef *models.FunctionDefinition,
-	args map[string]interface{},
-) (interface{}, error) {
+	args map[string]any,
+) (any, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

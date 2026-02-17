@@ -392,7 +392,7 @@ func RegisterMBFlowServiceAPIServer(s grpc.ServiceRegistrar, srv MBFlowServiceAP
 	s.RegisterService(&MBFlowServiceAPI_ServiceDesc, srv)
 }
 
-func _MBFlowServiceAPI_ListWorkflows_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_ListWorkflows_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(ListWorkflowsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -404,13 +404,13 @@ func _MBFlowServiceAPI_ListWorkflows_Handler(srv interface{}, ctx context.Contex
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_ListWorkflows_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).ListWorkflows(ctx, req.(*ListWorkflowsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_GetWorkflow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_GetWorkflow_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetWorkflowRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -422,13 +422,13 @@ func _MBFlowServiceAPI_GetWorkflow_Handler(srv interface{}, ctx context.Context,
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_GetWorkflow_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).GetWorkflow(ctx, req.(*GetWorkflowRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_CreateWorkflow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_CreateWorkflow_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(CreateWorkflowRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -440,13 +440,13 @@ func _MBFlowServiceAPI_CreateWorkflow_Handler(srv interface{}, ctx context.Conte
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_CreateWorkflow_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).CreateWorkflow(ctx, req.(*CreateWorkflowRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_UpdateWorkflow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_UpdateWorkflow_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(UpdateWorkflowRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -458,13 +458,13 @@ func _MBFlowServiceAPI_UpdateWorkflow_Handler(srv interface{}, ctx context.Conte
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_UpdateWorkflow_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).UpdateWorkflow(ctx, req.(*UpdateWorkflowRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_DeleteWorkflow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_DeleteWorkflow_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(DeleteWorkflowRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -476,13 +476,13 @@ func _MBFlowServiceAPI_DeleteWorkflow_Handler(srv interface{}, ctx context.Conte
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_DeleteWorkflow_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).DeleteWorkflow(ctx, req.(*DeleteWorkflowRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_ListExecutions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_ListExecutions_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(ListExecutionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -494,13 +494,13 @@ func _MBFlowServiceAPI_ListExecutions_Handler(srv interface{}, ctx context.Conte
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_ListExecutions_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).ListExecutions(ctx, req.(*ListExecutionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_GetExecution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_GetExecution_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetExecutionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -512,13 +512,13 @@ func _MBFlowServiceAPI_GetExecution_Handler(srv interface{}, ctx context.Context
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_GetExecution_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).GetExecution(ctx, req.(*GetExecutionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_StartExecution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_StartExecution_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(StartExecutionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -530,13 +530,13 @@ func _MBFlowServiceAPI_StartExecution_Handler(srv interface{}, ctx context.Conte
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_StartExecution_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).StartExecution(ctx, req.(*StartExecutionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_CancelExecution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_CancelExecution_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(CancelExecutionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -548,13 +548,13 @@ func _MBFlowServiceAPI_CancelExecution_Handler(srv interface{}, ctx context.Cont
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_CancelExecution_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).CancelExecution(ctx, req.(*CancelExecutionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_RetryExecution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_RetryExecution_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(RetryExecutionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -566,13 +566,13 @@ func _MBFlowServiceAPI_RetryExecution_Handler(srv interface{}, ctx context.Conte
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_RetryExecution_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).RetryExecution(ctx, req.(*RetryExecutionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_ListTriggers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_ListTriggers_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(ListTriggersRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -584,13 +584,13 @@ func _MBFlowServiceAPI_ListTriggers_Handler(srv interface{}, ctx context.Context
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_ListTriggers_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).ListTriggers(ctx, req.(*ListTriggersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_CreateTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_CreateTrigger_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(CreateTriggerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -602,13 +602,13 @@ func _MBFlowServiceAPI_CreateTrigger_Handler(srv interface{}, ctx context.Contex
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_CreateTrigger_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).CreateTrigger(ctx, req.(*CreateTriggerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_UpdateTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_UpdateTrigger_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(UpdateTriggerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -620,13 +620,13 @@ func _MBFlowServiceAPI_UpdateTrigger_Handler(srv interface{}, ctx context.Contex
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_UpdateTrigger_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).UpdateTrigger(ctx, req.(*UpdateTriggerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_DeleteTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_DeleteTrigger_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(DeleteTriggerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -638,13 +638,13 @@ func _MBFlowServiceAPI_DeleteTrigger_Handler(srv interface{}, ctx context.Contex
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_DeleteTrigger_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).DeleteTrigger(ctx, req.(*DeleteTriggerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_ListCredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_ListCredentials_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(ListCredentialsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -656,13 +656,13 @@ func _MBFlowServiceAPI_ListCredentials_Handler(srv interface{}, ctx context.Cont
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_ListCredentials_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).ListCredentials(ctx, req.(*ListCredentialsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_CreateCredential_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_CreateCredential_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(CreateCredentialRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -674,13 +674,13 @@ func _MBFlowServiceAPI_CreateCredential_Handler(srv interface{}, ctx context.Con
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_CreateCredential_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).CreateCredential(ctx, req.(*CreateCredentialRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_UpdateCredential_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_UpdateCredential_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(UpdateCredentialRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -692,13 +692,13 @@ func _MBFlowServiceAPI_UpdateCredential_Handler(srv interface{}, ctx context.Con
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_UpdateCredential_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).UpdateCredential(ctx, req.(*UpdateCredentialRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_DeleteCredential_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_DeleteCredential_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(DeleteCredentialRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -710,13 +710,13 @@ func _MBFlowServiceAPI_DeleteCredential_Handler(srv interface{}, ctx context.Con
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_DeleteCredential_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).DeleteCredential(ctx, req.(*DeleteCredentialRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MBFlowServiceAPI_ListAuditLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _MBFlowServiceAPI_ListAuditLog_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(ListAuditLogRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -728,7 +728,7 @@ func _MBFlowServiceAPI_ListAuditLog_Handler(srv interface{}, ctx context.Context
 		Server:     srv,
 		FullMethod: MBFlowServiceAPI_ListAuditLog_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(MBFlowServiceAPIServer).ListAuditLog(ctx, req.(*ListAuditLogRequest))
 	}
 	return interceptor(ctx, in, info, handler)

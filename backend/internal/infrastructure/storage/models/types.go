@@ -7,7 +7,7 @@ import (
 )
 
 // JSONBMap is a custom type for JSONB columns
-type JSONBMap map[string]interface{}
+type JSONBMap map[string]any
 
 // Value implements the driver.Valuer interface for database serialization
 func (j JSONBMap) Value() (driver.Value, error) {
@@ -23,7 +23,7 @@ func (j JSONBMap) Value() (driver.Value, error) {
 }
 
 // Scan implements the sql.Scanner interface for database deserialization
-func (j *JSONBMap) Scan(value interface{}) error {
+func (j *JSONBMap) Scan(value any) error {
 	if value == nil {
 		*j = make(JSONBMap)
 		return nil
@@ -43,7 +43,7 @@ func (j *JSONBMap) Scan(value interface{}) error {
 }
 
 // Get retrieves a value from the map with type assertion
-func (j JSONBMap) Get(key string) (interface{}, bool) {
+func (j JSONBMap) Get(key string) (any, bool) {
 	val, ok := j[key]
 	return val, ok
 }
@@ -82,14 +82,14 @@ func (j JSONBMap) GetBool(key string) bool {
 
 // GetMap retrieves a nested map from the map
 func (j JSONBMap) GetMap(key string) JSONBMap {
-	if val, ok := j[key].(map[string]interface{}); ok {
+	if val, ok := j[key].(map[string]any); ok {
 		return JSONBMap(val)
 	}
 	return make(JSONBMap)
 }
 
 // Set sets a value in the map
-func (j JSONBMap) Set(key string, value interface{}) {
+func (j JSONBMap) Set(key string, value any) {
 	j[key] = value
 }
 
@@ -138,7 +138,7 @@ func (a StringArray) Value() (driver.Value, error) {
 }
 
 // Scan implements the sql.Scanner interface for database deserialization
-func (a *StringArray) Scan(value interface{}) error {
+func (a *StringArray) Scan(value any) error {
 	if value == nil {
 		*a = make(StringArray, 0)
 		return nil

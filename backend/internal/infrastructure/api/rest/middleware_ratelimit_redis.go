@@ -48,7 +48,7 @@ func (rl *RedisRateLimiter) Middleware() gin.HandlerFunc {
 		}
 
 		if !allowed {
-			respondErrorWithDetails(c, http.StatusTooManyRequests, "too many requests", "RATE_LIMIT_EXCEEDED", map[string]interface{}{
+			respondErrorWithDetails(c, http.StatusTooManyRequests, "too many requests", "RATE_LIMIT_EXCEEDED", map[string]any{
 				"retry_after": retryAfter,
 			})
 			c.Abort()

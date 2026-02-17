@@ -270,11 +270,11 @@ func (h *TelegramWebhookHandlers) validateTelegramSignature(c *gin.Context, body
 }
 
 // convertUpdateToInput converts Telegram update to workflow input
-func (h *TelegramWebhookHandlers) convertUpdateToInput(update *TelegramUpdate, trig *models.Trigger) map[string]interface{} {
-	input := make(map[string]interface{})
+func (h *TelegramWebhookHandlers) convertUpdateToInput(update *TelegramUpdate, trig *models.Trigger) map[string]any {
+	input := make(map[string]any)
 
 	// Add default trigger input
-	if defaultInput, ok := trig.Config["input"].(map[string]interface{}); ok {
+	if defaultInput, ok := trig.Config["input"].(map[string]any); ok {
 		for k, v := range defaultInput {
 			input[k] = v
 		}
@@ -285,7 +285,7 @@ func (h *TelegramWebhookHandlers) convertUpdateToInput(update *TelegramUpdate, t
 
 	// Determine update type and add relevant data
 	updateType := ""
-	var updateData interface{}
+	var updateData any
 
 	switch {
 	case update.Message != nil:
@@ -328,11 +328,11 @@ func (h *TelegramWebhookHandlers) convertUpdateToInput(update *TelegramUpdate, t
 }
 
 // messageToMap converts TelegramMessage to map
-func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]interface{} {
-	result := map[string]interface{}{
+func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]any {
+	result := map[string]any{
 		"message_id": msg.MessageID,
 		"date":       msg.Date,
-		"chat": map[string]interface{}{
+		"chat": map[string]any{
 			"id":    msg.Chat.ID,
 			"type":  msg.Chat.Type,
 			"title": msg.Chat.Title,
@@ -340,7 +340,7 @@ func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]
 	}
 
 	if msg.From != nil {
-		result["from"] = map[string]interface{}{
+		result["from"] = map[string]any{
 			"id":         msg.From.ID,
 			"is_bot":     msg.From.IsBot,
 			"first_name": msg.From.FirstName,
@@ -358,9 +358,9 @@ func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]
 	}
 
 	if len(msg.Photo) > 0 {
-		photos := make([]map[string]interface{}, len(msg.Photo))
+		photos := make([]map[string]any, len(msg.Photo))
 		for i, p := range msg.Photo {
-			photos[i] = map[string]interface{}{
+			photos[i] = map[string]any{
 				"file_id":        p.FileID,
 				"file_unique_id": p.FileUniqueID,
 				"width":          p.Width,
@@ -372,7 +372,7 @@ func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]
 	}
 
 	if msg.Document != nil {
-		result["document"] = map[string]interface{}{
+		result["document"] = map[string]any{
 			"file_id":        msg.Document.FileID,
 			"file_unique_id": msg.Document.FileUniqueID,
 			"file_name":      msg.Document.FileName,
@@ -382,7 +382,7 @@ func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]
 	}
 
 	if msg.Audio != nil {
-		result["audio"] = map[string]interface{}{
+		result["audio"] = map[string]any{
 			"file_id":        msg.Audio.FileID,
 			"file_unique_id": msg.Audio.FileUniqueID,
 			"duration":       msg.Audio.Duration,
@@ -394,7 +394,7 @@ func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]
 	}
 
 	if msg.Video != nil {
-		result["video"] = map[string]interface{}{
+		result["video"] = map[string]any{
 			"file_id":        msg.Video.FileID,
 			"file_unique_id": msg.Video.FileUniqueID,
 			"width":          msg.Video.Width,
@@ -406,7 +406,7 @@ func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]
 	}
 
 	if msg.Voice != nil {
-		result["voice"] = map[string]interface{}{
+		result["voice"] = map[string]any{
 			"file_id":        msg.Voice.FileID,
 			"file_unique_id": msg.Voice.FileUniqueID,
 			"duration":       msg.Voice.Duration,
@@ -416,14 +416,14 @@ func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]
 	}
 
 	if msg.Location != nil {
-		result["location"] = map[string]interface{}{
+		result["location"] = map[string]any{
 			"longitude": msg.Location.Longitude,
 			"latitude":  msg.Location.Latitude,
 		}
 	}
 
 	if msg.Contact != nil {
-		result["contact"] = map[string]interface{}{
+		result["contact"] = map[string]any{
 			"phone_number": msg.Contact.PhoneNumber,
 			"first_name":   msg.Contact.FirstName,
 			"last_name":    msg.Contact.LastName,
@@ -435,11 +435,11 @@ func (h *TelegramWebhookHandlers) messageToMap(msg *TelegramMessage) map[string]
 }
 
 // callbackQueryToMap converts TelegramCallbackQuery to map
-func (h *TelegramWebhookHandlers) callbackQueryToMap(query *TelegramCallbackQuery) map[string]interface{} {
-	result := map[string]interface{}{
+func (h *TelegramWebhookHandlers) callbackQueryToMap(query *TelegramCallbackQuery) map[string]any {
+	result := map[string]any{
 		"id":   query.ID,
 		"data": query.Data,
-		"from": map[string]interface{}{
+		"from": map[string]any{
 			"id":         query.From.ID,
 			"is_bot":     query.From.IsBot,
 			"first_name": query.From.FirstName,
@@ -460,12 +460,12 @@ func (h *TelegramWebhookHandlers) callbackQueryToMap(query *TelegramCallbackQuer
 }
 
 // inlineQueryToMap converts TelegramInlineQuery to map
-func (h *TelegramWebhookHandlers) inlineQueryToMap(query *TelegramInlineQuery) map[string]interface{} {
-	result := map[string]interface{}{
+func (h *TelegramWebhookHandlers) inlineQueryToMap(query *TelegramInlineQuery) map[string]any {
+	result := map[string]any{
 		"id":     query.ID,
 		"query":  query.Query,
 		"offset": query.Offset,
-		"from": map[string]interface{}{
+		"from": map[string]any{
 			"id":         query.From.ID,
 			"is_bot":     query.From.IsBot,
 			"first_name": query.From.FirstName,
@@ -479,7 +479,7 @@ func (h *TelegramWebhookHandlers) inlineQueryToMap(query *TelegramInlineQuery) m
 	}
 
 	if query.Location != nil {
-		result["location"] = map[string]interface{}{
+		result["location"] = map[string]any{
 			"longitude": query.Location.Longitude,
 			"latitude":  query.Location.Latitude,
 		}

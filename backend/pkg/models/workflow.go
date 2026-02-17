@@ -8,20 +8,20 @@ import (
 
 // Workflow represents a complete workflow definition with its DAG structure.
 type Workflow struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Version     int                    `json:"version"`
-	Status      WorkflowStatus         `json:"status"`
-	Tags        []string               `json:"tags,omitempty"`
-	Nodes       []*Node                `json:"nodes"`
-	Edges       []*Edge                `json:"edges"`
-	Resources   []WorkflowResource     `json:"resources,omitempty"` // Attached resources with aliases
-	Variables   map[string]interface{} `json:"variables,omitempty"` // Workflow-level variables for template substitution
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	CreatedBy   string                 `json:"created_by,omitempty"` // User ID who created the workflow
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description,omitempty"`
+	Version     int                `json:"version"`
+	Status      WorkflowStatus     `json:"status"`
+	Tags        []string           `json:"tags,omitempty"`
+	Nodes       []*Node            `json:"nodes"`
+	Edges       []*Edge            `json:"edges"`
+	Resources   []WorkflowResource `json:"resources,omitempty"` // Attached resources with aliases
+	Variables   map[string]any     `json:"variables,omitempty"` // Workflow-level variables for template substitution
+	Metadata    map[string]any     `json:"metadata,omitempty"`
+	CreatedBy   string             `json:"created_by,omitempty"` // User ID who created the workflow
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
 }
 
 // WorkflowStatus represents the status of a workflow.
@@ -78,13 +78,13 @@ func isValidAlias(alias string) bool {
 
 // Node represents a single node in the workflow DAG.
 type Node struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Type        string                 `json:"type"`
-	Description string                 `json:"description,omitempty"`
-	Config      map[string]interface{} `json:"config"`
-	Position    *Position              `json:"position,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Type        string         `json:"type"`
+	Description string         `json:"description,omitempty"`
+	Config      map[string]any `json:"config"`
+	Position    *Position      `json:"position,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 // Position represents the visual position of a node in the editor.
@@ -100,13 +100,13 @@ type LoopConfig struct {
 
 // Edge represents a directed edge between two nodes in the DAG.
 type Edge struct {
-	ID           string                 `json:"id"`
-	From         string                 `json:"from"`
-	To           string                 `json:"to"`
-	SourceHandle string                 `json:"source_handle,omitempty"`
-	Condition    string                 `json:"condition,omitempty"`
-	Loop         *LoopConfig            `json:"loop,omitempty"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	ID           string         `json:"id"`
+	From         string         `json:"from"`
+	To           string         `json:"to"`
+	SourceHandle string         `json:"source_handle,omitempty"`
+	Condition    string         `json:"condition,omitempty"`
+	Loop         *LoopConfig    `json:"loop,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // IsLoop returns true if this edge is a loop (back) edge.

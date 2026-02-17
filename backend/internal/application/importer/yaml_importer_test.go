@@ -45,11 +45,11 @@ func (m *mockExecutorManager) Unregister(string) error                  { return
 // mockExecutor implements executor.Executor for testing.
 type mockExecutor struct{}
 
-func (m *mockExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (m *mockExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	return nil, nil
 }
 
-func (m *mockExecutor) Validate(config map[string]interface{}) error {
+func (m *mockExecutor) Validate(config map[string]any) error {
 	return nil
 }
 
@@ -427,7 +427,7 @@ func TestYAMLImporter_ExportToYAML(t *testing.T) {
 		Description: "A workflow for export testing",
 		Version:     2,
 		Tags:        []string{"export", "test"},
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"api_key": "secret",
 		},
 		Nodes: []*models.Node{
@@ -435,7 +435,7 @@ func TestYAMLImporter_ExportToYAML(t *testing.T) {
 				ID:   "n1",
 				Name: "Node 1",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"url": "https://api.example.com",
 				},
 				Position: &models.Position{X: 100, Y: 200},
@@ -462,7 +462,7 @@ func TestYAMLImporter_ExportToYAML(t *testing.T) {
 		Description: "A test trigger",
 		Type:        models.TriggerTypeCron,
 		Enabled:     true,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 * * * *",
 		},
 	}

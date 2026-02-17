@@ -16,20 +16,20 @@ func TestBytesToJsonExecutor_Execute(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		config         map[string]interface{}
-		input          interface{}
-		expectedResult interface{}
+		config         map[string]any
+		input          any
+		expectedResult any
 		expectError    bool
 		errorContains  string
 	}{
 		{
 			name: "simple UTF-8 JSON object",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": true,
 			},
 			input: []byte(`{"name":"John","age":30}`),
-			expectedResult: map[string]interface{}{
+			expectedResult: map[string]any{
 				"name": "John",
 				"age":  json.Number("30"),
 			},
@@ -37,24 +37,24 @@ func TestBytesToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "UTF-8 with BOM",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": true,
 			},
 			input: []byte{0xEF, 0xBB, 0xBF, 0x7B, 0x22, 0x6E, 0x61, 0x6D, 0x65, 0x22, 0x3A, 0x22, 0x54, 0x65, 0x73, 0x74, 0x22, 0x7D}, // BOM + {"name":"Test"}
-			expectedResult: map[string]interface{}{
+			expectedResult: map[string]any{
 				"name": "Test",
 			},
 			expectError: false,
 		},
 		{
 			name: "JSON array",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": true,
 			},
 			input: []byte(`[1,2,3]`),
-			expectedResult: []interface{}{
+			expectedResult: []any{
 				json.Number("1"),
 				json.Number("2"),
 				json.Number("3"),
@@ -63,29 +63,29 @@ func TestBytesToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "string input with auto base64 decode",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": true,
 			},
 			input:          base64.StdEncoding.EncodeToString([]byte(`{"key":"value"}`)),
-			expectedResult: map[string]interface{}{"key": "value"},
+			expectedResult: map[string]any{"key": "value"},
 			expectError:    false,
 		},
 		{
 			name: "map input with data field",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": true,
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"data": []byte(`{"test":true}`),
 			},
-			expectedResult: map[string]interface{}{"test": true},
+			expectedResult: map[string]any{"test": true},
 			expectError:    false,
 		},
 		{
 			name: "invalid JSON with validation enabled",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": true,
 			},
@@ -95,7 +95,7 @@ func TestBytesToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "invalid JSON with validation disabled",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": false,
 			},
@@ -105,7 +105,7 @@ func TestBytesToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "unsupported encoding",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "unknown",
 				"validate_json": true,
 			},
@@ -115,15 +115,15 @@ func TestBytesToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "nested JSON object",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": true,
 			},
 			input: []byte(`{"user":{"name":"Alice","profile":{"email":"alice@example.com"}}}`),
-			expectedResult: map[string]interface{}{
-				"user": map[string]interface{}{
+			expectedResult: map[string]any{
+				"user": map[string]any{
 					"name": "Alice",
-					"profile": map[string]interface{}{
+					"profile": map[string]any{
 						"email": "alice@example.com",
 					},
 				},
@@ -145,7 +145,7 @@ func TestBytesToJsonExecutor_Execute(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			resultMap, ok := result.(map[string]interface{})
+			resultMap, ok := result.(map[string]any)
 			require.True(t, ok, "result should be a map")
 
 			assert.True(t, resultMap["success"].(bool))
@@ -162,13 +162,13 @@ func TestBytesToJsonExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		config        map[string]interface{}
+		config        map[string]any
 		expectError   bool
 		errorContains string
 	}{
 		{
 			name: "valid config with utf-8",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-8",
 				"validate_json": true,
 			},
@@ -176,7 +176,7 @@ func TestBytesToJsonExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid config with utf-16",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "utf-16",
 				"validate_json": false,
 			},
@@ -184,14 +184,14 @@ func TestBytesToJsonExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid config with latin1",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding": "latin1",
 			},
 			expectError: false,
 		},
 		{
 			name: "invalid encoding",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding": "ascii",
 			},
 			expectError:   true,
@@ -249,7 +249,7 @@ func TestBytesToJsonExecutor_EncodingDetection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := map[string]interface{}{
+			config := map[string]any{
 				"encoding":      "utf-8", // Start with utf-8, should auto-detect
 				"validate_json": false,   // Don't validate to avoid parsing errors
 			}
@@ -257,7 +257,7 @@ func TestBytesToJsonExecutor_EncodingDetection(t *testing.T) {
 			result, err := executor.Execute(ctx, config, tt.input)
 			require.NoError(t, err)
 
-			resultMap := result.(map[string]interface{})
+			resultMap := result.(map[string]any)
 			assert.Equal(t, tt.expectedEncoding, resultMap["encoding_used"])
 		})
 	}
@@ -268,7 +268,7 @@ func TestBytesToJsonExecutor_ExtractBytes(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		input         interface{}
+		input         any
 		expected      []byte
 		expectError   bool
 		errorContains string
@@ -290,17 +290,17 @@ func TestBytesToJsonExecutor_ExtractBytes(t *testing.T) {
 		},
 		{
 			name:     "map with data field (bytes)",
-			input:    map[string]interface{}{"data": []byte("test")},
+			input:    map[string]any{"data": []byte("test")},
 			expected: []byte("test"),
 		},
 		{
 			name:     "map with data field (string)",
-			input:    map[string]interface{}{"data": "plaintext"},
+			input:    map[string]any{"data": "plaintext"},
 			expected: []byte("plaintext"),
 		},
 		{
 			name:          "map without data field",
-			input:         map[string]interface{}{"other": "value"},
+			input:         map[string]any{"other": "value"},
 			expectError:   true,
 			errorContains: "expected 'data' field",
 		},

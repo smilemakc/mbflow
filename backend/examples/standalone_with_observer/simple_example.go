@@ -31,9 +31,9 @@ func runSimpleExample() {
 				ID:   "greet",
 				Name: "Create Greeting",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "template",
-					"output": map[string]interface{}{
+					"output": map[string]any{
 						"message": "Hello, {{input.name}}!",
 						"name":    "{{input.name}}",
 					},
@@ -43,9 +43,9 @@ func runSimpleExample() {
 				ID:   "format",
 				Name: "Format Output",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "template",
-					"output": map[string]interface{}{
+					"output": map[string]any{
 						"result": "{{input.message}} Welcome to MBFlow.",
 					},
 				},
@@ -61,7 +61,7 @@ func runSimpleExample() {
 	_ = observerManager
 	opts := &engine.ExecutionOptions{}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"name": "World",
 	}
 

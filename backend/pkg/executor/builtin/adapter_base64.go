@@ -37,7 +37,7 @@ func NewBase64ToBytesExecutor() *Base64ToBytesExecutor {
 //   - encoding: encoding used
 //   - decoded_size: size in bytes
 //   - duration_ms: execution time
-func (e *Base64ToBytesExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *Base64ToBytesExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get configuration
@@ -76,7 +76,7 @@ func (e *Base64ToBytesExecutor) Execute(ctx context.Context, config map[string]i
 	}
 
 	// Format output
-	var result interface{}
+	var result any
 	switch outputFormat {
 	case "hex":
 		result = hex.EncodeToString(decoded)
@@ -87,7 +87,7 @@ func (e *Base64ToBytesExecutor) Execute(ctx context.Context, config map[string]i
 		return nil, fmt.Errorf("base64_to_bytes: invalid output_format: %s", outputFormat)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":      true,
 		"result":       result,
 		"encoding":     encoding,
@@ -98,7 +98,7 @@ func (e *Base64ToBytesExecutor) Execute(ctx context.Context, config map[string]i
 }
 
 // Validate validates the configuration
-func (e *Base64ToBytesExecutor) Validate(config map[string]interface{}) error {
+func (e *Base64ToBytesExecutor) Validate(config map[string]any) error {
 	// Encoding validation
 	encoding := e.GetStringDefault(config, "encoding", "standard")
 	validEncodings := map[string]bool{
@@ -125,11 +125,11 @@ func (e *Base64ToBytesExecutor) Validate(config map[string]interface{}) error {
 }
 
 // extractBase64String extracts base64 string from various input types
-func (e *Base64ToBytesExecutor) extractBase64String(input interface{}) (string, error) {
+func (e *Base64ToBytesExecutor) extractBase64String(input any) (string, error) {
 	switch v := input.(type) {
 	case string:
 		return strings.TrimSpace(v), nil
-	case map[string]interface{}:
+	case map[string]any:
 		// Try to extract from "data" or "base64" field
 		if data, ok := v["data"].(string); ok {
 			return strings.TrimSpace(data), nil
@@ -189,7 +189,7 @@ func NewBytesToBase64Executor() *BytesToBase64Executor {
 //   - original_size: original byte size
 //   - encoded_size: encoded string size
 //   - duration_ms: execution time
-func (e *BytesToBase64Executor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *BytesToBase64Executor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get configuration
@@ -225,7 +225,7 @@ func (e *BytesToBase64Executor) Execute(ctx context.Context, config map[string]i
 		encoded = e.wrapLines(encoded, lineLength)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":       true,
 		"result":        encoded,
 		"encoding":      encoding,
@@ -236,7 +236,7 @@ func (e *BytesToBase64Executor) Execute(ctx context.Context, config map[string]i
 }
 
 // Validate validates the configuration
-func (e *BytesToBase64Executor) Validate(config map[string]interface{}) error {
+func (e *BytesToBase64Executor) Validate(config map[string]any) error {
 	// Encoding validation
 	encoding := e.GetStringDefault(config, "encoding", "standard")
 	validEncodings := map[string]bool{
@@ -259,7 +259,7 @@ func (e *BytesToBase64Executor) Validate(config map[string]interface{}) error {
 }
 
 // extractBytes extracts bytes from various input types
-func (e *BytesToBase64Executor) extractBytes(input interface{}) ([]byte, error) {
+func (e *BytesToBase64Executor) extractBytes(input any) ([]byte, error) {
 	switch v := input.(type) {
 	case []byte:
 		return v, nil
@@ -270,7 +270,7 @@ func (e *BytesToBase64Executor) extractBytes(input interface{}) ([]byte, error) 
 		}
 		// Use string as UTF-8 bytes
 		return []byte(v), nil
-	case map[string]interface{}:
+	case map[string]any:
 		// Try to extract from "data" field
 		if data, ok := v["data"]; ok {
 			return e.extractBytes(data)

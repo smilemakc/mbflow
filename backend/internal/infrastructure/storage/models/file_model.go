@@ -42,7 +42,7 @@ func (FileModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (f *FileModel) BeforeInsert(ctx interface{}) error {
+func (f *FileModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	f.CreatedAt = now
 	f.UpdatedAt = now
@@ -56,7 +56,7 @@ func (f *FileModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (f *FileModel) BeforeUpdate(ctx interface{}) error {
+func (f *FileModel) BeforeUpdate(ctx any) error {
 	f.UpdatedAt = time.Now()
 	return nil
 }
@@ -90,7 +90,7 @@ func (StorageConfigModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (s *StorageConfigModel) BeforeInsert(ctx interface{}) error {
+func (s *StorageConfigModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	s.CreatedAt = now
 	s.UpdatedAt = now
@@ -104,7 +104,7 @@ func (s *StorageConfigModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (s *StorageConfigModel) BeforeUpdate(ctx interface{}) error {
+func (s *StorageConfigModel) BeforeUpdate(ctx any) error {
 	s.UpdatedAt = time.Now()
 	return nil
 }

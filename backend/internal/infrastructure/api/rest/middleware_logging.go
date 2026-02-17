@@ -68,7 +68,7 @@ func (m *LoggingMiddleware) RequestLogger() gin.HandlerFunc {
 			level = "warn"
 		}
 
-		logArgs := []interface{}{
+		logArgs := []any{
 			"request_id", requestID,
 			"method", method,
 			"path", path,

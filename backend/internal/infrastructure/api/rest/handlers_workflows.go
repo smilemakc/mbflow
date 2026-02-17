@@ -168,13 +168,13 @@ func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 }
 
 type UpdateWorkflowRequest struct {
-	Name        string                 `json:"name,omitempty"`
-	Description string                 `json:"description,omitempty"`
-	Variables   map[string]interface{} `json:"variables,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	Nodes       []NodeRequest          `json:"nodes,omitempty"`
-	Edges       []EdgeRequest          `json:"edges,omitempty"`
-	Resources   []ResourceRequest      `json:"resources,omitempty"`
+	Name        string            `json:"name,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Variables   map[string]any    `json:"variables,omitempty"`
+	Metadata    map[string]any    `json:"metadata,omitempty"`
+	Nodes       []NodeRequest     `json:"nodes,omitempty"`
+	Edges       []EdgeRequest     `json:"edges,omitempty"`
+	Resources   []ResourceRequest `json:"resources,omitempty"`
 }
 
 type ResourceRequest struct {
@@ -184,18 +184,18 @@ type ResourceRequest struct {
 }
 
 type NodeRequest struct {
-	ID       string                 `json:"id" binding:"required,max=100"`
-	Name     string                 `json:"name" binding:"required,max=255"`
-	Type     string                 `json:"type" binding:"required"`
-	Config   map[string]interface{} `json:"config,omitempty"`
-	Position map[string]interface{} `json:"position,omitempty"`
+	ID       string         `json:"id" binding:"required,max=100"`
+	Name     string         `json:"name" binding:"required,max=255"`
+	Type     string         `json:"type" binding:"required"`
+	Config   map[string]any `json:"config,omitempty"`
+	Position map[string]any `json:"position,omitempty"`
 }
 
 type EdgeRequest struct {
-	ID        string                 `json:"id" binding:"required,max=100"`
-	From      string                 `json:"from" binding:"required,max=100"`
-	To        string                 `json:"to" binding:"required,max=100"`
-	Condition map[string]interface{} `json:"condition,omitempty"`
+	ID        string         `json:"id" binding:"required,max=100"`
+	From      string         `json:"from" binding:"required,max=100"`
+	To        string         `json:"to" binding:"required,max=100"`
+	Condition map[string]any `json:"condition,omitempty"`
 }
 
 // HandleUpdateWorkflow updates an existing workflow

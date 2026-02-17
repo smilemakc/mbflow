@@ -315,8 +315,8 @@ func (h *ImportHandlers) HandleExportWorkflow(c *gin.Context) {
 		Description string
 		Type        string
 		Enabled     bool
-		Config      map[string]interface{}
-		Metadata    map[string]interface{}
+		Config      map[string]any
+		Metadata    map[string]any
 	}
 
 	triggers, err := h.triggerRepo.FindByWorkflowID(c.Request.Context(), workflowUUID)
@@ -335,14 +335,14 @@ func (h *ImportHandlers) HandleExportWorkflow(c *gin.Context) {
 			Description string
 			Type        string
 			Enabled     bool
-			Config      map[string]interface{}
-			Metadata    map[string]interface{}
+			Config      map[string]any
+			Metadata    map[string]any
 		}{
 			Name:        name,
 			Description: description,
 			Type:        tm.Type,
 			Enabled:     tm.Enabled,
-			Config:      map[string]interface{}(tm.Config),
+			Config:      map[string]any(tm.Config),
 		}
 	}
 
@@ -360,7 +360,7 @@ func (h *ImportHandlers) HandleExportWorkflow(c *gin.Context) {
 }
 
 // exportYAML exports the workflow in YAML format.
-func (h *ImportHandlers) exportYAML(c *gin.Context, workflow interface{}, trigger interface{}) {
+func (h *ImportHandlers) exportYAML(c *gin.Context, workflow any, trigger any) {
 	// Build YAML export structure
 	yamlData, err := h.buildYAMLExport(workflow, trigger)
 	if err != nil {
@@ -375,7 +375,7 @@ func (h *ImportHandlers) exportYAML(c *gin.Context, workflow interface{}, trigge
 }
 
 // exportJSON exports the workflow in JSON format.
-func (h *ImportHandlers) exportJSON(c *gin.Context, workflow interface{}, trigger interface{}) {
+func (h *ImportHandlers) exportJSON(c *gin.Context, workflow any, trigger any) {
 	export := gin.H{
 		"workflow": workflow,
 	}
@@ -388,7 +388,7 @@ func (h *ImportHandlers) exportJSON(c *gin.Context, workflow interface{}, trigge
 }
 
 // buildYAMLExport builds the YAML export data using the importer.
-func (h *ImportHandlers) buildYAMLExport(workflowInterface interface{}, triggerInterface interface{}) ([]byte, error) {
+func (h *ImportHandlers) buildYAMLExport(workflowInterface any, triggerInterface any) ([]byte, error) {
 	// Type assertion to get the actual workflow
 	workflow, ok := workflowInterface.(*struct {
 		ID          string
@@ -397,10 +397,10 @@ func (h *ImportHandlers) buildYAMLExport(workflowInterface interface{}, triggerI
 		Version     int
 		Status      string
 		Tags        []string
-		Nodes       interface{}
-		Edges       interface{}
-		Variables   map[string]interface{}
-		Metadata    map[string]interface{}
+		Nodes       any
+		Edges       any
+		Variables   map[string]any
+		Metadata    map[string]any
 	})
 	if !ok {
 		// Try alternative type - models.Workflow
@@ -413,7 +413,7 @@ func (h *ImportHandlers) buildYAMLExport(workflowInterface interface{}, triggerI
 }
 
 // buildYAMLFromModels builds YAML from models.Workflow.
-func (h *ImportHandlers) buildYAMLFromModels(workflowInterface interface{}, triggerInterface interface{}) ([]byte, error) {
+func (h *ImportHandlers) buildYAMLFromModels(workflowInterface any, triggerInterface any) ([]byte, error) {
 	// Use the importer's export functionality
 	// First need to convert back to models.Workflow
 
@@ -427,7 +427,7 @@ func (h *ImportHandlers) buildYAMLFromModels(workflowInterface interface{}, trig
 	// Use reflection or type switch to build YAML
 	// This is a simplified version
 	switch w := workflowInterface.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return h.buildYAMLFromMap(w, triggerInterface)
 	default:
 		// Try to use the importer directly with type assertion
@@ -443,7 +443,7 @@ func (h *ImportHandlers) buildYAMLFromModels(workflowInterface interface{}, trig
 }
 
 // buildYAMLFromMap builds YAML from a map representation.
-func (h *ImportHandlers) buildYAMLFromMap(workflow map[string]interface{}, trigger interface{}) ([]byte, error) {
+func (h *ImportHandlers) buildYAMLFromMap(workflow map[string]any, trigger any) ([]byte, error) {
 	var yamlBuilder strings.Builder
 
 	yamlBuilder.WriteString("# MBFlow Workflow Configuration v1.0\n\n")
@@ -460,7 +460,7 @@ func (h *ImportHandlers) buildYAMLFromMap(workflow map[string]interface{}, trigg
 	}
 
 	// Variables
-	if vars, ok := workflow["variables"].(map[string]interface{}); ok && len(vars) > 0 {
+	if vars, ok := workflow["variables"].(map[string]any); ok && len(vars) > 0 {
 		yamlBuilder.WriteString("\nvariables:\n")
 		for k, v := range vars {
 			yamlBuilder.WriteString(fmt.Sprintf("  %s: %q\n", k, fmt.Sprintf("%v", v)))
@@ -468,10 +468,10 @@ func (h *ImportHandlers) buildYAMLFromMap(workflow map[string]interface{}, trigg
 	}
 
 	// Nodes
-	if nodes, ok := workflow["nodes"].([]interface{}); ok && len(nodes) > 0 {
+	if nodes, ok := workflow["nodes"].([]any); ok && len(nodes) > 0 {
 		yamlBuilder.WriteString("\nnodes:\n")
 		for _, n := range nodes {
-			if node, ok := n.(map[string]interface{}); ok {
+			if node, ok := n.(map[string]any); ok {
 				yamlBuilder.WriteString(fmt.Sprintf("  - id: %s\n", node["id"]))
 				yamlBuilder.WriteString(fmt.Sprintf("    name: %q\n", node["name"]))
 				yamlBuilder.WriteString(fmt.Sprintf("    type: %s\n", node["type"]))
@@ -480,10 +480,10 @@ func (h *ImportHandlers) buildYAMLFromMap(workflow map[string]interface{}, trigg
 	}
 
 	// Edges
-	if edges, ok := workflow["edges"].([]interface{}); ok && len(edges) > 0 {
+	if edges, ok := workflow["edges"].([]any); ok && len(edges) > 0 {
 		yamlBuilder.WriteString("\nedges:\n")
 		for _, e := range edges {
-			if edge, ok := e.(map[string]interface{}); ok {
+			if edge, ok := e.(map[string]any); ok {
 				yamlBuilder.WriteString(fmt.Sprintf("  - id: %s\n", edge["id"]))
 				yamlBuilder.WriteString(fmt.Sprintf("    from: %s\n", edge["from"]))
 				yamlBuilder.WriteString(fmt.Sprintf("    to: %s\n", edge["to"]))

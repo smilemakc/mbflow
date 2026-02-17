@@ -19,11 +19,11 @@ func TestCreateCheckpoint(t *testing.T) {
 		Edges: []*models.Edge{},
 	}
 
-	execState := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{"key": "value"})
+	execState := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{"key": "value"})
 
 	// Set some node statuses and outputs
 	execState.SetNodeStatus("node-1", models.NodeExecutionStatusCompleted)
-	execState.SetNodeOutput("node-1", map[string]interface{}{"result": "ok"})
+	execState.SetNodeOutput("node-1", map[string]any{"result": "ok"})
 	execState.SetNodeStatus("node-2", models.NodeExecutionStatusRunning)
 
 	checkpoint := CreateCheckpoint(execState, 1)
@@ -72,12 +72,12 @@ func TestRestoreFromCheckpoint(t *testing.T) {
 		WorkflowID:     "wf-1",
 		WaveIndex:      2,
 		CompletedNodes: []string{"node-1"},
-		NodeOutputs:    map[string]interface{}{"node-1": map[string]interface{}{"result": "ok"}},
+		NodeOutputs:    map[string]any{"node-1": map[string]any{"result": "ok"}},
 		NodeStatuses:   map[string]models.NodeExecutionStatus{"node-1": models.NodeExecutionStatusCompleted},
-		Variables:      map[string]interface{}{"restored": "true"},
+		Variables:      map[string]any{"restored": "true"},
 	}
 
-	execState := RestoreFromCheckpoint(checkpoint, workflow, map[string]interface{}{})
+	execState := RestoreFromCheckpoint(checkpoint, workflow, map[string]any{})
 
 	if execState.ExecutionID != "exec-1" {
 		t.Errorf("expected ExecutionID exec-1, got %s", execState.ExecutionID)
@@ -93,7 +93,7 @@ func TestRestoreFromCheckpoint(t *testing.T) {
 		t.Error("expected node-1 output to be restored")
 	}
 
-	if outputMap, ok := output.(map[string]interface{}); ok {
+	if outputMap, ok := output.(map[string]any); ok {
 		if outputMap["result"] != "ok" {
 			t.Error("expected output to match checkpoint")
 		}
@@ -113,9 +113,9 @@ func TestCheckpoint_Serialization(t *testing.T) {
 		WorkflowID:     "wf-1",
 		WaveIndex:      1,
 		CompletedNodes: []string{"node-1", "node-2"},
-		NodeOutputs:    map[string]interface{}{"node-1": "output1"},
+		NodeOutputs:    map[string]any{"node-1": "output1"},
 		NodeStatuses:   map[string]models.NodeExecutionStatus{"node-1": models.NodeExecutionStatusCompleted},
-		Variables:      map[string]interface{}{"key": "value"},
+		Variables:      map[string]any{"key": "value"},
 	}
 
 	// Serialize

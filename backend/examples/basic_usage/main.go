@@ -27,7 +27,7 @@ func main() {
 	workflow := &models.Workflow{
 		Name:        "Hello World Workflow",
 		Description: "A workflow demonstrating automatic template resolution",
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"api_base": "https://jsonplaceholder.typicode.com",
 		},
 		Nodes: []*models.Node{
@@ -35,7 +35,7 @@ func main() {
 				ID:   "fetch-data",
 				Name: "Fetch User Data",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "GET",
 					"url":    "{{env.api_base}}/users/{{input.user_id}}",
 				},
@@ -44,7 +44,7 @@ func main() {
 				ID:   "transform-data",
 				Name: "Transform Data",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -64,7 +64,7 @@ func main() {
 	fmt.Println("Executing workflow in standalone mode...")
 
 	// Prepare execution input
-	input := map[string]interface{}{
+	input := map[string]any{
 		"user_id": 1,
 	}
 

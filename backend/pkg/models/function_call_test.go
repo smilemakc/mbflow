@@ -47,13 +47,13 @@ func TestFunctionCallInput_ParseArguments_ComplexArguments(t *testing.T) {
 	assert.NotNil(t, args)
 
 	// Verify nested object
-	user, ok := args["user"].(map[string]interface{})
+	user, ok := args["user"].(map[string]any)
 	assert.True(t, ok)
 	assert.Equal(t, "John", user["name"])
 	assert.Equal(t, float64(30), user["age"]) // JSON numbers are float64
 
 	// Verify array
-	items, ok := args["items"].([]interface{})
+	items, ok := args["items"].([]any)
 	assert.True(t, ok)
 	assert.Len(t, items, 3)
 
@@ -103,7 +103,7 @@ func TestFunctionCallInput_JSONMarshaling(t *testing.T) {
 		FunctionName: "get_weather",
 		Arguments:    `{"location":"Paris"}`,
 		ToolCallID:   "call_123",
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"source": "llm",
 		},
 	}
@@ -125,7 +125,7 @@ func TestFunctionCallInput_JSONMarshaling(t *testing.T) {
 
 func TestFunctionCallOutput_Success(t *testing.T) {
 	output := &FunctionCallOutput{
-		Result: map[string]interface{}{
+		Result: map[string]any{
 			"temperature": 22,
 			"conditions":  "sunny",
 		},
@@ -173,11 +173,11 @@ func TestFunctionCallOutput_Error(t *testing.T) {
 
 func TestFunctionCallOutput_WithMetadata(t *testing.T) {
 	output := &FunctionCallOutput{
-		Result:       map[string]interface{}{"status": "ok"},
+		Result:       map[string]any{"status": "ok"},
 		FunctionName: "http_request",
 		ToolCallID:   "call_789",
 		Success:      true,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"duration_ms": 150,
 			"cache_hit":   false,
 		},
@@ -229,7 +229,7 @@ func TestNewFunctionRegistry_Success(t *testing.T) {
 func TestFunctionRegistry_Register(t *testing.T) {
 	registry := NewFunctionRegistry()
 
-	handler := func(args map[string]interface{}) (interface{}, error) {
+	handler := func(args map[string]any) (any, error) {
 		return "result", nil
 	}
 
@@ -241,7 +241,7 @@ func TestFunctionRegistry_Register(t *testing.T) {
 func TestFunctionRegistry_Get_Existing(t *testing.T) {
 	registry := NewFunctionRegistry()
 
-	handler := func(args map[string]interface{}) (interface{}, error) {
+	handler := func(args map[string]any) (any, error) {
 		return "test result", nil
 	}
 
@@ -252,7 +252,7 @@ func TestFunctionRegistry_Get_Existing(t *testing.T) {
 	assert.NotNil(t, retrieved)
 
 	// Test the handler works
-	result, err := retrieved(map[string]interface{}{"key": "value"})
+	result, err := retrieved(map[string]any{"key": "value"})
 	require.NoError(t, err)
 	assert.Equal(t, "test result", result)
 }
@@ -268,7 +268,7 @@ func TestFunctionRegistry_Get_NonExisting(t *testing.T) {
 func TestFunctionRegistry_Has_Existing(t *testing.T) {
 	registry := NewFunctionRegistry()
 
-	handler := func(args map[string]interface{}) (interface{}, error) {
+	handler := func(args map[string]any) (any, error) {
 		return nil, nil
 	}
 
@@ -294,7 +294,7 @@ func TestFunctionRegistry_List_Empty(t *testing.T) {
 func TestFunctionRegistry_List_MultipleFunctions(t *testing.T) {
 	registry := NewFunctionRegistry()
 
-	handler := func(args map[string]interface{}) (interface{}, error) {
+	handler := func(args map[string]any) (any, error) {
 		return nil, nil
 	}
 
@@ -312,7 +312,7 @@ func TestFunctionRegistry_List_MultipleFunctions(t *testing.T) {
 func TestFunctionRegistry_Unregister_Existing(t *testing.T) {
 	registry := NewFunctionRegistry()
 
-	handler := func(args map[string]interface{}) (interface{}, error) {
+	handler := func(args map[string]any) (any, error) {
 		return nil, nil
 	}
 
@@ -330,7 +330,7 @@ func TestFunctionRegistry_Unregister_NonExisting(t *testing.T) {
 	registry.Unregister("non_existent")
 
 	// Verify registry is still usable
-	handler := func(args map[string]interface{}) (interface{}, error) {
+	handler := func(args map[string]any) (any, error) {
 		return nil, nil
 	}
 	registry.Register("test", handler)
@@ -340,11 +340,11 @@ func TestFunctionRegistry_Unregister_NonExisting(t *testing.T) {
 func TestFunctionRegistry_OverwriteRegistration(t *testing.T) {
 	registry := NewFunctionRegistry()
 
-	handler1 := func(args map[string]interface{}) (interface{}, error) {
+	handler1 := func(args map[string]any) (any, error) {
 		return "result1", nil
 	}
 
-	handler2 := func(args map[string]interface{}) (interface{}, error) {
+	handler2 := func(args map[string]any) (any, error) {
 		return "result2", nil
 	}
 
@@ -362,32 +362,32 @@ func TestFunctionRegistry_OverwriteRegistration(t *testing.T) {
 // ==================== FunctionHandler Tests ====================
 
 func TestFunctionHandler_Success(t *testing.T) {
-	handler := FunctionHandler(func(args map[string]interface{}) (interface{}, error) {
+	handler := FunctionHandler(func(args map[string]any) (any, error) {
 		location := args["location"].(string)
-		return map[string]interface{}{
+		return map[string]any{
 			"location":    location,
 			"temperature": 22,
 		}, nil
 	})
 
-	result, err := handler(map[string]interface{}{
+	result, err := handler(map[string]any{
 		"location": "Paris",
 	})
 
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "Paris", resultMap["location"])
 	assert.Equal(t, 22, resultMap["temperature"])
 }
 
 func TestFunctionHandler_WithError(t *testing.T) {
-	handler := FunctionHandler(func(args map[string]interface{}) (interface{}, error) {
+	handler := FunctionHandler(func(args map[string]any) (any, error) {
 		return nil, assert.AnError
 	})
 
-	result, err := handler(map[string]interface{}{})
+	result, err := handler(map[string]any{})
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -400,17 +400,17 @@ func TestFunctionCall_CompleteWorkflow(t *testing.T) {
 	registry := NewFunctionRegistry()
 
 	// 2. Register functions
-	registry.Register("get_weather", func(args map[string]interface{}) (interface{}, error) {
+	registry.Register("get_weather", func(args map[string]any) (any, error) {
 		location := args["location"].(string)
-		return map[string]interface{}{
+		return map[string]any{
 			"location":    location,
 			"temperature": 22,
 			"conditions":  "sunny",
 		}, nil
 	})
 
-	registry.Register("calculate_sum", func(args map[string]interface{}) (interface{}, error) {
-		numbers := args["numbers"].([]interface{})
+	registry.Register("calculate_sum", func(args map[string]any) (any, error) {
+		numbers := args["numbers"].([]any)
 		sum := 0.0
 		for _, num := range numbers {
 			sum += num.(float64)
@@ -450,7 +450,7 @@ func TestFunctionCall_CompleteWorkflow(t *testing.T) {
 	assert.Equal(t, "call_123", output.ToolCallID)
 	assert.True(t, output.Success)
 
-	resultMap := output.Result.(map[string]interface{})
+	resultMap := output.Result.(map[string]any)
 	assert.Equal(t, "Paris", resultMap["location"])
 	assert.Equal(t, 22, resultMap["temperature"])
 
@@ -476,7 +476,7 @@ func TestFunctionCall_ErrorHandling(t *testing.T) {
 	registry := NewFunctionRegistry()
 
 	// Register function that returns error
-	registry.Register("failing_function", func(args map[string]interface{}) (interface{}, error) {
+	registry.Register("failing_function", func(args map[string]any) (any, error) {
 		return nil, assert.AnError
 	})
 
@@ -515,7 +515,7 @@ func TestFunctionCall_MultipleRegistrations(t *testing.T) {
 	// Register 10 functions
 	for i := 0; i < 10; i++ {
 		funcName := "function_" + string(rune('0'+i))
-		registry.Register(funcName, func(args map[string]interface{}) (interface{}, error) {
+		registry.Register(funcName, func(args map[string]any) (any, error) {
 			return "result", nil
 		})
 	}

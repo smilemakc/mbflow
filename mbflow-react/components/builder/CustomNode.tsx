@@ -25,6 +25,7 @@ import {
     Lock,
     MessageSquare,
     MoreHorizontal,
+    Network,
     Rss,
     Send,
     Sheet,
@@ -34,6 +35,7 @@ import {
     Zap,
 } from 'lucide-react';
 import {NodeData, NodeStatus, NodeType} from '@/types';
+import {SubWorkflowProgress} from './SubWorkflowProgress';
 
 // Helper to get color/icon based on type
 const getNodeStyles = (type?: NodeType) => {
@@ -252,6 +254,16 @@ const getNodeStyles = (type?: NodeType) => {
                 gradient: 'from-slate-50 to-white dark:from-slate-800 dark:to-slate-900'
             };
 
+        // Advanced workflow patterns
+        case NodeType.SUB_WORKFLOW:
+            return {
+                icon: Network,
+                color: 'text-indigo-500',
+                bg: 'bg-indigo-500',
+                border: 'border-indigo-200 dark:border-indigo-900',
+                gradient: 'from-indigo-50 to-white dark:from-indigo-900/20 dark:to-slate-900'
+            };
+
         default:
             return {
                 icon: HelpCircle,
@@ -340,6 +352,16 @@ export const CustomNode = memo(({data, selected}: NodeProps<NodeData>) => {
                 <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                     {data.description || 'No description provided.'}
                 </p>
+
+                {/* Sub-workflow progress */}
+                {(data.nodeType === NodeType.SUB_WORKFLOW || data.type === NodeType.SUB_WORKFLOW) && data.subWorkflowProgress && (
+                    <SubWorkflowProgress
+                        total={data.subWorkflowProgress.total}
+                        completed={data.subWorkflowProgress.completed}
+                        failed={data.subWorkflowProgress.failed}
+                        running={data.subWorkflowProgress.running}
+                    />
+                )}
 
                 {/* Dynamic content snippet based on type */}
                 <div className="flex items-center justify-between mt-2">

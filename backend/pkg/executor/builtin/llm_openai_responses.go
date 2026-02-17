@@ -81,9 +81,9 @@ func (p *OpenAIResponsesProvider) Execute(ctx context.Context, req *models.LLMRe
 
 	// Check for errors
 	if resp.StatusCode != http.StatusOK {
-		var errorResp map[string]interface{}
+		var errorResp map[string]any
 		if err := json.Unmarshal(respBody, &errorResp); err == nil {
-			if errorData, ok := errorResp["error"].(map[string]interface{}); ok {
+			if errorData, ok := errorResp["error"].(map[string]any); ok {
 				return nil, &models.LLMError{
 					Provider: models.LLMProviderOpenAIResponses,
 					Code:     fmt.Sprintf("%v", errorData["code"]),
@@ -106,8 +106,8 @@ func (p *OpenAIResponsesProvider) Execute(ctx context.Context, req *models.LLMRe
 }
 
 // buildRequestBody builds the OpenAI Responses API request body.
-func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[string]interface{} {
-	body := map[string]interface{}{
+func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[string]any {
+	body := map[string]any{
 		"model": req.Model,
 	}
 
@@ -151,7 +151,7 @@ func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[s
 
 	// Reasoning configuration (for o3-mini, etc.)
 	if req.Reasoning != nil {
-		reasoning := map[string]interface{}{}
+		reasoning := map[string]any{}
 		if req.Reasoning.Effort != "" {
 			reasoning["effort"] = req.Reasoning.Effort
 		}
@@ -161,12 +161,12 @@ func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[s
 	}
 
 	// Tools - combine function tools and hosted tools
-	var tools []map[string]interface{}
+	var tools []map[string]any
 
 	// Add function tools
 	if len(req.Tools) > 0 {
 		for _, tool := range req.Tools {
-			tools = append(tools, map[string]interface{}{
+			tools = append(tools, map[string]any{
 				"type":        "function",
 				"name":        tool.Function.Name,
 				"description": tool.Function.Description,
@@ -178,7 +178,7 @@ func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[s
 	// Add hosted tools (web_search, file_search, code_interpreter)
 	if len(req.HostedTools) > 0 {
 		for _, htool := range req.HostedTools {
-			toolDef := map[string]interface{}{
+			toolDef := map[string]any{
 				"type": htool.Type,
 			}
 
@@ -214,7 +214,7 @@ func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[s
 
 	// Response format (structured outputs)
 	if req.ResponseFormat != nil {
-		body["text"] = map[string]interface{}{
+		body["text"] = map[string]any{
 			"format": p.buildResponseFormat(req.ResponseFormat),
 		}
 	}
@@ -223,13 +223,13 @@ func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[s
 }
 
 // buildResponseFormat builds the response format for structured outputs.
-func (p *OpenAIResponsesProvider) buildResponseFormat(format *models.LLMResponseFormat) map[string]interface{} {
-	result := map[string]interface{}{
+func (p *OpenAIResponsesProvider) buildResponseFormat(format *models.LLMResponseFormat) map[string]any {
+	result := map[string]any{
 		"type": format.Type,
 	}
 
 	if format.Type == "json_schema" && format.JSONSchema != nil {
-		result["json_schema"] = map[string]interface{}{
+		result["json_schema"] = map[string]any{
 			"name":        format.JSONSchema.Name,
 			"description": format.JSONSchema.Description,
 			"schema":      format.JSONSchema.Schema,
@@ -357,17 +357,17 @@ func (p *OpenAIResponsesProvider) convertResponse(resp *openAIResponsesAPIRespon
 // --- OpenAI Responses API response types ---
 
 type openAIResponsesAPIResponse struct {
-	ID                 string                 `json:"id"`
-	Object             string                 `json:"object"`
-	CreatedAt          int64                  `json:"created_at"`
-	Status             string                 `json:"status"`
-	Model              string                 `json:"model"`
-	Output             []responseOutputItem   `json:"output"`
-	PreviousResponseID string                 `json:"previous_response_id"`
-	Error              interface{}            `json:"error"`
-	IncompleteDetails  map[string]interface{} `json:"incomplete_details"`
-	Reasoning          *reasoningInfo         `json:"reasoning"`
-	Usage              *usageInfo             `json:"usage"`
+	ID                 string               `json:"id"`
+	Object             string               `json:"object"`
+	CreatedAt          int64                `json:"created_at"`
+	Status             string               `json:"status"`
+	Model              string               `json:"model"`
+	Output             []responseOutputItem `json:"output"`
+	PreviousResponseID string               `json:"previous_response_id"`
+	Error              any                  `json:"error"`
+	IncompleteDetails  map[string]any       `json:"incomplete_details"`
+	Reasoning          *reasoningInfo       `json:"reasoning"`
+	Usage              *usageInfo           `json:"usage"`
 }
 
 type responseOutputItem struct {
@@ -380,7 +380,7 @@ type responseOutputItem struct {
 	Name      string              `json:"name,omitempty"`
 	Arguments string              `json:"arguments,omitempty"`
 	Queries   []string            `json:"queries,omitempty"`
-	Results   interface{}         `json:"results,omitempty"`
+	Results   any                 `json:"results,omitempty"`
 }
 
 type outputContentPart struct {

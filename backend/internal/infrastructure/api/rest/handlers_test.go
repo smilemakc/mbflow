@@ -17,14 +17,14 @@ func init() {
 
 // ErrorResponse represents an error response for testing (new APIError format)
 type ErrorResponse struct {
-	Message string                 `json:"message"`
-	Code    string                 `json:"code"`
-	Details map[string]interface{} `json:"details"`
+	Message string         `json:"message"`
+	Code    string         `json:"code"`
+	Details map[string]any `json:"details"`
 }
 
 // Helper functions for testing
 
-func performRequest(r http.Handler, method, path string, body interface{}) *httptest.ResponseRecorder {
+func performRequest(r http.Handler, method, path string, body any) *httptest.ResponseRecorder {
 	var bodyBytes []byte
 	if body != nil {
 		bodyBytes, _ = json.Marshal(body)
@@ -38,7 +38,7 @@ func performRequest(r http.Handler, method, path string, body interface{}) *http
 	return w
 }
 
-func parseJSON(t *testing.T, body string, v interface{}) {
+func parseJSON(t *testing.T, body string, v any) {
 	if err := json.Unmarshal([]byte(body), v); err != nil {
 		t.Fatalf("failed to parse JSON: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestRespondJSON(t *testing.T) {
 		t.Errorf("expected status 200, got %d", w.Code)
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	parseJSON(t, w.Body.String(), &response)
 
 	if response["message"] != "success" {
@@ -133,7 +133,7 @@ func TestGetQueryInt(t *testing.T) {
 
 			w := performRequest(router, "GET", path, nil)
 
-			var response map[string]interface{}
+			var response map[string]any
 			parseJSON(t, w.Body.String(), &response)
 
 			value := int(response["value"].(float64))
@@ -180,7 +180,7 @@ func TestGetQuery(t *testing.T) {
 
 			w := performRequest(router, "GET", path, nil)
 
-			var response map[string]interface{}
+			var response map[string]any
 			parseJSON(t, w.Body.String(), &response)
 
 			value := response["value"].(string)
@@ -222,15 +222,15 @@ func TestGetParam(t *testing.T) {
 func TestValidateWorkflowRequest(t *testing.T) {
 	tests := []struct {
 		name        string
-		workflow    map[string]interface{}
+		workflow    map[string]any
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name: "valid workflow",
-			workflow: map[string]interface{}{
+			workflow: map[string]any{
 				"name": "Test Workflow",
-				"nodes": []map[string]interface{}{
+				"nodes": []map[string]any{
 					{
 						"id":   "node-1",
 						"name": "Node 1",
@@ -242,8 +242,8 @@ func TestValidateWorkflowRequest(t *testing.T) {
 		},
 		{
 			name: "missing name",
-			workflow: map[string]interface{}{
-				"nodes": []map[string]interface{}{
+			workflow: map[string]any{
+				"nodes": []map[string]any{
 					{
 						"id":   "node-1",
 						"name": "Node 1",
@@ -256,9 +256,9 @@ func TestValidateWorkflowRequest(t *testing.T) {
 		},
 		{
 			name: "empty nodes",
-			workflow: map[string]interface{}{
+			workflow: map[string]any{
 				"name":  "Test",
-				"nodes": []map[string]interface{}{},
+				"nodes": []map[string]any{},
 			},
 			expectError: true,
 			errorMsg:    "node",
@@ -276,7 +276,7 @@ func TestValidateWorkflowRequest(t *testing.T) {
 						t.Error("expected name validation error")
 					}
 				}
-				if nodes, ok := tt.workflow["nodes"].([]map[string]interface{}); ok {
+				if nodes, ok := tt.workflow["nodes"].([]map[string]any); ok {
 					if len(nodes) == 0 && tt.errorMsg == "node" {
 						// Expected: node validation
 					}
@@ -301,7 +301,7 @@ func TestBindJSON(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		body           interface{}
+		body           any
 		expectedStatus int
 		expectError    bool
 	}{
@@ -352,7 +352,7 @@ func TestRespondSuccess(t *testing.T) {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		var response map[string]interface{}
+		var response map[string]any
 		parseJSON(t, w.Body.String(), &response)
 
 		if response["data"] == nil {
@@ -388,7 +388,7 @@ func TestRespondSuccess(t *testing.T) {
 func TestRespondErrorWithDetails(t *testing.T) {
 	router := gin.New()
 	router.GET("/error", func(c *gin.Context) {
-		respondErrorWithDetails(c, http.StatusBadRequest, "validation failed", "VAL_001", map[string]interface{}{
+		respondErrorWithDetails(c, http.StatusBadRequest, "validation failed", "VAL_001", map[string]any{
 			"field": "name",
 		})
 	})
@@ -404,7 +404,7 @@ func TestRespondErrorWithDetails(t *testing.T) {
 
 	// New APIError format uses Message field instead of Error
 	// The ErrorResponse struct is for testing and needs to check the right field
-	var rawResponse map[string]interface{}
+	var rawResponse map[string]any
 	parseJSON(t, w.Body.String(), &rawResponse)
 
 	if rawResponse["message"] != "validation failed" {

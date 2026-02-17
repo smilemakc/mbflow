@@ -46,7 +46,7 @@ func main() {
 				builder.WithConfigValue("api_key", apiKey),
 				builder.WithConfigValue("prompt", "Describe this image in detail. What do you see?"),
 				builder.WithConfigValue("max_tokens", 500),
-				builder.WithConfigValue("files", []map[string]interface{}{
+				builder.WithConfigValue("files", []map[string]any{
 					{
 						"data":      "{{input.body_base64}}",
 						"mime_type": "{{input.content_type}}",
@@ -79,7 +79,7 @@ func main() {
 		log.Fatalf("HTTP request failed: %v", err)
 	}
 
-	httpOutput := httpResult.(map[string]interface{})
+	httpOutput := httpResult.(map[string]any)
 	fmt.Printf("Status: %v\n", httpOutput["status"])
 	fmt.Printf("Content-Type: %v\n", httpOutput["content_type"])
 	fmt.Printf("Image size: %v bytes\n", httpOutput["size"])
@@ -90,14 +90,14 @@ func main() {
 	fmt.Println("=== Step 2: Analyzing image with GPT-4o Vision ===")
 
 	// Manually resolve templates (in real workflow, engine does this automatically)
-	llmConfig := map[string]interface{}{
+	llmConfig := map[string]any{
 		"provider":   "openai",
 		"model":      "gpt-4o",
 		"api_key":    apiKey,
 		"prompt":     "Describe this image in detail. What do you see?",
 		"max_tokens": 500,
-		"files": []interface{}{
-			map[string]interface{}{
+		"files": []any{
+			map[string]any{
 				"data":      httpOutput["body_base64"],
 				"mime_type": httpOutput["content_type"],
 				"name":      "image.jpg",
@@ -110,14 +110,14 @@ func main() {
 		log.Fatalf("LLM request failed: %v", err)
 	}
 
-	llmOutput := llmResult.(map[string]interface{})
+	llmOutput := llmResult.(map[string]any)
 	fmt.Println()
 	fmt.Println("=== GPT-4o Vision Response ===")
 	fmt.Println(llmOutput["content"])
 	fmt.Println()
 
 	// Print usage stats
-	if usage, ok := llmOutput["usage"].(map[string]interface{}); ok {
+	if usage, ok := llmOutput["usage"].(map[string]any); ok {
 		fmt.Println("=== Token Usage ===")
 		fmt.Printf("Prompt tokens: %v\n", usage["prompt_tokens"])
 		fmt.Printf("Completion tokens: %v\n", usage["completion_tokens"])

@@ -27,23 +27,23 @@ func NewGoogleDriveExecutor() *GoogleDriveExecutor {
 
 // GoogleDriveOutput represents the output structure.
 type GoogleDriveOutput struct {
-	Success           bool                     `json:"success"`
-	Operation         string                   `json:"operation"`
-	FileID            string                   `json:"file_id,omitempty"`
-	FolderID          string                   `json:"folder_id,omitempty"`
-	FileName          string                   `json:"file_name,omitempty"`
-	MimeType          string                   `json:"mime_type,omitempty"`
-	WebViewURL        string                   `json:"web_view_url,omitempty"`
-	Files             []map[string]interface{} `json:"files,omitempty"`
-	FileCount         int                      `json:"file_count,omitempty"`
-	SourceFileID      string                   `json:"source_file_id,omitempty"`
-	DestinationFileID string                   `json:"destination_file_id,omitempty"`
-	Metadata          map[string]interface{}   `json:"metadata,omitempty"`
-	DurationMs        int64                    `json:"duration_ms"`
+	Success           bool             `json:"success"`
+	Operation         string           `json:"operation"`
+	FileID            string           `json:"file_id,omitempty"`
+	FolderID          string           `json:"folder_id,omitempty"`
+	FileName          string           `json:"file_name,omitempty"`
+	MimeType          string           `json:"mime_type,omitempty"`
+	WebViewURL        string           `json:"web_view_url,omitempty"`
+	Files             []map[string]any `json:"files,omitempty"`
+	FileCount         int              `json:"file_count,omitempty"`
+	SourceFileID      string           `json:"source_file_id,omitempty"`
+	DestinationFileID string           `json:"destination_file_id,omitempty"`
+	Metadata          map[string]any   `json:"metadata,omitempty"`
+	DurationMs        int64            `json:"duration_ms"`
 }
 
 // Execute implements the Executor interface.
-func (e *GoogleDriveExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *GoogleDriveExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Extract required config
@@ -108,7 +108,7 @@ func (e *GoogleDriveExecutor) createDriveService(ctx context.Context, credential
 }
 
 // executeCreateSpreadsheet creates a new Google Sheets spreadsheet.
-func (e *GoogleDriveExecutor) executeCreateSpreadsheet(ctx context.Context, srv *drive.Service, config map[string]interface{}) (*GoogleDriveOutput, error) {
+func (e *GoogleDriveExecutor) executeCreateSpreadsheet(ctx context.Context, srv *drive.Service, config map[string]any) (*GoogleDriveOutput, error) {
 	fileName := e.GetStringDefault(config, "file_name", "Untitled Spreadsheet")
 	parentFolderID := e.GetStringDefault(config, "parent_folder_id", "")
 
@@ -133,14 +133,14 @@ func (e *GoogleDriveExecutor) executeCreateSpreadsheet(ctx context.Context, srv 
 		FileName:   createdFile.Name,
 		MimeType:   createdFile.MimeType,
 		WebViewURL: createdFile.WebViewLink,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"created_time": createdFile.CreatedTime,
 		},
 	}, nil
 }
 
 // executeCreateFolder creates a new folder in Google Drive.
-func (e *GoogleDriveExecutor) executeCreateFolder(ctx context.Context, srv *drive.Service, config map[string]interface{}) (*GoogleDriveOutput, error) {
+func (e *GoogleDriveExecutor) executeCreateFolder(ctx context.Context, srv *drive.Service, config map[string]any) (*GoogleDriveOutput, error) {
 	folderName := e.GetStringDefault(config, "folder_name", "Untitled Folder")
 	parentFolderID := e.GetStringDefault(config, "parent_folder_id", "")
 
@@ -165,14 +165,14 @@ func (e *GoogleDriveExecutor) executeCreateFolder(ctx context.Context, srv *driv
 		FileName:   createdFile.Name,
 		MimeType:   createdFile.MimeType,
 		WebViewURL: createdFile.WebViewLink,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"created_time": createdFile.CreatedTime,
 		},
 	}, nil
 }
 
 // executeListFiles lists files in a folder (or root if no folder specified).
-func (e *GoogleDriveExecutor) executeListFiles(ctx context.Context, srv *drive.Service, config map[string]interface{}) (*GoogleDriveOutput, error) {
+func (e *GoogleDriveExecutor) executeListFiles(ctx context.Context, srv *drive.Service, config map[string]any) (*GoogleDriveOutput, error) {
 	parentFolderID := e.GetStringDefault(config, "parent_folder_id", "")
 	maxResults := e.GetIntDefault(config, "max_results", 100)
 	orderBy := e.GetStringDefault(config, "order_by", "modifiedTime desc")
@@ -195,9 +195,9 @@ func (e *GoogleDriveExecutor) executeListFiles(ctx context.Context, srv *drive.S
 	}
 
 	// Convert files to map format
-	files := make([]map[string]interface{}, 0, len(fileList.Files))
+	files := make([]map[string]any, 0, len(fileList.Files))
 	for _, f := range fileList.Files {
-		fileMap := map[string]interface{}{
+		fileMap := map[string]any{
 			"id":            f.Id,
 			"name":          f.Name,
 			"mime_type":     f.MimeType,
@@ -215,7 +215,7 @@ func (e *GoogleDriveExecutor) executeListFiles(ctx context.Context, srv *drive.S
 		Success:   true,
 		Files:     files,
 		FileCount: len(files),
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"parent_folder_id": parentFolderID,
 			"query":            query,
 		},
@@ -223,7 +223,7 @@ func (e *GoogleDriveExecutor) executeListFiles(ctx context.Context, srv *drive.S
 }
 
 // executeDelete deletes a file or folder by ID.
-func (e *GoogleDriveExecutor) executeDelete(ctx context.Context, srv *drive.Service, config map[string]interface{}) (*GoogleDriveOutput, error) {
+func (e *GoogleDriveExecutor) executeDelete(ctx context.Context, srv *drive.Service, config map[string]any) (*GoogleDriveOutput, error) {
 	fileID, err := e.GetString(config, "file_id")
 	if err != nil {
 		return nil, fmt.Errorf("file_id is required for delete: %w", err)
@@ -249,7 +249,7 @@ func (e *GoogleDriveExecutor) executeDelete(ctx context.Context, srv *drive.Serv
 }
 
 // executeMove moves a file to a different folder.
-func (e *GoogleDriveExecutor) executeMove(ctx context.Context, srv *drive.Service, config map[string]interface{}) (*GoogleDriveOutput, error) {
+func (e *GoogleDriveExecutor) executeMove(ctx context.Context, srv *drive.Service, config map[string]any) (*GoogleDriveOutput, error) {
 	fileID, err := e.GetString(config, "file_id")
 	if err != nil {
 		return nil, fmt.Errorf("file_id is required for move: %w", err)
@@ -293,14 +293,14 @@ func (e *GoogleDriveExecutor) executeMove(ctx context.Context, srv *drive.Servic
 		MimeType:          updatedFile.MimeType,
 		WebViewURL:        updatedFile.WebViewLink,
 		DestinationFileID: destinationFolderID,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"previous_parents": file.Parents,
 		},
 	}, nil
 }
 
 // executeCopy copies a file to a different location.
-func (e *GoogleDriveExecutor) executeCopy(ctx context.Context, srv *drive.Service, config map[string]interface{}) (*GoogleDriveOutput, error) {
+func (e *GoogleDriveExecutor) executeCopy(ctx context.Context, srv *drive.Service, config map[string]any) (*GoogleDriveOutput, error) {
 	fileID, err := e.GetString(config, "file_id")
 	if err != nil {
 		return nil, fmt.Errorf("file_id is required for copy: %w", err)
@@ -334,14 +334,14 @@ func (e *GoogleDriveExecutor) executeCopy(ctx context.Context, srv *drive.Servic
 		MimeType:          result.MimeType,
 		WebViewURL:        result.WebViewLink,
 		DestinationFileID: destinationFolderID,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"original_file_id": fileID,
 		},
 	}, nil
 }
 
 // Validate validates the executor configuration.
-func (e *GoogleDriveExecutor) Validate(config map[string]interface{}) error {
+func (e *GoogleDriveExecutor) Validate(config map[string]any) error {
 	// Validate required fields
 	if err := e.ValidateRequired(config, "operation", "credentials"); err != nil {
 		return err
@@ -376,7 +376,7 @@ func (e *GoogleDriveExecutor) Validate(config map[string]interface{}) error {
 	}
 
 	// Try to parse credentials as JSON
-	var creds map[string]interface{}
+	var creds map[string]any
 	if err := json.Unmarshal([]byte(credentials), &creds); err != nil {
 		return fmt.Errorf("credentials must be valid JSON: %w", err)
 	}

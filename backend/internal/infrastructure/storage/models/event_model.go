@@ -28,7 +28,7 @@ func (EventModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamp
-func (e *EventModel) BeforeInsert(ctx interface{}) error {
+func (e *EventModel) BeforeInsert(ctx any) error {
 	e.CreatedAt = time.Now()
 	if e.ID == uuid.Nil {
 		e.ID = uuid.New()

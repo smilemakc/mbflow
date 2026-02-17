@@ -8,12 +8,12 @@ import (
 func TestConditionalExecutor_Execute_Success_True(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		"condition":      "input.score >= 80",
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"score": 85,
 	}
 
@@ -32,12 +32,12 @@ func TestConditionalExecutor_Execute_Success_True(t *testing.T) {
 func TestConditionalExecutor_Execute_Success_False(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		"condition":      "input.score >= 80",
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"score": 50,
 	}
 
@@ -56,12 +56,12 @@ func TestConditionalExecutor_Execute_Success_False(t *testing.T) {
 func TestConditionalExecutor_Execute_CompilationError(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		"condition":      "input.score >= && 80", // Invalid syntax
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"score": 50,
 	}
 
@@ -81,12 +81,12 @@ func TestConditionalExecutor_Execute_CompilationError(t *testing.T) {
 func TestConditionalExecutor_Execute_RuntimeError(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		"condition":      "input.score >= 80", // score doesn't exist in input
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"data": "value",
 	}
 
@@ -106,12 +106,12 @@ func TestConditionalExecutor_Execute_RuntimeError(t *testing.T) {
 func TestConditionalExecutor_Execute_NonBooleanResult(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		"condition":      "input.score", // Returns number, not bool
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"score": 50,
 	}
 
@@ -131,12 +131,12 @@ func TestConditionalExecutor_Execute_NonBooleanResult(t *testing.T) {
 func TestConditionalExecutor_Execute_MissingCondition(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		// Missing "condition" field
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"score": 50,
 	}
 
@@ -149,12 +149,12 @@ func TestConditionalExecutor_Execute_MissingCondition(t *testing.T) {
 func TestConditionalExecutor_Execute_UnknownConditionType(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "unknown_type",
 		"condition":      "input.score >= 80",
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"score": 50,
 	}
 
@@ -174,12 +174,12 @@ func TestConditionalExecutor_Execute_UnknownConditionType(t *testing.T) {
 func TestConditionalExecutor_Execute_DefaultConditionType(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		// No condition_type specified, should default to "expression"
 		"condition": "input.value == true",
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"value": true,
 	}
 
@@ -198,12 +198,12 @@ func TestConditionalExecutor_Execute_DefaultConditionType(t *testing.T) {
 func TestConditionalExecutor_Execute_ComplexExpression(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		"condition":      "input.score >= 50 && input.score < 80 && input.status == 'active'",
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"score":  60,
 		"status": "active",
 	}
@@ -223,7 +223,7 @@ func TestConditionalExecutor_Execute_ComplexExpression(t *testing.T) {
 func TestConditionalExecutor_Validate_Success(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		"expression":     "input.value == true",
 	}
@@ -237,7 +237,7 @@ func TestConditionalExecutor_Validate_Success(t *testing.T) {
 func TestConditionalExecutor_Validate_InvalidConditionType(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "invalid_type",
 		"expression":     "input.value == true",
 	}
@@ -258,7 +258,7 @@ func TestConditionalExecutor_Validate_InvalidConditionType(t *testing.T) {
 func TestConditionalExecutor_Validate_MissingExpression(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"condition_type": "expression",
 		// Missing "expression" field
 	}
@@ -279,7 +279,7 @@ func TestConditionalExecutor_Validate_MissingExpression(t *testing.T) {
 func TestConditionalExecutor_Validate_DefaultConditionType(t *testing.T) {
 	executor := NewConditionalExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		// No condition_type, defaults to "expression"
 		"expression": "input.value == true",
 	}

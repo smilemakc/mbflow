@@ -171,7 +171,7 @@ func (m *Manager) Stop() error {
 }
 
 // TriggerManual triggers a workflow manually
-func (m *Manager) TriggerManual(ctx context.Context, triggerID, workflowID string, input map[string]interface{}) (string, error) {
+func (m *Manager) TriggerManual(ctx context.Context, triggerID, workflowID string, input map[string]any) (string, error) {
 	// Execute workflow
 	execution, err := m.executionMgr.Execute(ctx, workflowID, input, nil)
 	if err != nil {

@@ -30,7 +30,7 @@ func (TriggerModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (t *TriggerModel) BeforeInsert(ctx interface{}) error {
+func (t *TriggerModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	t.CreatedAt = now
 	t.UpdatedAt = now
@@ -44,7 +44,7 @@ func (t *TriggerModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (t *TriggerModel) BeforeUpdate(ctx interface{}) error {
+func (t *TriggerModel) BeforeUpdate(ctx any) error {
 	t.UpdatedAt = time.Now()
 	return nil
 }

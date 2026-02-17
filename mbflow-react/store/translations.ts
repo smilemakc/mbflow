@@ -126,6 +126,7 @@ const dictionaries = {
       // Logic
       conditional: "Conditional",
       merge: "Merge",
+      subWorkflow: "Sub-Workflow",
 
       // Storage
       fileStorage: "File Storage",
@@ -1052,6 +1053,34 @@ const dictionaries = {
         whatGetsKept: "What Gets Kept",
         outputFields: "Output Fields"
       },
+      subWorkflow: {
+        title: "Sub-Workflow",
+        description: "Fan-out execution: run a child workflow for each item in an array",
+        workflowId: "Child Workflow ID",
+        workflowIdPlaceholder: "e.g., cell-processor-wf",
+        workflowIdHint: "ID of the workflow to execute for each item",
+        forEach: "For Each Expression",
+        forEachPlaceholder: "input.cells",
+        forEachHint: "Dot-path to the array in input data (e.g., input.items, input.cells)",
+        itemVar: "Item Variable Name",
+        itemVarPlaceholder: "item",
+        itemVarHint: "Variable name for the current item in child workflow input",
+        maxParallelism: "Max Parallelism",
+        maxParallelismHint: "Max concurrent child executions (0 = unlimited)",
+        onError: "Error Handling",
+        onErrorFailFast: "Fail Fast",
+        onErrorFailFastHint: "Stop all on first error",
+        onErrorCollectPartial: "Collect Partial",
+        onErrorCollectPartialHint: "Continue and collect partial results",
+        onErrorHint: "How to handle errors in child workflow executions",
+        howItWorks: "How It Works",
+        howItWorksItems: [
+          "Evaluates for_each to get an array of items",
+          "Launches a child workflow for each item in parallel",
+          "Each child receives: item, index, total + parent input",
+          "Results are collected into items[] array with summary"
+        ]
+      },
       adapter: {
         base64ToBytes: {
           title: "Base64 to Bytes Converter",
@@ -1224,6 +1253,7 @@ const dictionaries = {
       // Logic
       conditional: "Условие",
       merge: "Объединение",
+      subWorkflow: "Суб-воркфлоу",
 
       // Storage
       fileStorage: "Файловое хранилище",
@@ -2149,6 +2179,34 @@ const dictionaries = {
         whatGetsRemoved: "Что удаляется (только HTML)",
         whatGetsKept: "Что сохраняется",
         outputFields: "Выходные поля"
+      },
+      subWorkflow: {
+        title: "Суб-воркфлоу",
+        description: "Параллельное выполнение: запуск дочернего воркфлоу для каждого элемента массива",
+        workflowId: "ID дочернего воркфлоу",
+        workflowIdPlaceholder: "напр., cell-processor-wf",
+        workflowIdHint: "ID воркфлоу, который будет выполнен для каждого элемента",
+        forEach: "Выражение For Each",
+        forEachPlaceholder: "input.cells",
+        forEachHint: "Путь к массиву во входных данных (напр., input.items, input.cells)",
+        itemVar: "Имя переменной элемента",
+        itemVarPlaceholder: "item",
+        itemVarHint: "Имя переменной для текущего элемента во входных данных дочернего воркфлоу",
+        maxParallelism: "Макс. параллелизм",
+        maxParallelismHint: "Максимальное количество параллельных выполнений (0 = без ограничений)",
+        onError: "Обработка ошибок",
+        onErrorFailFast: "Быстрый отказ",
+        onErrorFailFastHint: "Остановить всё при первой ошибке",
+        onErrorCollectPartial: "Собрать частично",
+        onErrorCollectPartialHint: "Продолжить и собрать частичные результаты",
+        onErrorHint: "Как обрабатывать ошибки в дочерних выполнениях",
+        howItWorks: "Как это работает",
+        howItWorksItems: [
+          "Вычисляет for_each для получения массива элементов",
+          "Запускает дочерний воркфлоу для каждого элемента параллельно",
+          "Каждый дочерний получает: item, index, total + входные данные родителя",
+          "Результаты собираются в массив items[] с суммарной статистикой"
+        ]
       },
       adapter: {
         base64ToBytes: {

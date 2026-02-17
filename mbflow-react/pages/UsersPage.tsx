@@ -48,7 +48,7 @@ export const UsersPage: React.FC = () => {
                 authService.listRoles(),
             ]);
             setUsers(usersData.data);
-            setTotal(usersData.meta.total);
+            setTotal(usersData.total);
             setRoles(rolesData);
         } catch (error) {
             toast.error('Failed to load users');

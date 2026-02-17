@@ -14,13 +14,13 @@ import (
 func TestTelegramDownloadExecutor_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "valid config with base64",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":     "123456:ABC-DEF",
 				"file_id":       "AgACAgIAAxkBAAIC...",
 				"output_format": "base64",
@@ -29,7 +29,7 @@ func TestTelegramDownloadExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid config with url",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":     "123456:ABC-DEF",
 				"file_id":       "AgACAgIAAxkBAAIC...",
 				"output_format": "url",
@@ -38,7 +38,7 @@ func TestTelegramDownloadExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid config default format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token": "123456:ABC-DEF",
 				"file_id":   "AgACAgIAAxkBAAIC...",
 			},
@@ -46,7 +46,7 @@ func TestTelegramDownloadExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing bot_token",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"file_id": "AgACAgIAAxkBAAIC...",
 			},
 			wantErr: true,
@@ -54,7 +54,7 @@ func TestTelegramDownloadExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing file_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token": "123456:ABC-DEF",
 			},
 			wantErr: true,
@@ -62,7 +62,7 @@ func TestTelegramDownloadExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid output_format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":     "123456:ABC-DEF",
 				"file_id":       "AgACAgIAAxkBAAIC...",
 				"output_format": "invalid",
@@ -72,7 +72,7 @@ func TestTelegramDownloadExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "timeout too small",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token": "123456:ABC-DEF",
 				"file_id":   "AgACAgIAAxkBAAIC...",
 				"timeout":   0,
@@ -82,7 +82,7 @@ func TestTelegramDownloadExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "timeout too large",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token": "123456:ABC-DEF",
 				"file_id":   "AgACAgIAAxkBAAIC...",
 				"timeout":   400,
@@ -137,14 +137,14 @@ func TestTelegramDownloadExecutor_Execute_URLFormat(t *testing.T) {
 	executor := NewTelegramDownloadExecutor()
 	executor.baseURL = server.URL
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":     "test-token",
 		"file_id":       "test-file-id",
 		"output_format": "url",
 	}, nil)
 
 	require.NoError(t, err)
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 
 	assert.True(t, resultMap["success"].(bool))
 	assert.Equal(t, "test-file-id", resultMap["file_id"])
@@ -188,14 +188,14 @@ func TestTelegramDownloadExecutor_Execute_Base64Format(t *testing.T) {
 	executor := NewTelegramDownloadExecutor()
 	executor.baseURL = server.URL
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":     "test-token",
 		"file_id":       "test-file-id",
 		"output_format": "base64",
 	}, nil)
 
 	require.NoError(t, err)
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 
 	assert.True(t, resultMap["success"].(bool))
 	assert.Equal(t, "SGVsbG8sIFRlbGVncmFtIQ==", resultMap["file_data"]) // base64 of "Hello, Telegram!"
@@ -215,7 +215,7 @@ func TestTelegramDownloadExecutor_Execute_APIError(t *testing.T) {
 	executor := NewTelegramDownloadExecutor()
 	executor.baseURL = server.URL
 
-	_, err := executor.Execute(context.Background(), map[string]interface{}{
+	_, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token": "test-token",
 		"file_id":   "large-file-id",
 	}, nil)
@@ -238,7 +238,7 @@ func TestTelegramDownloadExecutor_Execute_FileNotFound(t *testing.T) {
 	executor := NewTelegramDownloadExecutor()
 	executor.baseURL = server.URL
 
-	_, err := executor.Execute(context.Background(), map[string]interface{}{
+	_, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token": "test-token",
 		"file_id":   "invalid-file-id",
 	}, nil)
@@ -274,7 +274,7 @@ func TestTelegramDownloadExecutor_Execute_DownloadError(t *testing.T) {
 	executor := NewTelegramDownloadExecutor()
 	executor.baseURL = server.URL
 
-	_, err := executor.Execute(context.Background(), map[string]interface{}{
+	_, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":     "test-token",
 		"file_id":       "test-file-id",
 		"output_format": "base64",

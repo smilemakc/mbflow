@@ -136,7 +136,7 @@ func (m *mockStorage) GetMetadata(ctx context.Context, fileID string) (*models.F
 	return file.entry, nil
 }
 
-func (m *mockStorage) UpdateMetadata(ctx context.Context, fileID string, metadata map[string]interface{}) error {
+func (m *mockStorage) UpdateMetadata(ctx context.Context, fileID string, metadata map[string]any) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	file, ok := m.files[fileID]
@@ -270,7 +270,7 @@ func TestFileStorageExecutor_Store_Base64(t *testing.T) {
 	testContent := "Hello, World! This is a test file."
 	base64Content := base64.StdEncoding.EncodeToString([]byte(testContent))
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":       "store",
 		"file_data":    base64Content,
 		"file_name":    "test.txt",
@@ -281,7 +281,7 @@ func TestFileStorageExecutor_Store_Base64(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 
 	assert.Equal(t, true, resultMap["success"])
@@ -299,18 +299,18 @@ func TestFileStorageExecutor_Store_WithTags(t *testing.T) {
 	testContent := "Test file with tags"
 	base64Content := base64.StdEncoding.EncodeToString([]byte(testContent))
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":       "store",
 		"file_data":    base64Content,
 		"file_name":    "tagged-file.txt",
 		"access_scope": "result",
-		"tags":         []interface{}{"important", "document"},
+		"tags":         []any{"important", "document"},
 	}
 
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, models.AccessScope("result"), resultMap["access_scope"])
 }
@@ -322,7 +322,7 @@ func TestFileStorageExecutor_Store_WithTTL(t *testing.T) {
 	testContent := "Temporary file"
 	base64Content := base64.StdEncoding.EncodeToString([]byte(testContent))
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "temp.txt",
@@ -332,7 +332,7 @@ func TestFileStorageExecutor_Store_WithTTL(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.NotNil(t, resultMap["expires_at"])
 }
@@ -341,7 +341,7 @@ func TestFileStorageExecutor_Store_MissingData(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_name": "test.txt",
 		// No file_data or file_url
@@ -356,7 +356,7 @@ func TestFileStorageExecutor_Store_InvalidBase64(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": "not-valid-base64!!!",
 		"file_name": "test.txt",
@@ -374,7 +374,7 @@ func TestFileStorageExecutor_Store_InvalidAccessScope(t *testing.T) {
 	testContent := "Test"
 	base64Content := base64.StdEncoding.EncodeToString([]byte(testContent))
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":       "store",
 		"file_data":    base64Content,
 		"file_name":    "test.txt",
@@ -393,7 +393,7 @@ func TestFileStorageExecutor_Store_CustomStorageID(t *testing.T) {
 	testContent := "Custom storage test"
 	base64Content := base64.StdEncoding.EncodeToString([]byte(testContent))
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":     "store",
 		"storage_id": "custom-storage",
 		"file_data":  base64Content,
@@ -403,7 +403,7 @@ func TestFileStorageExecutor_Store_CustomStorageID(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "custom-storage", resultMap["storage_id"])
 }
 
@@ -417,7 +417,7 @@ func TestFileStorageExecutor_Get_Success(t *testing.T) {
 	testContent := "Get test content"
 	base64Content := base64.StdEncoding.EncodeToString([]byte(testContent))
 
-	storeConfig := map[string]interface{}{
+	storeConfig := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "retrieve-me.txt",
@@ -426,10 +426,10 @@ func TestFileStorageExecutor_Get_Success(t *testing.T) {
 
 	storeResult, err := exec.Execute(context.Background(), storeConfig, nil)
 	require.NoError(t, err)
-	fileID := storeResult.(map[string]interface{})["file_id"].(string)
+	fileID := storeResult.(map[string]any)["file_id"].(string)
 
 	// Now get the file
-	getConfig := map[string]interface{}{
+	getConfig := map[string]any{
 		"action":  "get",
 		"file_id": fileID,
 	}
@@ -437,7 +437,7 @@ func TestFileStorageExecutor_Get_Success(t *testing.T) {
 	result, err := exec.Execute(context.Background(), getConfig, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, fileID, resultMap["file_id"])
 	assert.Equal(t, "retrieve-me.txt", resultMap["file_name"])
@@ -453,7 +453,7 @@ func TestFileStorageExecutor_Get_FileNotFound(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":  "get",
 		"file_id": "non-existent-file",
 	}
@@ -467,7 +467,7 @@ func TestFileStorageExecutor_Get_MissingFileID(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action": "get",
 		// No file_id
 	}
@@ -487,7 +487,7 @@ func TestFileStorageExecutor_Delete_Success(t *testing.T) {
 	testContent := "Delete me"
 	base64Content := base64.StdEncoding.EncodeToString([]byte(testContent))
 
-	storeConfig := map[string]interface{}{
+	storeConfig := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "delete-me.txt",
@@ -495,10 +495,10 @@ func TestFileStorageExecutor_Delete_Success(t *testing.T) {
 
 	storeResult, err := exec.Execute(context.Background(), storeConfig, nil)
 	require.NoError(t, err)
-	fileID := storeResult.(map[string]interface{})["file_id"].(string)
+	fileID := storeResult.(map[string]any)["file_id"].(string)
 
 	// Delete the file
-	deleteConfig := map[string]interface{}{
+	deleteConfig := map[string]any{
 		"action":  "delete",
 		"file_id": fileID,
 	}
@@ -506,12 +506,12 @@ func TestFileStorageExecutor_Delete_Success(t *testing.T) {
 	result, err := exec.Execute(context.Background(), deleteConfig, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, fileID, resultMap["file_id"])
 
 	// Verify file is gone
-	getConfig := map[string]interface{}{
+	getConfig := map[string]any{
 		"action":  "get",
 		"file_id": fileID,
 	}
@@ -525,7 +525,7 @@ func TestFileStorageExecutor_Delete_FileNotFound(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":  "delete",
 		"file_id": "non-existent",
 	}
@@ -544,7 +544,7 @@ func TestFileStorageExecutor_List_All(t *testing.T) {
 	// Store multiple files
 	for i := 0; i < 3; i++ {
 		content := base64.StdEncoding.EncodeToString([]byte("Content"))
-		config := map[string]interface{}{
+		config := map[string]any{
 			"action":    "store",
 			"file_data": content,
 			"file_name": "file" + string(rune('0'+i)) + ".txt",
@@ -554,18 +554,18 @@ func TestFileStorageExecutor_List_All(t *testing.T) {
 	}
 
 	// List all files
-	listConfig := map[string]interface{}{
+	listConfig := map[string]any{
 		"action": "list",
 	}
 
 	result, err := exec.Execute(context.Background(), listConfig, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, 3, resultMap["count"])
 
-	files := resultMap["files"].([]map[string]interface{})
+	files := resultMap["files"].([]map[string]any)
 	assert.Len(t, files, 3)
 }
 
@@ -576,7 +576,7 @@ func TestFileStorageExecutor_List_WithAccessScopeFilter(t *testing.T) {
 	// Store files with different access scopes
 	for _, scope := range []string{"workflow", "result", "edge"} {
 		content := base64.StdEncoding.EncodeToString([]byte("Content"))
-		config := map[string]interface{}{
+		config := map[string]any{
 			"action":       "store",
 			"file_data":    content,
 			"file_name":    scope + "-file.txt",
@@ -587,7 +587,7 @@ func TestFileStorageExecutor_List_WithAccessScopeFilter(t *testing.T) {
 	}
 
 	// List only workflow files
-	listConfig := map[string]interface{}{
+	listConfig := map[string]any{
 		"action":       "list",
 		"access_scope": "workflow",
 	}
@@ -595,7 +595,7 @@ func TestFileStorageExecutor_List_WithAccessScopeFilter(t *testing.T) {
 	result, err := exec.Execute(context.Background(), listConfig, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 1, resultMap["count"])
 }
 
@@ -606,7 +606,7 @@ func TestFileStorageExecutor_List_WithLimit(t *testing.T) {
 	// Store 5 files
 	for i := 0; i < 5; i++ {
 		content := base64.StdEncoding.EncodeToString([]byte("Content"))
-		config := map[string]interface{}{
+		config := map[string]any{
 			"action":    "store",
 			"file_data": content,
 			"file_name": "file" + string(rune('0'+i)) + ".txt",
@@ -616,7 +616,7 @@ func TestFileStorageExecutor_List_WithLimit(t *testing.T) {
 	}
 
 	// List with limit
-	listConfig := map[string]interface{}{
+	listConfig := map[string]any{
 		"action": "list",
 		"limit":  2,
 	}
@@ -624,8 +624,8 @@ func TestFileStorageExecutor_List_WithLimit(t *testing.T) {
 	result, err := exec.Execute(context.Background(), listConfig, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
-	files := resultMap["files"].([]map[string]interface{})
+	resultMap := result.(map[string]any)
+	files := resultMap["files"].([]map[string]any)
 	assert.LessOrEqual(t, len(files), 2)
 }
 
@@ -639,21 +639,21 @@ func TestFileStorageExecutor_Metadata_Success(t *testing.T) {
 	testContent := "Metadata test"
 	base64Content := base64.StdEncoding.EncodeToString([]byte(testContent))
 
-	storeConfig := map[string]interface{}{
+	storeConfig := map[string]any{
 		"action":       "store",
 		"file_data":    base64Content,
 		"file_name":    "meta-file.txt",
 		"mime_type":    "text/plain",
 		"access_scope": "workflow",
-		"tags":         []interface{}{"test", "metadata"},
+		"tags":         []any{"test", "metadata"},
 	}
 
 	storeResult, err := exec.Execute(context.Background(), storeConfig, nil)
 	require.NoError(t, err)
-	fileID := storeResult.(map[string]interface{})["file_id"].(string)
+	fileID := storeResult.(map[string]any)["file_id"].(string)
 
 	// Get metadata
-	metaConfig := map[string]interface{}{
+	metaConfig := map[string]any{
 		"action":  "metadata",
 		"file_id": fileID,
 	}
@@ -661,7 +661,7 @@ func TestFileStorageExecutor_Metadata_Success(t *testing.T) {
 	result, err := exec.Execute(context.Background(), metaConfig, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, fileID, resultMap["file_id"])
 	assert.Equal(t, "meta-file.txt", resultMap["file_name"])
@@ -674,7 +674,7 @@ func TestFileStorageExecutor_Metadata_FileNotFound(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":  "metadata",
 		"file_id": "non-existent",
 	}
@@ -692,13 +692,13 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "Valid store with file_data",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action":    "store",
 				"file_data": "dGVzdA==",
 			},
@@ -706,7 +706,7 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "Valid store with file_url",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action":   "store",
 				"file_url": "https://example.com/file.pdf",
 			},
@@ -714,7 +714,7 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "Store without data or url",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action": "store",
 			},
 			wantErr: true,
@@ -722,7 +722,7 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "Valid get",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action":  "get",
 				"file_id": "some-id",
 			},
@@ -730,7 +730,7 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "Get without file_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action": "get",
 			},
 			wantErr: true,
@@ -738,7 +738,7 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "Valid delete",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action":  "delete",
 				"file_id": "some-id",
 			},
@@ -746,14 +746,14 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "Valid list",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action": "list",
 			},
 			wantErr: false,
 		},
 		{
 			name: "Valid metadata",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action":  "metadata",
 				"file_id": "some-id",
 			},
@@ -761,7 +761,7 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "Invalid action",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action": "invalid",
 			},
 			wantErr: true,
@@ -769,13 +769,13 @@ func TestFileStorageExecutor_Validate(t *testing.T) {
 		},
 		{
 			name:    "Missing action",
-			config:  map[string]interface{}{},
+			config:  map[string]any{},
 			wantErr: true,
 			errMsg:  "action is required",
 		},
 		{
 			name: "Invalid access_scope",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"action":       "store",
 				"file_data":    "dGVzdA==",
 				"access_scope": "invalid",
@@ -806,7 +806,7 @@ func TestFileStorageExecutor_MissingAction(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{}
+	config := map[string]any{}
 
 	_, err := exec.Execute(context.Background(), config, nil)
 	assert.Error(t, err)
@@ -817,7 +817,7 @@ func TestFileStorageExecutor_UnsupportedAction(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action": "unsupported",
 	}
 
@@ -832,7 +832,7 @@ func TestFileStorageExecutor_ResultContainsDuration(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString([]byte("test")),
 		"file_name": "test.txt",
@@ -841,7 +841,7 @@ func TestFileStorageExecutor_ResultContainsDuration(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Contains(t, resultMap, "duration_ms")
 	assert.Contains(t, resultMap, "action")
 	assert.Equal(t, "store", resultMap["action"])
@@ -857,56 +857,56 @@ func TestFileStorageExecutor_CompleteWorkflow(t *testing.T) {
 	content := "Complete workflow test content"
 	base64Content := base64.StdEncoding.EncodeToString([]byte(content))
 
-	storeResult, err := exec.Execute(context.Background(), map[string]interface{}{
+	storeResult, err := exec.Execute(context.Background(), map[string]any{
 		"action":       "store",
 		"file_data":    base64Content,
 		"file_name":    "workflow-test.txt",
 		"mime_type":    "text/plain",
 		"access_scope": "workflow",
-		"tags":         []interface{}{"workflow", "test"},
+		"tags":         []any{"workflow", "test"},
 	}, nil)
 	require.NoError(t, err)
 
-	fileID := storeResult.(map[string]interface{})["file_id"].(string)
+	fileID := storeResult.(map[string]any)["file_id"].(string)
 
 	// 2. Get metadata
-	metaResult, err := exec.Execute(context.Background(), map[string]interface{}{
+	metaResult, err := exec.Execute(context.Background(), map[string]any{
 		"action":  "metadata",
 		"file_id": fileID,
 	}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, "workflow-test.txt", metaResult.(map[string]interface{})["file_name"])
+	assert.Equal(t, "workflow-test.txt", metaResult.(map[string]any)["file_name"])
 
 	// 3. Get file content
-	getResult, err := exec.Execute(context.Background(), map[string]interface{}{
+	getResult, err := exec.Execute(context.Background(), map[string]any{
 		"action":  "get",
 		"file_id": fileID,
 	}, nil)
 	require.NoError(t, err)
 
-	decoded, _ := base64.StdEncoding.DecodeString(getResult.(map[string]interface{})["file_data"].(string))
+	decoded, _ := base64.StdEncoding.DecodeString(getResult.(map[string]any)["file_data"].(string))
 	assert.Equal(t, content, string(decoded))
 
 	// 4. List files
-	listResult, err := exec.Execute(context.Background(), map[string]interface{}{
+	listResult, err := exec.Execute(context.Background(), map[string]any{
 		"action": "list",
 	}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, 1, listResult.(map[string]interface{})["count"])
+	assert.Equal(t, 1, listResult.(map[string]any)["count"])
 
 	// 5. Delete file
-	_, err = exec.Execute(context.Background(), map[string]interface{}{
+	_, err = exec.Execute(context.Background(), map[string]any{
 		"action":  "delete",
 		"file_id": fileID,
 	}, nil)
 	require.NoError(t, err)
 
 	// 6. Verify deletion
-	listResult, err = exec.Execute(context.Background(), map[string]interface{}{
+	listResult, err = exec.Execute(context.Background(), map[string]any{
 		"action": "list",
 	}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, 0, listResult.(map[string]interface{})["count"])
+	assert.Equal(t, 0, listResult.(map[string]any)["count"])
 }
 
 // ============== Access Scope Tests ==============
@@ -920,7 +920,7 @@ func TestFileStorageExecutor_AllAccessScopes(t *testing.T) {
 	for _, scope := range scopes {
 		t.Run("Scope_"+scope, func(t *testing.T) {
 			content := base64.StdEncoding.EncodeToString([]byte(scope))
-			config := map[string]interface{}{
+			config := map[string]any{
 				"action":       "store",
 				"file_data":    content,
 				"file_name":    scope + ".txt",
@@ -929,7 +929,7 @@ func TestFileStorageExecutor_AllAccessScopes(t *testing.T) {
 
 			result, err := exec.Execute(context.Background(), config, nil)
 			require.NoError(t, err)
-			assert.Equal(t, models.AccessScope(scope), result.(map[string]interface{})["access_scope"])
+			assert.Equal(t, models.AccessScope(scope), result.(map[string]any)["access_scope"])
 		})
 	}
 }
@@ -940,7 +940,7 @@ func TestFileStorageExecutor_EmptyFileName(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString([]byte("test")),
 		// No file_name - should generate one
@@ -949,7 +949,7 @@ func TestFileStorageExecutor_EmptyFileName(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	fileName := resultMap["file_name"].(string)
 	assert.True(t, strings.HasPrefix(fileName, "file_"))
 }
@@ -964,7 +964,7 @@ func TestFileStorageExecutor_Store_FromURL_ValidURL(t *testing.T) {
 	exec := NewFileStorageExecutor(manager)
 
 	// Validate that file_url config is accepted
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": "https://example.com/test-file.pdf",
 	}
@@ -979,7 +979,7 @@ func TestFileStorageExecutor_Store_FromURL_WithFileName(t *testing.T) {
 	exec := NewFileStorageExecutor(manager)
 
 	// Config with both URL and custom file name
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_url":  "https://example.com/some/path/document.pdf",
 		"file_name": "custom-name.pdf",
@@ -994,7 +994,7 @@ func TestFileStorageExecutor_Store_FromURL_InvalidURL(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": "not-a-valid-url",
 	}
@@ -1008,7 +1008,7 @@ func TestFileStorageExecutor_Store_FromURL_EmptyURL(t *testing.T) {
 	manager := newMockManager()
 	exec := NewFileStorageExecutor(manager)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": "",
 		// Empty URL should be treated as missing
@@ -1029,7 +1029,7 @@ func TestFileStorageExecutor_Store_RawBytes_TextContent(t *testing.T) {
 	textContent := []byte("This is plain text content stored as bytes")
 	base64Content := base64.StdEncoding.EncodeToString(textContent)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "text-from-bytes.txt",
@@ -1039,7 +1039,7 @@ func TestFileStorageExecutor_Store_RawBytes_TextContent(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, int64(len(textContent)), resultMap["size"])
 }
@@ -1052,7 +1052,7 @@ func TestFileStorageExecutor_Store_RawBytes_BinaryContent(t *testing.T) {
 	binaryContent := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A} // PNG header
 	base64Content := base64.StdEncoding.EncodeToString(binaryContent)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "image.png",
@@ -1062,20 +1062,20 @@ func TestFileStorageExecutor_Store_RawBytes_BinaryContent(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, "image.png", resultMap["file_name"])
 	assert.Equal(t, "image/png", resultMap["mime_type"])
 
 	// Verify content integrity by getting the file back
 	fileID := resultMap["file_id"].(string)
-	getResult, err := exec.Execute(context.Background(), map[string]interface{}{
+	getResult, err := exec.Execute(context.Background(), map[string]any{
 		"action":  "get",
 		"file_id": fileID,
 	}, nil)
 	require.NoError(t, err)
 
-	getResultMap := getResult.(map[string]interface{})
+	getResultMap := getResult.(map[string]any)
 	decodedContent, err := base64.StdEncoding.DecodeString(getResultMap["file_data"].(string))
 	require.NoError(t, err)
 	assert.Equal(t, binaryContent, decodedContent)
@@ -1089,7 +1089,7 @@ func TestFileStorageExecutor_Store_RawBytes_PDFContent(t *testing.T) {
 	pdfContent := []byte("%PDF-1.4 test content simulating a PDF file")
 	base64Content := base64.StdEncoding.EncodeToString(pdfContent)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "document.pdf",
@@ -1099,7 +1099,7 @@ func TestFileStorageExecutor_Store_RawBytes_PDFContent(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, "document.pdf", resultMap["file_name"])
 	assert.Equal(t, "application/pdf", resultMap["mime_type"])
@@ -1113,7 +1113,7 @@ func TestFileStorageExecutor_Store_RawBytes_JSONContent(t *testing.T) {
 	jsonContent := []byte(`{"name": "test", "data": [1, 2, 3], "nested": {"key": "value"}}`)
 	base64Content := base64.StdEncoding.EncodeToString(jsonContent)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "data.json",
@@ -1123,7 +1123,7 @@ func TestFileStorageExecutor_Store_RawBytes_JSONContent(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, "application/json", resultMap["mime_type"])
 	assert.Equal(t, int64(len(jsonContent)), resultMap["size"])
@@ -1140,7 +1140,7 @@ func TestFileStorageExecutor_Store_RawBytes_LargeFile(t *testing.T) {
 	}
 	base64Content := base64.StdEncoding.EncodeToString(largeContent)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "large-file.bin",
@@ -1150,7 +1150,7 @@ func TestFileStorageExecutor_Store_RawBytes_LargeFile(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, int64(1024), resultMap["size"])
 }
@@ -1161,12 +1161,12 @@ func TestFileStorageExecutor_Store_RawBytes_FromInputMap(t *testing.T) {
 	exec := NewFileStorageExecutor(manager)
 
 	// Input that might come from HTTP node or LLM node
-	nodeOutput := map[string]interface{}{
+	nodeOutput := map[string]any{
 		"content":   base64.StdEncoding.EncodeToString([]byte("content from previous node")),
 		"file_name": "from-input.txt",
 	}
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": nodeOutput["content"],
 		"file_name": nodeOutput["file_name"],
@@ -1176,7 +1176,7 @@ func TestFileStorageExecutor_Store_RawBytes_FromInputMap(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nodeOutput)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, "from-input.txt", resultMap["file_name"])
 }
@@ -1189,7 +1189,7 @@ func TestFileStorageExecutor_Store_RawBytes_EmptyContent(t *testing.T) {
 	emptyContent := []byte{}
 	base64Content := base64.StdEncoding.EncodeToString(emptyContent)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64Content,
 		"file_name": "empty.txt",
@@ -1209,21 +1209,21 @@ func TestFileStorageExecutor_Store_RawBytes_WithAllOptions(t *testing.T) {
 	content := []byte("Full config test with all options")
 	base64Content := base64.StdEncoding.EncodeToString(content)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":       "store",
 		"storage_id":   "test-storage",
 		"file_data":    base64Content,
 		"file_name":    "full-options.txt",
 		"mime_type":    "text/plain",
 		"access_scope": "result",
-		"tags":         []interface{}{"test", "full", "options"},
+		"tags":         []any{"test", "full", "options"},
 		"ttl":          7200,
 	}
 
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, "test-storage", resultMap["storage_id"])
 	assert.Equal(t, "full-options.txt", resultMap["file_name"])
@@ -1266,7 +1266,7 @@ func TestFileStorageExecutor_Store_MimeTypeDetection(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			config := map[string]interface{}{
+			config := map[string]any{
 				"action":    "store",
 				"file_data": base64.StdEncoding.EncodeToString(tc.content),
 				"file_name": tc.fileName,
@@ -1278,7 +1278,7 @@ func TestFileStorageExecutor_Store_MimeTypeDetection(t *testing.T) {
 			result, err := exec.Execute(context.Background(), config, nil)
 			require.NoError(t, err)
 
-			resultMap := result.(map[string]interface{})
+			resultMap := result.(map[string]any)
 			assert.Equal(t, true, resultMap["success"])
 			if tc.explicitMime != "" {
 				assert.Equal(t, tc.explicitMime, resultMap["mime_type"])
@@ -1301,7 +1301,7 @@ func TestFileStorageExecutor_Store_URLDownload_Success(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": server.URL + "/test.pdf",
 	}
@@ -1309,7 +1309,7 @@ func TestFileStorageExecutor_Store_URLDownload_Success(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, "application/pdf", resultMap["mime_type"])
 }
@@ -1324,7 +1324,7 @@ func TestFileStorageExecutor_Store_URLDownload_HTTPError_404(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": server.URL + "/missing.pdf",
 	}
@@ -1344,7 +1344,7 @@ func TestFileStorageExecutor_Store_URLDownload_HTTPError_500(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": server.URL + "/error.pdf",
 	}
@@ -1364,7 +1364,7 @@ func TestFileStorageExecutor_Store_URLDownload_Timeout(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": server.URL + "/slow.pdf",
 	}
@@ -1394,7 +1394,7 @@ func TestFileStorageExecutor_Store_URLDownload_LargeFile(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": server.URL + "/large.bin",
 	}
@@ -1402,7 +1402,7 @@ func TestFileStorageExecutor_Store_URLDownload_LargeFile(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, int64(1024*1024), resultMap["size"])
 }
@@ -1430,7 +1430,7 @@ func TestFileStorageExecutor_Store_URLDownload_MIMEFromHeader(t *testing.T) {
 			mockMgr := newMockManager()
 			exec := NewFileStorageExecutor(mockMgr)
 
-			config := map[string]interface{}{
+			config := map[string]any{
 				"action":   "store",
 				"file_url": server.URL + "/file",
 			}
@@ -1438,7 +1438,7 @@ func TestFileStorageExecutor_Store_URLDownload_MIMEFromHeader(t *testing.T) {
 			result, err := exec.Execute(context.Background(), config, nil)
 			require.NoError(t, err)
 
-			resultMap := result.(map[string]interface{})
+			resultMap := result.(map[string]any)
 			assert.Equal(t, tt.expectedMime, resultMap["mime_type"])
 		})
 	}
@@ -1454,7 +1454,7 @@ func TestFileStorageExecutor_Store_URLDownload_FilenameExtraction(t *testing.T) 
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": server.URL + "/path/to/image.png",
 	}
@@ -1462,7 +1462,7 @@ func TestFileStorageExecutor_Store_URLDownload_FilenameExtraction(t *testing.T) 
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Contains(t, resultMap["file_name"].(string), ".png")
 }
 
@@ -1470,7 +1470,7 @@ func TestFileStorageExecutor_Store_URLDownload_NetworkError(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":   "store",
 		"file_url": "http://localhost:9999/nonexistent",
 	}
@@ -1490,7 +1490,7 @@ func TestFileStorageExecutor_Store_1MB_Success(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString(data),
 		"file_name": "1mb-file.bin",
@@ -1500,7 +1500,7 @@ func TestFileStorageExecutor_Store_1MB_Success(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, int64(1024*1024), resultMap["size"])
 }
@@ -1514,7 +1514,7 @@ func TestFileStorageExecutor_Store_10MB_Success(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString(data),
 		"file_name": "10mb-file.bin",
@@ -1524,7 +1524,7 @@ func TestFileStorageExecutor_Store_10MB_Success(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, int64(10*1024*1024), resultMap["size"])
 }
@@ -1540,7 +1540,7 @@ func TestFileStorageExecutor_Get_LargeFile_Integrity(t *testing.T) {
 	exec := NewFileStorageExecutor(mockMgr)
 
 	// Store
-	storeConfig := map[string]interface{}{
+	storeConfig := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString(originalData),
 		"file_name": "5mb-test.bin",
@@ -1550,11 +1550,11 @@ func TestFileStorageExecutor_Get_LargeFile_Integrity(t *testing.T) {
 	storeResult, err := exec.Execute(context.Background(), storeConfig, nil)
 	require.NoError(t, err)
 
-	storeMap := storeResult.(map[string]interface{})
+	storeMap := storeResult.(map[string]any)
 	fileID := storeMap["file_id"].(string)
 
 	// Get
-	getConfig := map[string]interface{}{
+	getConfig := map[string]any{
 		"action":  "get",
 		"file_id": fileID,
 	}
@@ -1562,7 +1562,7 @@ func TestFileStorageExecutor_Get_LargeFile_Integrity(t *testing.T) {
 	getResult, err := exec.Execute(context.Background(), getConfig, nil)
 	require.NoError(t, err)
 
-	getMap := getResult.(map[string]interface{})
+	getMap := getResult.(map[string]any)
 	retrievedData, err := base64.StdEncoding.DecodeString(getMap["file_data"].(string))
 	require.NoError(t, err)
 
@@ -1577,7 +1577,7 @@ func TestFileStorageExecutor_Concurrent_MultipleStores(t *testing.T) {
 	exec := NewFileStorageExecutor(mockMgr)
 
 	var wg sync.WaitGroup
-	results := make([]map[string]interface{}, 10)
+	results := make([]map[string]any, 10)
 	errors := make([]error, 10)
 
 	for i := 0; i < 10; i++ {
@@ -1585,7 +1585,7 @@ func TestFileStorageExecutor_Concurrent_MultipleStores(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 
-			config := map[string]interface{}{
+			config := map[string]any{
 				"action":    "store",
 				"file_data": base64.StdEncoding.EncodeToString([]byte("test content")),
 				"file_name": "concurrent-file-" + string(rune('A'+idx)) + ".txt",
@@ -1595,7 +1595,7 @@ func TestFileStorageExecutor_Concurrent_MultipleStores(t *testing.T) {
 			result, err := exec.Execute(context.Background(), config, nil)
 			errors[idx] = err
 			if err == nil {
-				results[idx] = result.(map[string]interface{})
+				results[idx] = result.(map[string]any)
 			}
 		}(i)
 	}
@@ -1622,7 +1622,7 @@ func TestFileStorageExecutor_Concurrent_StoreAndGet(t *testing.T) {
 	exec := NewFileStorageExecutor(mockMgr)
 
 	// First, store a file
-	storeConfig := map[string]interface{}{
+	storeConfig := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString([]byte("shared content")),
 		"file_name": "shared-file.txt",
@@ -1632,7 +1632,7 @@ func TestFileStorageExecutor_Concurrent_StoreAndGet(t *testing.T) {
 	storeResult, err := exec.Execute(context.Background(), storeConfig, nil)
 	require.NoError(t, err)
 
-	fileID := storeResult.(map[string]interface{})["file_id"].(string)
+	fileID := storeResult.(map[string]any)["file_id"].(string)
 
 	// Now read it concurrently from 20 goroutines
 	var wg sync.WaitGroup
@@ -1643,7 +1643,7 @@ func TestFileStorageExecutor_Concurrent_StoreAndGet(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 
-			getConfig := map[string]interface{}{
+			getConfig := map[string]any{
 				"action":  "get",
 				"file_id": fileID,
 			}
@@ -1677,7 +1677,7 @@ func TestFileStorageExecutor_Concurrent_10Goroutines_MixedOps(t *testing.T) {
 
 			if idx%2 == 0 {
 				// Store operation
-				config := map[string]interface{}{
+				config := map[string]any{
 					"action":    "store",
 					"file_data": base64.StdEncoding.EncodeToString([]byte("concurrent test")),
 					"file_name": "file-" + string(rune('A'+idx)) + ".txt",
@@ -1687,12 +1687,12 @@ func TestFileStorageExecutor_Concurrent_10Goroutines_MixedOps(t *testing.T) {
 				result, err := exec.Execute(context.Background(), config, nil)
 				if err == nil {
 					mu.Lock()
-					fileIDs = append(fileIDs, result.(map[string]interface{})["file_id"].(string))
+					fileIDs = append(fileIDs, result.(map[string]any)["file_id"].(string))
 					mu.Unlock()
 				}
 			} else {
 				// List operation
-				config := map[string]interface{}{
+				config := map[string]any{
 					"action": "list",
 				}
 
@@ -1721,7 +1721,7 @@ func TestFileStorageExecutor_Concurrent_DifferentStorages(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 
-			config := map[string]interface{}{
+			config := map[string]any{
 				"action":     "store",
 				"file_data":  base64.StdEncoding.EncodeToString([]byte("test")),
 				"file_name":  "file.txt",
@@ -1752,7 +1752,7 @@ func TestFileStorageExecutor_MIMEDetection_RealPNGSignature(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString(pngData),
 		"file_name": "test.png",
@@ -1761,7 +1761,7 @@ func TestFileStorageExecutor_MIMEDetection_RealPNGSignature(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	// Should detect PNG from signature
 	assert.Equal(t, "image/png", resultMap["mime_type"])
 }
@@ -1774,7 +1774,7 @@ func TestFileStorageExecutor_MIMEDetection_RealJPEGSignature(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString(jpegData),
 		"file_name": "test.jpg",
@@ -1783,7 +1783,7 @@ func TestFileStorageExecutor_MIMEDetection_RealJPEGSignature(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	// Should detect JPEG from signature
 	assert.Contains(t, resultMap["mime_type"].(string), "image/jpeg")
 }
@@ -1796,7 +1796,7 @@ func TestFileStorageExecutor_MIMEDetection_ConflictingExtension(t *testing.T) {
 	mockMgr := newMockManager()
 	exec := NewFileStorageExecutor(mockMgr)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"action":    "store",
 		"file_data": base64.StdEncoding.EncodeToString(pngData),
 		"file_name": "image.txt", // Wrong extension
@@ -1805,7 +1805,7 @@ func TestFileStorageExecutor_MIMEDetection_ConflictingExtension(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	// Should detect PNG from signature, not extension
 	assert.Equal(t, "image/png", resultMap["mime_type"])
 }

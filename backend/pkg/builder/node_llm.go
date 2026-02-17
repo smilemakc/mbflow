@@ -97,7 +97,7 @@ func LLMSystemPrompt(systemPrompt string) NodeOption {
 }
 
 // LLMTools sets the tools/functions available to the LLM.
-func LLMTools(tools []map[string]interface{}) NodeOption {
+func LLMTools(tools []map[string]any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		nb.config["tools"] = tools
 		return nil
@@ -105,8 +105,8 @@ func LLMTools(tools []map[string]interface{}) NodeOption {
 }
 
 // LLMResponseFormat sets the response format.
-// For JSON mode: map[string]interface{}{"type": "json_object"}
-func LLMResponseFormat(format map[string]interface{}) NodeOption {
+// For JSON mode: map[string]any{"type": "json_object"}
+func LLMResponseFormat(format map[string]any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		nb.config["response_format"] = format
 		return nil
@@ -117,7 +117,7 @@ func LLMResponseFormat(format map[string]interface{}) NodeOption {
 // This is a convenience wrapper for LLMResponseFormat.
 func LLMJSONMode() NodeOption {
 	return func(nb *NodeBuilder) error {
-		nb.config["response_format"] = map[string]interface{}{
+		nb.config["response_format"] = map[string]any{
 			"type": "json_object",
 		}
 		return nil

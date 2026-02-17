@@ -94,9 +94,9 @@ func TestHandlers_RunExecution_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run execution
-	req := map[string]interface{}{
+	req := map[string]any{
 		"workflow_id": workflowModel.ID.String(),
-		"input": map[string]interface{}{
+		"input": map[string]any{
 			"test": "data",
 		},
 		"async": true,
@@ -106,7 +106,7 @@ func TestHandlers_RunExecution_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusAccepted, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
@@ -126,8 +126,8 @@ func TestHandlers_RunExecution_WithWorkflowIDInPath(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run execution using path parameter
-	req := map[string]interface{}{
-		"input": map[string]interface{}{
+	req := map[string]any{
+		"input": map[string]any{
 			"test": "data",
 		},
 	}
@@ -137,7 +137,7 @@ func TestHandlers_RunExecution_WithWorkflowIDInPath(t *testing.T) {
 
 	assert.Equal(t, http.StatusAccepted, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
@@ -149,8 +149,8 @@ func TestHandlers_RunExecution_MissingWorkflowID(t *testing.T) {
 	_, router, _, cleanup := setupExecutionHandlersTest(t)
 	defer cleanup()
 
-	req := map[string]interface{}{
-		"input": map[string]interface{}{
+	req := map[string]any{
+		"input": map[string]any{
 			"test": "data",
 		},
 	}
@@ -176,9 +176,9 @@ func TestHandlers_RunExecution_WorkflowNotFound(t *testing.T) {
 	defer cleanup()
 
 	randomID := uuid.New().String()
-	req := map[string]interface{}{
+	req := map[string]any{
 		"workflow_id": randomID,
-		"input": map[string]interface{}{
+		"input": map[string]any{
 			"test": "data",
 		},
 	}
@@ -202,14 +202,14 @@ func TestHandlers_GetExecution_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run execution
-	runReq := map[string]interface{}{
+	runReq := map[string]any{
 		"workflow_id": workflowModel.ID.String(),
-		"input":       map[string]interface{}{"test": "data"},
+		"input":       map[string]any{"test": "data"},
 	}
 	runW := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", runReq)
 	require.Equal(t, http.StatusAccepted, runW.Code)
 
-	var runResult map[string]interface{}
+	var runResult map[string]any
 	testutil.ParseResponse(t, runW, &runResult)
 	executionID := runResult["id"].(string)
 
@@ -218,7 +218,7 @@ func TestHandlers_GetExecution_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, getW.Code)
 
-	var getResult map[string]interface{}
+	var getResult map[string]any
 	testutil.ParseResponse(t, getW, &getResult)
 
 	assert.Equal(t, executionID, getResult["id"])
@@ -257,7 +257,7 @@ func TestHandlers_ListExecutions_Empty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var executions []interface{}
+	var executions []any
 	testutil.ParseListResponse(t, w, &executions)
 
 	assert.Empty(t, executions)
@@ -276,9 +276,9 @@ func TestHandlers_ListExecutions_WithData(t *testing.T) {
 
 	// Run 3 executions
 	for i := 1; i <= 3; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"workflow_id": workflowModel.ID.String(),
-			"input":       map[string]interface{}{"test": fmt.Sprintf("data_%d", i)},
+			"input":       map[string]any{"test": fmt.Sprintf("data_%d", i)},
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", req)
 		require.Equal(t, http.StatusAccepted, w.Code)
@@ -289,7 +289,7 @@ func TestHandlers_ListExecutions_WithData(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var executions []interface{}
+	var executions []any
 	testutil.ParseListResponse(t, w, &executions)
 
 	assert.Len(t, executions, 3)
@@ -308,9 +308,9 @@ func TestHandlers_ListExecutions_Pagination(t *testing.T) {
 
 	// Run 5 executions
 	for i := 1; i <= 5; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"workflow_id": workflowModel.ID.String(),
-			"input":       map[string]interface{}{"test": fmt.Sprintf("data_%d", i)},
+			"input":       map[string]any{"test": fmt.Sprintf("data_%d", i)},
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", req)
 		require.Equal(t, http.StatusAccepted, w.Code)
@@ -323,7 +323,7 @@ func TestHandlers_ListExecutions_Pagination(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var executions []interface{}
+	var executions []any
 	meta := testutil.ParseListResponse(t, w, &executions)
 
 	// We expect at most 2 results due to limit
@@ -353,18 +353,18 @@ func TestHandlers_ListExecutions_FilterByWorkflowID(t *testing.T) {
 
 	// Run executions for workflow 1
 	for i := 1; i <= 2; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"workflow_id": workflowModel1.ID.String(),
-			"input":       map[string]interface{}{"test": "data"},
+			"input":       map[string]any{"test": "data"},
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", req)
 		require.Equal(t, http.StatusAccepted, w.Code)
 	}
 
 	// Run execution for workflow 2
-	req := map[string]interface{}{
+	req := map[string]any{
 		"workflow_id": workflowModel2.ID.String(),
-		"input":       map[string]interface{}{"test": "data"},
+		"input":       map[string]any{"test": "data"},
 	}
 	w := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", req)
 	require.Equal(t, http.StatusAccepted, w.Code)
@@ -375,7 +375,7 @@ func TestHandlers_ListExecutions_FilterByWorkflowID(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var executions []interface{}
+	var executions []any
 	testutil.ParseListResponse(t, w, &executions)
 
 	assert.Len(t, executions, 2)
@@ -394,9 +394,9 @@ func TestHandlers_ListExecutions_FilterByStatus(t *testing.T) {
 
 	// Run executions
 	for i := 1; i <= 2; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"workflow_id": workflowModel.ID.String(),
-			"input":       map[string]interface{}{"test": "data"},
+			"input":       map[string]any{"test": "data"},
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", req)
 		require.Equal(t, http.StatusAccepted, w.Code)
@@ -408,7 +408,7 @@ func TestHandlers_ListExecutions_FilterByStatus(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var executions []interface{}
+	var executions []any
 	testutil.ParseListResponse(t, w, &executions)
 
 	// Just verify response has data
@@ -428,14 +428,14 @@ func TestHandlers_GetLogs_Success(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	runReq := map[string]interface{}{
+	runReq := map[string]any{
 		"workflow_id": workflowModel.ID.String(),
-		"input":       map[string]interface{}{"test": "data"},
+		"input":       map[string]any{"test": "data"},
 	}
 	runW := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", runReq)
 	require.Equal(t, http.StatusAccepted, runW.Code)
 
-	var runResult map[string]interface{}
+	var runResult map[string]any
 	testutil.ParseResponse(t, runW, &runResult)
 	executionID := runResult["id"].(string)
 
@@ -444,7 +444,7 @@ func TestHandlers_GetLogs_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 
 	assert.NotNil(t, result["logs"])
@@ -461,7 +461,7 @@ func TestHandlers_GetLogs_NotFound(t *testing.T) {
 	// Note: GetLogs returns 200 with empty array for better UX, not 404
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 	assert.Empty(t, result["logs"])
 	assert.Equal(t, float64(0), result["total"])

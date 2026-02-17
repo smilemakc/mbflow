@@ -67,9 +67,9 @@ func TestEngine_ResolveString_SimpleSubstitution(t *testing.T) {
 
 func TestEngine_ResolveString_NestedPaths(t *testing.T) {
 	ctx := NewVariableContext()
-	ctx.InputVars["user"] = map[string]interface{}{
+	ctx.InputVars["user"] = map[string]any{
 		"name": "John",
-		"profile": map[string]interface{}{
+		"profile": map[string]any{
 			"email": "john@example.com",
 			"age":   30,
 		},
@@ -119,11 +119,11 @@ func TestEngine_ResolveString_NestedPaths(t *testing.T) {
 
 func TestEngine_ResolveString_ArrayAccess(t *testing.T) {
 	ctx := NewVariableContext()
-	ctx.InputVars["items"] = []interface{}{
-		map[string]interface{}{"name": "Item1", "id": 1},
-		map[string]interface{}{"name": "Item2", "id": 2},
+	ctx.InputVars["items"] = []any{
+		map[string]any{"name": "Item1", "id": 1},
+		map[string]any{"name": "Item2", "id": 2},
 	}
-	ctx.InputVars["numbers"] = []interface{}{10, 20, 30}
+	ctx.InputVars["numbers"] = []any{10, 20, 30}
 
 	engine := NewEngineWithDefaults(ctx)
 
@@ -241,10 +241,10 @@ func TestEngine_ResolveMap(t *testing.T) {
 
 	engine := NewEngineWithDefaults(ctx)
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"url":    "{{env.apiUrl}}/users/{{input.userId}}",
 		"method": "GET",
-		"nested": map[string]interface{}{
+		"nested": map[string]any{
 			"header": "Bearer {{env.apiUrl}}",
 		},
 	}
@@ -254,9 +254,9 @@ func TestEngine_ResolveMap(t *testing.T) {
 		t.Fatalf("Resolve() error = %v", err)
 	}
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	if !ok {
-		t.Fatal("Resolve() did not return map[string]interface{}")
+		t.Fatal("Resolve() did not return map[string]any")
 	}
 
 	if resultMap["url"] != "https://api.example.com/users/123" {
@@ -267,7 +267,7 @@ func TestEngine_ResolveMap(t *testing.T) {
 		t.Errorf("method = %v, want GET", resultMap["method"])
 	}
 
-	nested, ok := resultMap["nested"].(map[string]interface{})
+	nested, ok := resultMap["nested"].(map[string]any)
 	if !ok {
 		t.Fatal("nested is not a map")
 	}
@@ -283,10 +283,10 @@ func TestEngine_ResolveSlice(t *testing.T) {
 
 	engine := NewEngineWithDefaults(ctx)
 
-	input := []interface{}{
+	input := []any{
 		"{{env.prefix}} 1",
 		"{{env.prefix}} 2",
-		map[string]interface{}{
+		map[string]any{
 			"name": "{{env.prefix}} 3",
 		},
 	}
@@ -296,9 +296,9 @@ func TestEngine_ResolveSlice(t *testing.T) {
 		t.Fatalf("Resolve() error = %v", err)
 	}
 
-	resultSlice, ok := result.([]interface{})
+	resultSlice, ok := result.([]any)
 	if !ok {
-		t.Fatal("Resolve() did not return []interface{}")
+		t.Fatal("Resolve() did not return []any")
 	}
 
 	if resultSlice[0] != "Item 1" {
@@ -309,7 +309,7 @@ func TestEngine_ResolveSlice(t *testing.T) {
 		t.Errorf("resultSlice[1] = %v, want 'Item 2'", resultSlice[1])
 	}
 
-	nestedMap, ok := resultSlice[2].(map[string]interface{})
+	nestedMap, ok := resultSlice[2].(map[string]any)
 	if !ok {
 		t.Fatal("resultSlice[2] is not a map")
 	}
@@ -325,7 +325,7 @@ func TestEngine_ValueToString(t *testing.T) {
 	ctx.InputVars["number"] = 42
 	ctx.InputVars["float"] = 3.14
 	ctx.InputVars["bool"] = true
-	ctx.InputVars["object"] = map[string]interface{}{"key": "value"}
+	ctx.InputVars["object"] = map[string]any{"key": "value"}
 
 	engine := NewEngineWithDefaults(ctx)
 
@@ -516,16 +516,16 @@ func TestEngine_ComplexScenario(t *testing.T) {
 	ctx.ExecutionVars["apiKey"] = "execution-key-123"
 
 	// Input from previous node
-	ctx.InputVars["response"] = map[string]interface{}{
+	ctx.InputVars["response"] = map[string]any{
 		"status": 200,
-		"data": map[string]interface{}{
-			"users": []interface{}{
-				map[string]interface{}{
+		"data": map[string]any{
+			"users": []any{
+				map[string]any{
 					"id":    1,
 					"name":  "Alice",
 					"email": "alice@example.com",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"id":    2,
 					"name":  "Bob",
 					"email": "bob@example.com",
@@ -537,14 +537,14 @@ func TestEngine_ComplexScenario(t *testing.T) {
 	engine := NewEngineWithDefaults(ctx)
 
 	// Complex configuration that would be used in an HTTP node
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url":    "{{env.apiUrl}}/users/{{input.response.data.users[0].id}}",
 		"method": "GET",
-		"headers": map[string]interface{}{
+		"headers": map[string]any{
 			"Authorization": "Bearer {{env.apiKey}}",
 			"Content-Type":  "application/json",
 		},
-		"body": map[string]interface{}{
+		"body": map[string]any{
 			"email":   "{{input.response.data.users[1].email}}",
 			"message": "Hello {{input.response.data.users[0].name}}!",
 		},
@@ -555,7 +555,7 @@ func TestEngine_ComplexScenario(t *testing.T) {
 		t.Fatalf("Resolve() error = %v", err)
 	}
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 
 	// Verify URL resolution
 	expectedURL := "https://api.example.com/users/1"
@@ -564,14 +564,14 @@ func TestEngine_ComplexScenario(t *testing.T) {
 	}
 
 	// Verify headers resolution (execution var overrides workflow var)
-	headers := resultMap["headers"].(map[string]interface{})
+	headers := resultMap["headers"].(map[string]any)
 	expectedAuth := "Bearer execution-key-123"
 	if headers["Authorization"] != expectedAuth {
 		t.Errorf("Authorization = %v, want %v", headers["Authorization"], expectedAuth)
 	}
 
 	// Verify body resolution
-	body := resultMap["body"].(map[string]interface{})
+	body := resultMap["body"].(map[string]any)
 	if body["email"] != "bob@example.com" {
 		t.Errorf("body.email = %v, want bob@example.com", body["email"])
 	}
@@ -604,17 +604,17 @@ func TestEngine_ResolveConfig(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
-		want    map[string]interface{}
+		config  map[string]any
+		want    map[string]any
 		wantErr bool
 	}{
 		{
 			name: "simple config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url":    "{{env.apiUrl}}/users/{{input.userId}}",
 				"method": "GET",
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"url":    "https://api.example.com/users/123",
 				"method": "GET",
 			},
@@ -622,18 +622,18 @@ func TestEngine_ResolveConfig(t *testing.T) {
 		},
 		{
 			name: "nested config",
-			config: map[string]interface{}{
-				"request": map[string]interface{}{
+			config: map[string]any{
+				"request": map[string]any{
 					"url": "{{env.apiUrl}}",
-					"headers": map[string]interface{}{
+					"headers": map[string]any{
 						"Authorization": "Bearer token",
 					},
 				},
 			},
-			want: map[string]interface{}{
-				"request": map[string]interface{}{
+			want: map[string]any{
+				"request": map[string]any{
 					"url": "https://api.example.com",
-					"headers": map[string]interface{}{
+					"headers": map[string]any{
 						"Authorization": "Bearer token",
 					},
 				},
@@ -642,8 +642,8 @@ func TestEngine_ResolveConfig(t *testing.T) {
 		},
 		{
 			name:    "empty config",
-			config:  map[string]interface{}{},
-			want:    map[string]interface{}{},
+			config:  map[string]any{},
+			want:    map[string]any{},
 			wantErr: false,
 		},
 	}
@@ -670,7 +670,7 @@ func TestEngine_ResolveConfig_Error(t *testing.T) {
 	ctx := NewVariableContext()
 	engine := NewEngine(ctx, TemplateOptions{StrictMode: true})
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url": "{{env.missing}}",
 	}
 
@@ -688,7 +688,7 @@ func TestEngine_ResolveComplex(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		input   interface{}
+		input   any
 		wantErr bool
 	}{
 		{
@@ -869,7 +869,7 @@ func TestEngine_ResolveMap_Error(t *testing.T) {
 	ctx := NewVariableContext()
 	engine := NewEngine(ctx, TemplateOptions{StrictMode: true})
 
-	m := map[string]interface{}{
+	m := map[string]any{
 		"valid":   "plain text",
 		"invalid": "{{env.missing}}",
 	}
@@ -885,7 +885,7 @@ func TestEngine_ResolveSlice_Error(t *testing.T) {
 	ctx := NewVariableContext()
 	engine := NewEngine(ctx, TemplateOptions{StrictMode: true})
 
-	slice := []interface{}{
+	slice := []any{
 		"valid text",
 		"{{env.missing}}",
 	}
@@ -914,8 +914,8 @@ func TestEngine_ValueToString_AllTypes(t *testing.T) {
 	ctx.InputVars["uint64"] = uint64(64)
 	ctx.InputVars["float32"] = float32(3.14)
 	ctx.InputVars["float64"] = float64(3.14159)
-	ctx.InputVars["slice"] = []interface{}{1, 2, 3}
-	ctx.InputVars["map"] = map[string]interface{}{"key": "value"}
+	ctx.InputVars["slice"] = []any{1, 2, 3}
+	ctx.InputVars["map"] = map[string]any{"key": "value"}
 
 	// Type that can't be marshaled to JSON
 	type unmarshalableType struct {
@@ -1133,14 +1133,14 @@ func TestEngine_ResolveComplex_EdgeCases(t *testing.T) {
 	t.Run("struct that unmarshals to map with templates", func(t *testing.T) {
 		// Struct that will be marshaled to JSON and back
 		type structWithTemplates struct {
-			Name   string                 `json:"name"`
-			Value  string                 `json:"value"`
-			Nested map[string]interface{} `json:"nested"`
+			Name   string         `json:"name"`
+			Value  string         `json:"value"`
+			Nested map[string]any `json:"nested"`
 		}
 		input := structWithTemplates{
 			Name:  "test",
 			Value: "{{env.value}}",
-			Nested: map[string]interface{}{
+			Nested: map[string]any{
 				"key": "{{env.value}}",
 			},
 		}
@@ -1150,9 +1150,9 @@ func TestEngine_ResolveComplex_EdgeCases(t *testing.T) {
 		}
 
 		// Should be resolved to a map
-		resultMap, ok := result.(map[string]interface{})
+		resultMap, ok := result.(map[string]any)
 		if !ok {
-			t.Fatal("Resolve() should return map[string]interface{}")
+			t.Fatal("Resolve() should return map[string]any")
 		}
 
 		// Check template was resolved
@@ -1162,7 +1162,7 @@ func TestEngine_ResolveComplex_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("struct that unmarshals to slice", func(t *testing.T) {
-		// Use a slice type that will unmarshal back to []interface{}
+		// Use a slice type that will unmarshal back to []any
 		type stringSlice []string
 		input := stringSlice{"{{env.value}}", "plain"}
 
@@ -1172,9 +1172,9 @@ func TestEngine_ResolveComplex_EdgeCases(t *testing.T) {
 		}
 
 		// Should be a slice
-		resultSlice, ok := result.([]interface{})
+		resultSlice, ok := result.([]any)
 		if !ok {
-			t.Fatalf("Resolve() should return []interface{}, got %T", result)
+			t.Fatalf("Resolve() should return []any, got %T", result)
 		}
 
 		// Check template was resolved
@@ -1243,16 +1243,16 @@ func TestEngine_ResolveComplex_EdgeCases(t *testing.T) {
 
 func TestEngine_ResolveString_ResourceVariables(t *testing.T) {
 	ctx := NewVariableContext()
-	ctx.ResourceVars["storage"] = map[string]interface{}{
+	ctx.ResourceVars["storage"] = map[string]any{
 		"id":   "res-123",
 		"name": "My Storage",
 		"type": "file_storage",
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"bucket": "my-bucket",
 			"region": "us-east-1",
 		},
 	}
-	ctx.ResourceVars["apiKey"] = map[string]interface{}{
+	ctx.ResourceVars["apiKey"] = map[string]any{
 		"id":    "key-456",
 		"value": "secret-api-key",
 	}
@@ -1314,15 +1314,15 @@ func TestEngine_ResolveString_ResourceVariables(t *testing.T) {
 func TestEngine_ResolveConfig_WithResources(t *testing.T) {
 	ctx := NewVariableContext()
 	ctx.WorkflowVars["apiUrl"] = "https://api.example.com"
-	ctx.ResourceVars["storage"] = map[string]interface{}{
+	ctx.ResourceVars["storage"] = map[string]any{
 		"id":   "res-123",
 		"type": "s3",
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"bucket":    "my-bucket",
 			"accessKey": "AKIA...",
 		},
 	}
-	ctx.ResourceVars["database"] = map[string]interface{}{
+	ctx.ResourceVars["database"] = map[string]any{
 		"id":   "db-456",
 		"host": "db.example.com",
 		"port": 5432,
@@ -1332,17 +1332,17 @@ func TestEngine_ResolveConfig_WithResources(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
-		want    map[string]interface{}
+		config  map[string]any
+		want    map[string]any
 		wantErr bool
 	}{
 		{
 			name: "resource in config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storageId":   "{{resource.storage.id}}",
 				"storageType": "{{resource.storage.type}}",
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"storageId":   "res-123",
 				"storageType": "s3",
 			},
@@ -1350,14 +1350,14 @@ func TestEngine_ResolveConfig_WithResources(t *testing.T) {
 		},
 		{
 			name: "nested resource config",
-			config: map[string]interface{}{
-				"s3": map[string]interface{}{
+			config: map[string]any{
+				"s3": map[string]any{
 					"bucket": "{{resource.storage.config.bucket}}",
 					"key":    "{{resource.storage.config.accessKey}}",
 				},
 			},
-			want: map[string]interface{}{
-				"s3": map[string]interface{}{
+			want: map[string]any{
+				"s3": map[string]any{
 					"bucket": "my-bucket",
 					"key":    "AKIA...",
 				},
@@ -1366,11 +1366,11 @@ func TestEngine_ResolveConfig_WithResources(t *testing.T) {
 		},
 		{
 			name: "mixed variables and resources",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url":      "{{env.apiUrl}}/data",
 				"database": "{{resource.database.host}}:{{resource.database.port}}",
 			},
-			want: map[string]interface{}{
+			want: map[string]any{
 				"url":      "https://api.example.com/data",
 				"database": "db.example.com:5432",
 			},
@@ -1447,15 +1447,15 @@ func TestValidateTemplate_WithResources(t *testing.T) {
 
 func TestEngine_ResourceWithArrays(t *testing.T) {
 	ctx := NewVariableContext()
-	ctx.ResourceVars["cluster"] = map[string]interface{}{
+	ctx.ResourceVars["cluster"] = map[string]any{
 		"id": "cluster-001",
-		"nodes": []interface{}{
-			map[string]interface{}{
+		"nodes": []any{
+			map[string]any{
 				"id":   "node-1",
 				"host": "192.168.1.1",
 				"port": 8080,
 			},
-			map[string]interface{}{
+			map[string]any{
 				"id":   "node-2",
 				"host": "192.168.1.2",
 				"port": 8081,
@@ -1510,19 +1510,19 @@ func TestEngine_ComplexScenario_WithResources(t *testing.T) {
 	ctx.ExecutionVars["executionId"] = "exec-123"
 
 	// Resources
-	ctx.ResourceVars["storage"] = map[string]interface{}{
+	ctx.ResourceVars["storage"] = map[string]any{
 		"id":   "res-456",
 		"type": "s3",
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"bucket":    "my-data-bucket",
 			"region":    "us-west-2",
 			"accessKey": "AKIA123456",
 		},
 	}
-	ctx.ResourceVars["database"] = map[string]interface{}{
+	ctx.ResourceVars["database"] = map[string]any{
 		"id":               "db-789",
 		"connectionString": "postgresql://user:pass@db.example.com:5432/mydb",
-		"credentials": map[string]interface{}{
+		"credentials": map[string]any{
 			"username": "dbuser",
 			"password": "dbpass",
 		},
@@ -1535,20 +1535,20 @@ func TestEngine_ComplexScenario_WithResources(t *testing.T) {
 	engine := NewEngineWithDefaults(ctx)
 
 	// Complex configuration using all variable types
-	config := map[string]interface{}{
+	config := map[string]any{
 		"apiEndpoint": "{{env.apiUrl}}/upload",
 		"executionId": "{{env.executionId}}",
-		"storage": map[string]interface{}{
+		"storage": map[string]any{
 			"type":      "{{resource.storage.type}}",
 			"bucket":    "{{resource.storage.config.bucket}}",
 			"region":    "{{resource.storage.config.region}}",
 			"accessKey": "{{resource.storage.config.accessKey}}",
 		},
-		"database": map[string]interface{}{
+		"database": map[string]any{
 			"connection": "{{resource.database.connectionString}}",
 			"user":       "{{resource.database.credentials.username}}",
 		},
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"userId":   "{{input.userId}}",
 			"fileName": "{{input.fileName}}",
 			"bucket":   "{{resource.storage.config.bucket}}",
@@ -1560,7 +1560,7 @@ func TestEngine_ComplexScenario_WithResources(t *testing.T) {
 		t.Fatalf("Resolve() error = %v", err)
 	}
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 
 	// Verify all substitutions
 	if resultMap["apiEndpoint"] != "https://api.example.com/upload" {
@@ -1570,7 +1570,7 @@ func TestEngine_ComplexScenario_WithResources(t *testing.T) {
 		t.Errorf("executionId = %v, want exec-123", resultMap["executionId"])
 	}
 
-	storage := resultMap["storage"].(map[string]interface{})
+	storage := resultMap["storage"].(map[string]any)
 	if storage["type"] != "s3" {
 		t.Errorf("storage.type = %v, want s3", storage["type"])
 	}
@@ -1581,7 +1581,7 @@ func TestEngine_ComplexScenario_WithResources(t *testing.T) {
 		t.Errorf("storage.region = %v, want us-west-2", storage["region"])
 	}
 
-	database := resultMap["database"].(map[string]interface{})
+	database := resultMap["database"].(map[string]any)
 	if database["connection"] != "postgresql://user:pass@db.example.com:5432/mydb" {
 		t.Errorf("database.connection = %v", database["connection"])
 	}
@@ -1589,7 +1589,7 @@ func TestEngine_ComplexScenario_WithResources(t *testing.T) {
 		t.Errorf("database.user = %v, want dbuser", database["user"])
 	}
 
-	metadata := resultMap["metadata"].(map[string]interface{})
+	metadata := resultMap["metadata"].(map[string]any)
 	if metadata["userId"] != "user-001" {
 		t.Errorf("metadata.userId = %v, want user-001", metadata["userId"])
 	}

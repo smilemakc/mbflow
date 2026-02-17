@@ -38,7 +38,7 @@ func (NodeExecutionModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (ne *NodeExecutionModel) BeforeInsert(ctx interface{}) error {
+func (ne *NodeExecutionModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	ne.CreatedAt = now
 	ne.UpdatedAt = now
@@ -52,7 +52,7 @@ func (ne *NodeExecutionModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (ne *NodeExecutionModel) BeforeUpdate(ctx interface{}) error {
+func (ne *NodeExecutionModel) BeforeUpdate(ctx any) error {
 	ne.UpdatedAt = time.Now()
 	return nil
 }

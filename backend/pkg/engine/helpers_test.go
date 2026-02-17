@@ -174,7 +174,7 @@ func TestGetNodePriority(t *testing.T) {
 			name: "node with int priority",
 			node: &models.Node{
 				ID:       "node-1",
-				Metadata: map[string]interface{}{"priority": 10},
+				Metadata: map[string]any{"priority": 10},
 			},
 			expected: 10,
 		},
@@ -182,7 +182,7 @@ func TestGetNodePriority(t *testing.T) {
 			name: "node with float64 priority",
 			node: &models.Node{
 				ID:       "node-2",
-				Metadata: map[string]interface{}{"priority": 5.0},
+				Metadata: map[string]any{"priority": 5.0},
 			},
 			expected: 5,
 		},
@@ -190,7 +190,7 @@ func TestGetNodePriority(t *testing.T) {
 			name: "node with int64 priority",
 			node: &models.Node{
 				ID:       "node-3",
-				Metadata: map[string]interface{}{"priority": int64(7)},
+				Metadata: map[string]any{"priority": int64(7)},
 			},
 			expected: 7,
 		},
@@ -198,7 +198,7 @@ func TestGetNodePriority(t *testing.T) {
 			name: "node without priority",
 			node: &models.Node{
 				ID:       "node-4",
-				Metadata: map[string]interface{}{},
+				Metadata: map[string]any{},
 			},
 			expected: DefaultNodePriority,
 		},
@@ -214,7 +214,7 @@ func TestGetNodePriority(t *testing.T) {
 			name: "node with invalid priority type",
 			node: &models.Node{
 				ID:       "node-6",
-				Metadata: map[string]interface{}{"priority": "high"},
+				Metadata: map[string]any{"priority": "high"},
 			},
 			expected: DefaultNodePriority,
 		},
@@ -240,7 +240,7 @@ func TestGetNodeTimeout(t *testing.T) {
 			name: "node with int timeout",
 			node: &models.Node{
 				ID:     "node-1",
-				Config: map[string]interface{}{"timeout": 5000},
+				Config: map[string]any{"timeout": 5000},
 			},
 			expected: 5000,
 		},
@@ -248,7 +248,7 @@ func TestGetNodeTimeout(t *testing.T) {
 			name: "node with int64 timeout",
 			node: &models.Node{
 				ID:     "node-2",
-				Config: map[string]interface{}{"timeout": int64(10000)},
+				Config: map[string]any{"timeout": int64(10000)},
 			},
 			expected: 10000,
 		},
@@ -256,7 +256,7 @@ func TestGetNodeTimeout(t *testing.T) {
 			name: "node with float64 timeout",
 			node: &models.Node{
 				ID:     "node-3",
-				Config: map[string]interface{}{"timeout": 3000.0},
+				Config: map[string]any{"timeout": 3000.0},
 			},
 			expected: 3000,
 		},
@@ -264,7 +264,7 @@ func TestGetNodeTimeout(t *testing.T) {
 			name: "node without timeout",
 			node: &models.Node{
 				ID:     "node-4",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			expected: 0,
 		},
@@ -280,7 +280,7 @@ func TestGetNodeTimeout(t *testing.T) {
 			name: "node with invalid timeout type",
 			node: &models.Node{
 				ID:     "node-6",
-				Config: map[string]interface{}{"timeout": "5s"},
+				Config: map[string]any{"timeout": "5s"},
 			},
 			expected: 0,
 		},

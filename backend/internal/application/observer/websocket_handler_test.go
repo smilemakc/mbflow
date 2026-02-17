@@ -45,7 +45,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		assert.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
 
 		// Should receive welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		err = conn.ReadJSON(&welcomeMsg)
 		require.NoError(t, err)
 
@@ -76,7 +76,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		assert.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
 
 		// Read welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		err = conn.ReadJSON(&welcomeMsg)
 		require.NoError(t, err)
 
@@ -98,7 +98,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		defer func() { _ = conn.Close() }()
 
 		// Read welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		err = conn.ReadJSON(&welcomeMsg)
 		require.NoError(t, err)
 
@@ -130,7 +130,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		defer func() { _ = conn3.Close() }()
 
 		// Read welcome messages
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		_ = conn1.ReadJSON(&welcomeMsg)
 		_ = conn2.ReadJSON(&welcomeMsg)
 		_ = conn3.ReadJSON(&welcomeMsg)
@@ -155,7 +155,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		require.NoError(t, err)
 
 		// Read welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		_ = conn.ReadJSON(&welcomeMsg)
 
 		time.Sleep(10 * time.Millisecond)
@@ -185,7 +185,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		defer func() { _ = conn.Close() }()
 
 		// Read welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		_ = conn.ReadJSON(&welcomeMsg)
 
 		time.Sleep(10 * time.Millisecond)
@@ -198,7 +198,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		_, message, err := conn.ReadMessage()
 		require.NoError(t, err)
 
-		var receivedMsg map[string]interface{}
+		var receivedMsg map[string]any
 		json.Unmarshal(message, &receivedMsg)
 
 		assert.Equal(t, "test", receivedMsg["type"])
@@ -225,7 +225,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		defer func() { _ = conn2.Close() }()
 
 		// Read welcome messages
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		_ = conn1.ReadJSON(&welcomeMsg)
 		_ = conn2.ReadJSON(&welcomeMsg)
 
@@ -265,7 +265,7 @@ func TestWebSocketHandler_HandleHealthCheck(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
 
-		var status map[string]interface{}
+		var status map[string]any
 		err := json.NewDecoder(resp.Body).Decode(&status)
 		require.NoError(t, err)
 
@@ -307,7 +307,7 @@ func TestWebSocketHandler_HandleHealthCheck(t *testing.T) {
 		resp := w.Result()
 		defer func() { _ = resp.Body.Close() }()
 
-		var status map[string]interface{}
+		var status map[string]any
 		_ = json.NewDecoder(resp.Body).Decode(&status)
 
 		assert.Equal(t, float64(2), status["connected_clients"])
@@ -347,7 +347,7 @@ func TestWebSocketHandler_Integration(t *testing.T) {
 		defer func() { _ = conn.Close() }()
 
 		// Read welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		_ = conn.ReadJSON(&welcomeMsg)
 
 		time.Sleep(10 * time.Millisecond)
@@ -392,7 +392,7 @@ func TestWebSocketHandler_Integration(t *testing.T) {
 		defer func() { _ = conn.Close() }()
 
 		// Read welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		_ = conn.ReadJSON(&welcomeMsg)
 
 		time.Sleep(10 * time.Millisecond)
@@ -460,13 +460,13 @@ func TestWebSocketClient_MessageHandling(t *testing.T) {
 		defer func() { _ = conn.Close() }()
 
 		// Read welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		_ = conn.ReadJSON(&welcomeMsg)
 
 		time.Sleep(10 * time.Millisecond)
 
 		// Send subscribe command
-		subscribeMsg := map[string]interface{}{
+		subscribeMsg := map[string]any{
 			"command": "subscribe",
 			"event_types": []string{
 				"execution.started",
@@ -498,13 +498,13 @@ func TestWebSocketClient_MessageHandling(t *testing.T) {
 		defer func() { _ = conn.Close() }()
 
 		// Read welcome message
-		var welcomeMsg map[string]interface{}
+		var welcomeMsg map[string]any
 		_ = conn.ReadJSON(&welcomeMsg)
 
 		time.Sleep(10 * time.Millisecond)
 
 		// Send unsubscribe command
-		unsubscribeMsg := map[string]interface{}{
+		unsubscribeMsg := map[string]any{
 			"command": "unsubscribe",
 			"event_types": []string{
 				"node.started",

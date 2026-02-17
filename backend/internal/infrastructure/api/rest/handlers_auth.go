@@ -50,11 +50,11 @@ type ChangePasswordRequest struct {
 
 // AuthResponse represents an authentication response
 type AuthResponse struct {
-	User         interface{} `json:"user"`
-	AccessToken  string      `json:"access_token"`
-	RefreshToken string      `json:"refresh_token,omitempty"`
-	ExpiresIn    int         `json:"expires_in"`
-	TokenType    string      `json:"token_type"`
+	User         any    `json:"user"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	ExpiresIn    int    `json:"expires_in"`
+	TokenType    string `json:"token_type"`
 }
 
 // HandleRegister handles user registration
@@ -96,7 +96,7 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 
 	// Check if IP is rate limited
 	if h.rateLimiter != nil && h.rateLimiter.IsBlocked(clientIP) {
-		respondErrorWithDetails(c, http.StatusTooManyRequests, "too many login attempts", "RATE_LIMIT_EXCEEDED", map[string]interface{}{
+		respondErrorWithDetails(c, http.StatusTooManyRequests, "too many login attempts", "RATE_LIMIT_EXCEEDED", map[string]any{
 			"retry_after": 900, // 15 minutes
 		})
 		return
@@ -151,7 +151,7 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 			remaining := h.rateLimiter.GetRemainingAttempts(clientIP)
 			apiErr := TranslateError(err)
 			if apiErr.Details == nil {
-				apiErr.Details = make(map[string]interface{})
+				apiErr.Details = make(map[string]any)
 			}
 			apiErr.Details["remaining_attempts"] = remaining
 			apiErr.Details["request_id"] = GetRequestID(c)
@@ -307,7 +307,7 @@ func (h *AuthHandlers) HandleOAuthCallback(c *gin.Context) {
 
 	if errorParam != "" {
 		errorDesc := c.Query("error_description")
-		respondAPIError(c, NewAPIErrorWithDetails("OAUTH_ERROR", "OAuth authentication failed", http.StatusBadRequest, map[string]interface{}{
+		respondAPIError(c, NewAPIErrorWithDetails("OAUTH_ERROR", "OAuth authentication failed", http.StatusBadRequest, map[string]any{
 			"error":             errorParam,
 			"error_description": errorDesc,
 		}))

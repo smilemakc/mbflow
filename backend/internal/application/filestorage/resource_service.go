@@ -87,7 +87,7 @@ func (s *ResourceFileService) UploadFile(
 		MimeType:    mimeType,
 		Size:        fileSize,
 		AccessScope: models.ScopeResource,
-		Metadata:    make(map[string]interface{}),
+		Metadata:    make(map[string]any),
 	}
 
 	var fileModel *storagemodels.FileModel

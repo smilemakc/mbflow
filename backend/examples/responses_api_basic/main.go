@@ -59,7 +59,7 @@ func main() {
 		fmt.Printf("\nStory:\n%s\n", content)
 	}
 
-	if usage, ok := result["usage"].(map[string]interface{}); ok {
+	if usage, ok := result["usage"].(map[string]any); ok {
 		fmt.Printf("\nUsage:\n")
 		fmt.Printf("  Prompt tokens: %v\n", usage["prompt_tokens"])
 		fmt.Printf("  Completion tokens: %v\n", usage["completion_tokens"])
@@ -71,14 +71,14 @@ func main() {
 	}
 
 	// Show output items (Responses API specific)
-	if outputItems, ok := result["output_items"].([]map[string]interface{}); ok && len(outputItems) > 0 {
+	if outputItems, ok := result["output_items"].([]map[string]any); ok && len(outputItems) > 0 {
 		fmt.Printf("\nOutput Items: %d\n", len(outputItems))
 		for i, item := range outputItems {
 			fmt.Printf("  [%d] Type: %s, Status: %s\n", i, item["type"], item["status"])
 		}
 	}
 
-	if reasoning, ok := result["reasoning"].(map[string]interface{}); ok {
+	if reasoning, ok := result["reasoning"].(map[string]any); ok {
 		fmt.Printf("\nReasoning:\n")
 		if effort, ok := reasoning["effort"].(string); ok && effort != "" {
 			fmt.Printf("  Effort: %s\n", effort)
@@ -87,7 +87,7 @@ func main() {
 }
 
 // executeWorkflow executes a workflow with a single node
-func executeWorkflow(workflow *models.Workflow) (map[string]interface{}, error) {
+func executeWorkflow(workflow *models.Workflow) (map[string]any, error) {
 	// Create executor manager and register LLM executor
 	executorManager := executor.NewManager()
 	if err := executorManager.Register("llm", builtin.NewLLMExecutor()); err != nil {
@@ -118,7 +118,7 @@ func executeWorkflow(workflow *models.Workflow) (map[string]interface{}, error) 
 	}
 
 	// Convert to map
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("unexpected result type: %T", result)
 	}

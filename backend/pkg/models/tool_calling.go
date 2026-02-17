@@ -30,12 +30,12 @@ func DefaultToolCallConfig() *ToolCallConfig {
 
 // LLMMessage представляет сообщение в conversation history
 type LLMMessage struct {
-	Role       string                 `json:"role"`                   // "user", "assistant", "tool", "system"
-	Content    string                 `json:"content,omitempty"`      // Текстовое содержимое
-	ToolCalls  []LLMToolCall          `json:"tool_calls,omitempty"`   // Tool calls для role="assistant"
-	ToolCallID string                 `json:"tool_call_id,omitempty"` // ID tool call для role="tool"
-	Name       string                 `json:"name,omitempty"`         // Имя функции для role="tool"
-	Metadata   map[string]interface{} `json:"metadata,omitempty"`
+	Role       string         `json:"role"`                   // "user", "assistant", "tool", "system"
+	Content    string         `json:"content,omitempty"`      // Текстовое содержимое
+	ToolCalls  []LLMToolCall  `json:"tool_calls,omitempty"`   // Tool calls для role="assistant"
+	ToolCallID string         `json:"tool_call_id,omitempty"` // ID tool call для role="tool"
+	Name       string         `json:"name,omitempty"`         // Имя функции для role="tool"
+	Metadata   map[string]any `json:"metadata,omitempty"`
 }
 
 // FunctionType тип функции для tool calling
@@ -50,10 +50,10 @@ const (
 
 // FunctionDefinition определяет функцию для tool calling
 type FunctionDefinition struct {
-	Type        FunctionType           `json:"type"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"` // JSON Schema
+	Type        FunctionType   `json:"type"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"` // JSON Schema
 
 	// Для FunctionTypeBuiltin
 	BuiltinName string `json:"builtin_name,omitempty"`
@@ -68,20 +68,20 @@ type FunctionDefinition struct {
 	Code     string `json:"code,omitempty"`
 
 	// Для FunctionTypeOpenAPI
-	OpenAPISpec string                 `json:"openapi_spec,omitempty"` // URL или inline YAML/JSON
-	OperationID string                 `json:"operation_id,omitempty"`
-	BaseURL     string                 `json:"base_url,omitempty"`
-	AuthConfig  map[string]interface{} `json:"auth_config,omitempty"` // API keys, OAuth, etc
+	OpenAPISpec string         `json:"openapi_spec,omitempty"` // URL или inline YAML/JSON
+	OperationID string         `json:"operation_id,omitempty"`
+	BaseURL     string         `json:"base_url,omitempty"`
+	AuthConfig  map[string]any `json:"auth_config,omitempty"` // API keys, OAuth, etc
 }
 
 // ToolExecutionResult результат выполнения tool
 type ToolExecutionResult struct {
-	ToolCallID    string                 `json:"tool_call_id"`
-	FunctionName  string                 `json:"function_name"`
-	Result        interface{}            `json:"result,omitempty"`
-	Error         string                 `json:"error,omitempty"`
-	ExecutionTime int64                  `json:"execution_time_ms"` // В миллисекундах
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	ToolCallID    string         `json:"tool_call_id"`
+	FunctionName  string         `json:"function_name"`
+	Result        any            `json:"result,omitempty"`
+	Error         string         `json:"error,omitempty"`
+	ExecutionTime int64          `json:"execution_time_ms"` // В миллисекундах
+	Metadata      map[string]any `json:"metadata,omitempty"`
 }
 
 // ConversationHistory представляет полную историю разговора

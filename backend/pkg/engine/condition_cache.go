@@ -99,7 +99,7 @@ func (cc *ConditionCache) Clear() {
 }
 
 // CompileAndCache compiles an expression and caches it.
-func (cc *ConditionCache) CompileAndCache(condition string, env interface{}) (*vm.Program, error) {
+func (cc *ConditionCache) CompileAndCache(condition string, env any) (*vm.Program, error) {
 	if program, found := cc.Get(condition); found {
 		return program, nil
 	}
@@ -127,12 +127,12 @@ func NewExprConditionEvaluator() *ExprConditionEvaluator {
 }
 
 // Evaluate evaluates a condition expression against node output using expr-lang.
-func (e *ExprConditionEvaluator) Evaluate(condition string, nodeOutput interface{}) (bool, error) {
+func (e *ExprConditionEvaluator) Evaluate(condition string, nodeOutput any) (bool, error) {
 	if condition == "" {
 		return true, nil
 	}
 
-	env := map[string]interface{}{
+	env := map[string]any{
 		"output": nodeOutput,
 	}
 

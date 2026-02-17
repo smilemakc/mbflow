@@ -24,6 +24,7 @@ func NewStandaloneExecutor(executorManager executor.Manager) StandaloneExecutor 
 			nodeExecutor,
 			NewExprConditionEvaluator(),
 			NewNoOpNotifier(),
+			NewNilWorkflowLoader(),
 		),
 	}
 }
@@ -32,7 +33,7 @@ func NewStandaloneExecutor(executorManager executor.Manager) StandaloneExecutor 
 func (e *standaloneExecutor) ExecuteStandalone(
 	ctx context.Context,
 	workflow *models.Workflow,
-	input map[string]interface{},
+	input map[string]any,
 	opts *ExecutionOptions,
 ) (*models.Execution, error) {
 	if workflow == nil {
@@ -48,7 +49,7 @@ func (e *standaloneExecutor) ExecuteStandalone(
 	}
 
 	if input == nil {
-		input = make(map[string]interface{})
+		input = make(map[string]any)
 	}
 
 	// Apply timeout
@@ -90,7 +91,7 @@ func (e *standaloneExecutor) ExecuteStandalone(
 }
 
 // getFinalOutputFromState gets output from leaf nodes.
-func getFinalOutputFromState(state *ExecutionState, workflow *models.Workflow) map[string]interface{} {
+func getFinalOutputFromState(state *ExecutionState, workflow *models.Workflow) map[string]any {
 	leafNodes := FindLeafNodes(workflow)
 
 	if len(leafNodes) == 0 {
@@ -103,7 +104,7 @@ func getFinalOutputFromState(state *ExecutionState, workflow *models.Workflow) m
 		}
 	}
 
-	merged := make(map[string]interface{})
+	merged := make(map[string]any)
 	for _, node := range leafNodes {
 		if output, ok := state.GetNodeOutput(node.ID); ok {
 			merged[node.ID] = output

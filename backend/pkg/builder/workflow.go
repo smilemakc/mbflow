@@ -27,8 +27,8 @@ func NewWorkflow(name string, opts ...WorkflowOption) *WorkflowBuilder {
 		workflow: &models.Workflow{
 			Name:      name,
 			Status:    models.WorkflowStatusDraft,
-			Variables: make(map[string]interface{}),
-			Metadata:  make(map[string]interface{}),
+			Variables: make(map[string]any),
+			Metadata:  make(map[string]any),
 			Nodes:     make([]*models.Node, 0),
 			Edges:     make([]*models.Edge, 0),
 		},
@@ -64,7 +64,7 @@ func WithStatus(status models.WorkflowStatus) WorkflowOption {
 }
 
 // WithVariable adds a workflow variable.
-func WithVariable(key string, value interface{}) WorkflowOption {
+func WithVariable(key string, value any) WorkflowOption {
 	return func(wb *WorkflowBuilder) error {
 		if key == "" {
 			return fmt.Errorf("variable key cannot be empty")
@@ -75,7 +75,7 @@ func WithVariable(key string, value interface{}) WorkflowOption {
 }
 
 // WithVariables sets multiple workflow variables.
-func WithVariables(vars map[string]interface{}) WorkflowOption {
+func WithVariables(vars map[string]any) WorkflowOption {
 	return func(wb *WorkflowBuilder) error {
 		for k, v := range vars {
 			wb.workflow.Variables[k] = v
@@ -93,7 +93,7 @@ func WithTags(tags ...string) WorkflowOption {
 }
 
 // WithMetadata adds workflow metadata.
-func WithMetadata(key string, value interface{}) WorkflowOption {
+func WithMetadata(key string, value any) WorkflowOption {
 	return func(wb *WorkflowBuilder) error {
 		if key == "" {
 			return fmt.Errorf("metadata key cannot be empty")

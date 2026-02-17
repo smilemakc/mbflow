@@ -13,22 +13,22 @@ func SetupOpenAIMock(t *testing.T) *httptest.Server {
 		w.Header().Set("Content-Type", "application/json")
 
 		// Default response for chat completions
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":      "chatcmpl-test-123",
 			"object":  "chat.completion",
 			"created": 1234567890,
 			"model":   "gpt-4",
-			"choices": []map[string]interface{}{
+			"choices": []map[string]any{
 				{
 					"index": 0,
-					"message": map[string]interface{}{
+					"message": map[string]any{
 						"role":    "assistant",
 						"content": "Mocked LLM response",
 					},
 					"finish_reason": "stop",
 				},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens":     10,
 				"completion_tokens": 20,
 				"total_tokens":      30,
@@ -40,19 +40,19 @@ func SetupOpenAIMock(t *testing.T) *httptest.Server {
 }
 
 // SetupOpenAIToolCallMock creates a mock OpenAI server that returns tool calls
-func SetupOpenAIToolCallMock(t *testing.T, toolCalls []map[string]interface{}) *httptest.Server {
+func SetupOpenAIToolCallMock(t *testing.T, toolCalls []map[string]any) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":      "chatcmpl-test-123",
 			"object":  "chat.completion",
 			"created": 1234567890,
 			"model":   "gpt-4",
-			"choices": []map[string]interface{}{
+			"choices": []map[string]any{
 				{
 					"index": 0,
-					"message": map[string]interface{}{
+					"message": map[string]any{
 						"role":       "assistant",
 						"content":    nil,
 						"tool_calls": toolCalls,
@@ -60,7 +60,7 @@ func SetupOpenAIToolCallMock(t *testing.T, toolCalls []map[string]interface{}) *
 					"finish_reason": "tool_calls",
 				},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens":     10,
 				"completion_tokens": 20,
 				"total_tokens":      30,
@@ -76,18 +76,18 @@ func SetupAnthropicMock(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":   "msg_test_123",
 			"type": "message",
 			"role": "assistant",
-			"content": []map[string]interface{}{
+			"content": []map[string]any{
 				{
 					"type": "text",
 					"text": "Mocked Anthropic response",
 				},
 			},
 			"model": "claude-3-5-sonnet-20241022",
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"input_tokens":  10,
 				"output_tokens": 20,
 			},
@@ -98,15 +98,15 @@ func SetupAnthropicMock(t *testing.T) *httptest.Server {
 }
 
 // SetupAnthropicToolCallMock creates a mock Anthropic server that returns tool calls
-func SetupAnthropicToolCallMock(t *testing.T, toolUse map[string]interface{}) *httptest.Server {
+func SetupAnthropicToolCallMock(t *testing.T, toolUse map[string]any) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":   "msg_test_123",
 			"type": "message",
 			"role": "assistant",
-			"content": []map[string]interface{}{
+			"content": []map[string]any{
 				{
 					"type":  "tool_use",
 					"id":    toolUse["id"],
@@ -115,7 +115,7 @@ func SetupAnthropicToolCallMock(t *testing.T, toolUse map[string]interface{}) *h
 				},
 			},
 			"model": "claude-3-5-sonnet-20241022",
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"input_tokens":  10,
 				"output_tokens": 20,
 			},
@@ -131,11 +131,11 @@ func SetupTelegramMock(t *testing.T) *httptest.Server {
 		w.Header().Set("Content-Type", "application/json")
 
 		// Default response for sendMessage
-		response := map[string]interface{}{
+		response := map[string]any{
 			"ok": true,
-			"result": map[string]interface{}{
+			"result": map[string]any{
 				"message_id": 123,
-				"chat": map[string]interface{}{
+				"chat": map[string]any{
 					"id":   456,
 					"type": "private",
 				},
@@ -152,7 +152,7 @@ func SetupTelegramErrorMock(t *testing.T, errorCode int, description string) *ht
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"ok":          false,
 			"error_code":  errorCode,
 			"description": description,

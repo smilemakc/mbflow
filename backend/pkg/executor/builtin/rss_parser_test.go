@@ -57,20 +57,20 @@ func TestRSSParserExecutor_Execute_RSS(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		config      map[string]interface{}
+		config      map[string]any
 		wantErr     bool
-		checkOutput func(t *testing.T, output interface{})
+		checkOutput func(t *testing.T, output any)
 	}{
 		{
 			name: "Parse all items",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url":            server.URL,
 				"maxItems":       0,
 				"includeContent": false,
 			},
 			wantErr: false,
-			checkOutput: func(t *testing.T, output interface{}) {
-				result, ok := output.(map[string]interface{})
+			checkOutput: func(t *testing.T, output any) {
+				result, ok := output.(map[string]any)
 				if !ok {
 					t.Fatalf("expected map output, got %T", output)
 				}
@@ -83,9 +83,9 @@ func TestRSSParserExecutor_Execute_RSS(t *testing.T) {
 					t.Errorf("expected link 'https://example.com', got '%v'", result["link"])
 				}
 
-				items, ok := result["items"].([]map[string]interface{})
+				items, ok := result["items"].([]map[string]any)
 				if !ok {
-					t.Fatalf("expected items to be []map[string]interface{}, got %T", result["items"])
+					t.Fatalf("expected items to be []map[string]any, got %T", result["items"])
 				}
 
 				if len(items) != 3 {
@@ -114,21 +114,21 @@ func TestRSSParserExecutor_Execute_RSS(t *testing.T) {
 		},
 		{
 			name: "Parse with maxItems limit",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url":            server.URL,
 				"maxItems":       2,
 				"includeContent": false,
 			},
 			wantErr: false,
-			checkOutput: func(t *testing.T, output interface{}) {
-				result, ok := output.(map[string]interface{})
+			checkOutput: func(t *testing.T, output any) {
+				result, ok := output.(map[string]any)
 				if !ok {
 					t.Fatalf("expected map output, got %T", output)
 				}
 
-				items, ok := result["items"].([]map[string]interface{})
+				items, ok := result["items"].([]map[string]any)
 				if !ok {
-					t.Fatalf("expected items to be []map[string]interface{}, got %T", result["items"])
+					t.Fatalf("expected items to be []map[string]any, got %T", result["items"])
 				}
 
 				if len(items) != 2 {
@@ -142,21 +142,21 @@ func TestRSSParserExecutor_Execute_RSS(t *testing.T) {
 		},
 		{
 			name: "Parse with includeContent",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url":            server.URL,
 				"maxItems":       1,
 				"includeContent": true,
 			},
 			wantErr: false,
-			checkOutput: func(t *testing.T, output interface{}) {
-				result, ok := output.(map[string]interface{})
+			checkOutput: func(t *testing.T, output any) {
+				result, ok := output.(map[string]any)
 				if !ok {
 					t.Fatalf("expected map output, got %T", output)
 				}
 
-				items, ok := result["items"].([]map[string]interface{})
+				items, ok := result["items"].([]map[string]any)
 				if !ok {
-					t.Fatalf("expected items to be []map[string]interface{}, got %T", result["items"])
+					t.Fatalf("expected items to be []map[string]any, got %T", result["items"])
 				}
 
 				if len(items) != 1 {
@@ -234,7 +234,7 @@ func TestRSSParserExecutor_Execute_Atom(t *testing.T) {
 	executor := NewRSSParserExecutor()
 	ctx := context.Background()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url":            server.URL,
 		"maxItems":       0,
 		"includeContent": true,
@@ -245,7 +245,7 @@ func TestRSSParserExecutor_Execute_Atom(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	result, ok := output.(map[string]interface{})
+	result, ok := output.(map[string]any)
 	if !ok {
 		t.Fatalf("expected map output, got %T", output)
 	}
@@ -258,9 +258,9 @@ func TestRSSParserExecutor_Execute_Atom(t *testing.T) {
 		t.Errorf("expected feed_type 'atom', got '%v'", result["feed_type"])
 	}
 
-	items, ok := result["items"].([]map[string]interface{})
+	items, ok := result["items"].([]map[string]any)
 	if !ok {
-		t.Fatalf("expected items to be []map[string]interface{}, got %T", result["items"])
+		t.Fatalf("expected items to be []map[string]any, got %T", result["items"])
 	}
 
 	if len(items) != 2 {
@@ -298,7 +298,7 @@ func TestRSSParserExecutor_Execute_HTTPErrors(t *testing.T) {
 	tests := []struct {
 		name        string
 		setupServer func() *httptest.Server
-		config      map[string]interface{}
+		config      map[string]any
 		wantErr     bool
 	}{
 		{
@@ -308,7 +308,7 @@ func TestRSSParserExecutor_Execute_HTTPErrors(t *testing.T) {
 					w.WriteHeader(http.StatusNotFound)
 				}))
 			},
-			config:  map[string]interface{}{"url": ""},
+			config:  map[string]any{"url": ""},
 			wantErr: true,
 		},
 		{
@@ -319,7 +319,7 @@ func TestRSSParserExecutor_Execute_HTTPErrors(t *testing.T) {
 					w.Write([]byte("Not XML content"))
 				}))
 			},
-			config:  map[string]interface{}{"url": ""},
+			config:  map[string]any{"url": ""},
 			wantErr: true,
 		},
 		{
@@ -330,7 +330,7 @@ func TestRSSParserExecutor_Execute_HTTPErrors(t *testing.T) {
 					w.Write([]byte(`<?xml version="1.0"?><unknown></unknown>`))
 				}))
 			},
-			config:  map[string]interface{}{"url": ""},
+			config:  map[string]any{"url": ""},
 			wantErr: true,
 		},
 	}
@@ -355,12 +355,12 @@ func TestRSSParserExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 	}{
 		{
 			name: "Valid config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url":            "https://example.com/feed.xml",
 				"maxItems":       10,
 				"includeContent": true,
@@ -369,28 +369,28 @@ func TestRSSParserExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "Valid config with defaults",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url": "https://example.com/feed.xml",
 			},
 			wantErr: false,
 		},
 		{
 			name: "Missing URL",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"maxItems": 10,
 			},
 			wantErr: true,
 		},
 		{
 			name: "Empty URL",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url": "",
 			},
 			wantErr: true,
 		},
 		{
 			name: "Negative maxItems",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"url":      "https://example.com/feed.xml",
 				"maxItems": -5,
 			},

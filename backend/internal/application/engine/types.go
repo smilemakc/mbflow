@@ -12,7 +12,7 @@ type ExecutionOptions struct {
 	MaxParallelism   int
 	Timeout          time.Duration
 	NodeTimeout      time.Duration
-	Variables        map[string]interface{}
+	Variables        map[string]any
 	ObserverManager  *observer.ObserverManager
 	RetryPolicy      *RetryPolicy
 	ContinueOnError  bool
@@ -47,7 +47,7 @@ func DefaultExecutionOptions() *ExecutionOptions {
 		MaxParallelism:   10,
 		Timeout:          5 * time.Minute,
 		NodeTimeout:      1 * time.Minute,
-		Variables:        make(map[string]interface{}),
+		Variables:        make(map[string]any),
 		RetryPolicy:      NoRetryPolicy(),
 		ContinueOnError:  false,
 		MaxOutputSize:    0,

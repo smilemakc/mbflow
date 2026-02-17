@@ -15,11 +15,11 @@ import (
 // TestDAGExecutor_NodeTimeout tests per-node timeout functionality
 func TestDAGExecutor_NodeTimeout(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			// Simulate slow operation
 			select {
 			case <-time.After(200 * time.Millisecond):
-				return map[string]interface{}{"result": "completed"}, nil
+				return map[string]any{"result": "completed"}, nil
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
@@ -30,7 +30,7 @@ func TestDAGExecutor_NodeTimeout(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
@@ -40,7 +40,7 @@ func TestDAGExecutor_NodeTimeout(t *testing.T) {
 				ID:   "node-1",
 				Name: "Slow Node",
 				Type: "test",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"timeout": 50, // 50ms timeout
 				},
 			},
@@ -48,7 +48,7 @@ func TestDAGExecutor_NodeTimeout(t *testing.T) {
 		Edges: []*models.Edge{},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -68,7 +68,7 @@ func TestDAGExecutor_RetrySuccess(t *testing.T) {
 	var mu sync.Mutex
 
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			mu.Lock()
 			attempts++
 			currentAttempt := attempts
@@ -77,7 +77,7 @@ func TestDAGExecutor_RetrySuccess(t *testing.T) {
 			if currentAttempt < 3 {
 				return nil, errors.New("temporary error")
 			}
-			return map[string]interface{}{"result": "success"}, nil
+			return map[string]any{"result": "success"}, nil
 		},
 	}
 
@@ -85,16 +85,16 @@ func TestDAGExecutor_RetrySuccess(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
 		Name:  "Retry Test",
-		Nodes: []*models.Node{{ID: "node-1", Name: "Retry Node", Type: "test", Config: map[string]interface{}{}}},
+		Nodes: []*models.Node{{ID: "node-1", Name: "Retry Node", Type: "test", Config: map[string]any{}}},
 		Edges: []*models.Edge{},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 	opts.RetryPolicy = &RetryPolicy{
 		MaxAttempts:     3,
@@ -120,12 +120,12 @@ func TestDAGExecutor_RetrySuccess(t *testing.T) {
 // TestDAGExecutor_ContinueOnError tests continue-on-error mode
 func TestDAGExecutor_ContinueOnError(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			if nodeID == "node-2" {
 				return nil, errors.New("node-2 failed")
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -133,20 +133,20 @@ func TestDAGExecutor_ContinueOnError(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Continue On Error Test",
 		Nodes: []*models.Node{
-			{ID: "node-1", Name: "Node 1", Type: "test", Config: map[string]interface{}{"nodeID": "node-1"}},
-			{ID: "node-2", Name: "Node 2", Type: "test", Config: map[string]interface{}{"nodeID": "node-2"}},
-			{ID: "node-3", Name: "Node 3", Type: "test", Config: map[string]interface{}{"nodeID": "node-3"}},
+			{ID: "node-1", Name: "Node 1", Type: "test", Config: map[string]any{"nodeID": "node-1"}},
+			{ID: "node-2", Name: "Node 2", Type: "test", Config: map[string]any{"nodeID": "node-2"}},
+			{ID: "node-3", Name: "Node 3", Type: "test", Config: map[string]any{"nodeID": "node-3"}},
 		},
 		Edges: []*models.Edge{},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 	opts.ContinueOnError = true
 
@@ -175,8 +175,8 @@ func TestDAGExecutor_ContinueOnError(t *testing.T) {
 // TestDAGExecutor_NodePriority tests priority-based execution order
 func TestDAGExecutor_NodePriority(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"result": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -184,20 +184,20 @@ func TestDAGExecutor_NodePriority(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Priority Test",
 		Nodes: []*models.Node{
-			{ID: "low", Name: "Low Priority", Type: "test", Config: map[string]interface{}{}, Metadata: map[string]interface{}{"priority": 1}},
-			{ID: "high", Name: "High Priority", Type: "test", Config: map[string]interface{}{}, Metadata: map[string]interface{}{"priority": 10}},
-			{ID: "medium", Name: "Medium Priority", Type: "test", Config: map[string]interface{}{}, Metadata: map[string]interface{}{"priority": 5}},
+			{ID: "low", Name: "Low Priority", Type: "test", Config: map[string]any{}, Metadata: map[string]any{"priority": 1}},
+			{ID: "high", Name: "High Priority", Type: "test", Config: map[string]any{}, Metadata: map[string]any{"priority": 10}},
+			{ID: "medium", Name: "Medium Priority", Type: "test", Config: map[string]any{}, Metadata: map[string]any{"priority": 5}},
 		},
 		Edges: []*models.Edge{},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -217,10 +217,10 @@ func TestDAGExecutor_NodePriority(t *testing.T) {
 // TestDAGExecutor_ContextCancellation tests graceful cancellation
 func TestDAGExecutor_ContextCancellation(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			select {
 			case <-time.After(500 * time.Millisecond):
-				return map[string]interface{}{"result": "ok"}, nil
+				return map[string]any{"result": "ok"}, nil
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
@@ -231,16 +231,16 @@ func TestDAGExecutor_ContextCancellation(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
 		Name:  "Cancellation Test",
-		Nodes: []*models.Node{{ID: "node-1", Name: "Slow Node", Type: "test", Config: map[string]interface{}{}}},
+		Nodes: []*models.Node{{ID: "node-1", Name: "Slow Node", Type: "test", Config: map[string]any{}}},
 		Edges: []*models.Edge{},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -260,10 +260,10 @@ func TestDAGExecutor_ContextCancellation(t *testing.T) {
 // TestDAGExecutor_MemoryLimit tests memory limit enforcement
 func TestDAGExecutor_MemoryLimit(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			// Generate large output
 			largeData := make([]byte, 1000)
-			return map[string]interface{}{"data": largeData}, nil
+			return map[string]any{"data": largeData}, nil
 		},
 	}
 
@@ -271,16 +271,16 @@ func TestDAGExecutor_MemoryLimit(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	workflow := &models.Workflow{
 		ID:    "wf-1",
 		Name:  "Memory Limit Test",
-		Nodes: []*models.Node{{ID: "node-1", Name: "Large Output", Type: "test", Config: map[string]interface{}{}}},
+		Nodes: []*models.Node{{ID: "node-1", Name: "Large Output", Type: "test", Config: map[string]any{}}},
 		Edges: []*models.Edge{},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 	opts.MaxOutputSize = 100 // 100 bytes limit
 
@@ -298,10 +298,10 @@ func TestDAGExecutor_MemoryLimit(t *testing.T) {
 // TestSortNodesByPriority tests node priority sorting
 func TestSortNodesByPriority(t *testing.T) {
 	nodes := []*models.Node{
-		{ID: "low", Metadata: map[string]interface{}{"priority": 1}},
-		{ID: "high", Metadata: map[string]interface{}{"priority": 10}},
-		{ID: "medium", Metadata: map[string]interface{}{"priority": 5}},
-		{ID: "default", Metadata: map[string]interface{}{}},
+		{ID: "low", Metadata: map[string]any{"priority": 1}},
+		{ID: "high", Metadata: map[string]any{"priority": 10}},
+		{ID: "medium", Metadata: map[string]any{"priority": 5}},
+		{ID: "default", Metadata: map[string]any{}},
 	}
 
 	sorted := SortNodesByPriority(nodes)
@@ -346,8 +346,8 @@ func TestAggregatedError(t *testing.T) {
 // TestConditionCacheIntegration tests condition cache in DAG executor
 func TestConditionCacheIntegration(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"score": 100}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"score": 100}, nil
 		},
 	}
 
@@ -355,16 +355,16 @@ func TestConditionCacheIntegration(t *testing.T) {
 	registry.Register("test", mockExec)
 
 	nodeExec := NewNodeExecutor(registry)
-	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier())
+	dagExec := NewDAGExecutor(nodeExec, NewExprConditionEvaluator(), NewNoOpNotifier(), NewNilWorkflowLoader())
 
 	// Test that cache is used across multiple edge evaluations with same condition
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Cache Test",
 		Nodes: []*models.Node{
-			{ID: "node-1", Name: "Source", Type: "test", Config: map[string]interface{}{}},
-			{ID: "node-2", Name: "Target 1", Type: "test", Config: map[string]interface{}{}},
-			{ID: "node-3", Name: "Target 2", Type: "test", Config: map[string]interface{}{}},
+			{ID: "node-1", Name: "Source", Type: "test", Config: map[string]any{}},
+			{ID: "node-2", Name: "Target 1", Type: "test", Config: map[string]any{}},
+			{ID: "node-3", Name: "Target 2", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "node-1", To: "node-2", Condition: "output.score >= 50"},
@@ -372,7 +372,7 @@ func TestConditionCacheIntegration(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)

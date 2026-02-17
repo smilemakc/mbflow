@@ -21,7 +21,7 @@ func NewConditionalExecutor() *ConditionalExecutor {
 }
 
 // Execute executes the conditional logic.
-func (e *ConditionalExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *ConditionalExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Get condition type
 	conditionType := e.GetStringDefault(config, "condition_type", "expression")
 
@@ -34,7 +34,7 @@ func (e *ConditionalExecutor) Execute(ctx context.Context, config map[string]int
 		}
 
 		// Prepare environment for expression evaluation
-		env := map[string]interface{}{
+		env := map[string]any{
 			"input": input,
 		}
 
@@ -63,7 +63,7 @@ func (e *ConditionalExecutor) Execute(ctx context.Context, config map[string]int
 }
 
 // Validate validates the conditional executor configuration.
-func (e *ConditionalExecutor) Validate(config map[string]interface{}) error {
+func (e *ConditionalExecutor) Validate(config map[string]any) error {
 	conditionType := e.GetStringDefault(config, "condition_type", "expression")
 
 	validTypes := map[string]bool{

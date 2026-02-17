@@ -7,18 +7,18 @@ import (
 
 // User represents a user account in the system.
 type User struct {
-	ID           string                 `json:"id"`
-	Email        string                 `json:"email"`
-	Username     string                 `json:"username"`
-	PasswordHash string                 `json:"-"`
-	FullName     string                 `json:"full_name,omitempty"`
-	IsActive     bool                   `json:"is_active"`
-	IsAdmin      bool                   `json:"is_admin"`
-	Roles        []string               `json:"roles,omitempty"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
-	CreatedAt    time.Time              `json:"created_at"`
-	UpdatedAt    time.Time              `json:"updated_at"`
-	LastLoginAt  *time.Time             `json:"last_login_at,omitempty"`
+	ID           string         `json:"id"`
+	Email        string         `json:"email"`
+	Username     string         `json:"username"`
+	PasswordHash string         `json:"-"`
+	FullName     string         `json:"full_name,omitempty"`
+	IsActive     bool           `json:"is_active"`
+	IsAdmin      bool           `json:"is_admin"`
+	Roles        []string       `json:"roles,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	LastLoginAt  *time.Time     `json:"last_login_at,omitempty"`
 }
 
 // Session represents an authenticated user session.
@@ -205,15 +205,15 @@ func (r *Role) HasPermission(permission string) bool {
 
 // AuditLog represents an audit log entry for user actions.
 type AuditLog struct {
-	ID           string                 `json:"id"`
-	UserID       *string                `json:"user_id,omitempty"`
-	Action       string                 `json:"action"`
-	ResourceType string                 `json:"resource_type,omitempty"`
-	ResourceID   *string                `json:"resource_id,omitempty"`
-	IPAddress    string                 `json:"ip_address,omitempty"`
-	UserAgent    string                 `json:"user_agent,omitempty"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
-	CreatedAt    time.Time              `json:"created_at"`
+	ID           string         `json:"id"`
+	UserID       *string        `json:"user_id,omitempty"`
+	Action       string         `json:"action"`
+	ResourceType string         `json:"resource_type,omitempty"`
+	ResourceID   *string        `json:"resource_id,omitempty"`
+	IPAddress    string         `json:"ip_address,omitempty"`
+	UserAgent    string         `json:"user_agent,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
 }
 
 // Validate validates the audit log structure.

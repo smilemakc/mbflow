@@ -9,16 +9,16 @@ import (
 
 // HTTPConfig represents the configuration for the HTTP executor.
 type HTTPConfig struct {
-	Method             string                 `json:"method"`
-	URL                string                 `json:"url"`
-	Headers            map[string]string      `json:"headers,omitempty"`
-	Body               interface{}            `json:"body,omitempty"`
-	Timeout            int                    `json:"timeout,omitempty"`
-	IgnoreStatusErrors bool                   `json:"ignore_status_errors,omitempty"`
-	SuccessStatusCodes []int                  `json:"success_status_codes,omitempty"`
-	ResponseType       string                 `json:"response_type,omitempty"` // "auto", "binary", "json", "text"
-	QueryParams        map[string]string      `json:"query_params,omitempty"`
-	Auth               *HTTPAuthConfig        `json:"auth,omitempty"`
+	Method             string            `json:"method"`
+	URL                string            `json:"url"`
+	Headers            map[string]string `json:"headers,omitempty"`
+	Body               any               `json:"body,omitempty"`
+	Timeout            int               `json:"timeout,omitempty"`
+	IgnoreStatusErrors bool              `json:"ignore_status_errors,omitempty"`
+	SuccessStatusCodes []int             `json:"success_status_codes,omitempty"`
+	ResponseType       string            `json:"response_type,omitempty"` // "auto", "binary", "json", "text"
+	QueryParams        map[string]string `json:"query_params,omitempty"`
+	Auth               *HTTPAuthConfig   `json:"auth,omitempty"`
 }
 
 // HTTPAuthConfig represents authentication configuration for HTTP requests.
@@ -93,29 +93,29 @@ func (c *TransformConfig) Validate() error {
 
 // LLMConfig represents the configuration for the LLM executor.
 type LLMConfig struct {
-	Provider         string                 `json:"provider"`                    // "openai", "anthropic", "gemini"
-	Model            string                 `json:"model"`
-	APIKey           string                 `json:"api_key,omitempty"`
-	Prompt           string                 `json:"prompt,omitempty"`
-	SystemPrompt     string                 `json:"system_prompt,omitempty"`
-	Messages         []LLMMessage           `json:"messages,omitempty"`
-	Temperature      float64                `json:"temperature,omitempty"`
-	MaxTokens        int                    `json:"max_tokens,omitempty"`
-	TopP             float64                `json:"top_p,omitempty"`
-	FrequencyPenalty float64                `json:"frequency_penalty,omitempty"`
-	PresencePenalty  float64                `json:"presence_penalty,omitempty"`
-	Stop             []string               `json:"stop,omitempty"`
-	Tools            []LLMTool              `json:"tools,omitempty"`
-	ToolChoice       string                 `json:"tool_choice,omitempty"` // "auto", "none", "required"
-	ResponseFormat   *LLMResponseFormat     `json:"response_format,omitempty"`
-	Stream           bool                   `json:"stream,omitempty"`
-	UseInputDirectly bool                   `json:"use_input_directly,omitempty"`
-	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	Provider         string             `json:"provider"` // "openai", "anthropic", "gemini"
+	Model            string             `json:"model"`
+	APIKey           string             `json:"api_key,omitempty"`
+	Prompt           string             `json:"prompt,omitempty"`
+	SystemPrompt     string             `json:"system_prompt,omitempty"`
+	Messages         []LLMMessage       `json:"messages,omitempty"`
+	Temperature      float64            `json:"temperature,omitempty"`
+	MaxTokens        int                `json:"max_tokens,omitempty"`
+	TopP             float64            `json:"top_p,omitempty"`
+	FrequencyPenalty float64            `json:"frequency_penalty,omitempty"`
+	PresencePenalty  float64            `json:"presence_penalty,omitempty"`
+	Stop             []string           `json:"stop,omitempty"`
+	Tools            []LLMTool          `json:"tools,omitempty"`
+	ToolChoice       string             `json:"tool_choice,omitempty"` // "auto", "none", "required"
+	ResponseFormat   *LLMResponseFormat `json:"response_format,omitempty"`
+	Stream           bool               `json:"stream,omitempty"`
+	UseInputDirectly bool               `json:"use_input_directly,omitempty"`
+	Metadata         map[string]any     `json:"metadata,omitempty"`
 }
 
 // LLMMessage represents a message in the LLM conversation.
 type LLMMessage struct {
-	Role    string `json:"role"`    // "system", "user", "assistant"
+	Role    string `json:"role"` // "system", "user", "assistant"
 	Content string `json:"content"`
 }
 
@@ -127,15 +127,15 @@ type LLMTool struct {
 
 // LLMToolFunction represents a function definition for tool calling.
 type LLMToolFunction struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Parameters  map[string]interface{} `json:"parameters,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Parameters  map[string]any `json:"parameters,omitempty"`
 }
 
 // LLMResponseFormat specifies the response format for the LLM.
 type LLMResponseFormat struct {
-	Type   string                 `json:"type"` // "json_object", "json_schema"
-	Schema map[string]interface{} `json:"schema,omitempty"`
+	Type   string         `json:"type"` // "json_object", "json_schema"
+	Schema map[string]any `json:"schema,omitempty"`
 }
 
 // Validate validates the LLM configuration.
@@ -159,17 +159,17 @@ func (c *LLMConfig) Validate() error {
 
 // ConditionalConfig represents the configuration for the Conditional executor.
 type ConditionalConfig struct {
-	Condition   string                   `json:"condition"`
-	TrueValue   interface{}              `json:"true_value,omitempty"`
-	FalseValue  interface{}              `json:"false_value,omitempty"`
-	Branches    []ConditionalBranch      `json:"branches,omitempty"` // For multi-branch conditionals
-	Default     interface{}              `json:"default,omitempty"`
+	Condition  string              `json:"condition"`
+	TrueValue  any                 `json:"true_value,omitempty"`
+	FalseValue any                 `json:"false_value,omitempty"`
+	Branches   []ConditionalBranch `json:"branches,omitempty"` // For multi-branch conditionals
+	Default    any                 `json:"default,omitempty"`
 }
 
 // ConditionalBranch represents a branch in a multi-branch conditional.
 type ConditionalBranch struct {
-	Condition string      `json:"condition"`
-	Value     interface{} `json:"value"`
+	Condition string `json:"condition"`
+	Value     any    `json:"value"`
 }
 
 // Validate validates the Conditional configuration.
@@ -199,11 +199,11 @@ func (c *MergeConfig) Validate() error {
 
 // FileStorageConfig represents the configuration for the FileStorage executor.
 type FileStorageConfig struct {
-	Operation   string                 `json:"operation"` // "read", "write", "delete", "list"
-	Path        string                 `json:"path,omitempty"`
-	Content     interface{}            `json:"content,omitempty"`
-	ContentType string                 `json:"content_type,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Operation   string         `json:"operation"` // "read", "write", "delete", "list"
+	Path        string         `json:"path,omitempty"`
+	Content     any            `json:"content,omitempty"`
+	ContentType string         `json:"content_type,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 // Validate validates the FileStorage configuration.
@@ -233,9 +233,9 @@ func (c *FileStorageConfig) Validate() error {
 	return nil
 }
 
-// ParseConfig parses a map[string]interface{} into a typed config struct.
+// ParseConfig parses a map[string]any into a typed config struct.
 // The target must be a pointer to a struct.
-func ParseConfig[T any](config map[string]interface{}) (*T, error) {
+func ParseConfig[T any](config map[string]any) (*T, error) {
 	// Marshal to JSON then unmarshal to struct
 	data, err := json.Marshal(config)
 	if err != nil {
@@ -250,14 +250,14 @@ func ParseConfig[T any](config map[string]interface{}) (*T, error) {
 	return &result, nil
 }
 
-// ToMap converts a typed config struct to map[string]interface{}.
-func ToMap(config interface{}) (map[string]interface{}, error) {
+// ToMap converts a typed config struct to map[string]any.
+func ToMap(config any) (map[string]any, error) {
 	data, err := json.Marshal(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to convert to map: %w", err)
 	}

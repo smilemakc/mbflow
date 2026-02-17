@@ -191,10 +191,10 @@ func TestServer_RegisterExecutor_Success(t *testing.T) {
 // mockExecutor is a simple mock for testing
 type mockExecutor struct{}
 
-func (m *mockExecutor) Execute(_ context.Context, _ map[string]interface{}, _ interface{}) (interface{}, error) {
+func (m *mockExecutor) Execute(_ context.Context, _ map[string]any, _ any) (any, error) {
 	return nil, nil
 }
 
-func (m *mockExecutor) Validate(_ map[string]interface{}) error {
+func (m *mockExecutor) Validate(_ map[string]any) error {
 	return nil
 }

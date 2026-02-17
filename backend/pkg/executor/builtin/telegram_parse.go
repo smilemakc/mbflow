@@ -54,24 +54,24 @@ type TelegramFileInfo struct {
 //   - user: User info object
 //   - chat: Chat info object
 //   - reply_to_message_id: ID of replied message
-func (e *TelegramParseExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *TelegramParseExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	extractFiles := e.GetBoolDefault(config, "extract_files", true)
 	extractCommands := e.GetBoolDefault(config, "extract_commands", true)
 	extractEntities := e.GetBoolDefault(config, "extract_entities", false)
 
-	inputMap, ok := input.(map[string]interface{})
+	inputMap, ok := input.(map[string]any)
 	if !ok {
 		// If input is nil or not a map, return empty parsed result
-		return map[string]interface{}{
+		return map[string]any{
 			"update_type":  "unknown",
 			"message_type": "unknown",
 			"duration_ms":  time.Since(startTime).Milliseconds(),
 		}, nil
 	}
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		"duration_ms": time.Since(startTime).Milliseconds(),
 	}
 
@@ -90,7 +90,7 @@ func (e *TelegramParseExecutor) Execute(ctx context.Context, config map[string]i
 	// Handle different update types
 	switch updateType {
 	case "callback_query":
-		if cbQuery, ok := inputMap["callback_query"].(map[string]interface{}); ok {
+		if cbQuery, ok := inputMap["callback_query"].(map[string]any); ok {
 			if data, ok := cbQuery["data"].(string); ok {
 				result["callback_data"] = data
 			}
@@ -100,7 +100,7 @@ func (e *TelegramParseExecutor) Execute(ctx context.Context, config map[string]i
 		}
 
 	case "inline_query":
-		if inlineQuery, ok := inputMap["inline_query"].(map[string]interface{}); ok {
+		if inlineQuery, ok := inputMap["inline_query"].(map[string]any); ok {
 			if query, ok := inlineQuery["query"].(string); ok {
 				result["query"] = query
 			}
@@ -148,7 +148,7 @@ func (e *TelegramParseExecutor) Execute(ctx context.Context, config map[string]i
 			}
 
 			// Extract reply info
-			if replyTo, ok := messageData["reply_to_message"].(map[string]interface{}); ok {
+			if replyTo, ok := messageData["reply_to_message"].(map[string]any); ok {
 				if msgID, ok := replyTo["message_id"].(float64); ok {
 					result["reply_to_message_id"] = int(msgID)
 				}
@@ -166,25 +166,25 @@ func (e *TelegramParseExecutor) Execute(ctx context.Context, config map[string]i
 }
 
 // determineUpdateType identifies the update type from Telegram webhook payload.
-func (e *TelegramParseExecutor) determineUpdateType(input map[string]interface{}) (string, map[string]interface{}) {
+func (e *TelegramParseExecutor) determineUpdateType(input map[string]any) (string, map[string]any) {
 	// Check for pre-parsed update_type (from webhook handler)
 	if updateType, ok := input["update_type"].(string); ok {
 		// Return the message data based on type
 		switch updateType {
 		case "message":
-			if msg, ok := input["message"].(map[string]interface{}); ok {
+			if msg, ok := input["message"].(map[string]any); ok {
 				return updateType, msg
 			}
 		case "edited_message":
-			if msg, ok := input["edited_message"].(map[string]interface{}); ok {
+			if msg, ok := input["edited_message"].(map[string]any); ok {
 				return updateType, msg
 			}
 		case "channel_post":
-			if msg, ok := input["channel_post"].(map[string]interface{}); ok {
+			if msg, ok := input["channel_post"].(map[string]any); ok {
 				return updateType, msg
 			}
 		case "edited_channel_post":
-			if msg, ok := input["edited_channel_post"].(map[string]interface{}); ok {
+			if msg, ok := input["edited_channel_post"].(map[string]any); ok {
 				return updateType, msg
 			}
 		case "callback_query":
@@ -196,22 +196,22 @@ func (e *TelegramParseExecutor) determineUpdateType(input map[string]interface{}
 	}
 
 	// Check each possible field
-	if _, ok := input["callback_query"].(map[string]interface{}); ok {
+	if _, ok := input["callback_query"].(map[string]any); ok {
 		return "callback_query", nil
 	}
-	if _, ok := input["inline_query"].(map[string]interface{}); ok {
+	if _, ok := input["inline_query"].(map[string]any); ok {
 		return "inline_query", nil
 	}
-	if msg, ok := input["edited_message"].(map[string]interface{}); ok {
+	if msg, ok := input["edited_message"].(map[string]any); ok {
 		return "edited_message", msg
 	}
-	if msg, ok := input["channel_post"].(map[string]interface{}); ok {
+	if msg, ok := input["channel_post"].(map[string]any); ok {
 		return "channel_post", msg
 	}
-	if msg, ok := input["edited_channel_post"].(map[string]interface{}); ok {
+	if msg, ok := input["edited_channel_post"].(map[string]any); ok {
 		return "edited_channel_post", msg
 	}
-	if msg, ok := input["message"].(map[string]interface{}); ok {
+	if msg, ok := input["message"].(map[string]any); ok {
 		return "message", msg
 	}
 
@@ -219,39 +219,39 @@ func (e *TelegramParseExecutor) determineUpdateType(input map[string]interface{}
 }
 
 // determineMessageType identifies the type of message content.
-func (e *TelegramParseExecutor) determineMessageType(msg map[string]interface{}) string {
+func (e *TelegramParseExecutor) determineMessageType(msg map[string]any) string {
 	// Check for media types first
-	if _, ok := msg["photo"].([]interface{}); ok {
+	if _, ok := msg["photo"].([]any); ok {
 		return "photo"
 	}
-	if _, ok := msg["document"].(map[string]interface{}); ok {
+	if _, ok := msg["document"].(map[string]any); ok {
 		return "document"
 	}
-	if _, ok := msg["audio"].(map[string]interface{}); ok {
+	if _, ok := msg["audio"].(map[string]any); ok {
 		return "audio"
 	}
-	if _, ok := msg["video"].(map[string]interface{}); ok {
+	if _, ok := msg["video"].(map[string]any); ok {
 		return "video"
 	}
-	if _, ok := msg["voice"].(map[string]interface{}); ok {
+	if _, ok := msg["voice"].(map[string]any); ok {
 		return "voice"
 	}
-	if _, ok := msg["video_note"].(map[string]interface{}); ok {
+	if _, ok := msg["video_note"].(map[string]any); ok {
 		return "video_note"
 	}
-	if _, ok := msg["sticker"].(map[string]interface{}); ok {
+	if _, ok := msg["sticker"].(map[string]any); ok {
 		return "sticker"
 	}
-	if _, ok := msg["animation"].(map[string]interface{}); ok {
+	if _, ok := msg["animation"].(map[string]any); ok {
 		return "animation"
 	}
-	if _, ok := msg["location"].(map[string]interface{}); ok {
+	if _, ok := msg["location"].(map[string]any); ok {
 		return "location"
 	}
-	if _, ok := msg["contact"].(map[string]interface{}); ok {
+	if _, ok := msg["contact"].(map[string]any); ok {
 		return "contact"
 	}
-	if _, ok := msg["poll"].(map[string]interface{}); ok {
+	if _, ok := msg["poll"].(map[string]any); ok {
 		return "poll"
 	}
 	if _, ok := msg["text"].(string); ok {
@@ -262,7 +262,7 @@ func (e *TelegramParseExecutor) determineMessageType(msg map[string]interface{})
 }
 
 // extractText gets text from message or caption.
-func (e *TelegramParseExecutor) extractText(msg map[string]interface{}) string {
+func (e *TelegramParseExecutor) extractText(msg map[string]any) string {
 	if text, ok := msg["text"].(string); ok {
 		return text
 	}
@@ -298,49 +298,49 @@ func (e *TelegramParseExecutor) extractCommand(text string) (string, []string) {
 }
 
 // extractFiles extracts all file info from message.
-func (e *TelegramParseExecutor) extractFiles(msg map[string]interface{}) []map[string]interface{} {
-	var files []map[string]interface{}
+func (e *TelegramParseExecutor) extractFiles(msg map[string]any) []map[string]any {
+	var files []map[string]any
 
 	// Photo (array of sizes)
-	if photos, ok := msg["photo"].([]interface{}); ok && len(photos) > 0 {
+	if photos, ok := msg["photo"].([]any); ok && len(photos) > 0 {
 		// Get largest photo (last in array)
-		if photo, ok := photos[len(photos)-1].(map[string]interface{}); ok {
+		if photo, ok := photos[len(photos)-1].(map[string]any); ok {
 			files = append(files, e.extractFileInfo("photo", photo))
 		}
 	}
 
 	// Document
-	if doc, ok := msg["document"].(map[string]interface{}); ok {
+	if doc, ok := msg["document"].(map[string]any); ok {
 		files = append(files, e.extractFileInfo("document", doc))
 	}
 
 	// Audio
-	if audio, ok := msg["audio"].(map[string]interface{}); ok {
+	if audio, ok := msg["audio"].(map[string]any); ok {
 		files = append(files, e.extractFileInfo("audio", audio))
 	}
 
 	// Video
-	if video, ok := msg["video"].(map[string]interface{}); ok {
+	if video, ok := msg["video"].(map[string]any); ok {
 		files = append(files, e.extractFileInfo("video", video))
 	}
 
 	// Voice
-	if voice, ok := msg["voice"].(map[string]interface{}); ok {
+	if voice, ok := msg["voice"].(map[string]any); ok {
 		files = append(files, e.extractFileInfo("voice", voice))
 	}
 
 	// Video note
-	if videoNote, ok := msg["video_note"].(map[string]interface{}); ok {
+	if videoNote, ok := msg["video_note"].(map[string]any); ok {
 		files = append(files, e.extractFileInfo("video_note", videoNote))
 	}
 
 	// Sticker
-	if sticker, ok := msg["sticker"].(map[string]interface{}); ok {
+	if sticker, ok := msg["sticker"].(map[string]any); ok {
 		files = append(files, e.extractFileInfo("sticker", sticker))
 	}
 
 	// Animation
-	if animation, ok := msg["animation"].(map[string]interface{}); ok {
+	if animation, ok := msg["animation"].(map[string]any); ok {
 		files = append(files, e.extractFileInfo("animation", animation))
 	}
 
@@ -348,8 +348,8 @@ func (e *TelegramParseExecutor) extractFiles(msg map[string]interface{}) []map[s
 }
 
 // extractFileInfo extracts common file info from a file object.
-func (e *TelegramParseExecutor) extractFileInfo(fileType string, file map[string]interface{}) map[string]interface{} {
-	info := map[string]interface{}{
+func (e *TelegramParseExecutor) extractFileInfo(fileType string, file map[string]any) map[string]any {
+	info := map[string]any{
 		"type": fileType,
 	}
 
@@ -382,23 +382,23 @@ func (e *TelegramParseExecutor) extractFileInfo(fileType string, file map[string
 }
 
 // extractUser extracts user info from update.
-func (e *TelegramParseExecutor) extractUser(input map[string]interface{}, updateType string) map[string]interface{} {
-	var from map[string]interface{}
+func (e *TelegramParseExecutor) extractUser(input map[string]any, updateType string) map[string]any {
+	var from map[string]any
 
 	switch updateType {
 	case "callback_query":
-		if cbQuery, ok := input["callback_query"].(map[string]interface{}); ok {
-			from, _ = cbQuery["from"].(map[string]interface{})
+		if cbQuery, ok := input["callback_query"].(map[string]any); ok {
+			from, _ = cbQuery["from"].(map[string]any)
 		}
 	case "inline_query":
-		if inlineQuery, ok := input["inline_query"].(map[string]interface{}); ok {
-			from, _ = inlineQuery["from"].(map[string]interface{})
+		if inlineQuery, ok := input["inline_query"].(map[string]any); ok {
+			from, _ = inlineQuery["from"].(map[string]any)
 		}
 	default:
 		// For message-like updates
 		for _, key := range []string{"message", "edited_message", "channel_post", "edited_channel_post"} {
-			if msg, ok := input[key].(map[string]interface{}); ok {
-				from, _ = msg["from"].(map[string]interface{})
+			if msg, ok := input[key].(map[string]any); ok {
+				from, _ = msg["from"].(map[string]any)
 				break
 			}
 		}
@@ -408,7 +408,7 @@ func (e *TelegramParseExecutor) extractUser(input map[string]interface{}, update
 		return nil
 	}
 
-	user := map[string]interface{}{}
+	user := map[string]any{}
 	if id, ok := from["id"].(float64); ok {
 		user["id"] = int64(id)
 	}
@@ -432,20 +432,20 @@ func (e *TelegramParseExecutor) extractUser(input map[string]interface{}, update
 }
 
 // extractChat extracts chat info from update.
-func (e *TelegramParseExecutor) extractChat(input map[string]interface{}, updateType string) map[string]interface{} {
-	var chatData map[string]interface{}
+func (e *TelegramParseExecutor) extractChat(input map[string]any, updateType string) map[string]any {
+	var chatData map[string]any
 
 	switch updateType {
 	case "callback_query":
-		if cbQuery, ok := input["callback_query"].(map[string]interface{}); ok {
-			if msg, ok := cbQuery["message"].(map[string]interface{}); ok {
-				chatData, _ = msg["chat"].(map[string]interface{})
+		if cbQuery, ok := input["callback_query"].(map[string]any); ok {
+			if msg, ok := cbQuery["message"].(map[string]any); ok {
+				chatData, _ = msg["chat"].(map[string]any)
 			}
 		}
 	default:
 		for _, key := range []string{"message", "edited_message", "channel_post", "edited_channel_post"} {
-			if msg, ok := input[key].(map[string]interface{}); ok {
-				chatData, _ = msg["chat"].(map[string]interface{})
+			if msg, ok := input[key].(map[string]any); ok {
+				chatData, _ = msg["chat"].(map[string]any)
 				break
 			}
 		}
@@ -455,7 +455,7 @@ func (e *TelegramParseExecutor) extractChat(input map[string]interface{}, update
 		return nil
 	}
 
-	chat := map[string]interface{}{}
+	chat := map[string]any{}
 	if id, ok := chatData["id"].(float64); ok {
 		chat["id"] = int64(id)
 	}
@@ -473,8 +473,8 @@ func (e *TelegramParseExecutor) extractChat(input map[string]interface{}, update
 }
 
 // extractEntities extracts URLs, emails, and mentions from message entities.
-func (e *TelegramParseExecutor) extractEntities(msg map[string]interface{}) map[string]interface{} {
-	entities := map[string]interface{}{
+func (e *TelegramParseExecutor) extractEntities(msg map[string]any) map[string]any {
+	entities := map[string]any{
 		"urls":     []string{},
 		"emails":   []string{},
 		"mentions": []string{},
@@ -486,15 +486,15 @@ func (e *TelegramParseExecutor) extractEntities(msg map[string]interface{}) map[
 	}
 
 	// Get entities array from message
-	msgEntities, ok := msg["entities"].([]interface{})
+	msgEntities, ok := msg["entities"].([]any)
 	if !ok {
-		msgEntities, _ = msg["caption_entities"].([]interface{})
+		msgEntities, _ = msg["caption_entities"].([]any)
 	}
 
 	var urls, emails, mentions []string
 
 	for _, entity := range msgEntities {
-		entityMap, ok := entity.(map[string]interface{})
+		entityMap, ok := entity.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -536,7 +536,7 @@ func (e *TelegramParseExecutor) extractEntities(msg map[string]interface{}) map[
 }
 
 // Validate validates the Telegram parse executor configuration.
-func (e *TelegramParseExecutor) Validate(config map[string]interface{}) error {
+func (e *TelegramParseExecutor) Validate(config map[string]any) error {
 	// All config options are optional with defaults
 	return nil
 }

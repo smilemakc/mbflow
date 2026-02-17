@@ -25,9 +25,9 @@ Holds all variables available for template resolution with proper precedence:
 
 ```go
 type VariableContext struct {
-    WorkflowVars  map[string]interface{} // Workflow-level variables
-    ExecutionVars map[string]interface{} // Runtime variables (override workflow)
-    InputVars     map[string]interface{} // Parent node output
+    WorkflowVars  map[string]any // Workflow-level variables
+    ExecutionVars map[string]any // Runtime variables (override workflow)
+    InputVars     map[string]any // Parent node output
 }
 ```
 
@@ -119,9 +119,9 @@ result, err := engine.ResolveString("Hello {{input.userId}}")
 #### Data Structure Resolution
 
 ```go
-config := map[string]interface{}{
+config := map[string]any{
     "url": "{{env.apiUrl}}/users/{{input.userId}}",
-    "headers": map[string]interface{}{
+    "headers": map[string]any{
         "Authorization": "Bearer {{env.apiKey}}",
     },
 }
@@ -134,7 +134,7 @@ resolved, err := engine.Resolve(config)
 
 ```go
 resolved, err := engine.ResolveConfig(config)
-// Convenience method for map[string]interface{}
+// Convenience method for map[string]any
 ```
 
 ### Utility Functions
@@ -251,7 +251,7 @@ Values are automatically converted to strings in templates:
 ctx.InputVars["number"] = 42
 ctx.InputVars["float"] = 3.14
 ctx.InputVars["bool"] = true
-ctx.InputVars["object"] = map[string]interface{}{"key": "value"}
+ctx.InputVars["object"] = map[string]any{"key": "value"}
 
 engine.ResolveString("{{input.number}}")  // "42"
 engine.ResolveString("{{input.float}}")   // "3.14"
@@ -276,8 +276,8 @@ result, _ := engine.ResolveString("Hello {{env.name}}!")
 
 ```go
 ctx := NewVariableContext()
-ctx.InputVars["user"] = map[string]interface{}{
-    "profile": map[string]interface{}{
+ctx.InputVars["user"] = map[string]any{
+    "profile": map[string]any{
         "email": "user@example.com",
     },
 }
@@ -291,9 +291,9 @@ result, _ := engine.ResolveString("Email: {{input.user.profile.email}}")
 
 ```go
 ctx := NewVariableContext()
-ctx.InputVars["items"] = []interface{}{
-    map[string]interface{}{"name": "Item1"},
-    map[string]interface{}{"name": "Item2"},
+ctx.InputVars["items"] = []any{
+    map[string]any{"name": "Item1"},
+    map[string]any{"name": "Item2"},
 }
 
 engine := NewEngineWithDefaults(ctx)
@@ -320,12 +320,12 @@ ctx := NewVariableContext()
 ctx.WorkflowVars["apiUrl"] = "https://api.example.com"
 ctx.InputVars["userId"] = "123"
 
-config := map[string]interface{}{
+config := map[string]any{
     "url": "{{env.apiUrl}}/users/{{input.userId}}",
-    "headers": map[string]interface{}{
+    "headers": map[string]any{
         "Content-Type": "application/json",
     },
-    "params": []interface{}{
+    "params": []any{
         "{{input.userId}}",
         "active",
     },

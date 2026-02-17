@@ -37,7 +37,7 @@ func (ResourceModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and defaults
-func (r *ResourceModel) BeforeInsert(ctx interface{}) error {
+func (r *ResourceModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	r.CreatedAt = now
 	r.UpdatedAt = now
@@ -54,7 +54,7 @@ func (r *ResourceModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (r *ResourceModel) BeforeUpdate(ctx interface{}) error {
+func (r *ResourceModel) BeforeUpdate(ctx any) error {
 	r.UpdatedAt = time.Now()
 	return nil
 }
@@ -90,7 +90,7 @@ func (FileStorageModel) TableName() string {
 }
 
 // BeforeInsert hook to set defaults
-func (f *FileStorageModel) BeforeInsert(ctx interface{}) error {
+func (f *FileStorageModel) BeforeInsert(ctx any) error {
 	if f.StorageLimitBytes == 0 {
 		f.StorageLimitBytes = 5 * 1024 * 1024
 	}
@@ -143,7 +143,7 @@ func (PricingPlanModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and defaults
-func (p *PricingPlanModel) BeforeInsert(ctx interface{}) error {
+func (p *PricingPlanModel) BeforeInsert(ctx any) error {
 	p.CreatedAt = time.Now()
 	if p.ID == uuid.Nil {
 		p.ID = uuid.New()
@@ -194,7 +194,7 @@ func ToResourceDomain(r *ResourceModel, fs *FileStorageModel) *pkgmodels.FileSto
 		return nil
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if r.Metadata != nil {
 		metadata = r.Metadata
 	}
@@ -360,7 +360,7 @@ func ToCredentialsResourceDomain(r *ResourceModel, c *CredentialsModel) *pkgmode
 		return nil
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if r.Metadata != nil {
 		metadata = r.Metadata
 	}
@@ -588,12 +588,12 @@ func ToRentalKeyResourceDomain(r *ResourceModel, rk *RentalKeyModel) *pkgmodels.
 		return nil
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if r.Metadata != nil {
 		metadata = r.Metadata
 	}
 
-	var providerConfig map[string]interface{}
+	var providerConfig map[string]any
 	if rk.ProviderConfig != nil {
 		providerConfig = rk.ProviderConfig
 	}

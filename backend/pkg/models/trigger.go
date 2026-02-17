@@ -6,18 +6,18 @@ import (
 
 // Trigger represents a workflow trigger configuration.
 type Trigger struct {
-	ID          string                 `json:"id"`
-	WorkflowID  string                 `json:"workflow_id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Type        TriggerType            `json:"type"`
-	Config      map[string]interface{} `json:"config"`
-	Enabled     bool                   `json:"enabled"`
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
-	LastRun     *time.Time             `json:"last_run,omitempty"`
-	NextRun     *time.Time             `json:"next_run,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID          string         `json:"id"`
+	WorkflowID  string         `json:"workflow_id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Type        TriggerType    `json:"type"`
+	Config      map[string]any `json:"config"`
+	Enabled     bool           `json:"enabled"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	LastRun     *time.Time     `json:"last_run,omitempty"`
+	NextRun     *time.Time     `json:"next_run,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 // TriggerType represents the type of trigger.
@@ -147,9 +147,9 @@ type WebhookConfig struct {
 
 // EventConfig represents the configuration for an event trigger.
 type EventConfig struct {
-	EventType string                 `json:"event_type"`
-	Filter    map[string]interface{} `json:"filter,omitempty"`
-	Source    string                 `json:"source,omitempty"`
+	EventType string         `json:"event_type"`
+	Filter    map[string]any `json:"filter,omitempty"`
+	Source    string         `json:"source,omitempty"`
 }
 
 // IntervalConfig represents the configuration for an interval trigger.

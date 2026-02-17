@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/builder"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
 	"github.com/smilemakc/mbflow/pkg/visualization"
@@ -47,7 +47,7 @@ func main() {
 			"assistant",
 			"AI Assistant with Tools",
 			"llm",
-			builder.WithConfig(map[string]interface{}{
+			builder.WithConfig(map[string]any{
 				"provider": "openai",
 				"model":    "{{env.model}}",
 				"api_key":  "{{env.openai_api_key}}",
@@ -59,7 +59,7 @@ Always explain what you're doing when you use a tool.`,
 				"max_tokens":  1000,
 
 				// Tool calling configuration (auto mode)
-				"tool_call_config": map[string]interface{}{
+				"tool_call_config": map[string]any{
 					"mode":                 "auto",
 					"max_iterations":       5,
 					"timeout_per_tool":     30,
@@ -68,15 +68,15 @@ Always explain what you're doing when you use a tool.`,
 				},
 
 				// Function definitions
-				"functions": []map[string]interface{}{
+				"functions": []map[string]any{
 					{
 						"type":         "builtin",
 						"name":         "get_current_time",
 						"description":  "Get the current date and time",
 						"builtin_name": "get_current_time",
-						"parameters": map[string]interface{}{
+						"parameters": map[string]any{
 							"type":       "object",
-							"properties": map[string]interface{}{},
+							"properties": map[string]any{},
 						},
 					},
 					{
@@ -84,10 +84,10 @@ Always explain what you're doing when you use a tool.`,
 						"name":         "calculate",
 						"description":  "Perform mathematical calculations. Supports basic arithmetic operations.",
 						"builtin_name": "calculate",
-						"parameters": map[string]interface{}{
+						"parameters": map[string]any{
 							"type": "object",
-							"properties": map[string]interface{}{
-								"expression": map[string]interface{}{
+							"properties": map[string]any{
+								"expression": map[string]any{
 									"type":        "string",
 									"description": "Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5 + 3')",
 								},
@@ -100,10 +100,10 @@ Always explain what you're doing when you use a tool.`,
 						"name":         "get_weather",
 						"description":  "Get weather information for a location",
 						"builtin_name": "get_weather",
-						"parameters": map[string]interface{}{
+						"parameters": map[string]any{
 							"type": "object",
-							"properties": map[string]interface{}{
-								"location": map[string]interface{}{
+							"properties": map[string]any{
+								"location": map[string]any{
 									"type":        "string",
 									"description": "City name or location",
 								},
@@ -154,14 +154,14 @@ Always explain what you're doing when you use a tool.`,
 		fmt.Printf("╚════════════════════════════════════════════════════════╝\n\n")
 
 		// Execute workflow in standalone mode
-		input := map[string]interface{}{
+		input := map[string]any{
 			"user_message": query,
 		}
 
 		opts := &engine.ExecutionOptions{
 			StrictMode:     false,
 			MaxParallelism: 1,
-			Variables:      make(map[string]interface{}),
+			Variables:      make(map[string]any),
 		}
 
 		execution, err := client.ExecuteWorkflowStandalone(ctx, workflow, input, opts)
@@ -233,10 +233,10 @@ func showExecutionResult(execution *models.Execution, query string) {
 		}
 
 		// Show tool executions
-		if toolExecsRaw, ok := nodeExec.Output["tool_executions"].([]interface{}); ok && len(toolExecsRaw) > 0 {
+		if toolExecsRaw, ok := nodeExec.Output["tool_executions"].([]any); ok && len(toolExecsRaw) > 0 {
 			fmt.Printf("\n🔧 Tool Executions (%d):\n", len(toolExecsRaw))
 			for i, execRaw := range toolExecsRaw {
-				if execMap, ok := execRaw.(map[string]interface{}); ok {
+				if execMap, ok := execRaw.(map[string]any); ok {
 					functionName := execMap["function_name"].(string)
 					executionTime := execMap["execution_time"].(int64)
 
@@ -260,10 +260,10 @@ func showExecutionResult(execution *models.Execution, query string) {
 		}
 
 		// Show message history summary
-		if messagesRaw, ok := nodeExec.Output["messages"].([]interface{}); ok {
+		if messagesRaw, ok := nodeExec.Output["messages"].([]any); ok {
 			fmt.Printf("\n💬 Message History (%d messages):\n", len(messagesRaw))
 			for i, msgRaw := range messagesRaw {
-				if msgMap, ok := msgRaw.(map[string]interface{}); ok {
+				if msgMap, ok := msgRaw.(map[string]any); ok {
 					role := msgMap["role"].(string)
 					content := ""
 					if c, ok := msgMap["content"].(string); ok {
@@ -276,7 +276,7 @@ func showExecutionResult(execution *models.Execution, query string) {
 					case "user":
 						fmt.Printf("   %d. [USER] %s\n", i+1, truncate(content, 60))
 					case "assistant":
-						if toolCalls, ok := msgMap["tool_calls"].([]interface{}); ok && len(toolCalls) > 0 {
+						if toolCalls, ok := msgMap["tool_calls"].([]any); ok && len(toolCalls) > 0 {
 							fmt.Printf("   %d. [ASSISTANT] Called %d tool(s)\n", i+1, len(toolCalls))
 						} else {
 							fmt.Printf("   %d. [ASSISTANT] %s\n", i+1, truncate(content, 60))

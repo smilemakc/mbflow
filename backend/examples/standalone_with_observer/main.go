@@ -63,7 +63,7 @@ func runFullExample() {
 	workflow := &models.Workflow{
 		Name:        "Workflow with Observers",
 		Description: "Demonstrates observer functionality in standalone mode",
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"api_base": "https://jsonplaceholder.typicode.com",
 		},
 		Nodes: []*models.Node{
@@ -71,7 +71,7 @@ func runFullExample() {
 				ID:   "fetch-user",
 				Name: "Fetch User Data",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "GET",
 					"url":    "{{env.api_base}}/users/{{input.user_id}}",
 				},
@@ -80,7 +80,7 @@ func runFullExample() {
 				ID:   "fetch-posts",
 				Name: "Fetch User Posts",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "GET",
 					"url":    "{{env.api_base}}/posts?userId={{input.user_id}}",
 				},
@@ -89,7 +89,7 @@ func runFullExample() {
 				ID:   "combine-data",
 				Name: "Combine Results",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -118,7 +118,7 @@ func runFullExample() {
 	}
 
 	// Prepare input
-	input := map[string]interface{}{
+	input := map[string]any{
 		"user_id": 1,
 	}
 

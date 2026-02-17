@@ -14,7 +14,7 @@ type EdgeBuilder struct {
 	condition    string
 	sourceHandle string
 	loop         *models.LoopConfig
-	metadata     map[string]interface{}
+	metadata     map[string]any
 	err          error
 }
 
@@ -27,7 +27,7 @@ func NewEdge(from, to string, opts ...EdgeOption) *EdgeBuilder {
 	eb := &EdgeBuilder{
 		from:     from,
 		to:       to,
-		metadata: make(map[string]interface{}),
+		metadata: make(map[string]any),
 	}
 
 	// Auto-generate edge ID
@@ -125,7 +125,7 @@ func WhenEqual(field, value string) EdgeOption {
 }
 
 // WithEdgeMetadata adds edge metadata.
-func WithEdgeMetadata(key string, value interface{}) EdgeOption {
+func WithEdgeMetadata(key string, value any) EdgeOption {
 	return func(eb *EdgeBuilder) error {
 		if key == "" {
 			return fmt.Errorf("metadata key cannot be empty")

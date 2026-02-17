@@ -391,7 +391,7 @@ func TestLogger_JSONFormat_ValidJSON(t *testing.T) {
 	output := buf.String()
 
 	// Should be valid JSON
-	var jsonData map[string]interface{}
+	var jsonData map[string]any
 	err := json.Unmarshal([]byte(output), &jsonData)
 	require.NoError(t, err)
 
@@ -409,7 +409,7 @@ func TestLogger_JSONFormat_MultipleAttributes(t *testing.T) {
 
 	output := buf.String()
 
-	var jsonData map[string]interface{}
+	var jsonData map[string]any
 	err := json.Unmarshal([]byte(output), &jsonData)
 	require.NoError(t, err)
 
@@ -472,7 +472,7 @@ func TestLogger_Integration_WithChaining(t *testing.T) {
 
 	output := buf.String()
 
-	var jsonData map[string]interface{}
+	var jsonData map[string]any
 	err := json.Unmarshal([]byte(output), &jsonData)
 	require.NoError(t, err)
 

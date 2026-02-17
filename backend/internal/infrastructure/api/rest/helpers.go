@@ -23,12 +23,12 @@ func parseIntQuery(value string, defaultValue int) int {
 	return i
 }
 
-func respondJSON(c *gin.Context, status int, data interface{}) {
+func respondJSON(c *gin.Context, status int, data any) {
 	c.JSON(status, data)
 }
 
 // respondList writes a paginated list response with flat structure
-func respondList(c *gin.Context, status int, data interface{}, total, limit, offset int) {
+func respondList(c *gin.Context, status int, data any, total, limit, offset int) {
 	c.JSON(status, gin.H{
 		"data":   data,
 		"total":  total,
@@ -42,7 +42,7 @@ func respondError(c *gin.Context, status int, message string) {
 	c.JSON(status, apiErr)
 }
 
-func respondErrorWithDetails(c *gin.Context, status int, message, code string, details map[string]interface{}) {
+func respondErrorWithDetails(c *gin.Context, status int, message, code string, details map[string]any) {
 	apiErr := NewAPIErrorWithDetails(code, message, status, details)
 	c.JSON(status, apiErr)
 }
@@ -55,14 +55,14 @@ func respondAPIError(c *gin.Context, err error) {
 func respondAPIErrorWithRequestID(c *gin.Context, err error) {
 	apiErr := TranslateError(err)
 	if apiErr.Details == nil {
-		apiErr.Details = make(map[string]interface{})
+		apiErr.Details = make(map[string]any)
 	}
 	apiErr.Details["request_id"] = GetRequestID(c)
 	c.JSON(apiErr.HTTPStatus, apiErr)
 }
 
 // respondSuccess writes a successful response, optionally with pagination metadata
-func respondSuccess(c *gin.Context, status int, data interface{}, meta *listMeta) {
+func respondSuccess(c *gin.Context, status int, data any, meta *listMeta) {
 	if meta != nil {
 		c.JSON(status, gin.H{
 			"data":   data,
@@ -82,7 +82,7 @@ type listMeta struct {
 	Offset int
 }
 
-func bindJSON(c *gin.Context, obj interface{}) error {
+func bindJSON(c *gin.Context, obj any) error {
 	if err := c.ShouldBindJSON(obj); err != nil {
 		var ve validator.ValidationErrors
 		if ok := errors.As(err, &ve); ok {

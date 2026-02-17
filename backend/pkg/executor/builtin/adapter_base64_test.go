@@ -16,14 +16,14 @@ func TestBase64ToBytesExecutor_Execute(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		config     map[string]interface{}
-		input      interface{}
+		config     map[string]any
+		input      any
 		wantResult []byte
 		wantErr    bool
 	}{
 		{
 			name: "standard encoding - string input",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "standard",
 				"output_format": "raw",
 			},
@@ -33,7 +33,7 @@ func TestBase64ToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "URL encoding - string input",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "url",
 				"output_format": "raw",
 			},
@@ -43,7 +43,7 @@ func TestBase64ToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "hex output format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "standard",
 				"output_format": "hex",
 			},
@@ -53,11 +53,11 @@ func TestBase64ToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "map input with data field",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "standard",
 				"output_format": "raw",
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"data": base64.StdEncoding.EncodeToString([]byte("test")),
 			},
 			wantResult: []byte("test"),
@@ -65,7 +65,7 @@ func TestBase64ToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "raw standard encoding",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "raw_standard",
 				"output_format": "raw",
 			},
@@ -75,7 +75,7 @@ func TestBase64ToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "invalid base64 string",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "standard",
 				"output_format": "raw",
 			},
@@ -84,7 +84,7 @@ func TestBase64ToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "unsupported input type",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "standard",
 				"output_format": "raw",
 			},
@@ -105,7 +105,7 @@ func TestBase64ToBytesExecutor_Execute(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
-			resultMap, ok := result.(map[string]interface{})
+			resultMap, ok := result.(map[string]any)
 			require.True(t, ok, "result should be a map")
 
 			assert.True(t, resultMap["success"].(bool))
@@ -130,12 +130,12 @@ func TestBase64ToBytesExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 	}{
 		{
 			name: "valid config - standard",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "standard",
 				"output_format": "raw",
 			},
@@ -143,7 +143,7 @@ func TestBase64ToBytesExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid config - url encoding",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "url",
 				"output_format": "hex",
 			},
@@ -151,7 +151,7 @@ func TestBase64ToBytesExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid encoding",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "invalid",
 				"output_format": "raw",
 			},
@@ -159,7 +159,7 @@ func TestBase64ToBytesExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid output format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":      "standard",
 				"output_format": "invalid",
 			},
@@ -185,14 +185,14 @@ func TestBytesToBase64Executor_Execute(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
-		input   interface{}
+		config  map[string]any
+		input   any
 		want    string
 		wantErr bool
 	}{
 		{
 			name: "standard encoding - bytes input",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "standard",
 				"line_length": 0,
 			},
@@ -201,7 +201,7 @@ func TestBytesToBase64Executor_Execute(t *testing.T) {
 		},
 		{
 			name: "URL encoding - string input",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "url",
 				"line_length": 0,
 			},
@@ -210,7 +210,7 @@ func TestBytesToBase64Executor_Execute(t *testing.T) {
 		},
 		{
 			name: "raw standard encoding",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "raw_standard",
 				"line_length": 0,
 			},
@@ -219,7 +219,7 @@ func TestBytesToBase64Executor_Execute(t *testing.T) {
 		},
 		{
 			name: "with line wrapping",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "standard",
 				"line_length": 10,
 			},
@@ -228,18 +228,18 @@ func TestBytesToBase64Executor_Execute(t *testing.T) {
 		},
 		{
 			name: "map input with data field",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "standard",
 				"line_length": 0,
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"data": []byte("from map"),
 			},
 			want: base64.StdEncoding.EncodeToString([]byte("from map")),
 		},
 		{
 			name: "string with base64 input (should decode then re-encode)",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "standard",
 				"line_length": 0,
 			},
@@ -260,7 +260,7 @@ func TestBytesToBase64Executor_Execute(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
-			resultMap, ok := result.(map[string]interface{})
+			resultMap, ok := result.(map[string]any)
 			require.True(t, ok, "result should be a map")
 
 			assert.True(t, resultMap["success"].(bool))
@@ -283,12 +283,12 @@ func TestBytesToBase64Executor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "standard",
 				"line_length": 76,
 			},
@@ -296,7 +296,7 @@ func TestBytesToBase64Executor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid encoding",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "invalid",
 				"line_length": 0,
 			},
@@ -304,7 +304,7 @@ func TestBytesToBase64Executor_Validate(t *testing.T) {
 		},
 		{
 			name: "negative line length",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"encoding":    "standard",
 				"line_length": -1,
 			},
@@ -334,7 +334,7 @@ func TestBytesToBase64Executor_LineWrapping(t *testing.T) {
 		longData[i] = byte('A' + (i % 26))
 	}
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"encoding":    "standard",
 		"line_length": 20,
 	}
@@ -342,7 +342,7 @@ func TestBytesToBase64Executor_LineWrapping(t *testing.T) {
 	result, err := executor.Execute(ctx, config, longData)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	encoded := resultMap["result"].(string)
 
 	// Check that result contains newlines

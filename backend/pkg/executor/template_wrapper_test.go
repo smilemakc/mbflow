@@ -12,18 +12,18 @@ import (
 
 // mockExecutorForWrapper is a simple mock executor for testing the wrapper
 type mockExecutorForWrapper struct {
-	executeFunc  func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error)
-	validateFunc func(config map[string]interface{}) error
+	executeFunc  func(ctx context.Context, config map[string]any, input any) (any, error)
+	validateFunc func(config map[string]any) error
 }
 
-func (m *mockExecutorForWrapper) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (m *mockExecutorForWrapper) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	if m.executeFunc != nil {
 		return m.executeFunc(ctx, config, input)
 	}
 	return config, nil
 }
 
-func (m *mockExecutorForWrapper) Validate(config map[string]interface{}) error {
+func (m *mockExecutorForWrapper) Validate(config map[string]any) error {
 	if m.validateFunc != nil {
 		return m.validateFunc(config)
 	}
@@ -33,7 +33,7 @@ func (m *mockExecutorForWrapper) Validate(config map[string]interface{}) error {
 func TestNewTemplateExecutorWrapper_WithEngine(t *testing.T) {
 	mockExec := &mockExecutorForWrapper{}
 	varCtx := template.NewVariableContext()
-	varCtx.WorkflowVars = map[string]interface{}{"name": "test"}
+	varCtx.WorkflowVars = map[string]any{"name": "test"}
 	engine := template.NewEngine(varCtx, template.TemplateOptions{})
 
 	wrapped := NewTemplateExecutorWrapper(mockExec, engine)
@@ -57,30 +57,30 @@ func TestNewTemplateExecutorWrapper_WithoutEngine(t *testing.T) {
 func TestTemplateExecutorWrapper_Execute_Success(t *testing.T) {
 	// Setup template engine with variables
 	varCtx := template.NewVariableContext()
-	varCtx.WorkflowVars = map[string]interface{}{
+	varCtx.WorkflowVars = map[string]any{
 		"apiKey":  "secret-key-123",
 		"baseURL": "https://api.example.com",
 	}
-	varCtx.InputVars = map[string]interface{}{
+	varCtx.InputVars = map[string]any{
 		"userId": "user-456",
 	}
 	engine := template.NewEngine(varCtx, template.TemplateOptions{})
 
 	// Create mock executor that captures resolved config
-	var capturedConfig map[string]interface{}
+	var capturedConfig map[string]any
 	mockExec := &mockExecutorForWrapper{
-		executeFunc: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFunc: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			capturedConfig = config
-			return map[string]interface{}{"success": true}, nil
+			return map[string]any{"success": true}, nil
 		},
 	}
 
 	wrapper := NewTemplateExecutorWrapper(mockExec, engine)
 
 	// Execute with template config
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url": "{{env.baseURL}}/users/{{input.userId}}",
-		"headers": map[string]interface{}{
+		"headers": map[string]any{
 			"Authorization": "Bearer {{env.apiKey}}",
 		},
 	}
@@ -88,12 +88,12 @@ func TestTemplateExecutorWrapper_Execute_Success(t *testing.T) {
 	result, err := wrapper.Execute(context.Background(), config, nil)
 
 	require.NoError(t, err)
-	assert.Equal(t, map[string]interface{}{"success": true}, result)
+	assert.Equal(t, map[string]any{"success": true}, result)
 
 	// Verify templates were resolved
 	require.NotNil(t, capturedConfig)
 	assert.Equal(t, "https://api.example.com/users/user-456", capturedConfig["url"])
-	headers, ok := capturedConfig["headers"].(map[string]interface{})
+	headers, ok := capturedConfig["headers"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "Bearer secret-key-123", headers["Authorization"])
 }
@@ -109,7 +109,7 @@ func TestTemplateExecutorWrapper_Execute_TemplateResolutionError(t *testing.T) {
 	wrapper := NewTemplateExecutorWrapper(mockExec, engine)
 
 	// Config with undefined variable
-	config := map[string]interface{}{
+	config := map[string]any{
 		"value": "{{env.undefinedVar}}",
 	}
 
@@ -127,14 +127,14 @@ func TestTemplateExecutorWrapper_Execute_ExecutorError(t *testing.T) {
 	// Mock executor that returns error
 	expectedErr := errors.New("executor failed")
 	mockExec := &mockExecutorForWrapper{
-		executeFunc: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFunc: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			return nil, expectedErr
 		},
 	}
 
 	wrapper := NewTemplateExecutorWrapper(mockExec, engine)
 
-	config := map[string]interface{}{"key": "value"}
+	config := map[string]any{"key": "value"}
 	result, err := wrapper.Execute(context.Background(), config, nil)
 
 	assert.Equal(t, expectedErr, err)
@@ -146,7 +146,7 @@ func TestTemplateExecutorWrapper_Validate_Success(t *testing.T) {
 	engine := template.NewEngine(varCtx, template.TemplateOptions{})
 
 	mockExec := &mockExecutorForWrapper{
-		validateFunc: func(config map[string]interface{}) error {
+		validateFunc: func(config map[string]any) error {
 			if config["required"] == nil {
 				return errors.New("required field missing")
 			}
@@ -157,20 +157,20 @@ func TestTemplateExecutorWrapper_Validate_Success(t *testing.T) {
 	wrapper := NewTemplateExecutorWrapper(mockExec, engine)
 
 	// Valid config
-	err := wrapper.Validate(map[string]interface{}{"required": "value"})
+	err := wrapper.Validate(map[string]any{"required": "value"})
 	assert.NoError(t, err)
 
 	// Invalid config
-	err = wrapper.Validate(map[string]interface{}{})
+	err = wrapper.Validate(map[string]any{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "required field missing")
 }
 
 func TestGetExecutionContext_Exists(t *testing.T) {
 	execData := &ExecutionContextData{
-		WorkflowVariables:  map[string]interface{}{"key": "value"},
-		ExecutionVariables: map[string]interface{}{"exec": "data"},
-		ParentNodeOutput:   map[string]interface{}{"output": "result"},
+		WorkflowVariables:  map[string]any{"key": "value"},
+		ExecutionVariables: map[string]any{"exec": "data"},
+		ParentNodeOutput:   map[string]any{"output": "result"},
 		StrictMode:         true,
 	}
 
@@ -196,9 +196,9 @@ func TestGetExecutionContext_NotExists(t *testing.T) {
 
 func TestWithExecutionContext(t *testing.T) {
 	execData := &ExecutionContextData{
-		WorkflowVariables:  map[string]interface{}{"workflow": "var"},
-		ExecutionVariables: map[string]interface{}{"execution": "var"},
-		ParentNodeOutput:   map[string]interface{}{"parent": "output"},
+		WorkflowVariables:  map[string]any{"workflow": "var"},
+		ExecutionVariables: map[string]any{"execution": "var"},
+		ParentNodeOutput:   map[string]any{"parent": "output"},
 		StrictMode:         false,
 	}
 
@@ -215,15 +215,15 @@ func TestWithExecutionContext(t *testing.T) {
 
 func TestNewTemplateEngine(t *testing.T) {
 	execCtx := &ExecutionContextData{
-		WorkflowVariables: map[string]interface{}{
+		WorkflowVariables: map[string]any{
 			"apiKey":  "test-key",
 			"timeout": 30,
 		},
-		ExecutionVariables: map[string]interface{}{
+		ExecutionVariables: map[string]any{
 			"executionID": "exec-123",
 			"attempt":     1,
 		},
-		ParentNodeOutput: map[string]interface{}{
+		ParentNodeOutput: map[string]any{
 			"userId": "user-456",
 			"status": "success",
 		},
@@ -235,7 +235,7 @@ func TestNewTemplateEngine(t *testing.T) {
 	require.NotNil(t, engine)
 
 	// Test that engine can resolve templates with all variable types
-	config := map[string]interface{}{
+	config := map[string]any{
 		"workflow_var":  "{{env.apiKey}}",
 		"execution_var": "{{env.executionID}}",
 		"input_var":     "{{input.userId}}",
@@ -254,16 +254,16 @@ func TestNewTemplateEngine(t *testing.T) {
 
 func TestNewTemplateEngine_WithStrictMode(t *testing.T) {
 	execCtx := &ExecutionContextData{
-		WorkflowVariables:  map[string]interface{}{"defined": "value"},
-		ExecutionVariables: map[string]interface{}{},
-		ParentNodeOutput:   map[string]interface{}{},
+		WorkflowVariables:  map[string]any{"defined": "value"},
+		ExecutionVariables: map[string]any{},
+		ParentNodeOutput:   map[string]any{},
 		StrictMode:         true,
 	}
 
 	engine := NewTemplateEngine(execCtx)
 
 	// Try to resolve undefined variable in strict mode
-	config := map[string]interface{}{
+	config := map[string]any{
 		"value": "{{env.undefinedVar}}",
 	}
 
@@ -275,20 +275,20 @@ func TestNewTemplateEngine_WithStrictMode(t *testing.T) {
 func TestNewTemplateEngine_VariablePrecedence(t *testing.T) {
 	// Test that execution vars override workflow vars
 	execCtx := &ExecutionContextData{
-		WorkflowVariables: map[string]interface{}{
+		WorkflowVariables: map[string]any{
 			"apiKey":  "workflow-key",
 			"timeout": 30,
 		},
-		ExecutionVariables: map[string]interface{}{
+		ExecutionVariables: map[string]any{
 			"apiKey": "execution-key", // Should override workflow var
 		},
-		ParentNodeOutput: map[string]interface{}{},
+		ParentNodeOutput: map[string]any{},
 		StrictMode:       false,
 	}
 
 	engine := NewTemplateEngine(execCtx)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"key":     "{{env.apiKey}}",
 		"timeout": "{{env.timeout}}",
 	}
@@ -305,22 +305,22 @@ func TestNewTemplateEngine_VariablePrecedence(t *testing.T) {
 func TestTemplateExecutorWrapper_Execute_ComplexTemplates(t *testing.T) {
 	// Test with nested structures and multiple template types
 	varCtx := template.NewVariableContext()
-	varCtx.WorkflowVars = map[string]interface{}{
+	varCtx.WorkflowVars = map[string]any{
 		"baseURL": "https://api.example.com",
 		"version": "v1",
 	}
-	varCtx.InputVars = map[string]interface{}{
-		"user": map[string]interface{}{
+	varCtx.InputVars = map[string]any{
+		"user": map[string]any{
 			"id":   "123",
 			"name": "John",
 		},
-		"items": []interface{}{"item1", "item2"},
+		"items": []any{"item1", "item2"},
 	}
 	engine := template.NewEngine(varCtx, template.TemplateOptions{})
 
-	var capturedConfig map[string]interface{}
+	var capturedConfig map[string]any
 	mockExec := &mockExecutorForWrapper{
-		executeFunc: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFunc: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			capturedConfig = config
 			return "ok", nil
 		},
@@ -328,11 +328,11 @@ func TestTemplateExecutorWrapper_Execute_ComplexTemplates(t *testing.T) {
 
 	wrapper := NewTemplateExecutorWrapper(mockExec, engine)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url": "{{env.baseURL}}/{{env.version}}/users/{{input.user.id}}",
-		"body": map[string]interface{}{
+		"body": map[string]any{
 			"name": "{{input.user.name}}",
-			"items": []interface{}{
+			"items": []any{
 				"{{input.items[0]}}",
 				"{{input.items[1]}}",
 			},
@@ -347,11 +347,11 @@ func TestTemplateExecutorWrapper_Execute_ComplexTemplates(t *testing.T) {
 	// Verify complex template resolution
 	assert.Equal(t, "https://api.example.com/v1/users/123", capturedConfig["url"])
 
-	body, ok := capturedConfig["body"].(map[string]interface{})
+	body, ok := capturedConfig["body"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "John", body["name"])
 
-	items, ok := body["items"].([]interface{})
+	items, ok := body["items"].([]any)
 	require.True(t, ok)
 	assert.Equal(t, "item1", items[0])
 	assert.Equal(t, "item2", items[1])

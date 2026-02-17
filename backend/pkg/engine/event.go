@@ -15,15 +15,23 @@ type ExecutionEvent struct {
 	NodeCount   int
 	Status      string
 	Error       error
-	Output      interface{}
+	Output      any
 	DurationMs  int64
 	Message     string
 	Timestamp   time.Time
-	Input       map[string]interface{}
-	Variables   map[string]interface{}
+	Input       map[string]any
+	Variables   map[string]any
 
 	// Loop-related fields
 	LoopEdgeID    string `json:"-"`
 	LoopIteration int    `json:"-"`
 	LoopMaxIter   int    `json:"-"`
+
+	// Sub-workflow related fields
+	SubWorkflowTotal      int    `json:"sub_workflow_total,omitempty"`
+	SubWorkflowCompleted  int    `json:"sub_workflow_completed,omitempty"`
+	SubWorkflowFailed     int    `json:"sub_workflow_failed,omitempty"`
+	SubWorkflowRunning    int    `json:"sub_workflow_running,omitempty"`
+	SubWorkflowItemIndex  int    `json:"sub_workflow_item_index,omitempty"`
+	SubWorkflowItemExecID string `json:"sub_workflow_item_exec_id,omitempty"`
 }

@@ -13,57 +13,57 @@ import (
 func TestMergeVariables(t *testing.T) {
 	tests := []struct {
 		name          string
-		workflowVars  map[string]interface{}
-		executionVars map[string]interface{}
-		expected      map[string]interface{}
+		workflowVars  map[string]any
+		executionVars map[string]any
+		expected      map[string]any
 	}{
 		{
 			name:          "both empty",
-			workflowVars:  map[string]interface{}{},
-			executionVars: map[string]interface{}{},
-			expected:      map[string]interface{}{},
+			workflowVars:  map[string]any{},
+			executionVars: map[string]any{},
+			expected:      map[string]any{},
 		},
 		{
 			name:          "only workflow vars",
-			workflowVars:  map[string]interface{}{"key1": "value1", "key2": 42},
-			executionVars: map[string]interface{}{},
-			expected:      map[string]interface{}{"key1": "value1", "key2": 42},
+			workflowVars:  map[string]any{"key1": "value1", "key2": 42},
+			executionVars: map[string]any{},
+			expected:      map[string]any{"key1": "value1", "key2": 42},
 		},
 		{
 			name:          "only execution vars",
-			workflowVars:  map[string]interface{}{},
-			executionVars: map[string]interface{}{"key3": "value3"},
-			expected:      map[string]interface{}{"key3": "value3"},
+			workflowVars:  map[string]any{},
+			executionVars: map[string]any{"key3": "value3"},
+			expected:      map[string]any{"key3": "value3"},
 		},
 		{
 			name:          "no overlap",
-			workflowVars:  map[string]interface{}{"key1": "value1"},
-			executionVars: map[string]interface{}{"key2": "value2"},
-			expected:      map[string]interface{}{"key1": "value1", "key2": "value2"},
+			workflowVars:  map[string]any{"key1": "value1"},
+			executionVars: map[string]any{"key2": "value2"},
+			expected:      map[string]any{"key1": "value1", "key2": "value2"},
 		},
 		{
 			name:          "execution vars override workflow vars",
-			workflowVars:  map[string]interface{}{"key1": "workflow", "key2": "keep"},
-			executionVars: map[string]interface{}{"key1": "execution", "key3": "new"},
-			expected:      map[string]interface{}{"key1": "execution", "key2": "keep", "key3": "new"},
+			workflowVars:  map[string]any{"key1": "workflow", "key2": "keep"},
+			executionVars: map[string]any{"key1": "execution", "key3": "new"},
+			expected:      map[string]any{"key1": "execution", "key2": "keep", "key3": "new"},
 		},
 		{
 			name:          "nil workflow vars",
 			workflowVars:  nil,
-			executionVars: map[string]interface{}{"key1": "value1"},
-			expected:      map[string]interface{}{"key1": "value1"},
+			executionVars: map[string]any{"key1": "value1"},
+			expected:      map[string]any{"key1": "value1"},
 		},
 		{
 			name:          "nil execution vars",
-			workflowVars:  map[string]interface{}{"key1": "value1"},
+			workflowVars:  map[string]any{"key1": "value1"},
 			executionVars: nil,
-			expected:      map[string]interface{}{"key1": "value1"},
+			expected:      map[string]any{"key1": "value1"},
 		},
 		{
 			name:          "both nil",
 			workflowVars:  nil,
 			executionVars: nil,
-			expected:      map[string]interface{}{},
+			expected:      map[string]any{},
 		},
 	}
 
@@ -192,7 +192,7 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 		name      string
 		execState *pkgengine.ExecutionState
 		workflow  *models.Workflow
-		expected  map[string]interface{}
+		expected  map[string]any
 	}{
 		{
 			name: "single leaf node",
@@ -207,10 +207,10 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 			},
 			execState: func() *pkgengine.ExecutionState {
 				state := pkgengine.NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil)
-				state.SetNodeOutput("node2", map[string]interface{}{"result": "success", "count": 42})
+				state.SetNodeOutput("node2", map[string]any{"result": "success", "count": 42})
 				return state
 			}(),
-			expected: map[string]interface{}{"result": "success", "count": 42},
+			expected: map[string]any{"result": "success", "count": 42},
 		},
 		{
 			name: "multiple leaf nodes",
@@ -227,13 +227,13 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 			},
 			execState: func() *pkgengine.ExecutionState {
 				state := pkgengine.NewExecutionState("exec-1", "workflow-1", &models.Workflow{}, nil, nil)
-				state.SetNodeOutput("leaf1", map[string]interface{}{"data": "A"})
-				state.SetNodeOutput("leaf2", map[string]interface{}{"data": "B"})
+				state.SetNodeOutput("leaf1", map[string]any{"data": "A"})
+				state.SetNodeOutput("leaf2", map[string]any{"data": "B"})
 				return state
 			}(),
-			expected: map[string]interface{}{
-				"leaf1": map[string]interface{}{"data": "A"},
-				"leaf2": map[string]interface{}{"data": "B"},
+			expected: map[string]any{
+				"leaf1": map[string]any{"data": "A"},
+				"leaf2": map[string]any{"data": "B"},
 			},
 		},
 		{
@@ -258,7 +258,7 @@ func TestExecutionManager_GetFinalOutput(t *testing.T) {
 				state.SetNodeOutput("node1", "string output")
 				return state
 			}(),
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"value": "string output",
 			},
 		},

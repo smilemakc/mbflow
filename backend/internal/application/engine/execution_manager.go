@@ -37,7 +37,7 @@ func NewExecutionManager(
 	nodeExecutor := pkgengine.NewNodeExecutor(executorManager)
 	notifier := NewObserverNotifier(observerManager)
 	condEvaluator := pkgengine.NewExprConditionEvaluator()
-	dagExecutor := pkgengine.NewDAGExecutor(nodeExecutor, condEvaluator, notifier)
+	dagExecutor := pkgengine.NewDAGExecutor(nodeExecutor, condEvaluator, notifier, pkgengine.NewNilWorkflowLoader())
 
 	return &ExecutionManager{
 		executorManager: executorManager,
@@ -54,7 +54,7 @@ func NewExecutionManager(
 func (em *ExecutionManager) Execute(
 	ctx context.Context,
 	workflowID string,
-	input map[string]interface{},
+	input map[string]any,
 	opts *ExecutionOptions,
 ) (*models.Execution, error) {
 	execution, workflow, workflowModel, err := em.prepareExecution(ctx, workflowID, input, opts, models.ExecutionStatusRunning)
@@ -77,7 +77,7 @@ func (em *ExecutionManager) Execute(
 func (em *ExecutionManager) ExecuteAsync(
 	ctx context.Context,
 	workflowID string,
-	input map[string]interface{},
+	input map[string]any,
 	opts *ExecutionOptions,
 ) (*models.Execution, error) {
 	execution, workflow, workflowModel, err := em.prepareExecution(ctx, workflowID, input, opts, models.ExecutionStatusPending)
@@ -112,7 +112,7 @@ func (em *ExecutionManager) ExecuteAsync(
 func (em *ExecutionManager) prepareExecution(
 	ctx context.Context,
 	workflowID string,
-	input map[string]interface{},
+	input map[string]any,
 	opts *ExecutionOptions,
 	initialStatus models.ExecutionStatus,
 ) (*models.Execution, *models.Workflow, *storagemodels.WorkflowModel, error) {
@@ -274,7 +274,7 @@ func (em *ExecutionManager) notifyExecutionError(ctx context.Context, execution 
 }
 
 // getFinalOutput gets output from leaf nodes.
-func (em *ExecutionManager) getFinalOutput(execState *pkgengine.ExecutionState) map[string]interface{} {
+func (em *ExecutionManager) getFinalOutput(execState *pkgengine.ExecutionState) map[string]any {
 	leafNodes := pkgengine.FindLeafNodes(execState.Workflow)
 
 	if len(leafNodes) == 0 {
@@ -287,7 +287,7 @@ func (em *ExecutionManager) getFinalOutput(execState *pkgengine.ExecutionState) 
 		}
 	}
 
-	merged := make(map[string]interface{})
+	merged := make(map[string]any)
 	for _, node := range leafNodes {
 		if output, ok := execState.GetNodeOutput(node.ID); ok {
 			merged[node.ID] = output
@@ -365,8 +365,8 @@ func (em *ExecutionManager) buildNodeExecutions(
 func (em *ExecutionManager) loadAndValidateResources(
 	ctx context.Context,
 	workflow *models.Workflow,
-) (map[string]interface{}, error) {
-	resourceMap := make(map[string]interface{})
+) (map[string]any, error) {
+	resourceMap := make(map[string]any)
 
 	for _, wr := range workflow.Resources {
 		resource, err := em.resourceRepo.GetByID(ctx, wr.ResourceID)
@@ -384,7 +384,7 @@ func (em *ExecutionManager) loadAndValidateResources(
 				wr.ResourceID, wr.Alias, resource.GetStatus())
 		}
 
-		resourceMap[wr.Alias] = map[string]interface{}{
+		resourceMap[wr.Alias] = map[string]any{
 			"id":          resource.GetID(),
 			"name":        resource.GetName(),
 			"type":        string(resource.GetType()),

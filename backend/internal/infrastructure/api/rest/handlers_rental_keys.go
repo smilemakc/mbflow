@@ -32,15 +32,15 @@ func NewRentalKeyHandlers(provider *rentalkey.Provider, log *logger.Logger) *Ren
 
 // RentalKeyResponse represents a rental key in API response (without API key value)
 type RentalKeyResponse struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Status      string                 `json:"status"`
-	Provider    string                 `json:"provider"`
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
-	LastUsedAt  *time.Time             `json:"last_used_at,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Status      string         `json:"status"`
+	Provider    string         `json:"provider"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	LastUsedAt  *time.Time     `json:"last_used_at,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 
 	// Usage limits
 	DailyRequestLimit *int   `json:"daily_request_limit,omitempty"`

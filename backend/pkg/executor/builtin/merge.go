@@ -20,7 +20,7 @@ func NewMergeExecutor() *MergeExecutor {
 }
 
 // Execute executes the merge logic.
-func (e *MergeExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *MergeExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	mergeStrategy := e.GetStringDefault(config, "merge_strategy", "all")
 
 	switch mergeStrategy {
@@ -40,7 +40,7 @@ func (e *MergeExecutor) Execute(ctx context.Context, config map[string]interface
 }
 
 // Validate validates the merge executor configuration.
-func (e *MergeExecutor) Validate(config map[string]interface{}) error {
+func (e *MergeExecutor) Validate(config map[string]any) error {
 	mergeStrategy := e.GetStringDefault(config, "merge_strategy", "all")
 
 	validStrategies := map[string]bool{

@@ -9,13 +9,13 @@ import (
 func TestMergeExecutor_Execute_StrategyAll(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "all",
 	}
 
-	input := map[string]interface{}{
-		"parent1": map[string]interface{}{"data": "value1"},
-		"parent2": map[string]interface{}{"data": "value2"},
+	input := map[string]any{
+		"parent1": map[string]any{"data": "value1"},
+		"parent2": map[string]any{"data": "value2"},
 	}
 
 	result, err := executor.Execute(context.Background(), config, input)
@@ -32,12 +32,12 @@ func TestMergeExecutor_Execute_StrategyAll(t *testing.T) {
 func TestMergeExecutor_Execute_StrategyAny(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "any",
 	}
 
-	input := map[string]interface{}{
-		"parent1": map[string]interface{}{"data": "value1"},
+	input := map[string]any{
+		"parent1": map[string]any{"data": "value1"},
 	}
 
 	result, err := executor.Execute(context.Background(), config, input)
@@ -54,11 +54,11 @@ func TestMergeExecutor_Execute_StrategyAny(t *testing.T) {
 func TestMergeExecutor_Execute_DefaultStrategy(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		// No merge_strategy specified, should default to "all"
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"data": "value",
 	}
 
@@ -76,11 +76,11 @@ func TestMergeExecutor_Execute_DefaultStrategy(t *testing.T) {
 func TestMergeExecutor_Execute_UnknownStrategy(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "unknown_strategy",
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"data": "value",
 	}
 
@@ -100,13 +100,13 @@ func TestMergeExecutor_Execute_UnknownStrategy(t *testing.T) {
 func TestMergeExecutor_Execute_WithArrayInput(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "all",
 	}
 
-	input := []interface{}{
-		map[string]interface{}{"id": 1},
-		map[string]interface{}{"id": 2},
+	input := []any{
+		map[string]any{"id": 1},
+		map[string]any{"id": 2},
 	}
 
 	result, err := executor.Execute(context.Background(), config, input)
@@ -123,7 +123,7 @@ func TestMergeExecutor_Execute_WithArrayInput(t *testing.T) {
 func TestMergeExecutor_Execute_WithStringInput(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "all",
 	}
 
@@ -143,11 +143,11 @@ func TestMergeExecutor_Execute_WithStringInput(t *testing.T) {
 func TestMergeExecutor_Execute_WithNilInput(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "all",
 	}
 
-	var input interface{} = nil
+	var input any = nil
 
 	result, err := executor.Execute(context.Background(), config, input)
 	if err != nil {
@@ -163,7 +163,7 @@ func TestMergeExecutor_Execute_WithNilInput(t *testing.T) {
 func TestMergeExecutor_Validate_StrategyAll(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "all",
 	}
 
@@ -176,7 +176,7 @@ func TestMergeExecutor_Validate_StrategyAll(t *testing.T) {
 func TestMergeExecutor_Validate_StrategyAny(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "any",
 	}
 
@@ -189,7 +189,7 @@ func TestMergeExecutor_Validate_StrategyAny(t *testing.T) {
 func TestMergeExecutor_Validate_DefaultStrategy(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		// No merge_strategy, defaults to "all"
 	}
 
@@ -202,7 +202,7 @@ func TestMergeExecutor_Validate_DefaultStrategy(t *testing.T) {
 func TestMergeExecutor_Validate_InvalidStrategy(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "invalid_strategy",
 	}
 
@@ -222,19 +222,19 @@ func TestMergeExecutor_Validate_InvalidStrategy(t *testing.T) {
 func TestMergeExecutor_Execute_ComplexNestedInput(t *testing.T) {
 	executor := NewMergeExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"merge_strategy": "all",
 	}
 
-	input := map[string]interface{}{
-		"parent1": map[string]interface{}{
-			"nested": map[string]interface{}{
+	input := map[string]any{
+		"parent1": map[string]any{
+			"nested": map[string]any{
 				"value": 123,
 			},
 		},
-		"parent2": []interface{}{
-			map[string]interface{}{"id": 1},
-			map[string]interface{}{"id": 2},
+		"parent2": []any{
+			map[string]any{"id": 1},
+			map[string]any{"id": 2},
 		},
 		"parent3": "simple value",
 	}

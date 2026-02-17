@@ -45,7 +45,7 @@ func TestListWorkflows_ShouldIncludeUnowned_WhenNoUserIDFilter(t *testing.T) {
 	wfRepo := new(mockWorkflowRepo)
 	ops := newTestOperations(wfRepo, nil, nil, nil, nil, nil, nil)
 
-	wfRepo.On("FindAllWithFilters", mock.Anything, mock.MatchedBy(func(f interface{}) bool {
+	wfRepo.On("FindAllWithFilters", mock.Anything, mock.MatchedBy(func(f any) bool {
 		// The IncludeUnowned should be true when no UserID is specified
 		return true
 	}), 10, 0).Return([]*storagemodels.WorkflowModel{}, nil)
@@ -64,7 +64,7 @@ func TestListWorkflows_ShouldFilterByStatus_WhenProvided(t *testing.T) {
 	ops := newTestOperations(wfRepo, nil, nil, nil, nil, nil, nil)
 
 	status := "active"
-	wfRepo.On("FindAllWithFilters", mock.Anything, mock.MatchedBy(func(f interface{}) bool {
+	wfRepo.On("FindAllWithFilters", mock.Anything, mock.MatchedBy(func(f any) bool {
 		return true
 	}), 10, 0).Return([]*storagemodels.WorkflowModel{}, nil)
 	wfRepo.On("CountWithFilters", mock.Anything, mock.Anything).Return(0, nil)

@@ -14,13 +14,13 @@ func TestFunctionCallExecutor_Execute_DirectInput(t *testing.T) {
 	executor := NewFunctionCallExecutor()
 
 	// Register a test function
-	executor.RegisterFunction("test_add", func(args map[string]interface{}) (interface{}, error) {
+	executor.RegisterFunction("test_add", func(args map[string]any) (any, error) {
 		a, _ := args["a"].(float64)
 		b, _ := args["b"].(float64)
 		return a + b, nil
 	})
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"function_name": "test_add",
 		"arguments":     `{"a": 5, "b": 3}`,
 	}
@@ -42,9 +42,9 @@ func TestFunctionCallExecutor_Execute_FromLLMToolCalls(t *testing.T) {
 	executor := NewFunctionCallExecutor()
 
 	// Register a test function
-	executor.RegisterFunction("get_weather", func(args map[string]interface{}) (interface{}, error) {
+	executor.RegisterFunction("get_weather", func(args map[string]any) (any, error) {
 		location, _ := args["location"].(string)
-		return map[string]interface{}{
+		return map[string]any{
 			"location":    location,
 			"temperature": 22,
 			"condition":   "sunny",
@@ -52,12 +52,12 @@ func TestFunctionCallExecutor_Execute_FromLLMToolCalls(t *testing.T) {
 	})
 
 	// Simulate input from LLM executor with tool_calls
-	input := map[string]interface{}{
-		"tool_calls": []interface{}{
-			map[string]interface{}{
+	input := map[string]any{
+		"tool_calls": []any{
+			map[string]any{
 				"id":   "call-123",
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":      "get_weather",
 					"arguments": `{"location": "London"}`,
 				},
@@ -65,7 +65,7 @@ func TestFunctionCallExecutor_Execute_FromLLMToolCalls(t *testing.T) {
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, input)
+	result, err := executor.Execute(context.Background(), map[string]any{}, input)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -76,7 +76,7 @@ func TestFunctionCallExecutor_Execute_FromLLMToolCalls(t *testing.T) {
 	assert.Equal(t, "get_weather", output.FunctionName)
 	assert.Equal(t, "call-123", output.ToolCallID)
 
-	weatherResult, ok := output.Result.(map[string]interface{})
+	weatherResult, ok := output.Result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "London", weatherResult["location"])
 	assert.Equal(t, 22, weatherResult["temperature"])
@@ -85,7 +85,7 @@ func TestFunctionCallExecutor_Execute_FromLLMToolCalls(t *testing.T) {
 func TestFunctionCallExecutor_Execute_FunctionNotFound(t *testing.T) {
 	executor := NewFunctionCallExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"function_name": "nonexistent_function",
 		"arguments":     `{}`,
 	}
@@ -105,11 +105,11 @@ func TestFunctionCallExecutor_Execute_FunctionError(t *testing.T) {
 	executor := NewFunctionCallExecutor()
 
 	// Register a function that returns an error
-	executor.RegisterFunction("error_function", func(args map[string]interface{}) (interface{}, error) {
+	executor.RegisterFunction("error_function", func(args map[string]any) (any, error) {
 		return nil, fmt.Errorf("intentional error")
 	})
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"function_name": "error_function",
 		"arguments":     `{}`,
 	}
@@ -128,11 +128,11 @@ func TestFunctionCallExecutor_Execute_FunctionError(t *testing.T) {
 func TestFunctionCallExecutor_Execute_InvalidJSON(t *testing.T) {
 	executor := NewFunctionCallExecutor()
 
-	executor.RegisterFunction("test_func", func(args map[string]interface{}) (interface{}, error) {
+	executor.RegisterFunction("test_func", func(args map[string]any) (any, error) {
 		return "ok", nil
 	})
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"function_name": "test_func",
 		"arguments":     `{invalid json}`,
 	}
@@ -146,7 +146,7 @@ func TestFunctionCallExecutor_BuiltInFunctions(t *testing.T) {
 	executor := NewFunctionCallExecutor()
 
 	t.Run("get_current_time", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"function_name": "get_current_time",
 			"arguments":     `{"format": "unix"}`,
 		}
@@ -164,7 +164,7 @@ func TestFunctionCallExecutor_BuiltInFunctions(t *testing.T) {
 	})
 
 	t.Run("get_current_date", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"function_name": "get_current_date",
 			"arguments":     `{}`,
 		}
@@ -182,7 +182,7 @@ func TestFunctionCallExecutor_BuiltInFunctions(t *testing.T) {
 	})
 
 	t.Run("json_parse", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"function_name": "json_parse",
 			"arguments":     `{"json": "{\"name\":\"John\",\"age\":30}"}`,
 		}
@@ -194,14 +194,14 @@ func TestFunctionCallExecutor_BuiltInFunctions(t *testing.T) {
 		require.True(t, ok)
 		assert.True(t, output.Success)
 
-		parsed, ok := output.Result.(map[string]interface{})
+		parsed, ok := output.Result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "John", parsed["name"])
 		assert.Equal(t, float64(30), parsed["age"])
 	})
 
 	t.Run("json_stringify", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"function_name": "json_stringify",
 			"arguments":     `{"value": {"name": "John", "age": 30}}`,
 		}
@@ -220,7 +220,7 @@ func TestFunctionCallExecutor_BuiltInFunctions(t *testing.T) {
 	})
 
 	t.Run("get_weather", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"function_name": "get_weather",
 			"arguments":     `{"location": "London", "unit": "celsius"}`,
 		}
@@ -232,7 +232,7 @@ func TestFunctionCallExecutor_BuiltInFunctions(t *testing.T) {
 		require.True(t, ok)
 		assert.True(t, output.Success)
 
-		weather, ok := output.Result.(map[string]interface{})
+		weather, ok := output.Result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "London", weather["location"])
 		assert.Equal(t, "celsius", weather["unit"])
@@ -245,7 +245,7 @@ func TestFunctionCallExecutor_RegisterAndUnregister(t *testing.T) {
 	executor := NewFunctionCallExecutor()
 
 	// Register a function
-	executor.RegisterFunction("custom_func", func(args map[string]interface{}) (interface{}, error) {
+	executor.RegisterFunction("custom_func", func(args map[string]any) (any, error) {
 		return "custom result", nil
 	})
 
@@ -254,7 +254,7 @@ func TestFunctionCallExecutor_RegisterAndUnregister(t *testing.T) {
 	assert.Contains(t, functions, "custom_func")
 
 	// Execute the function
-	config := map[string]interface{}{
+	config := map[string]any{
 		"function_name": "custom_func",
 		"arguments":     `{}`,
 	}
@@ -289,12 +289,12 @@ func TestFunctionCallExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 	}{
 		{
 			name: "valid config with function_name",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"function_name": "test_func",
 				"arguments":     `{}`,
 			},
@@ -302,14 +302,14 @@ func TestFunctionCallExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "empty function_name",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"function_name": "",
 			},
 			wantErr: true,
 		},
 		{
 			name:    "empty config",
-			config:  map[string]interface{}{},
+			config:  map[string]any{},
 			wantErr: false, // Config can be empty, function_name can come from input
 		},
 	}
@@ -331,8 +331,8 @@ func TestFunctionCallExecutor_ParseInput_Formats(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		config       map[string]interface{}
-		input        interface{}
+		config       map[string]any
+		input        any
 		expectName   string
 		expectArgs   string
 		expectToolID string
@@ -340,7 +340,7 @@ func TestFunctionCallExecutor_ParseInput_Formats(t *testing.T) {
 	}{
 		{
 			name: "config only",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"function_name": "func1",
 				"arguments":     `{"a": 1}`,
 				"tool_call_id":  "tool-1",
@@ -352,8 +352,8 @@ func TestFunctionCallExecutor_ParseInput_Formats(t *testing.T) {
 		},
 		{
 			name:   "input map format",
-			config: map[string]interface{}{},
-			input: map[string]interface{}{
+			config: map[string]any{},
+			input: map[string]any{
 				"function_name": "func2",
 				"arguments":     `{"b": 2}`,
 				"tool_call_id":  "tool-2",
@@ -364,11 +364,11 @@ func TestFunctionCallExecutor_ParseInput_Formats(t *testing.T) {
 		},
 		{
 			name:   "tool call format",
-			config: map[string]interface{}{},
-			input: map[string]interface{}{
+			config: map[string]any{},
+			input: map[string]any{
 				"id":   "tool-3",
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":      "func3",
 					"arguments": `{"c": 3}`,
 				},
@@ -379,13 +379,13 @@ func TestFunctionCallExecutor_ParseInput_Formats(t *testing.T) {
 		},
 		{
 			name:   "tool_calls array",
-			config: map[string]interface{}{},
-			input: map[string]interface{}{
-				"tool_calls": []interface{}{
-					map[string]interface{}{
+			config: map[string]any{},
+			input: map[string]any{
+				"tool_calls": []any{
+					map[string]any{
 						"id":   "tool-4",
 						"type": "function",
-						"function": map[string]interface{}{
+						"function": map[string]any{
 							"name":      "func4",
 							"arguments": `{"d": 4}`,
 						},
@@ -398,11 +398,11 @@ func TestFunctionCallExecutor_ParseInput_Formats(t *testing.T) {
 		},
 		{
 			name: "config overrides input",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"function_name": "config_func",
 				"arguments":     `{"override": true}`,
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"function_name": "input_func",
 				"arguments":     `{"override": false}`,
 			},
@@ -435,7 +435,7 @@ func TestFunctionCallInput_ParseArguments(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       *models.FunctionCallInput
-		expectArgs  map[string]interface{}
+		expectArgs  map[string]any
 		expectError bool
 	}{
 		{
@@ -444,7 +444,7 @@ func TestFunctionCallInput_ParseArguments(t *testing.T) {
 				FunctionName: "test",
 				Arguments:    `{"name": "John", "age": 30}`,
 			},
-			expectArgs: map[string]interface{}{
+			expectArgs: map[string]any{
 				"name": "John",
 				"age":  float64(30),
 			},
@@ -456,7 +456,7 @@ func TestFunctionCallInput_ParseArguments(t *testing.T) {
 				FunctionName: "test",
 				Arguments:    `{}`,
 			},
-			expectArgs:  map[string]interface{}{},
+			expectArgs:  map[string]any{},
 			expectError: false,
 		},
 		{
@@ -488,7 +488,7 @@ func TestFunctionRegistry(t *testing.T) {
 	registry := models.NewFunctionRegistry()
 
 	// Test Register and Get
-	handler := func(args map[string]interface{}) (interface{}, error) {
+	handler := func(args map[string]any) (any, error) {
 		return "test result", nil
 	}
 
@@ -498,7 +498,7 @@ func TestFunctionRegistry(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, retrievedHandler)
 
-	result, err := retrievedHandler(map[string]interface{}{})
+	result, err := retrievedHandler(map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, "test result", result)
 

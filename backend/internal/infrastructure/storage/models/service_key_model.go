@@ -39,7 +39,7 @@ func (ServiceKeyModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and defaults
-func (s *ServiceKeyModel) BeforeInsert(ctx interface{}) error {
+func (s *ServiceKeyModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	s.CreatedAt = now
 	s.UpdatedAt = now
@@ -53,7 +53,7 @@ func (s *ServiceKeyModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (s *ServiceKeyModel) BeforeUpdate(ctx interface{}) error {
+func (s *ServiceKeyModel) BeforeUpdate(ctx any) error {
 	s.UpdatedAt = time.Now()
 	return nil
 }

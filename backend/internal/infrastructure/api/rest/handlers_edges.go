@@ -81,11 +81,11 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	var req struct {
-		ID        string                 `json:"id" binding:"required"`
-		From      string                 `json:"from" binding:"required"`
-		To        string                 `json:"to" binding:"required"`
-		Condition string                 `json:"condition,omitempty"`
-		Metadata  map[string]interface{} `json:"metadata,omitempty"`
+		ID        string         `json:"id" binding:"required"`
+		From      string         `json:"from" binding:"required"`
+		To        string         `json:"to" binding:"required"`
+		Condition string         `json:"condition,omitempty"`
+		Metadata  map[string]any `json:"metadata,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
@@ -306,10 +306,10 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	}
 
 	var req struct {
-		From      string                 `json:"from,omitempty"`
-		To        string                 `json:"to,omitempty"`
-		Condition string                 `json:"condition,omitempty"`
-		Metadata  map[string]interface{} `json:"metadata,omitempty"`
+		From      string         `json:"from,omitempty"`
+		To        string         `json:"to,omitempty"`
+		Condition string         `json:"condition,omitempty"`
+		Metadata  map[string]any `json:"metadata,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {

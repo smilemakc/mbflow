@@ -14,13 +14,13 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "valid create_spreadsheet config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "create_spreadsheet",
 				"credentials": validCreds,
 				"file_name":   "Test Spreadsheet",
@@ -29,7 +29,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid create_folder config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "create_folder",
 				"credentials": validCreds,
 				"folder_name": "Test Folder",
@@ -38,7 +38,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid list_files config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "list_files",
 				"credentials": validCreds,
 			},
@@ -46,7 +46,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid delete config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "delete",
 				"credentials": validCreds,
 				"file_id":     "1234567890",
@@ -55,7 +55,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid move config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":             "move",
 				"credentials":           validCreds,
 				"file_id":               "1234567890",
@@ -65,7 +65,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid copy config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "copy",
 				"credentials": validCreds,
 				"file_id":     "1234567890",
@@ -74,7 +74,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing operation",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"credentials": validCreds,
 			},
 			wantErr: true,
@@ -82,7 +82,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing credentials",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation": "list_files",
 			},
 			wantErr: true,
@@ -90,7 +90,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid operation",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "invalid_op",
 				"credentials": validCreds,
 			},
@@ -99,7 +99,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid credentials JSON",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "list_files",
 				"credentials": "not valid json",
 			},
@@ -108,7 +108,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "delete missing file_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "delete",
 				"credentials": validCreds,
 			},
@@ -117,7 +117,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "move missing file_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":             "move",
 				"credentials":           validCreds,
 				"destination_folder_id": "folder123",
@@ -127,7 +127,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "move missing destination_folder_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "move",
 				"credentials": validCreds,
 				"file_id":     "1234567890",
@@ -137,7 +137,7 @@ func TestGoogleDriveExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "copy missing file_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "copy",
 				"credentials": validCreds,
 			},
@@ -170,14 +170,14 @@ func TestGoogleDriveExecutor_Execute_InvalidConfig(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
-		input   interface{}
+		config  map[string]any
+		input   any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "missing operation",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"credentials": `{"type":"service_account"}`,
 			},
 			wantErr: true,
@@ -185,7 +185,7 @@ func TestGoogleDriveExecutor_Execute_InvalidConfig(t *testing.T) {
 		},
 		{
 			name: "missing credentials",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation": "list_files",
 			},
 			wantErr: true,
@@ -193,7 +193,7 @@ func TestGoogleDriveExecutor_Execute_InvalidConfig(t *testing.T) {
 		},
 		{
 			name: "invalid operation",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"operation":   "invalid_operation",
 				"credentials": `{"type":"service_account"}`,
 			},
@@ -227,7 +227,7 @@ func TestGoogleDriveExecutor_OutputStructure(t *testing.T) {
 		Operation:  "list_files",
 		FileCount:  2,
 		DurationMs: 150,
-		Files: []map[string]interface{}{
+		Files: []map[string]any{
 			{
 				"id":        "file1",
 				"name":      "test1.txt",

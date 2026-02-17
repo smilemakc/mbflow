@@ -18,7 +18,7 @@ func TestWorkflow_Validate(t *testing.T) {
 				ID:   "wf-1",
 				Name: "Test Workflow",
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
 				},
 			},
 			wantErr: false,
@@ -28,7 +28,7 @@ func TestWorkflow_Validate(t *testing.T) {
 			workflow: &Workflow{
 				ID: "wf-1",
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
 				},
 			},
 			wantErr: true,
@@ -50,8 +50,8 @@ func TestWorkflow_Validate(t *testing.T) {
 				ID:   "wf-1",
 				Name: "Test Workflow",
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
-					{ID: "node-1", Name: "Node 2", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
+					{ID: "node-1", Name: "Node 2", Type: "http", Config: map[string]any{}},
 				},
 			},
 			wantErr: true,
@@ -63,7 +63,7 @@ func TestWorkflow_Validate(t *testing.T) {
 				ID:   "wf-1",
 				Name: "Test Workflow",
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
 				},
 				Edges: []*Edge{
 					{ID: "edge-1", From: "non-existent", To: "node-1"},
@@ -78,7 +78,7 @@ func TestWorkflow_Validate(t *testing.T) {
 				ID:   "wf-1",
 				Name: "Test Workflow",
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
 				},
 				Edges: []*Edge{
 					{ID: "edge-1", From: "node-1", To: "non-existent"},
@@ -122,7 +122,7 @@ func TestNode_Validate(t *testing.T) {
 				ID:     "node-1",
 				Name:   "Test Node",
 				Type:   "http",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			wantErr: false,
 		},
@@ -131,7 +131,7 @@ func TestNode_Validate(t *testing.T) {
 			node: &Node{
 				Name:   "Test Node",
 				Type:   "http",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			wantErr: true,
 			errMsg:  "node ID is required",
@@ -141,7 +141,7 @@ func TestNode_Validate(t *testing.T) {
 			node: &Node{
 				ID:     "node-1",
 				Type:   "http",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			wantErr: true,
 			errMsg:  "node name is required",
@@ -151,7 +151,7 @@ func TestNode_Validate(t *testing.T) {
 			node: &Node{
 				ID:     "node-1",
 				Name:   "Test Node",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			wantErr: true,
 			errMsg:  "node type is required",
@@ -256,8 +256,8 @@ func TestEdge_Validate(t *testing.T) {
 func TestWorkflow_GetNode(t *testing.T) {
 	workflow := &Workflow{
 		Nodes: []*Node{
-			{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
-			{ID: "node-2", Name: "Node 2", Type: "http", Config: map[string]interface{}{}},
+			{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
+			{ID: "node-2", Name: "Node 2", Type: "http", Config: map[string]any{}},
 		},
 	}
 
@@ -365,14 +365,14 @@ func TestWorkflow_AddNode(t *testing.T) {
 			name: "add valid node",
 			workflow: &Workflow{
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
 				},
 			},
 			newNode: &Node{
 				ID:     "node-2",
 				Name:   "Node 2",
 				Type:   "http",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			wantErr: false,
 		},
@@ -380,14 +380,14 @@ func TestWorkflow_AddNode(t *testing.T) {
 			name: "add node with duplicate ID",
 			workflow: &Workflow{
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
 				},
 			},
 			newNode: &Node{
 				ID:     "node-1",
 				Name:   "Node 2",
 				Type:   "http",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			wantErr: true,
 			errMsg:  "node ID already exists",
@@ -442,8 +442,8 @@ func TestWorkflow_AddEdge(t *testing.T) {
 			name: "add valid edge",
 			workflow: &Workflow{
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
-					{ID: "node-2", Name: "Node 2", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
+					{ID: "node-2", Name: "Node 2", Type: "http", Config: map[string]any{}},
 				},
 				Edges: []*Edge{},
 			},
@@ -458,7 +458,7 @@ func TestWorkflow_AddEdge(t *testing.T) {
 			name: "add edge with non-existent source",
 			workflow: &Workflow{
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
 				},
 			},
 			newEdge: &Edge{
@@ -473,8 +473,8 @@ func TestWorkflow_AddEdge(t *testing.T) {
 			name: "add edge with duplicate ID",
 			workflow: &Workflow{
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
-					{ID: "node-2", Name: "Node 2", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
+					{ID: "node-2", Name: "Node 2", Type: "http", Config: map[string]any{}},
 				},
 				Edges: []*Edge{
 					{ID: "edge-1", From: "node-1", To: "node-2"},
@@ -527,8 +527,8 @@ func TestWorkflow_RemoveNode(t *testing.T) {
 			name: "remove existing node",
 			workflow: &Workflow{
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
-					{ID: "node-2", Name: "Node 2", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
+					{ID: "node-2", Name: "Node 2", Type: "http", Config: map[string]any{}},
 				},
 				Edges: []*Edge{
 					{ID: "edge-1", From: "node-1", To: "node-2"},
@@ -543,7 +543,7 @@ func TestWorkflow_RemoveNode(t *testing.T) {
 			name: "remove non-existent node",
 			workflow: &Workflow{
 				Nodes: []*Node{
-					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{}},
+					{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{}},
 				},
 			},
 			nodeID:  "non-existent",
@@ -638,15 +638,15 @@ func TestWorkflow_Clone(t *testing.T) {
 		Status:      WorkflowStatusActive,
 		Tags:        []string{"test", "clone"},
 		Nodes: []*Node{
-			{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]interface{}{"key": "value"}},
+			{ID: "node-1", Name: "Node 1", Type: "http", Config: map[string]any{"key": "value"}},
 		},
 		Edges: []*Edge{
 			{ID: "edge-1", From: "node-1", To: "node-2"},
 		},
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"var1": "value1",
 		},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"meta1": "metavalue1",
 		},
 		CreatedAt: time.Now(),

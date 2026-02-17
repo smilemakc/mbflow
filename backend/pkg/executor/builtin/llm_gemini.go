@@ -99,13 +99,13 @@ func (p *GeminiProvider) Execute(ctx context.Context, req *models.LLMRequest) (*
 }
 
 // buildRequestBody builds the Gemini API request body.
-func (p *GeminiProvider) buildRequestBody(req *models.LLMRequest) map[string]interface{} {
-	body := map[string]interface{}{}
+func (p *GeminiProvider) buildRequestBody(req *models.LLMRequest) map[string]any {
+	body := map[string]any{}
 
 	// System instruction
 	if req.Instruction != "" {
-		body["systemInstruction"] = map[string]interface{}{
-			"parts": []map[string]interface{}{
+		body["systemInstruction"] = map[string]any{
+			"parts": []map[string]any{
 				{
 					"text": req.Instruction,
 				},
@@ -115,7 +115,7 @@ func (p *GeminiProvider) buildRequestBody(req *models.LLMRequest) map[string]int
 
 	// Build contents (user message with multimodal support)
 	userContent := p.buildUserContent(req)
-	body["contents"] = []map[string]interface{}{
+	body["contents"] = []map[string]any{
 		{
 			"role":  "user",
 			"parts": userContent,
@@ -123,7 +123,7 @@ func (p *GeminiProvider) buildRequestBody(req *models.LLMRequest) map[string]int
 	}
 
 	// Build generation config
-	generationConfig := map[string]interface{}{}
+	generationConfig := map[string]any{}
 
 	if req.Temperature > 0 {
 		generationConfig["temperature"] = req.Temperature
@@ -162,12 +162,12 @@ func (p *GeminiProvider) buildRequestBody(req *models.LLMRequest) map[string]int
 }
 
 // buildUserContent builds the user message content with multimodal support.
-func (p *GeminiProvider) buildUserContent(req *models.LLMRequest) []map[string]interface{} {
-	parts := []map[string]interface{}{}
+func (p *GeminiProvider) buildUserContent(req *models.LLMRequest) []map[string]any {
+	parts := []map[string]any{}
 
 	// Add text
 	if req.Prompt != "" {
-		parts = append(parts, map[string]interface{}{
+		parts = append(parts, map[string]any{
 			"text": req.Prompt,
 		})
 	}
@@ -179,8 +179,8 @@ func (p *GeminiProvider) buildUserContent(req *models.LLMRequest) []map[string]i
 		}
 
 		if file.IsImage() {
-			parts = append(parts, map[string]interface{}{
-				"inline_data": map[string]interface{}{
+			parts = append(parts, map[string]any{
+				"inline_data": map[string]any{
 					"mime_type": file.MimeType,
 					"data":      file.Data,
 				},
@@ -199,8 +199,8 @@ func (p *GeminiProvider) buildUserContent(req *models.LLMRequest) []map[string]i
 			mimeType = "image/webp"
 		}
 
-		parts = append(parts, map[string]interface{}{
-			"file_data": map[string]interface{}{
+		parts = append(parts, map[string]any{
+			"file_data": map[string]any{
 				"mime_type": mimeType,
 				"file_uri":  imageURL,
 			},
@@ -211,18 +211,18 @@ func (p *GeminiProvider) buildUserContent(req *models.LLMRequest) []map[string]i
 }
 
 // buildTools builds the tools array for function calling.
-func (p *GeminiProvider) buildTools(tools []models.LLMTool) []map[string]interface{} {
-	functionDeclarations := make([]map[string]interface{}, len(tools))
+func (p *GeminiProvider) buildTools(tools []models.LLMTool) []map[string]any {
+	functionDeclarations := make([]map[string]any, len(tools))
 
 	for i, tool := range tools {
-		functionDeclarations[i] = map[string]interface{}{
+		functionDeclarations[i] = map[string]any{
 			"name":        tool.Function.Name,
 			"description": tool.Function.Description,
 			"parameters":  tool.Function.Parameters,
 		}
 	}
 
-	return []map[string]interface{}{
+	return []map[string]any{
 		{
 			"functionDeclarations": functionDeclarations,
 		},
@@ -338,8 +338,8 @@ type geminiPart struct {
 }
 
 type geminiFunctionCall struct {
-	Name string                 `json:"name"`
-	Args map[string]interface{} `json:"args"`
+	Name string         `json:"name"`
+	Args map[string]any `json:"args"`
 }
 
 type geminiUsageMetadata struct {

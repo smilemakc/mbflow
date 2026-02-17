@@ -24,8 +24,8 @@ func NewResolver(ctx *VariableContext, opts TemplateOptions) *Resolver {
 
 // ResolveVariable resolves a variable reference (e.g., "env.user.name" or "input.data[0].id").
 // Returns the resolved value and any error encountered.
-func (r *Resolver) ResolveVariable(varType, path string) (interface{}, error) {
-	var value interface{}
+func (r *Resolver) ResolveVariable(varType, path string) (any, error) {
+	var value any
 	var found bool
 
 	switch varType {
@@ -67,7 +67,7 @@ func (r *Resolver) ResolveVariable(varType, path string) (interface{}, error) {
 }
 
 // resolveEnvPath resolves an environment variable with nested path support.
-func (r *Resolver) resolveEnvPath(path string) (interface{}, bool) {
+func (r *Resolver) resolveEnvPath(path string) (any, bool) {
 	parts := splitPath(path)
 	if len(parts) == 0 {
 		return nil, false
@@ -111,7 +111,7 @@ func (r *Resolver) resolveEnvPath(path string) (interface{}, bool) {
 }
 
 // resolveInputPath resolves an input variable with nested path support.
-func (r *Resolver) resolveInputPath(path string) (interface{}, bool) {
+func (r *Resolver) resolveInputPath(path string) (any, bool) {
 	parts := splitPath(path)
 	if len(parts) == 0 {
 		return nil, false
@@ -156,7 +156,7 @@ func (r *Resolver) resolveInputPath(path string) (interface{}, bool) {
 
 // resolveResourcePath resolves a resource variable with nested path support.
 // Supports: resource.alias or resource.alias.field
-func (r *Resolver) resolveResourcePath(path string) (interface{}, bool) {
+func (r *Resolver) resolveResourcePath(path string) (any, bool) {
 	parts := splitPath(path)
 	if len(parts) == 0 {
 		return nil, false
@@ -205,7 +205,7 @@ func (r *Resolver) resolveResourcePath(path string) (interface{}, bool) {
 
 // traversePath traverses a nested path in a value.
 // Supports both object field access (user.name) and array indexing (items[0]).
-func (r *Resolver) traversePath(value interface{}, parts []string) (interface{}, bool) {
+func (r *Resolver) traversePath(value any, parts []string) (any, bool) {
 	current := value
 
 	for _, part := range parts {
@@ -231,13 +231,13 @@ func (r *Resolver) traversePath(value interface{}, parts []string) (interface{},
 }
 
 // resolveField resolves a field in an object.
-func (r *Resolver) resolveField(value interface{}, field string) interface{} {
+func (r *Resolver) resolveField(value any, field string) any {
 	if value == nil {
 		return nil
 	}
 
 	// Try map access first
-	if m, ok := value.(map[string]interface{}); ok {
+	if m, ok := value.(map[string]any); ok {
 		return m[field]
 	}
 
@@ -256,7 +256,7 @@ func (r *Resolver) resolveField(value interface{}, field string) interface{} {
 
 	// Try JSON unmarshaling for complex types
 	if data, err := json.Marshal(value); err == nil {
-		var m map[string]interface{}
+		var m map[string]any
 		if err := json.Unmarshal(data, &m); err == nil {
 			return m[field]
 		}
@@ -266,7 +266,7 @@ func (r *Resolver) resolveField(value interface{}, field string) interface{} {
 }
 
 // resolveArrayIndex resolves array indexing (e.g., "[0]", "items[0]", "[0][1]").
-func (r *Resolver) resolveArrayIndex(value interface{}, indexExpr string) (interface{}, error) {
+func (r *Resolver) resolveArrayIndex(value any, indexExpr string) (any, error) {
 	// Parse field name and indices
 	// Examples: "[0]", "items[0]", "[0][1]"
 	fieldName := ""
@@ -305,7 +305,7 @@ func (r *Resolver) resolveArrayIndex(value interface{}, indexExpr string) (inter
 }
 
 // indexArray applies a single array index to a value.
-func (r *Resolver) indexArray(value interface{}, index int) (interface{}, error) {
+func (r *Resolver) indexArray(value any, index int) (any, error) {
 	if value == nil {
 		return nil, ErrTypeNotSupported
 	}
@@ -321,7 +321,7 @@ func (r *Resolver) indexArray(value interface{}, index int) (interface{}, error)
 
 	// Try JSON array
 	if data, err := json.Marshal(value); err == nil {
-		var arr []interface{}
+		var arr []any
 		if err := json.Unmarshal(data, &arr); err == nil {
 			if index < 0 || index >= len(arr) {
 				return nil, fmt.Errorf("%w: index %d, length %d", ErrArrayOutOfBounds, index, len(arr))

@@ -28,7 +28,7 @@ func newExecutionAPI(client *Client) *ExecutionAPI {
 
 // Run starts a new workflow execution with the given input.
 // It returns immediately with an execution ID for asynchronous tracking.
-func (e *ExecutionAPI) Run(ctx context.Context, workflowID string, input map[string]interface{}) (*models.Execution, error) {
+func (e *ExecutionAPI) Run(ctx context.Context, workflowID string, input map[string]any) (*models.Execution, error) {
 	if err := e.client.checkClosed(); err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (e *ExecutionAPI) Run(ctx context.Context, workflowID string, input map[str
 
 // RunSync starts a workflow execution and waits for it to complete.
 // This is a blocking call that returns the final execution result.
-func (e *ExecutionAPI) RunSync(ctx context.Context, workflowID string, input map[string]interface{}) (*models.Execution, error) {
+func (e *ExecutionAPI) RunSync(ctx context.Context, workflowID string, input map[string]any) (*models.Execution, error) {
 	if err := e.client.checkClosed(); err != nil {
 		return nil, err
 	}
@@ -214,9 +214,9 @@ func (e *ExecutionAPI) GetNodeResult(ctx context.Context, executionID, nodeID st
 
 // ExecutionRequest represents a request to execute a workflow.
 type ExecutionRequest struct {
-	WorkflowID string                 `json:"workflow_id"`
-	Input      map[string]interface{} `json:"input"`
-	Async      bool                   `json:"async"`
+	WorkflowID string         `json:"workflow_id"`
+	Input      map[string]any `json:"input"`
+	Async      bool           `json:"async"`
 }
 
 // ExecutionListOptions provides filtering options for listing executions.
@@ -231,12 +231,12 @@ type ExecutionListOptions struct {
 
 // ExecutionUpdate represents a real-time update from a running execution.
 type ExecutionUpdate struct {
-	ExecutionID string                 `json:"execution_id"`
-	Status      string                 `json:"status"`
-	NodeID      string                 `json:"node_id,omitempty"`
-	Event       string                 `json:"event"`
-	Data        map[string]interface{} `json:"data,omitempty"`
-	Timestamp   int64                  `json:"timestamp"`
+	ExecutionID string         `json:"execution_id"`
+	Status      string         `json:"status"`
+	NodeID      string         `json:"node_id,omitempty"`
+	Event       string         `json:"event"`
+	Data        map[string]any `json:"data,omitempty"`
+	Timestamp   int64          `json:"timestamp"`
 }
 
 // LogOptions provides filtering options for execution logs.
@@ -252,12 +252,12 @@ type LogOptions struct {
 
 // LogEntry represents a single log entry from an execution.
 type LogEntry struct {
-	Timestamp   int64                  `json:"timestamp"`
-	Level       string                 `json:"level"`
-	Message     string                 `json:"message"`
-	NodeID      string                 `json:"node_id,omitempty"`
-	ExecutionID string                 `json:"execution_id"`
-	Fields      map[string]interface{} `json:"fields,omitempty"`
+	Timestamp   int64          `json:"timestamp"`
+	Level       string         `json:"level"`
+	Message     string         `json:"message"`
+	NodeID      string         `json:"node_id,omitempty"`
+	ExecutionID string         `json:"execution_id"`
+	Fields      map[string]any `json:"fields,omitempty"`
 }
 
 // Embedded mode implementations (standalone mode - no database persistence)

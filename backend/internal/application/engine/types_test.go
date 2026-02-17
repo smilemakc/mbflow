@@ -45,11 +45,11 @@ func TestNewExecutionState(t *testing.T) {
 		},
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"key": "value",
 	}
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"var1": "val1",
 	}
 
@@ -95,7 +95,7 @@ func TestNewExecutionState(t *testing.T) {
 func TestExecutionState_SetAndGetNodeOutput(t *testing.T) {
 	execState := pkgengine.NewExecutionState("exec-1", "wf-1", &models.Workflow{}, nil, nil)
 
-	output := map[string]interface{}{
+	output := map[string]any{
 		"result": "success",
 	}
 
@@ -106,7 +106,7 @@ func TestExecutionState_SetAndGetNodeOutput(t *testing.T) {
 		t.Error("expected to find node output")
 	}
 
-	retrievedMap, ok := retrieved.(map[string]interface{})
+	retrievedMap, ok := retrieved.(map[string]any)
 	if !ok {
 		t.Error("output is not a map")
 	}
@@ -171,7 +171,7 @@ func TestExecutionState_Concurrent(t *testing.T) {
 
 	go func() {
 		for i := 0; i < 100; i++ {
-			execState.SetNodeOutput("node-1", map[string]interface{}{"count": i})
+			execState.SetNodeOutput("node-1", map[string]any{"count": i})
 		}
 		done <- true
 	}()
@@ -215,17 +215,17 @@ func TestNodeContext_Structure(t *testing.T) {
 			ID:   "node-1",
 			Name: "Test Node",
 			Type: "http",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"url": "https://api.example.com",
 			},
 		},
-		WorkflowVariables: map[string]interface{}{
+		WorkflowVariables: map[string]any{
 			"apiKey": "secret",
 		},
-		ExecutionVariables: map[string]interface{}{
+		ExecutionVariables: map[string]any{
 			"overrideVar": "override",
 		},
-		DirectParentOutput: map[string]interface{}{
+		DirectParentOutput: map[string]any{
 			"data": "parent-data",
 		},
 		StrictMode: true,
@@ -266,7 +266,7 @@ func TestExecutionOptions_CustomValues(t *testing.T) {
 		MaxParallelism: 5,
 		Timeout:        10 * time.Minute,
 		NodeTimeout:    2 * time.Minute,
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"custom": "value",
 		},
 	}
@@ -344,7 +344,7 @@ func TestExecutionState_GetNodeInput(t *testing.T) {
 		t.Error("input should not exist initially")
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"user": "john",
 		"age":  30,
 	}
@@ -353,7 +353,7 @@ func TestExecutionState_GetNodeInput(t *testing.T) {
 	if !ok {
 		t.Error("input should exist after setting")
 	}
-	retrievedMap := retrieved.(map[string]interface{})
+	retrievedMap := retrieved.(map[string]any)
 	if retrievedMap["user"] != "john" || retrievedMap["age"] != 30 {
 		t.Errorf("retrieved input doesn't match: %v", retrieved)
 	}
@@ -369,7 +369,7 @@ func TestExecutionState_GetNodeConfig(t *testing.T) {
 		t.Error("config should not exist initially")
 	}
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url":     "https://api.example.com",
 		"timeout": 30,
 	}
@@ -393,7 +393,7 @@ func TestExecutionState_GetNodeResolvedConfig(t *testing.T) {
 		t.Error("resolved config should not exist initially")
 	}
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url":    "https://api.example.com/users/123",
 		"apiKey": "resolved-key-456",
 	}
@@ -412,7 +412,7 @@ func TestExecutionState_ClearNodeOutput(t *testing.T) {
 	state := pkgengine.NewExecutionState("exec-1", "wf-1", workflow, nil, nil)
 	nodeID := "node1"
 
-	output := map[string]interface{}{
+	output := map[string]any{
 		"result": "success",
 		"data":   []int{1, 2, 3},
 	}
@@ -441,7 +441,7 @@ func TestExecutionState_GetTotalMemoryUsage(t *testing.T) {
 	}
 
 	state.SetNodeOutput("node1", "small string")
-	state.SetNodeOutput("node2", map[string]interface{}{
+	state.SetNodeOutput("node2", map[string]any{
 		"key1": "value1",
 		"key2": "value2",
 	})

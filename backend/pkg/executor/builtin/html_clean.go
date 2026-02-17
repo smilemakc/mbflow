@@ -27,10 +27,10 @@ func NewHTMLCleanExecutor() *HTMLCleanExecutor {
 	}
 }
 
-// buildOutput creates a map[string]interface{} output.
-// This is required because execution_manager.go only saves output if it's map[string]interface{}.
-func buildOutput(textContent, htmlContent, title, author, excerpt, siteName string, length, wordCount int, isHTML, passthrough bool) map[string]interface{} {
-	return map[string]interface{}{
+// buildOutput creates a map[string]any output.
+// This is required because execution_manager.go only saves output if it's map[string]any.
+func buildOutput(textContent, htmlContent, title, author, excerpt, siteName string, length, wordCount int, isHTML, passthrough bool) map[string]any {
+	return map[string]any{
 		"text_content": textContent,
 		"html_content": htmlContent,
 		"title":        title,
@@ -46,7 +46,7 @@ func buildOutput(textContent, htmlContent, title, author, excerpt, siteName stri
 
 // Execute extracts readable content from HTML input.
 // If the input is not HTML, it returns the input as-is (passthrough mode).
-func (e *HTMLCleanExecutor) Execute(_ context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *HTMLCleanExecutor) Execute(_ context.Context, config map[string]any, input any) (any, error) {
 	// Get config options
 	inputKey := e.GetStringDefault(config, "input_key", "")
 	outputFormat := e.GetStringDefault(config, "output_format", "both")
@@ -133,7 +133,7 @@ func (e *HTMLCleanExecutor) Execute(_ context.Context, config map[string]interfa
 }
 
 // Validate validates the HTML clean executor configuration.
-func (e *HTMLCleanExecutor) Validate(config map[string]interface{}) error {
+func (e *HTMLCleanExecutor) Validate(config map[string]any) error {
 	// Validate output_format if provided
 	outputFormat := e.GetStringDefault(config, "output_format", "both")
 	validFormats := map[string]bool{
@@ -156,13 +156,13 @@ func (e *HTMLCleanExecutor) Validate(config map[string]interface{}) error {
 
 // extractContentFromInput extracts content string from input using the specified key.
 // If inputKey is empty, it tries to extract from the input directly or common field names.
-func (e *HTMLCleanExecutor) extractContentFromInput(input interface{}, inputKey string) (string, error) {
+func (e *HTMLCleanExecutor) extractContentFromInput(input any, inputKey string) (string, error) {
 	switch v := input.(type) {
 	case string:
 		return v, nil
 	case []byte:
 		return string(v), nil
-	case map[string]interface{}:
+	case map[string]any:
 		// If specific key is provided, use it
 		if inputKey != "" {
 			if val, ok := v[inputKey]; ok {
@@ -337,7 +337,7 @@ func (e *HTMLCleanExecutor) postprocess(html string, _ bool) string {
 }
 
 // fallbackExtraction provides simple extraction when readability fails.
-func (e *HTMLCleanExecutor) fallbackExtraction(html string, outputFormat string, extractMetadata bool, _ bool, maxLength int) (map[string]interface{}, error) {
+func (e *HTMLCleanExecutor) fallbackExtraction(html string, outputFormat string, extractMetadata bool, _ bool, maxLength int) (map[string]any, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
 		return nil, err

@@ -15,7 +15,7 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("basic CSV with headers", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 		}
 		input := "name,age,city\nJohn,30,NYC\nJane,25,LA"
@@ -23,12 +23,12 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
+		result := output.(map[string]any)
 		assert.True(t, result["success"].(bool))
 		assert.Equal(t, 2, result["row_count"].(int))
 		assert.Equal(t, 3, result["column_count"].(int))
 
-		rows := result["result"].([]map[string]interface{})
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 2)
 		assert.Equal(t, "John", rows[0]["name"])
 		assert.Equal(t, "30", rows[0]["age"])
@@ -39,7 +39,7 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 	})
 
 	t.Run("CSV without headers - auto-generated", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": false,
 		}
 		input := "John,30,NYC\nJane,25,LA"
@@ -47,8 +47,8 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 2)
 		assert.Equal(t, "John", rows[0]["col_0"])
 		assert.Equal(t, "30", rows[0]["col_1"])
@@ -56,24 +56,24 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 	})
 
 	t.Run("CSV with custom headers", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header":     false,
-			"custom_headers": []interface{}{"first_name", "years", "location"},
+			"custom_headers": []any{"first_name", "years", "location"},
 		}
 		input := "John,30,NYC\nJane,25,LA"
 
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Equal(t, "John", rows[0]["first_name"])
 		assert.Equal(t, "30", rows[0]["years"])
 		assert.Equal(t, "NYC", rows[0]["location"])
 	})
 
 	t.Run("semicolon delimiter", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"delimiter":  ";",
 			"has_header": true,
 		}
@@ -82,14 +82,14 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 2)
 		assert.Equal(t, "John", rows[0]["name"])
 	})
 
 	t.Run("tab delimiter", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"delimiter":  "\t",
 			"has_header": true,
 		}
@@ -98,14 +98,14 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 1)
 		assert.Equal(t, "John", rows[0]["name"])
 	})
 
 	t.Run("pipe delimiter", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"delimiter":  "|",
 			"has_header": true,
 		}
@@ -114,13 +114,13 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Equal(t, "John", rows[0]["name"])
 	})
 
 	t.Run("trim spaces", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header":  true,
 			"trim_spaces": true,
 		}
@@ -129,18 +129,18 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
+		result := output.(map[string]any)
 		headers := result["headers"].([]string)
 		assert.Equal(t, "name", headers[0])
 		assert.Equal(t, "age", headers[1])
 
-		rows := result["result"].([]map[string]interface{})
+		rows := result["result"].([]map[string]any)
 		assert.Equal(t, "John", rows[0]["name"])
 		assert.Equal(t, "30", rows[0]["age"])
 	})
 
 	t.Run("skip empty rows", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header":      true,
 			"skip_empty_rows": true,
 		}
@@ -149,15 +149,15 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 2)
 		assert.Equal(t, "John", rows[0]["name"])
 		assert.Equal(t, "Jane", rows[1]["name"])
 	})
 
 	t.Run("keep empty rows when disabled", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header":      true,
 			"skip_empty_rows": false,
 		}
@@ -166,13 +166,13 @@ func TestCSVToJSONExecutor_Execute(t *testing.T) {
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 3)
 	})
 
 	t.Run("quoted values", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 		}
 		input := `name,bio,age
@@ -183,8 +183,8 @@ Line2",25`
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 2)
 		assert.Equal(t, `John "Johnny" Doe`, rows[0]["name"])
 		assert.Equal(t, "Hello, World!", rows[0]["bio"])
@@ -192,10 +192,10 @@ Line2",25`
 	})
 
 	t.Run("input from map with auto-detect", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 		}
-		input := map[string]interface{}{
+		input := map[string]any{
 			"csv":  "name,age\nJohn,30",
 			"meta": "some metadata",
 		}
@@ -203,17 +203,17 @@ Line2",25`
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Equal(t, "John", rows[0]["name"])
 	})
 
 	t.Run("input from map with custom key", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 			"input_key":  "csv_data",
 		}
-		input := map[string]interface{}{
+		input := map[string]any{
 			"csv_data": "name,age\nJane,25",
 			"meta":     "some metadata",
 		}
@@ -221,13 +221,13 @@ Line2",25`
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Equal(t, "Jane", rows[0]["name"])
 	})
 
 	t.Run("input as bytes", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 		}
 		input := []byte("name,age\nJohn,30")
@@ -235,13 +235,13 @@ Line2",25`
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Equal(t, "John", rows[0]["name"])
 	})
 
 	t.Run("empty CSV", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 		}
 		input := ""
@@ -252,7 +252,7 @@ Line2",25`
 	})
 
 	t.Run("headers only", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 		}
 		input := "name,age,city"
@@ -260,14 +260,14 @@ Line2",25`
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
+		result := output.(map[string]any)
 		assert.Equal(t, 0, result["row_count"].(int))
-		rows := result["result"].([]map[string]interface{})
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 0)
 	})
 
 	t.Run("uneven columns", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 		}
 		input := "name,age,city\nJohn,30"
@@ -275,8 +275,8 @@ Line2",25`
 		output, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
-		rows := result["result"].([]map[string]interface{})
+		result := output.(map[string]any)
+		rows := result["result"].([]map[string]any)
 		assert.Len(t, rows, 1)
 		assert.Equal(t, "John", rows[0]["name"])
 		assert.Equal(t, "30", rows[0]["age"])
@@ -286,7 +286,7 @@ Line2",25`
 	})
 
 	t.Run("performance with many rows", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"has_header": true,
 		}
 
@@ -300,7 +300,7 @@ Line2",25`
 		output, err := executor.Execute(ctx, config, sb.String())
 		require.NoError(t, err)
 
-		result := output.(map[string]interface{})
+		result := output.(map[string]any)
 		assert.Equal(t, 1000, result["row_count"].(int))
 		assert.True(t, result["duration_ms"].(int64) < 1000) // Should complete in under 1 second
 	})
@@ -310,7 +310,7 @@ func TestCSVToJSONExecutor_Validate(t *testing.T) {
 	executor := NewCSVToJSONExecutor()
 
 	t.Run("valid config", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"delimiter":  ",",
 			"has_header": true,
 		}
@@ -319,7 +319,7 @@ func TestCSVToJSONExecutor_Validate(t *testing.T) {
 	})
 
 	t.Run("valid tab delimiter", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"delimiter": "\\t",
 		}
 		err := executor.Validate(config)
@@ -327,7 +327,7 @@ func TestCSVToJSONExecutor_Validate(t *testing.T) {
 	})
 
 	t.Run("empty delimiter", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"delimiter": "",
 		}
 		err := executor.Validate(config)
@@ -336,7 +336,7 @@ func TestCSVToJSONExecutor_Validate(t *testing.T) {
 	})
 
 	t.Run("invalid delimiter - too long", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"delimiter": ",,",
 		}
 		err := executor.Validate(config)
@@ -344,7 +344,7 @@ func TestCSVToJSONExecutor_Validate(t *testing.T) {
 	})
 
 	t.Run("default config", func(t *testing.T) {
-		config := map[string]interface{}{}
+		config := map[string]any{}
 		err := executor.Validate(config)
 		assert.NoError(t, err)
 	})

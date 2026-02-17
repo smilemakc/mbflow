@@ -90,7 +90,7 @@ func runSDKMode() {
 				ID:   "fetch-data",
 				Name: "Fetch Data",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "GET",
 					"url":    "https://api.github.com/users/github",
 				},

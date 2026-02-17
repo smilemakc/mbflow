@@ -22,7 +22,7 @@ func main() {
 				ID:   "fetch_data",
 				Name: "Fetch User Data",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "GET",
 					"url":    "https://api.example.com/users",
 				},
@@ -31,7 +31,7 @@ func main() {
 				ID:   "analyze_sentiment",
 				Name: "Analyze Sentiment",
 				Type: "llm",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"provider": "openai",
 					"model":    "gpt-4",
 				},
@@ -40,7 +40,7 @@ func main() {
 				ID:   "transform_data",
 				Name: "Transform to JSON",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "expression",
 				},
 			},
@@ -58,7 +58,7 @@ func main() {
 				ID:   "send_notification",
 				Name: "Send Email",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "POST",
 					"url":    "https://api.sendgrid.com/v3/mail/send",
 				},

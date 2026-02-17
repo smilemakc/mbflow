@@ -36,7 +36,7 @@ func (WorkflowModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (w *WorkflowModel) BeforeInsert(ctx interface{}) error {
+func (w *WorkflowModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	w.CreatedAt = now
 	w.UpdatedAt = now
@@ -53,7 +53,7 @@ func (w *WorkflowModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (w *WorkflowModel) BeforeUpdate(ctx interface{}) error {
+func (w *WorkflowModel) BeforeUpdate(ctx any) error {
 	w.UpdatedAt = time.Now()
 	return nil
 }

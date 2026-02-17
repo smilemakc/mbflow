@@ -40,7 +40,7 @@ type ExecutionOptions struct {
 	EnableMemoryOpts bool
 
 	// Variables are workflow-level variables available to all nodes
-	Variables map[string]interface{}
+	Variables map[string]any
 }
 
 // RetryPolicy configures retry behavior for node execution.
@@ -87,6 +87,6 @@ func DefaultExecutionOptions() *ExecutionOptions {
 		MaxOutputSize:    10 * 1024 * 1024, // 10MB
 		MaxTotalMemory:   0,                // unlimited
 		EnableMemoryOpts: false,
-		Variables:        make(map[string]interface{}),
+		Variables:        make(map[string]any),
 	}
 }

@@ -23,7 +23,7 @@ func NewTransformExecutor() *TransformExecutor {
 }
 
 // Execute executes a data transformation.
-func (e *TransformExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *TransformExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Get transformation type
 	transformType := e.GetStringDefault(config, "type", "passthrough")
 
@@ -51,7 +51,7 @@ func (e *TransformExecutor) Execute(ctx context.Context, config map[string]inter
 		}
 
 		// Prepare environment for expression evaluation
-		env := map[string]interface{}{
+		env := map[string]any{
 			"input": input,
 		}
 
@@ -88,8 +88,8 @@ func (e *TransformExecutor) Execute(ctx context.Context, config map[string]inter
 			return nil, fmt.Errorf("failed to compile jq filter: %w", err)
 		}
 
-		// Convert input to interface{} if needed
-		var inputData interface{}
+		// Convert input to any if needed
+		var inputData any
 		switch v := input.(type) {
 		case string:
 			// Try to parse as JSON
@@ -127,7 +127,7 @@ func (e *TransformExecutor) Execute(ctx context.Context, config map[string]inter
 }
 
 // Validate validates the transform executor configuration.
-func (e *TransformExecutor) Validate(config map[string]interface{}) error {
+func (e *TransformExecutor) Validate(config map[string]any) error {
 	transformType := e.GetStringDefault(config, "type", "passthrough")
 
 	validTypes := map[string]bool{

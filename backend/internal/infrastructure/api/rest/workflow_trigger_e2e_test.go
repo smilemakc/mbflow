@@ -59,14 +59,14 @@ type MockExternalAPIs struct {
 type MockExampleAPI struct {
 	server   *httptest.Server
 	mu       sync.Mutex
-	profiles []map[string]interface{}
-	tasks    []map[string]interface{}
+	profiles []map[string]any
+	tasks    []map[string]any
 }
 
 func NewMockExampleAPI() *MockExampleAPI {
 	mock := &MockExampleAPI{
-		profiles: make([]map[string]interface{}, 0),
-		tasks:    make([]map[string]interface{}, 0),
+		profiles: make([]map[string]any, 0),
+		tasks:    make([]map[string]any, 0),
 	}
 
 	mux := http.NewServeMux()
@@ -78,7 +78,7 @@ func NewMockExampleAPI() *MockExampleAPI {
 			return
 		}
 
-		var profile map[string]interface{}
+		var profile map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -91,7 +91,7 @@ func NewMockExampleAPI() *MockExampleAPI {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"success": true,
 			"profile": profile,
 		})
@@ -104,7 +104,7 @@ func NewMockExampleAPI() *MockExampleAPI {
 			return
 		}
 
-		var req map[string]interface{}
+		var req map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -116,7 +116,7 @@ func NewMockExampleAPI() *MockExampleAPI {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"success":       true,
 			"tasks_created": 3,
 		})
@@ -134,18 +134,18 @@ func (m *MockExampleAPI) Close() {
 	m.server.Close()
 }
 
-func (m *MockExampleAPI) GetProfiles() []map[string]interface{} {
+func (m *MockExampleAPI) GetProfiles() []map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	result := make([]map[string]interface{}, len(m.profiles))
+	result := make([]map[string]any, len(m.profiles))
 	copy(result, m.profiles)
 	return result
 }
 
-func (m *MockExampleAPI) GetTasks() []map[string]interface{} {
+func (m *MockExampleAPI) GetTasks() []map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	result := make([]map[string]interface{}, len(m.tasks))
+	result := make([]map[string]any, len(m.tasks))
 	copy(result, m.tasks)
 	return result
 }
@@ -153,20 +153,20 @@ func (m *MockExampleAPI) GetTasks() []map[string]interface{} {
 func (m *MockExampleAPI) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.profiles = make([]map[string]interface{}, 0)
-	m.tasks = make([]map[string]interface{}, 0)
+	m.profiles = make([]map[string]any, 0)
+	m.tasks = make([]map[string]any, 0)
 }
 
 // MockSendGridAPI mocks api.sendgrid.com
 type MockSendGridAPI struct {
 	server *httptest.Server
 	mu     sync.Mutex
-	emails []map[string]interface{}
+	emails []map[string]any
 }
 
 func NewMockSendGridAPI() *MockSendGridAPI {
 	mock := &MockSendGridAPI{
-		emails: make([]map[string]interface{}, 0),
+		emails: make([]map[string]any, 0),
 	}
 
 	mux := http.NewServeMux()
@@ -178,7 +178,7 @@ func NewMockSendGridAPI() *MockSendGridAPI {
 			return
 		}
 
-		var email map[string]interface{}
+		var email map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&email); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -191,7 +191,7 @@ func NewMockSendGridAPI() *MockSendGridAPI {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"success":    true,
 			"message_id": email["message_id"],
 		})
@@ -209,10 +209,10 @@ func (m *MockSendGridAPI) Close() {
 	m.server.Close()
 }
 
-func (m *MockSendGridAPI) GetEmails() []map[string]interface{} {
+func (m *MockSendGridAPI) GetEmails() []map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	result := make([]map[string]interface{}, len(m.emails))
+	result := make([]map[string]any, len(m.emails))
 	copy(result, m.emails)
 	return result
 }
@@ -220,19 +220,19 @@ func (m *MockSendGridAPI) GetEmails() []map[string]interface{} {
 func (m *MockSendGridAPI) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.emails = make([]map[string]interface{}, 0)
+	m.emails = make([]map[string]any, 0)
 }
 
 // MockSegmentAPI mocks api.segment.com
 type MockSegmentAPI struct {
 	server *httptest.Server
 	mu     sync.Mutex
-	events []map[string]interface{}
+	events []map[string]any
 }
 
 func NewMockSegmentAPI() *MockSegmentAPI {
 	mock := &MockSegmentAPI{
-		events: make([]map[string]interface{}, 0),
+		events: make([]map[string]any, 0),
 	}
 
 	mux := http.NewServeMux()
@@ -244,7 +244,7 @@ func NewMockSegmentAPI() *MockSegmentAPI {
 			return
 		}
 
-		var event map[string]interface{}
+		var event map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -257,7 +257,7 @@ func NewMockSegmentAPI() *MockSegmentAPI {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"success": true,
 		})
 	})
@@ -274,10 +274,10 @@ func (m *MockSegmentAPI) Close() {
 	m.server.Close()
 }
 
-func (m *MockSegmentAPI) GetEvents() []map[string]interface{} {
+func (m *MockSegmentAPI) GetEvents() []map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	result := make([]map[string]interface{}, len(m.events))
+	result := make([]map[string]any, len(m.events))
 	copy(result, m.events)
 	return result
 }
@@ -285,7 +285,7 @@ func (m *MockSegmentAPI) GetEvents() []map[string]interface{} {
 func (m *MockSegmentAPI) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.events = make([]map[string]interface{}, 0)
+	m.events = make([]map[string]any, 0)
 }
 
 // E2ETestEnvironment encapsulates the entire test environment
@@ -298,7 +298,7 @@ type E2ETestEnvironment struct {
 	ExecutionRepo *storage.ExecutionRepository
 	ExecutorMgr   executor.Manager
 	ExecutionMgr  *engine.ExecutionManager
-	WorkflowDef   map[string]interface{}
+	WorkflowDef   map[string]any
 }
 
 // setupE2EEnvironment sets up the complete E2E test environment
@@ -415,7 +415,7 @@ func setupE2EEnvironment(t *testing.T) *E2ETestEnvironment {
 	fixtureData, err := os.ReadFile(fixturePath)
 	require.NoError(t, err)
 
-	var workflowDef map[string]interface{}
+	var workflowDef map[string]any
 	err = json.Unmarshal(fixtureData, &workflowDef)
 	require.NoError(t, err)
 	env.WorkflowDef = workflowDef
@@ -452,7 +452,7 @@ func (env *E2ETestEnvironment) cleanup(t *testing.T) {
 func (env *E2ETestEnvironment) createWorkflowFromFixture(t *testing.T, ctx context.Context) *storagemodels.WorkflowModel {
 	t.Helper()
 
-	workflowData := env.WorkflowDef["workflow"].(map[string]interface{})
+	workflowData := env.WorkflowDef["workflow"].(map[string]any)
 
 	// Replace template placeholders with mock URLs
 	workflowJSON, err := json.Marshal(workflowData)
@@ -468,7 +468,7 @@ func (env *E2ETestEnvironment) createWorkflowFromFixture(t *testing.T, ctx conte
 
 	// Create workflow model
 	variables := storagemodels.JSONBMap{}
-	if vars, ok := workflowData["variables"].(map[string]interface{}); ok && vars != nil {
+	if vars, ok := workflowData["variables"].(map[string]any); ok && vars != nil {
 		variables = storagemodels.JSONBMap(vars)
 	}
 
@@ -485,13 +485,13 @@ func (env *E2ETestEnvironment) createWorkflowFromFixture(t *testing.T, ctx conte
 	}
 
 	// Add nodes
-	nodesData := workflowData["nodes"].([]interface{})
+	nodesData := workflowData["nodes"].([]any)
 	for _, nodeData := range nodesData {
-		nodeMap := nodeData.(map[string]interface{})
+		nodeMap := nodeData.(map[string]any)
 
 		// Get config, ensure it's not nil
 		config := storagemodels.JSONBMap{}
-		if cfgData, ok := nodeMap["config"].(map[string]interface{}); ok && cfgData != nil {
+		if cfgData, ok := nodeMap["config"].(map[string]any); ok && cfgData != nil {
 			config = storagemodels.JSONBMap(cfgData)
 		}
 
@@ -509,9 +509,9 @@ func (env *E2ETestEnvironment) createWorkflowFromFixture(t *testing.T, ctx conte
 	}
 
 	// Add edges
-	edgesData := workflowData["edges"].([]interface{})
+	edgesData := workflowData["edges"].([]any)
 	for _, edgeData := range edgesData {
-		edgeMap := edgeData.(map[string]interface{})
+		edgeMap := edgeData.(map[string]any)
 		edgeModel := &storagemodels.EdgeModel{
 			ID:         uuid.New(),
 			WorkflowID: workflowModel.ID,
@@ -532,7 +532,7 @@ func (env *E2ETestEnvironment) createWorkflowFromFixture(t *testing.T, ctx conte
 }
 
 // publishUserCreatedEvent simulates publishing a user.created event
-func publishUserCreatedEvent(ctx context.Context, executionMgr *engine.ExecutionManager, workflowID uuid.UUID, eventData map[string]interface{}) (*models.Execution, error) {
+func publishUserCreatedEvent(ctx context.Context, executionMgr *engine.ExecutionManager, workflowID uuid.UUID, eventData map[string]any) (*models.Execution, error) {
 	// In a real implementation, this would go through the event trigger system
 	// For now, we directly execute the workflow with the event data
 	opts := engine.DefaultExecutionOptions()
@@ -613,7 +613,7 @@ func TestUserOnboardingWorkflow_HappyPath(t *testing.T) {
 	env.Mocks.SegmentAPI.Reset()
 
 	// Publish user.created event
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"user_id":    "usr_12345",
 		"email":      "john.doe@example.com",
 		"name":       "John Doe",
@@ -670,12 +670,12 @@ func TestUserOnboardingWorkflow_EventFiltering_ShouldNotTrigger(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		eventData map[string]interface{}
+		eventData map[string]any
 		reason    string
 	}{
 		{
 			name: "wrong source",
-			eventData: map[string]interface{}{
+			eventData: map[string]any{
 				"user_id":    "usr_99999",
 				"email":      "test@example.com",
 				"name":       "Test User",
@@ -687,7 +687,7 @@ func TestUserOnboardingWorkflow_EventFiltering_ShouldNotTrigger(t *testing.T) {
 		},
 		{
 			name: "wrong status",
-			eventData: map[string]interface{}{
+			eventData: map[string]any{
 				"user_id":    "usr_88888",
 				"email":      "pending@example.com",
 				"name":       "Pending User",
@@ -699,7 +699,7 @@ func TestUserOnboardingWorkflow_EventFiltering_ShouldNotTrigger(t *testing.T) {
 		},
 		{
 			name: "both wrong",
-			eventData: map[string]interface{}{
+			eventData: map[string]any{
 				"user_id":    "usr_77777",
 				"email":      "invalid@example.com",
 				"name":       "Invalid User",
@@ -769,7 +769,7 @@ func TestUserOnboardingWorkflow_EventFiltering_ShouldTrigger(t *testing.T) {
 	env.Mocks.SegmentAPI.Reset()
 
 	// Event that matches filter: source=api AND status=active
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"user_id":    "usr_11111",
 		"email":      "valid@example.com",
 		"name":       "Valid User",
@@ -813,7 +813,7 @@ func TestUserOnboardingWorkflow_TemplateResolution(t *testing.T) {
 	env.Mocks.SegmentAPI.Reset()
 
 	// Event with specific values to verify template resolution
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"user_id":    "usr_template_test",
 		"email":      "template@example.com",
 		"name":       "Template User",
@@ -842,19 +842,19 @@ func TestUserOnboardingWorkflow_TemplateResolution(t *testing.T) {
 	// Verify email personalization
 	emails := env.Mocks.SendGridAPI.GetEmails()
 	require.Len(t, emails, 1)
-	personalizations := emails[0]["personalizations"].([]interface{})
+	personalizations := emails[0]["personalizations"].([]any)
 	require.Len(t, personalizations, 1)
-	personalization := personalizations[0].(map[string]interface{})
-	to := personalization["to"].([]interface{})
+	personalization := personalizations[0].(map[string]any)
+	to := personalization["to"].([]any)
 	require.Len(t, to, 1)
-	toEmail := to[0].(map[string]interface{})
+	toEmail := to[0].(map[string]any)
 	assert.Equal(t, "template@example.com", toEmail["email"])
 
 	// Verify event tracking
 	events := env.Mocks.SegmentAPI.GetEvents()
 	require.Len(t, events, 1)
 	assert.Equal(t, "usr_template_test", events[0]["userId"])
-	properties := events[0]["properties"].(map[string]interface{})
+	properties := events[0]["properties"].(map[string]any)
 	assert.Equal(t, "api", properties["source"])
 }
 
@@ -877,7 +877,7 @@ func TestUserOnboardingWorkflow_ParallelExecution(t *testing.T) {
 	env.Mocks.SendGridAPI.Reset()
 	env.Mocks.SegmentAPI.Reset()
 
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"user_id":    "usr_parallel",
 		"email":      "parallel@example.com",
 		"name":       "Parallel User",
@@ -941,7 +941,7 @@ func TestUserOnboardingWorkflow_ExecutionOrder(t *testing.T) {
 	env.Mocks.SendGridAPI.Reset()
 	env.Mocks.SegmentAPI.Reset()
 
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"user_id":    "usr_order",
 		"email":      "order@example.com",
 		"name":       "Order User",
@@ -1016,7 +1016,7 @@ func TestUserOnboardingWorkflow_ErrorHandling(t *testing.T) {
 		}
 	}
 
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"user_id":    "usr_error",
 		"email":      "error@example.com",
 		"name":       "Error User",
@@ -1084,7 +1084,7 @@ func TestUserOnboardingWorkflow_ConcurrentEvents(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 
-			eventData := map[string]interface{}{
+			eventData := map[string]any{
 				"user_id":    fmt.Sprintf("usr_concurrent_%d", idx),
 				"email":      fmt.Sprintf("user%d@example.com", idx),
 				"name":       fmt.Sprintf("User %d", idx),
@@ -1151,12 +1151,12 @@ func TestUserOnboardingWorkflow_ConcurrentEvents(t *testing.T) {
 	emailAddresses := make(map[string]bool)
 	for _, email := range emails {
 		// SendGrid email structure has personalizations array
-		personalizations, ok := email["personalizations"].([]interface{})
+		personalizations, ok := email["personalizations"].([]any)
 		if assert.True(t, ok, "email should have personalizations") && len(personalizations) > 0 {
-			p := personalizations[0].(map[string]interface{})
-			to, ok := p["to"].([]interface{})
+			p := personalizations[0].(map[string]any)
+			to, ok := p["to"].([]any)
 			if assert.True(t, ok, "personalization should have to array") && len(to) > 0 {
-				toAddr := to[0].(map[string]interface{})
+				toAddr := to[0].(map[string]any)
 				emailAddr, ok := toAddr["email"].(string)
 				assert.True(t, ok, "to should have email string")
 				assert.NotEmpty(t, emailAddr, "email address should not be empty")

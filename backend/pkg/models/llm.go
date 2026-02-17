@@ -14,29 +14,29 @@ const (
 
 // LLMRequest represents a request to an LLM.
 type LLMRequest struct {
-	Provider           LLMProvider            `json:"provider"`
-	Model              string                 `json:"model"`
-	Instruction        string                 `json:"instruction,omitempty"` // System message
-	Prompt             string                 `json:"prompt"`                // User message
-	MaxTokens          int                    `json:"max_tokens,omitempty"`
-	Temperature        float64                `json:"temperature,omitempty"`
-	TopP               float64                `json:"top_p,omitempty"`
-	FrequencyPenalty   float64                `json:"frequency_penalty,omitempty"`
-	PresencePenalty    float64                `json:"presence_penalty,omitempty"`
-	StopSequences      []string               `json:"stop_sequences,omitempty"`
-	VectorStoreID      string                 `json:"vector_store_id,omitempty"`      // OpenAI vector store
-	ImageURLs          []string               `json:"image_url,omitempty"`            // Image URLs for vision models
-	ImageIDs           []string               `json:"image_id,omitempty"`             // OpenAI file IDs for images
-	FileIDs            []string               `json:"file_id,omitempty"`              // OpenAI file IDs for documents
-	Files              []LLMFileAttachment    `json:"files,omitempty"`                // Base64 encoded file attachments
-	Tools              []LLMTool              `json:"tools,omitempty"`                // Function definitions
-	ResponseFormat     *LLMResponseFormat     `json:"response_format,omitempty"`      // Structured output format
-	PreviousResponseID string                 `json:"previous_response_id,omitempty"` // For conversation chaining
-	ProviderConfig     map[string]interface{} `json:"provider_config,omitempty"`      // Provider-specific configuration (api_key, base_url, org_id, etc.)
-	Metadata           map[string]interface{} `json:"metadata,omitempty"`
+	Provider           LLMProvider         `json:"provider"`
+	Model              string              `json:"model"`
+	Instruction        string              `json:"instruction,omitempty"` // System message
+	Prompt             string              `json:"prompt"`                // User message
+	MaxTokens          int                 `json:"max_tokens,omitempty"`
+	Temperature        float64             `json:"temperature,omitempty"`
+	TopP               float64             `json:"top_p,omitempty"`
+	FrequencyPenalty   float64             `json:"frequency_penalty,omitempty"`
+	PresencePenalty    float64             `json:"presence_penalty,omitempty"`
+	StopSequences      []string            `json:"stop_sequences,omitempty"`
+	VectorStoreID      string              `json:"vector_store_id,omitempty"`      // OpenAI vector store
+	ImageURLs          []string            `json:"image_url,omitempty"`            // Image URLs for vision models
+	ImageIDs           []string            `json:"image_id,omitempty"`             // OpenAI file IDs for images
+	FileIDs            []string            `json:"file_id,omitempty"`              // OpenAI file IDs for documents
+	Files              []LLMFileAttachment `json:"files,omitempty"`                // Base64 encoded file attachments
+	Tools              []LLMTool           `json:"tools,omitempty"`                // Function definitions
+	ResponseFormat     *LLMResponseFormat  `json:"response_format,omitempty"`      // Structured output format
+	PreviousResponseID string              `json:"previous_response_id,omitempty"` // For conversation chaining
+	ProviderConfig     map[string]any      `json:"provider_config,omitempty"`      // Provider-specific configuration (api_key, base_url, org_id, etc.)
+	Metadata           map[string]any      `json:"metadata,omitempty"`
 
 	// Responses API specific fields
-	Input        interface{}       `json:"input,omitempty"`          // string or []LLMInputItem for Responses API
+	Input        any               `json:"input,omitempty"`          // string or []LLMInputItem for Responses API
 	HostedTools  []LLMHostedTool   `json:"hosted_tools,omitempty"`   // Built-in OpenAI tools (web_search, file_search, code_interpreter)
 	Instructions string            `json:"instructions,omitempty"`   // Alternative to Instruction for Responses API
 	Background   bool              `json:"background,omitempty"`     // Background processing for long-running tasks
@@ -85,9 +85,9 @@ type LLMTool struct {
 
 // LLMFunctionTool represents a function definition.
 type LLMFunctionTool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"` // JSON Schema
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"` // JSON Schema
 }
 
 // LLMResponseFormat defines the expected response format.
@@ -98,29 +98,29 @@ type LLMResponseFormat struct {
 
 // LLMJSONSchema defines a JSON schema for structured outputs.
 type LLMJSONSchema struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Schema      map[string]interface{} `json:"schema"` // JSON Schema definition
-	Strict      bool                   `json:"strict,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Schema      map[string]any `json:"schema"` // JSON Schema definition
+	Strict      bool           `json:"strict,omitempty"`
 }
 
 // LLMResponse represents a response from an LLM.
 type LLMResponse struct {
-	Content      string                 `json:"content"`
-	ResponseID   string                 `json:"response_id,omitempty"`
-	Model        string                 `json:"model"`
-	Usage        LLMUsage               `json:"usage"`
-	ToolCalls    []LLMToolCall          `json:"tool_calls,omitempty"`
-	FinishReason string                 `json:"finish_reason"` // "stop", "length", "tool_calls", "content_filter"
-	CreatedAt    time.Time              `json:"created_at"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	Content      string         `json:"content"`
+	ResponseID   string         `json:"response_id,omitempty"`
+	Model        string         `json:"model"`
+	Usage        LLMUsage       `json:"usage"`
+	ToolCalls    []LLMToolCall  `json:"tool_calls,omitempty"`
+	FinishReason string         `json:"finish_reason"` // "stop", "length", "tool_calls", "content_filter"
+	CreatedAt    time.Time      `json:"created_at"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 
 	// Responses API specific fields
-	Status            string                 `json:"status,omitempty"`             // "completed", "in_progress", "incomplete", "failed"
-	OutputItems       []LLMOutputItem        `json:"output_items,omitempty"`       // Polymorphic output array from Responses API
-	Error             *LLMError              `json:"error,omitempty"`              // Error object if status is "failed"
-	IncompleteDetails map[string]interface{} `json:"incomplete_details,omitempty"` // Reason for incomplete status
-	Reasoning         *LLMReasoningInfo      `json:"reasoning,omitempty"`          // Reasoning info for o3-mini, etc.
+	Status            string            `json:"status,omitempty"`             // "completed", "in_progress", "incomplete", "failed"
+	OutputItems       []LLMOutputItem   `json:"output_items,omitempty"`       // Polymorphic output array from Responses API
+	Error             *LLMError         `json:"error,omitempty"`              // Error object if status is "failed"
+	IncompleteDetails map[string]any    `json:"incomplete_details,omitempty"` // Reason for incomplete status
+	Reasoning         *LLMReasoningInfo `json:"reasoning,omitempty"`          // Reasoning info for o3-mini, etc.
 
 	// Tool calling results (auto mode)
 	Messages        []LLMMessage          `json:"messages,omitempty"`         // Full conversation history including tool calls
@@ -164,23 +164,23 @@ func (e *LLMError) Error() string {
 
 // LLMConfig represents the configuration for an LLM executor node.
 type LLMConfig struct {
-	Provider           string                   `json:"provider"`
-	Model              string                   `json:"model"`
-	Instruction        string                   `json:"instruction,omitempty"`
-	Prompt             string                   `json:"prompt"`
-	MaxTokens          int                      `json:"max_tokens,omitempty"`
-	Temperature        float64                  `json:"temperature,omitempty"`
-	TopP               float64                  `json:"top_p,omitempty"`
-	FrequencyPenalty   float64                  `json:"frequency_penalty,omitempty"`
-	PresencePenalty    float64                  `json:"presence_penalty,omitempty"`
-	StopSequences      []string                 `json:"stop_sequences,omitempty"`
-	VectorStoreID      string                   `json:"vector_store_id,omitempty"`
-	ImageURLs          []string                 `json:"image_url,omitempty"`
-	ImageIDs           []string                 `json:"image_id,omitempty"`
-	FileIDs            []string                 `json:"file_id,omitempty"`
-	Tools              []map[string]interface{} `json:"tools,omitempty"`
-	ResponseFormat     map[string]interface{}   `json:"response_format,omitempty"`
-	PreviousResponseID string                   `json:"previous_response_id,omitempty"`
+	Provider           string           `json:"provider"`
+	Model              string           `json:"model"`
+	Instruction        string           `json:"instruction,omitempty"`
+	Prompt             string           `json:"prompt"`
+	MaxTokens          int              `json:"max_tokens,omitempty"`
+	Temperature        float64          `json:"temperature,omitempty"`
+	TopP               float64          `json:"top_p,omitempty"`
+	FrequencyPenalty   float64          `json:"frequency_penalty,omitempty"`
+	PresencePenalty    float64          `json:"presence_penalty,omitempty"`
+	StopSequences      []string         `json:"stop_sequences,omitempty"`
+	VectorStoreID      string           `json:"vector_store_id,omitempty"`
+	ImageURLs          []string         `json:"image_url,omitempty"`
+	ImageIDs           []string         `json:"image_id,omitempty"`
+	FileIDs            []string         `json:"file_id,omitempty"`
+	Tools              []map[string]any `json:"tools,omitempty"`
+	ResponseFormat     map[string]any   `json:"response_format,omitempty"`
+	PreviousResponseID string           `json:"previous_response_id,omitempty"`
 }
 
 // --- Responses API Specific Types ---
@@ -194,9 +194,9 @@ type LLMHostedTool struct {
 	SearchContextSize string   `json:"search_context_size,omitempty"` // "small", "medium", "large"
 
 	// For file_search
-	VectorStoreIDs []string               `json:"vector_store_ids,omitempty"`
-	MaxNumResults  int                    `json:"max_num_results,omitempty"`
-	RankingOptions map[string]interface{} `json:"ranking_options,omitempty"`
+	VectorStoreIDs []string       `json:"vector_store_ids,omitempty"`
+	MaxNumResults  int            `json:"max_num_results,omitempty"`
+	RankingOptions map[string]any `json:"ranking_options,omitempty"`
 
 	// For code_interpreter - no specific config needed
 }
@@ -217,8 +217,8 @@ type LLMOutputItem struct {
 	Arguments string `json:"arguments,omitempty"` // JSON string
 
 	// For type="web_search_call" or "file_search_call"
-	Queries []string    `json:"queries,omitempty"`
-	Results interface{} `json:"results,omitempty"`
+	Queries []string `json:"queries,omitempty"`
+	Results any      `json:"results,omitempty"`
 }
 
 // LLMOutputContent represents content parts within a message output item.

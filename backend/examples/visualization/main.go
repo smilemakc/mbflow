@@ -92,7 +92,7 @@ func createUserOnboardingWorkflow() *models.Workflow {
 		Name:        "Create User Profile",
 		Type:        "http",
 		Description: "Creates a new user profile in the system",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"method":  "POST",
 			"url":     "https://api.example.com/v1/profiles",
 			"headers": map[string]string{"Content-Type": "application/json"},
@@ -104,7 +104,7 @@ func createUserOnboardingWorkflow() *models.Workflow {
 		Name:        "Send Welcome Email",
 		Type:        "http",
 		Description: "Sends a welcome email via SendGrid",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"method": "POST",
 			"url":    "https://api.sendgrid.com/v3/mail/send",
 		},
@@ -115,7 +115,7 @@ func createUserOnboardingWorkflow() *models.Workflow {
 		Name:        "Create Onboarding Tasks",
 		Type:        "http",
 		Description: "Creates initial onboarding tasks",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"method": "POST",
 			"url":    "https://api.example.com/v1/tasks/bulk",
 		},
@@ -126,7 +126,7 @@ func createUserOnboardingWorkflow() *models.Workflow {
 		Name:        "Track Onboarding Event",
 		Type:        "http",
 		Description: "Tracks the onboarding event in analytics",
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"method": "POST",
 			"url":    "https://api.example.com/v1/analytics/track",
 		},

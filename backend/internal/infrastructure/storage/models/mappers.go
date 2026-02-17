@@ -17,9 +17,9 @@ func EventModelToDomain(em *EventModel) *pkgmodels.Event {
 		return nil
 	}
 
-	var payload map[string]interface{}
+	var payload map[string]any
 	if em.Payload != nil {
-		payload = map[string]interface{}(em.Payload)
+		payload = map[string]any(em.Payload)
 	}
 
 	return &pkgmodels.Event{
@@ -83,9 +83,9 @@ func TriggerModelToDomain(tm *TriggerModel) *pkgmodels.Trigger {
 		return nil
 	}
 
-	var config map[string]interface{}
+	var config map[string]any
 	if tm.Config != nil {
-		config = map[string]interface{}(tm.Config)
+		config = map[string]any(tm.Config)
 	}
 
 	trigger := &pkgmodels.Trigger{
@@ -168,9 +168,9 @@ func AuditLogModelToDomain(am *AuditLogModel) *pkgmodels.AuditLog {
 		resourceID = &rid
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if am.Metadata != nil {
-		metadata = map[string]interface{}(am.Metadata)
+		metadata = map[string]any(am.Metadata)
 	}
 
 	return &pkgmodels.AuditLog{
@@ -319,23 +319,23 @@ func WorkflowFromStorage(sw *WorkflowModel) *pkgmodels.Workflow {
 		edges[i] = EdgeFromStorage(edge)
 	}
 
-	var variables map[string]interface{}
+	var variables map[string]any
 	if sw.Variables != nil {
-		variables = map[string]interface{}(sw.Variables)
+		variables = map[string]any(sw.Variables)
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if sw.Metadata != nil {
-		metadata = map[string]interface{}(sw.Metadata)
+		metadata = map[string]any(sw.Metadata)
 	}
 
 	// Extract tags from metadata if present
 	var tags []string
 	if metadata != nil {
-		// Try both []string and []interface{} for compatibility
+		// Try both []string and []any for compatibility
 		if tagsVal, ok := metadata["tags"].([]string); ok {
 			tags = tagsVal
-		} else if tagsVal, ok := metadata["tags"].([]interface{}); ok {
+		} else if tagsVal, ok := metadata["tags"].([]any); ok {
 			tags = make([]string, len(tagsVal))
 			for i, t := range tagsVal {
 				if tagStr, ok := t.(string); ok {
@@ -371,12 +371,12 @@ func NodeFromStorage(sn *NodeModel) *pkgmodels.Node {
 		position = &pkgmodels.Position{X: x, Y: y}
 	}
 
-	var config map[string]interface{}
+	var config map[string]any
 	if sn.Config != nil {
-		config = map[string]interface{}(sn.Config)
+		config = map[string]any(sn.Config)
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	// NodeModel doesn't have metadata yet, but we're ready for it
 
 	return &pkgmodels.Node{
@@ -399,7 +399,7 @@ func EdgeFromStorage(se *EdgeModel) *pkgmodels.Edge {
 		}
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	// EdgeModel doesn't have metadata yet, but we're ready for it
 
 	return &pkgmodels.Edge{
@@ -461,8 +461,8 @@ func WorkflowModelToDomain(wm *WorkflowModel) *pkgmodels.Workflow {
 		Name:        wm.Name,
 		Description: wm.Description,
 		Status:      pkgmodels.WorkflowStatus(wm.Status),
-		Variables:   make(map[string]interface{}),
-		Metadata:    make(map[string]interface{}),
+		Variables:   make(map[string]any),
+		Metadata:    make(map[string]any),
 		CreatedAt:   wm.CreatedAt,
 		UpdatedAt:   wm.UpdatedAt,
 	}
@@ -472,11 +472,11 @@ func WorkflowModelToDomain(wm *WorkflowModel) *pkgmodels.Workflow {
 	}
 
 	if wm.Variables != nil {
-		workflow.Variables = map[string]interface{}(wm.Variables)
+		workflow.Variables = map[string]any(wm.Variables)
 	}
 
 	if wm.Metadata != nil {
-		workflow.Metadata = map[string]interface{}(wm.Metadata)
+		workflow.Metadata = map[string]any(wm.Metadata)
 	}
 
 	workflow.Nodes = make([]*pkgmodels.Node, 0, len(wm.Nodes))
@@ -516,15 +516,15 @@ func NodeModelToDomain(nm *NodeModel) *pkgmodels.Node {
 		ID:     nm.NodeID,
 		Name:   nm.Name,
 		Type:   nm.Type,
-		Config: make(map[string]interface{}),
+		Config: make(map[string]any),
 	}
 
 	if nm.Config != nil {
-		node.Config = map[string]interface{}(nm.Config)
+		node.Config = map[string]any(nm.Config)
 	}
 
 	if nm.Position != nil {
-		posMap := map[string]interface{}(nm.Position)
+		posMap := map[string]any(nm.Position)
 		if x, ok := posMap["x"].(float64); ok {
 			if y, ok := posMap["y"].(float64); ok {
 				node.Position = &pkgmodels.Position{X: x, Y: y}
@@ -566,9 +566,9 @@ func ExecutionModelToDomain(exm *ExecutionModel) *pkgmodels.Execution {
 		ID:         exm.ID.String(),
 		WorkflowID: exm.WorkflowID.String(),
 		Status:     pkgmodels.ExecutionStatus(exm.Status),
-		Input:      make(map[string]interface{}),
-		Output:     make(map[string]interface{}),
-		Variables:  make(map[string]interface{}),
+		Input:      make(map[string]any),
+		Output:     make(map[string]any),
+		Variables:  make(map[string]any),
 	}
 
 	if exm.StartedAt != nil {
@@ -660,10 +660,10 @@ func NodeExecutionModelToDomain(nem *NodeExecutionModel) *pkgmodels.NodeExecutio
 		ExecutionID:    nem.ExecutionID.String(),
 		NodeID:         nem.NodeID.String(),
 		Status:         pkgmodels.NodeExecutionStatus(nem.Status),
-		Input:          make(map[string]interface{}),
-		Output:         make(map[string]interface{}),
-		Config:         make(map[string]interface{}),
-		ResolvedConfig: make(map[string]interface{}),
+		Input:          make(map[string]any),
+		Output:         make(map[string]any),
+		Config:         make(map[string]any),
+		ResolvedConfig: make(map[string]any),
 		RetryCount:     nem.RetryCount,
 	}
 

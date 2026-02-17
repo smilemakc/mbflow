@@ -45,7 +45,7 @@ func NewFileToBytesExecutor(manager filestorage.Manager) *FileToBytesExecutor {
 //   - size: file size in bytes
 //   - format: output format used
 //   - duration_ms: execution time
-func (e *FileToBytesExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *FileToBytesExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get configuration
@@ -82,7 +82,7 @@ func (e *FileToBytesExecutor) Execute(ctx context.Context, config map[string]int
 	}
 
 	// Format output
-	var result interface{}
+	var result any
 	switch outputFormat {
 	case "base64":
 		result = base64.StdEncoding.EncodeToString(content)
@@ -92,7 +92,7 @@ func (e *FileToBytesExecutor) Execute(ctx context.Context, config map[string]int
 		return nil, fmt.Errorf("file_to_bytes: invalid output_format: %s", outputFormat)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":     true,
 		"result":      result,
 		"file_id":     entry.ID,
@@ -105,7 +105,7 @@ func (e *FileToBytesExecutor) Execute(ctx context.Context, config map[string]int
 }
 
 // Validate validates the configuration
-func (e *FileToBytesExecutor) Validate(config map[string]interface{}) error {
+func (e *FileToBytesExecutor) Validate(config map[string]any) error {
 	// file_id is required
 	if _, err := e.GetString(config, "file_id"); err != nil {
 		return fmt.Errorf("file_id is required")
@@ -125,11 +125,11 @@ func (e *FileToBytesExecutor) Validate(config map[string]interface{}) error {
 }
 
 // extractFileID extracts file ID from input
-func (e *FileToBytesExecutor) extractFileID(input interface{}) (string, error) {
+func (e *FileToBytesExecutor) extractFileID(input any) (string, error) {
 	switch v := input.(type) {
 	case string:
 		return v, nil
-	case map[string]interface{}:
+	case map[string]any:
 		if fileID, ok := v["file_id"].(string); ok {
 			return fileID, nil
 		}
@@ -175,7 +175,7 @@ func NewBytesToFileExecutor(manager filestorage.Manager) *BytesToFileExecutor {
 //   - checksum: file checksum
 //   - access_scope: access scope
 //   - duration_ms: execution time
-func (e *BytesToFileExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *BytesToFileExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get configuration
@@ -191,7 +191,7 @@ func (e *BytesToFileExecutor) Execute(ctx context.Context, config map[string]int
 
 	// Get tags
 	var tags []string
-	if tagsRaw, ok := config["tags"].([]interface{}); ok {
+	if tagsRaw, ok := config["tags"].([]any); ok {
 		for _, tag := range tagsRaw {
 			if tagStr, ok := tag.(string); ok {
 				tags = append(tags, tagStr)
@@ -233,7 +233,7 @@ func (e *BytesToFileExecutor) Execute(ctx context.Context, config map[string]int
 		Size:        int64(len(data)),
 		AccessScope: models.AccessScope(accessScope),
 		Tags:        tags,
-		Metadata:    make(map[string]interface{}),
+		Metadata:    make(map[string]any),
 	}
 
 	// Set TTL if provided
@@ -247,7 +247,7 @@ func (e *BytesToFileExecutor) Execute(ctx context.Context, config map[string]int
 		return nil, fmt.Errorf("bytes_to_file: failed to store file: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":      true,
 		"file_id":      stored.ID,
 		"storage_id":   stored.StorageID,
@@ -261,7 +261,7 @@ func (e *BytesToFileExecutor) Execute(ctx context.Context, config map[string]int
 }
 
 // Validate validates the configuration
-func (e *BytesToFileExecutor) Validate(config map[string]interface{}) error {
+func (e *BytesToFileExecutor) Validate(config map[string]any) error {
 	// file_name is required
 	if _, err := e.GetString(config, "file_name"); err != nil {
 		return fmt.Errorf("file_name is required")
@@ -288,7 +288,7 @@ func (e *BytesToFileExecutor) Validate(config map[string]interface{}) error {
 }
 
 // extractBytes extracts bytes from various input types
-func (e *BytesToFileExecutor) extractBytes(input interface{}) ([]byte, error) {
+func (e *BytesToFileExecutor) extractBytes(input any) ([]byte, error) {
 	switch v := input.(type) {
 	case []byte:
 		return v, nil
@@ -302,7 +302,7 @@ func (e *BytesToFileExecutor) extractBytes(input interface{}) ([]byte, error) {
 		}
 		// Use string as UTF-8 bytes
 		return []byte(v), nil
-	case map[string]interface{}:
+	case map[string]any:
 		// Try to extract from "data" field
 		if data, ok := v["data"]; ok {
 			return e.extractBytes(data)

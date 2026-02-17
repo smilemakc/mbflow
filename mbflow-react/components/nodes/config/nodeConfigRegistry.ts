@@ -27,6 +27,7 @@ import { RSSParserNodeConfigComponent } from './RSSParserNodeConfig';
 import { CSVToJSONNodeConfigComponent } from './CSVToJSONNodeConfig';
 import { GoogleSheetsNodeConfigComponent } from './GoogleSheetsNodeConfig';
 import { GoogleDriveNodeConfigComponent } from './GoogleDriveNodeConfig';
+import { SubWorkflowNodeConfigComponent } from './SubWorkflowNodeConfig';
 
 export interface NodeConfigProps<T = Record<string, any>> {
     config: T;
@@ -205,4 +206,10 @@ registerNodeConfig(NodeType.GOOGLE_DRIVE, {
     component: GoogleDriveNodeConfigComponent,
     label: 'Google Drive',
     description: 'Manage Google Drive files',
+});
+
+registerNodeConfig(NodeType.SUB_WORKFLOW, {
+    component: SubWorkflowNodeConfigComponent,
+    label: 'Sub-Workflow',
+    description: 'Fan-out execution over an array',
 });

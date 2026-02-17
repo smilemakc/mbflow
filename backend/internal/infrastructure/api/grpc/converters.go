@@ -66,7 +66,7 @@ func toProtoNode(n *models.Node) *pb.Node {
 	}
 	pn.Config = mapToStruct(n.Config)
 	if n.Position != nil {
-		pn.Position, _ = structpb.NewStruct(map[string]interface{}{
+		pn.Position, _ = structpb.NewStruct(map[string]any{
 			"x": n.Position.X,
 			"y": n.Position.Y,
 		})
@@ -261,8 +261,8 @@ func toProtoAuditLogEntries(logs []*models.ServiceAuditLog) []*pb.AuditLogEntry 
 	return result
 }
 
-// mapToStruct safely converts map[string]interface{} to protobuf Struct.
-func mapToStruct(m map[string]interface{}) *structpb.Struct {
+// mapToStruct safely converts map[string]any to protobuf Struct.
+func mapToStruct(m map[string]any) *structpb.Struct {
 	if m == nil {
 		return nil
 	}
@@ -273,8 +273,8 @@ func mapToStruct(m map[string]interface{}) *structpb.Struct {
 	return s
 }
 
-// structToMap converts a protobuf Struct to map[string]interface{}.
-func structToMap(s *structpb.Struct) map[string]interface{} {
+// structToMap converts a protobuf Struct to map[string]any.
+func structToMap(s *structpb.Struct) map[string]any {
 	if s == nil {
 		return nil
 	}

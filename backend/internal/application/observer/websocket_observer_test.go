@@ -132,7 +132,7 @@ func TestWebSocketObserver_OnEvent(t *testing.T) {
 			NodeType:    &nodeType,
 			Status:      "completed",
 			DurationMs:  &durationMs,
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"status": 200,
 			},
 		}
@@ -205,7 +205,7 @@ func TestWebSocketObserver_eventToMessage(t *testing.T) {
 			NodeCount:   &nodeCount,
 			Status:      "completed",
 			DurationMs:  &durationMs,
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"result": "success",
 			},
 		}
@@ -554,7 +554,7 @@ func TestWebSocketMessage_Serialization(t *testing.T) {
 	t.Run("control message", func(t *testing.T) {
 		msg := &WebSocketMessage{
 			Type: "control",
-			Control: map[string]interface{}{
+			Control: map[string]any{
 				"message": "connected",
 				"status":  "ok",
 			},

@@ -75,12 +75,12 @@ func TestHandlers_CreateTrigger_Cron(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name":        "Daily Cron",
 		"description": "Daily scheduled task",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"expression": "0 0 * * *",
 		},
 		"enabled": true,
@@ -90,7 +90,7 @@ func TestHandlers_CreateTrigger_Cron(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
@@ -110,12 +110,12 @@ func TestHandlers_CreateTrigger_Webhook(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name":        "Webhook Trigger",
 		"description": "Webhook endpoint",
 		"type":        "webhook",
 		"workflow_id": workflowModel.ID.String(),
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"path": "/webhook/test",
 		},
 		"enabled": true,
@@ -125,7 +125,7 @@ func TestHandlers_CreateTrigger_Webhook(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
@@ -144,10 +144,10 @@ func TestHandlers_CreateTrigger_MissingName(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"expression": "0 0 * * *",
 		},
 	}
@@ -162,11 +162,11 @@ func TestHandlers_CreateTrigger_InvalidWorkflowID(t *testing.T) {
 	_, router, _, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name":        "Test Trigger",
 		"type":        "cron",
 		"workflow_id": uuid.New().String(), // Non-existent workflow
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"expression": "0 0 * * *",
 		},
 	}
@@ -191,12 +191,12 @@ func TestHandlers_GetTrigger_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create trigger
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name":        "Test Trigger",
 		"description": "Test description",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"expression": "0 0 * * *",
 		},
 		"enabled": true,
@@ -204,7 +204,7 @@ func TestHandlers_GetTrigger_Success(t *testing.T) {
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	triggerID := created["id"].(string)
 
@@ -213,7 +213,7 @@ func TestHandlers_GetTrigger_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, getW.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, getW, &result)
 
 	assert.Equal(t, triggerID, result["id"])
@@ -254,7 +254,7 @@ func TestHandlers_ListTriggers_Empty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var triggers []interface{}
+	var triggers []any
 	testutil.ParseListResponse(t, w, &triggers)
 	assert.Empty(t, triggers)
 }
@@ -272,7 +272,7 @@ func TestHandlers_ListTriggers_WithData(t *testing.T) {
 
 	// Create 3 triggers
 	for i := 1; i <= 3; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"name":        fmt.Sprintf("Trigger %d", i),
 			"type":        "cron",
 			"workflow_id": workflowModel.ID.String(),
@@ -287,7 +287,7 @@ func TestHandlers_ListTriggers_WithData(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var triggers []interface{}
+	var triggers []any
 	testutil.ParseListResponse(t, w, &triggers)
 	assert.Len(t, triggers, 3)
 }
@@ -312,7 +312,7 @@ func TestHandlers_ListTriggers_FilterByWorkflowID(t *testing.T) {
 
 	// Create triggers for workflow 1
 	for i := 1; i <= 2; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"name":        fmt.Sprintf("Trigger W1-%d", i),
 			"type":        "cron",
 			"workflow_id": workflowModel1.ID.String(),
@@ -323,7 +323,7 @@ func TestHandlers_ListTriggers_FilterByWorkflowID(t *testing.T) {
 	}
 
 	// Create trigger for workflow 2
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name":        "Trigger W2",
 		"type":        "cron",
 		"workflow_id": workflowModel2.ID.String(),
@@ -338,7 +338,7 @@ func TestHandlers_ListTriggers_FilterByWorkflowID(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var triggers []interface{}
+	var triggers []any
 	testutil.ParseListResponse(t, w, &triggers)
 	assert.Len(t, triggers, 2)
 }
@@ -357,7 +357,7 @@ func TestHandlers_UpdateTrigger_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create trigger
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name":        "Original Name",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
@@ -366,12 +366,12 @@ func TestHandlers_UpdateTrigger_Success(t *testing.T) {
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	triggerID := created["id"].(string)
 
 	// Update trigger
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name":     "Updated Name",
 		"schedule": "0 12 * * *",
 	}
@@ -379,7 +379,7 @@ func TestHandlers_UpdateTrigger_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, updateW.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, updateW, &result)
 
 	assert.Equal(t, "Updated Name", result["name"])
@@ -391,7 +391,7 @@ func TestHandlers_UpdateTrigger_NotFound(t *testing.T) {
 	defer cleanup()
 
 	randomID := uuid.New().String()
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name": "Updated Name",
 	}
 
@@ -414,7 +414,7 @@ func TestHandlers_DeleteTrigger_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create trigger
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name":        "To Delete",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
@@ -423,7 +423,7 @@ func TestHandlers_DeleteTrigger_Success(t *testing.T) {
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	triggerID := created["id"].(string)
 
@@ -460,7 +460,7 @@ func TestHandlers_EnableTrigger_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create disabled trigger
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name":        "To Enable",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
@@ -470,7 +470,7 @@ func TestHandlers_EnableTrigger_Success(t *testing.T) {
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	triggerID := created["id"].(string)
 
@@ -479,7 +479,7 @@ func TestHandlers_EnableTrigger_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, enableW.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, enableW, &result)
 
 	assert.Equal(t, true, result["enabled"])
@@ -497,7 +497,7 @@ func TestHandlers_DisableTrigger_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create enabled trigger
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name":        "To Disable",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
@@ -507,7 +507,7 @@ func TestHandlers_DisableTrigger_Success(t *testing.T) {
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	triggerID := created["id"].(string)
 
@@ -516,7 +516,7 @@ func TestHandlers_DisableTrigger_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, disableW.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, disableW, &result)
 
 	assert.Equal(t, false, result["enabled"])
@@ -536,7 +536,7 @@ func TestHandlers_TriggerManual_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create trigger (must be enabled for manual execution)
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name":        "Manual Trigger",
 		"type":        "manual",
 		"workflow_id": workflowModel.ID.String(),
@@ -545,13 +545,13 @@ func TestHandlers_TriggerManual_Success(t *testing.T) {
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	triggerID := created["id"].(string)
 
 	// Trigger manually with input
-	triggerReq := map[string]interface{}{
-		"input": map[string]interface{}{
+	triggerReq := map[string]any{
+		"input": map[string]any{
 			"test": "data",
 		},
 	}

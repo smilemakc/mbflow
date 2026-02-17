@@ -23,7 +23,7 @@ func NewFileStorageResource(ownerID, name string) *FileStorageResource {
 			OwnerID:   ownerID,
 			Name:      name,
 			Status:    ResourceStatusActive,
-			Metadata:  make(map[string]interface{}),
+			Metadata:  make(map[string]any),
 			CreatedAt: now,
 			UpdatedAt: now,
 		},

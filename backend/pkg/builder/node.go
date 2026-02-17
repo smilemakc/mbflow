@@ -12,9 +12,9 @@ type NodeBuilder struct {
 	name        string
 	nodeType    string
 	description string
-	config      map[string]interface{}
+	config      map[string]any
 	position    *models.Position
-	metadata    map[string]interface{}
+	metadata    map[string]any
 	err         error
 }
 
@@ -27,8 +27,8 @@ func NewNode(id, nodeType, name string, opts ...NodeOption) *NodeBuilder {
 		id:       id,
 		nodeType: nodeType,
 		name:     name,
-		config:   make(map[string]interface{}),
-		metadata: make(map[string]interface{}),
+		config:   make(map[string]any),
+		metadata: make(map[string]any),
 	}
 
 	for _, opt := range opts {
@@ -96,7 +96,7 @@ func GridPosition(row, col int) NodeOption {
 }
 
 // WithNodeMetadata adds node metadata.
-func WithNodeMetadata(key string, value interface{}) NodeOption {
+func WithNodeMetadata(key string, value any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		if key == "" {
 			return fmt.Errorf("metadata key cannot be empty")
@@ -108,7 +108,7 @@ func WithNodeMetadata(key string, value interface{}) NodeOption {
 
 // WithConfig sets the raw config map.
 // This is an escape hatch for advanced use cases.
-func WithConfig(config map[string]interface{}) NodeOption {
+func WithConfig(config map[string]any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		nb.config = config
 		return nil
@@ -116,12 +116,65 @@ func WithConfig(config map[string]interface{}) NodeOption {
 }
 
 // WithConfigValue sets a single config value.
-func WithConfigValue(key string, value interface{}) NodeOption {
+func WithConfigValue(key string, value any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		if key == "" {
 			return fmt.Errorf("config key cannot be empty")
 		}
 		nb.config[key] = value
+		return nil
+	}
+}
+
+// NewSubWorkflowNode creates a sub_workflow node for fan-out execution.
+func NewSubWorkflowNode(id, name, workflowID string, opts ...NodeOption) *NodeBuilder {
+	nb := NewNode(id, "sub_workflow", name)
+	nb.config["workflow_id"] = workflowID
+	for _, opt := range opts {
+		if err := opt(nb); err != nil {
+			nb.err = err
+			return nb
+		}
+	}
+	return nb
+}
+
+// WithForEach sets the for_each expression for fan-out.
+func WithForEach(expression string) NodeOption {
+	return func(nb *NodeBuilder) error {
+		nb.config["for_each"] = expression
+		return nil
+	}
+}
+
+// WithItemVar sets the variable name for the current item in child input.
+func WithItemVar(varName string) NodeOption {
+	return func(nb *NodeBuilder) error {
+		nb.config["item_var"] = varName
+		return nil
+	}
+}
+
+// WithMaxParallelism sets the max concurrent child executions.
+func WithMaxParallelism(n int) NodeOption {
+	return func(nb *NodeBuilder) error {
+		nb.config["max_parallelism"] = n
+		return nil
+	}
+}
+
+// WithOnError sets the error handling strategy: "fail_fast" or "collect_partial".
+func WithOnError(strategy string) NodeOption {
+	return func(nb *NodeBuilder) error {
+		nb.config["on_error"] = strategy
+		return nil
+	}
+}
+
+// WithWorkflowID sets the target workflow ID (alternative to constructor parameter).
+func WithWorkflowID(workflowID string) NodeOption {
+	return func(nb *NodeBuilder) error {
+		nb.config["workflow_id"] = workflowID
 		return nil
 	}
 }

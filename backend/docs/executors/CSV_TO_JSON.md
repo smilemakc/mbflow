@@ -82,7 +82,7 @@ With config: `{ "input_key": "response" }`
 
 ## Output
 
-Returns a `CSVToJSONOutput` struct (auto-converted to `map[string]interface{}`):
+Returns a `CSVToJSONOutput` struct (auto-converted to `map[string]any`):
 
 ```json
 {
@@ -103,7 +103,7 @@ Returns a `CSVToJSONOutput` struct (auto-converted to `map[string]interface{}`):
 | Field | Type | Description |
 |-------|------|-------------|
 | `success` | boolean | Always `true` on successful execution |
-| `result` | []map[string]interface{} | Array of objects, one per CSV row |
+| `result` | []map[string]any | Array of objects, one per CSV row |
 | `row_count` | int | Number of data rows (excludes header if `has_header=true`) |
 | `column_count` | int | Number of columns |
 | `headers` | []string | Column headers used for keys |

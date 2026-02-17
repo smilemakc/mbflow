@@ -238,10 +238,10 @@ func TestLLMRequest_JSONMarshaling(t *testing.T) {
 				Function: LLMFunctionTool{
 					Name:        "get_weather",
 					Description: "Get weather for location",
-					Parameters: map[string]interface{}{
+					Parameters: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"location": map[string]interface{}{
+						"properties": map[string]any{
+							"location": map[string]any{
 								"type": "string",
 							},
 						},
@@ -444,13 +444,13 @@ func TestLLMResponseFormat_JSONSchema(t *testing.T) {
 		JSONSchema: &LLMJSONSchema{
 			Name:        "user_profile",
 			Description: "User profile schema",
-			Schema: map[string]interface{}{
+			Schema: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"name": map[string]interface{}{
+				"properties": map[string]any{
+					"name": map[string]any{
 						"type": "string",
 					},
-					"age": map[string]interface{}{
+					"age": map[string]any{
 						"type": "integer",
 					},
 				},
@@ -611,10 +611,10 @@ func TestLLM_ComplexRequestResponse(t *testing.T) {
 				Function: LLMFunctionTool{
 					Name:        "search_database",
 					Description: "Search internal database",
-					Parameters: map[string]interface{}{
+					Parameters: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"query": map[string]interface{}{"type": "string"},
+						"properties": map[string]any{
+							"query": map[string]any{"type": "string"},
 						},
 					},
 				},

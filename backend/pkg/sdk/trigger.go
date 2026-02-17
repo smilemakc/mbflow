@@ -144,7 +144,7 @@ func (t *TriggerAPI) Disable(ctx context.Context, triggerID string) error {
 
 // Trigger manually triggers a workflow execution.
 // This is typically used for manual or ad-hoc executions.
-func (t *TriggerAPI) Trigger(ctx context.Context, triggerID string, input map[string]interface{}) (*models.Execution, error) {
+func (t *TriggerAPI) Trigger(ctx context.Context, triggerID string, input map[string]any) (*models.Execution, error) {
 	if err := t.client.checkClosed(); err != nil {
 		return nil, err
 	}
@@ -259,7 +259,7 @@ func (t *TriggerAPI) disableEmbedded(ctx context.Context, triggerID string) erro
 	return errTriggersNotAvailable
 }
 
-func (t *TriggerAPI) triggerEmbedded(ctx context.Context, triggerID string, input map[string]interface{}) (*models.Execution, error) {
+func (t *TriggerAPI) triggerEmbedded(ctx context.Context, triggerID string, input map[string]any) (*models.Execution, error) {
 	return nil, errTriggersNotAvailable
 }
 
@@ -303,7 +303,7 @@ func (t *TriggerAPI) disableRemote(ctx context.Context, triggerID string) error 
 	return fmt.Errorf("remote mode not implemented yet")
 }
 
-func (t *TriggerAPI) triggerRemote(ctx context.Context, triggerID string, input map[string]interface{}) (*models.Execution, error) {
+func (t *TriggerAPI) triggerRemote(ctx context.Context, triggerID string, input map[string]any) (*models.Execution, error) {
 	// TODO: Implement HTTP API call
 	return nil, fmt.Errorf("remote mode not implemented yet")
 }
