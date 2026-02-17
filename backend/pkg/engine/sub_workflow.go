@@ -108,7 +108,7 @@ func (de *DAGExecutor) executeSubWorkflow(
 				defer func() { <-semaphore }()
 			}
 
-			result := de.executeSubWorkflowItem(cancelCtx, execState, node, childWF, cfg, idx, itm, opts)
+			result := de.executeSubWorkflowItem(cancelCtx, execState, node, childWF, cfg, idx, len(items), itm, opts)
 			results[idx] = result
 
 			if result.Status == "completed" {
@@ -214,6 +214,7 @@ func (de *DAGExecutor) executeSubWorkflowItem(
 	childWF *models.Workflow,
 	cfg *subWorkflowConfig,
 	index int,
+	totalItems int,
 	item interface{},
 	opts *ExecutionOptions,
 ) subWorkflowItemResult {
@@ -237,7 +238,7 @@ func (de *DAGExecutor) executeSubWorkflowItem(
 	childInput := map[string]interface{}{
 		cfg.ItemVar: item,
 		"index":     index,
-		"total":     len(parentState.Input),
+		"total":     totalItems,
 	}
 	// Inherit parent execution input as context
 	for k, v := range parentState.Input {
