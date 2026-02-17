@@ -41,7 +41,7 @@ type ErrorInfo struct {
 	StatusCode int
 	Code       string
 	Message    string
-	Details    map[string]interface{}
+	Details    map[string]any
 }
 
 // ParseErrorResponse reads and parses an error response body.
@@ -50,7 +50,7 @@ func ParseErrorResponse(statusCode int, body io.ReadCloser) *ErrorInfo {
 	var resp struct {
 		Code    string                 `json:"code"`
 		Message string                 `json:"message"`
-		Details map[string]interface{} `json:"details"`
+		Details map[string]any `json:"details"`
 	}
 	json.NewDecoder(body).Decode(&resp)
 	return &ErrorInfo{

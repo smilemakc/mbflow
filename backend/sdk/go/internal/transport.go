@@ -19,7 +19,7 @@ const (
 type Request struct {
 	Method  Method
 	Path    string
-	Body    interface{}
+	Body    any
 	Query   map[string]string
 	Headers map[string]string
 }
@@ -28,7 +28,7 @@ type Request struct {
 type Response struct {
 	StatusCode int
 	Body       io.ReadCloser
-	Data       interface{}
+	Data       any
 }
 
 // Transport is the interface that HTTP and gRPC clients implement.
