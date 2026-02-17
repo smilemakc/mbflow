@@ -17,14 +17,14 @@ func TestCredentials_Create(t *testing.T) {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
 		}
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{"id": "cred-1", "name": "API Key", "type": "api_key"})
+		json.NewEncoder(w).Encode(map[string]any{"id": "cred-1", "name": "API Key", "credential_type": "api_key"})
 	}))
 	defer server.Close()
 
 	client, _ := mbflow.NewClient(mbflow.WithHTTP(server.URL), mbflow.WithSystemKey("key"))
 	defer client.Close()
 
-	cred, err := client.Credentials().Create(context.Background(), &models.Credential{Name: "API Key", Type: "api_key"})
+	cred, err := client.Credentials().Create(context.Background(), &models.Credential{Name: "API Key", CredentialType: "api_key"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

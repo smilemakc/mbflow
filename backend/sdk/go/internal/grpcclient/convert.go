@@ -158,12 +158,31 @@ func CredentialFromProto(pc *pb.Credential) *models.Credential {
 	if pc == nil {
 		return nil
 	}
-	return &models.Credential{
-		ID:          pc.Id,
-		Name:        pc.Name,
-		Type:        pc.CredentialType,
-		Description: pc.Description,
+	cred := &models.Credential{
+		ID:             pc.Id,
+		Name:           pc.Name,
+		CredentialType: pc.CredentialType,
+		Description:    pc.Description,
+		Status:         pc.Status,
+		Provider:       pc.Provider,
+		UsageCount:     pc.UsageCount,
+		Fields:         pc.Fields,
 	}
+	if pc.ExpiresAt != nil {
+		t := pc.ExpiresAt.AsTime()
+		cred.ExpiresAt = &t
+	}
+	if pc.LastUsedAt != nil {
+		t := pc.LastUsedAt.AsTime()
+		cred.LastUsedAt = &t
+	}
+	if pc.CreatedAt != nil {
+		cred.CreatedAt = pc.CreatedAt.AsTime()
+	}
+	if pc.UpdatedAt != nil {
+		cred.UpdatedAt = pc.UpdatedAt.AsTime()
+	}
+	return cred
 }
 
 // --- Models → Proto ---

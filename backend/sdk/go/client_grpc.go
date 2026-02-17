@@ -282,7 +282,7 @@ func (c *grpcCredentialService) Create(ctx context.Context, cred *models.Credent
 	resp, err := c.tr.Client().CreateCredential(ctx, &pb.CreateCredentialRequest{
 		Name:           cred.Name,
 		Description:    cred.Description,
-		CredentialType: cred.Type,
+		CredentialType: cred.CredentialType,
 		Data:           cred.Data,
 	})
 	if err != nil {
