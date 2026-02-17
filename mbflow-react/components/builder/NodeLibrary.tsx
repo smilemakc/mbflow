@@ -16,6 +16,7 @@ import {
     Globe,
     GripVertical,
     Lock,
+    Network,
     Search,
     Send,
     Sheet,
@@ -129,6 +130,12 @@ const nodeDefinitions: NodeDefinition[] = [
         type: NodeType.MERGE,
         labelKey: 'merge',
         icon: <GitMerge size={16} className="text-violet-500"/>,
+        category: 'logic'
+    },
+    {
+        type: NodeType.SUB_WORKFLOW,
+        labelKey: 'subWorkflow',
+        icon: <Network size={16} className="text-indigo-500"/>,
         category: 'logic'
     },
 

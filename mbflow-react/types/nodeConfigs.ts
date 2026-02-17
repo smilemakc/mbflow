@@ -260,6 +260,15 @@ export interface GoogleSheetsNodeConfig extends BaseNodeConfig {
   columns?: string;  // Comma-separated list of field names to extract from objects
 }
 
+// Sub-Workflow Node
+export interface SubWorkflowNodeConfig extends BaseNodeConfig {
+  workflow_id: string;
+  for_each: string;
+  item_var?: string;
+  max_parallelism?: number;
+  on_error?: "fail_fast" | "collect_partial";
+}
+
 // Google Drive Node
 export interface GoogleDriveNodeConfig extends BaseNodeConfig {
   operation: "create_spreadsheet" | "create_folder" | "list_files" | "delete" | "move" | "copy";
@@ -298,7 +307,8 @@ export type NodeConfig =
   | RSSParserNodeConfig
   | CSVToJSONNodeConfig
   | GoogleSheetsNodeConfig
-  | GoogleDriveNodeConfig;
+  | GoogleDriveNodeConfig
+  | SubWorkflowNodeConfig;
 
 // NodeTypeValues is deprecated - use NodeType enum from '@/types' instead
 // Kept as alias for backward compatibility during migration
@@ -448,6 +458,13 @@ export const DEFAULT_NODE_CONFIGS: Record<string, NodeConfig> = {
     destination_folder_id: "",
     max_results: 100,
     order_by: "modifiedTime desc",
+  },
+  [NodeType.SUB_WORKFLOW]: {  // 'sub_workflow'
+    workflow_id: "",
+    for_each: "input.items",
+    item_var: "item",
+    max_parallelism: 0,
+    on_error: "fail_fast",
   },
 };
 
@@ -723,6 +740,14 @@ export const NODE_TYPE_METADATA: Record<string, NodeTypeMetadata> = {
     color: "#1A73E8",
     category: "actions",
   },
+  [NodeType.SUB_WORKFLOW]: {  // 'sub_workflow'
+    type: NodeType.SUB_WORKFLOW,
+    label: "Sub-Workflow",
+    description: "Fan-out execution over an array using a child workflow",
+    icon: "Network",
+    color: "#6366F1",
+    category: "logic",
+  },
 };
 
 // Node output schemas for variable autocomplete
@@ -905,5 +930,28 @@ export const NODE_OUTPUT_SCHEMAS: Record<string, Record<string, any>> = {
     destination_file_id: { type: "string", description: "Destination folder ID (for move/copy)" },
     metadata: { type: "object", description: "Additional metadata" },
     duration_ms: { type: "number", description: "Operation duration in milliseconds" },
+  },
+  [NodeType.SUB_WORKFLOW]: {  // 'sub_workflow'
+    items: {
+      type: "array",
+      description: "Array of child execution results",
+      items: {
+        index: { type: "number", description: "Item index" },
+        status: { type: "string", description: "Execution status (completed/failed/cancelled)" },
+        execution_id: { type: "string", description: "Child execution ID" },
+        output: { type: "any", description: "Child workflow output" },
+        error: { type: "string", description: "Error message if failed" },
+        duration_ms: { type: "number", description: "Execution duration" },
+      }
+    },
+    summary: {
+      type: "object",
+      description: "Execution summary",
+      properties: {
+        total: { type: "number", description: "Total items" },
+        completed: { type: "number", description: "Completed items" },
+        failed: { type: "number", description: "Failed items" },
+      }
+    },
   },
 };
