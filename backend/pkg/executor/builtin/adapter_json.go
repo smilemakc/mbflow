@@ -37,7 +37,7 @@ func NewStringToJsonExecutor() *StringToJsonExecutor {
 //   - result: parsed JSON object/array
 //   - string_length: original string length
 //   - duration_ms: execution time
-func (e *StringToJsonExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *StringToJsonExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get configuration
@@ -58,7 +58,7 @@ func (e *StringToJsonExecutor) Execute(ctx context.Context, config map[string]in
 	}
 
 	// Parse JSON
-	var result interface{}
+	var result any
 	decoder := json.NewDecoder(strings.NewReader(jsonStr))
 	decoder.UseNumber() // Preserve number precision
 
@@ -71,7 +71,7 @@ func (e *StringToJsonExecutor) Execute(ctx context.Context, config map[string]in
 		result = nil
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":       true,
 		"result":        result,
 		"string_length": originalLength,
@@ -80,19 +80,19 @@ func (e *StringToJsonExecutor) Execute(ctx context.Context, config map[string]in
 }
 
 // Validate validates the configuration
-func (e *StringToJsonExecutor) Validate(config map[string]interface{}) error {
+func (e *StringToJsonExecutor) Validate(config map[string]any) error {
 	// No specific validation needed - all config fields have defaults
 	return nil
 }
 
 // extractString extracts string from various input types
-func (e *StringToJsonExecutor) extractString(input interface{}) (string, error) {
+func (e *StringToJsonExecutor) extractString(input any) (string, error) {
 	switch v := input.(type) {
 	case string:
 		return v, nil
 	case []byte:
 		return string(v), nil
-	case map[string]interface{}:
+	case map[string]any:
 		// Try to extract from "data" or "json" field
 		if data, ok := v["data"].(string); ok {
 			return data, nil
@@ -134,7 +134,7 @@ func NewJsonToStringExecutor() *JsonToStringExecutor {
 //   - string_length: resulting string length
 //   - pretty: whether output is pretty-printed
 //   - duration_ms: execution time
-func (e *JsonToStringExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *JsonToStringExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get configuration
@@ -144,7 +144,7 @@ func (e *JsonToStringExecutor) Execute(ctx context.Context, config map[string]in
 	sortKeys := e.GetBoolDefault(config, "sort_keys", false)
 
 	// Sort keys if requested
-	var data interface{} = input
+	var data any = input
 	if sortKeys {
 		data = e.sortMapKeys(input)
 	}
@@ -163,7 +163,7 @@ func (e *JsonToStringExecutor) Execute(ctx context.Context, config map[string]in
 		return nil, fmt.Errorf("json_to_string: serialization failed: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":       true,
 		"result":        result,
 		"string_length": len(result),
@@ -173,13 +173,13 @@ func (e *JsonToStringExecutor) Execute(ctx context.Context, config map[string]in
 }
 
 // Validate validates the configuration
-func (e *JsonToStringExecutor) Validate(config map[string]interface{}) error {
+func (e *JsonToStringExecutor) Validate(config map[string]any) error {
 	// No specific validation needed - all config fields have defaults
 	return nil
 }
 
 // marshalCompact marshals JSON without indentation
-func (e *JsonToStringExecutor) marshalCompact(data interface{}, escapeHTML bool) (string, error) {
+func (e *JsonToStringExecutor) marshalCompact(data any, escapeHTML bool) (string, error) {
 	var buf bytes.Buffer
 	encoder := json.NewEncoder(&buf)
 	encoder.SetEscapeHTML(escapeHTML)
@@ -194,7 +194,7 @@ func (e *JsonToStringExecutor) marshalCompact(data interface{}, escapeHTML bool)
 }
 
 // marshalPretty marshals JSON with indentation
-func (e *JsonToStringExecutor) marshalPretty(data interface{}, indent string, escapeHTML bool) (string, error) {
+func (e *JsonToStringExecutor) marshalPretty(data any, indent string, escapeHTML bool) (string, error) {
 	var buf bytes.Buffer
 	encoder := json.NewEncoder(&buf)
 	encoder.SetEscapeHTML(escapeHTML)
@@ -210,9 +210,9 @@ func (e *JsonToStringExecutor) marshalPretty(data interface{}, indent string, es
 }
 
 // sortMapKeys recursively sorts map keys
-func (e *JsonToStringExecutor) sortMapKeys(data interface{}) interface{} {
+func (e *JsonToStringExecutor) sortMapKeys(data any) any {
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		// Create sorted map
 		keys := make([]string, 0, len(v))
 		for k := range v {
@@ -220,15 +220,15 @@ func (e *JsonToStringExecutor) sortMapKeys(data interface{}) interface{} {
 		}
 		sort.Strings(keys)
 
-		sorted := make(map[string]interface{}, len(v))
+		sorted := make(map[string]any, len(v))
 		for _, k := range keys {
 			sorted[k] = e.sortMapKeys(v[k]) // Recursively sort nested maps
 		}
 		return sorted
 
-	case []interface{}:
+	case []any:
 		// Recursively sort maps in arrays
-		sorted := make([]interface{}, len(v))
+		sorted := make([]any, len(v))
 		for i, item := range v {
 			sorted[i] = e.sortMapKeys(item)
 		}

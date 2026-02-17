@@ -43,13 +43,13 @@ func (h *NodeHandlers) HandleAddNode(c *gin.Context) {
 	}
 
 	var req struct {
-		ID          string                 `json:"id" binding:"required"`
-		Name        string                 `json:"name" binding:"required"`
-		Type        string                 `json:"type" binding:"required"`
-		Description string                 `json:"description,omitempty"`
-		Config      map[string]interface{} `json:"config"`
-		Position    *models.Position       `json:"position,omitempty"`
-		Metadata    map[string]interface{} `json:"metadata,omitempty"`
+		ID          string           `json:"id" binding:"required"`
+		Name        string           `json:"name" binding:"required"`
+		Type        string           `json:"type" binding:"required"`
+		Description string           `json:"description,omitempty"`
+		Config      map[string]any   `json:"config"`
+		Position    *models.Position `json:"position,omitempty"`
+		Metadata    map[string]any   `json:"metadata,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
@@ -210,12 +210,12 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 	}
 
 	var req struct {
-		Name        string                 `json:"name,omitempty"`
-		Type        string                 `json:"type,omitempty"`
-		Description string                 `json:"description,omitempty"`
-		Config      map[string]interface{} `json:"config,omitempty"`
-		Position    *models.Position       `json:"position,omitempty"`
-		Metadata    map[string]interface{} `json:"metadata,omitempty"`
+		Name        string           `json:"name,omitempty"`
+		Type        string           `json:"type,omitempty"`
+		Description string           `json:"description,omitempty"`
+		Config      map[string]any   `json:"config,omitempty"`
+		Position    *models.Position `json:"position,omitempty"`
+		Metadata    map[string]any   `json:"metadata,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {

@@ -6,69 +6,69 @@ import (
 )
 
 // qualityAnalysisSchema defines the expected structure for quality analysis output
-var qualityAnalysisSchema = map[string]interface{}{
+var qualityAnalysisSchema = map[string]any{
 	"type": "object",
-	"properties": map[string]interface{}{
-		"score": map[string]interface{}{
+	"properties": map[string]any{
+		"score": map[string]any{
 			"type":        "integer",
 			"minimum":     0,
 			"maximum":     100,
 			"description": "Overall content quality score from 0 to 100",
 		},
-		"issues": map[string]interface{}{
+		"issues": map[string]any{
 			"type": "array",
-			"items": map[string]interface{}{
+			"items": map[string]any{
 				"type": "string",
 			},
 			"description": "List of identified issues with the content",
 		},
-		"strengths": map[string]interface{}{
+		"strengths": map[string]any{
 			"type": "array",
-			"items": map[string]interface{}{
+			"items": map[string]any{
 				"type": "string",
 			},
 			"description": "List of content strengths and positive aspects",
 		},
-		"recommendations": map[string]interface{}{
+		"recommendations": map[string]any{
 			"type": "array",
-			"items": map[string]interface{}{
+			"items": map[string]any{
 				"type": "string",
 			},
 			"description": "Specific recommendations for improvement",
 		},
 	},
-	"required": []interface{}{"score", "issues"},
+	"required": []any{"score", "issues"},
 }
 
 // seoMetadataSchema defines the expected structure for SEO metadata output
-var seoMetadataSchema = map[string]interface{}{
+var seoMetadataSchema = map[string]any{
 	"type": "object",
-	"properties": map[string]interface{}{
-		"title": map[string]interface{}{
+	"properties": map[string]any{
+		"title": map[string]any{
 			"type":        "string",
 			"maxLength":   60,
 			"description": "SEO-optimized title (max 60 characters)",
 		},
-		"meta_description": map[string]interface{}{
+		"meta_description": map[string]any{
 			"type":        "string",
 			"maxLength":   160,
 			"description": "Meta description for search engines (max 160 characters)",
 		},
-		"keywords": map[string]interface{}{
+		"keywords": map[string]any{
 			"type": "array",
-			"items": map[string]interface{}{
+			"items": map[string]any{
 				"type": "string",
 			},
 			"maxItems":    10,
 			"description": "List of relevant SEO keywords (max 10)",
 		},
-		"slug": map[string]interface{}{
+		"slug": map[string]any{
 			"type":        "string",
 			"pattern":     "^[a-z0-9-]+$",
 			"description": "URL-friendly slug (lowercase, numbers, hyphens only)",
 		},
 	},
-	"required": []interface{}{"title", "meta_description", "keywords", "slug"},
+	"required": []any{"title", "meta_description", "keywords", "slug"},
 }
 
 // getQualityAnalysisSchemaJSON returns the quality analysis schema as JSON string
@@ -90,7 +90,7 @@ func getSEOMetadataSchemaJSON() string {
 }
 
 // validateQualityAnalysis validates quality analysis output against schema
-func validateQualityAnalysis(data map[string]interface{}) error {
+func validateQualityAnalysis(data map[string]any) error {
 	score, ok := data["score"]
 	if !ok {
 		return fmt.Errorf("missing required field: score")
@@ -113,7 +113,7 @@ func validateQualityAnalysis(data map[string]interface{}) error {
 }
 
 // validateSEOMetadata validates SEO metadata output against schema
-func validateSEOMetadata(data map[string]interface{}) error {
+func validateSEOMetadata(data map[string]any) error {
 	requiredFields := []string{"title", "meta_description", "keywords", "slug"}
 
 	for _, field := range requiredFields {

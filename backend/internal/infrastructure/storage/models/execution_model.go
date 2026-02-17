@@ -39,7 +39,7 @@ func (ExecutionModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (e *ExecutionModel) BeforeInsert(ctx interface{}) error {
+func (e *ExecutionModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	e.CreatedAt = now
 	e.UpdatedAt = now
@@ -59,7 +59,7 @@ func (e *ExecutionModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (e *ExecutionModel) BeforeUpdate(ctx interface{}) error {
+func (e *ExecutionModel) BeforeUpdate(ctx any) error {
 	e.UpdatedAt = time.Now()
 	return nil
 }

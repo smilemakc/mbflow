@@ -40,7 +40,7 @@ func (UserModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and defaults
-func (u *UserModel) BeforeInsert(ctx interface{}) error {
+func (u *UserModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	u.CreatedAt = now
 	u.UpdatedAt = now
@@ -54,7 +54,7 @@ func (u *UserModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (u *UserModel) BeforeUpdate(ctx interface{}) error {
+func (u *UserModel) BeforeUpdate(ctx any) error {
 	u.UpdatedAt = time.Now()
 	return nil
 }
@@ -102,7 +102,7 @@ func (SessionModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (s *SessionModel) BeforeInsert(ctx interface{}) error {
+func (s *SessionModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	s.CreatedAt = now
 	s.LastActivityAt = now
@@ -148,7 +148,7 @@ func (RoleModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and defaults
-func (r *RoleModel) BeforeInsert(ctx interface{}) error {
+func (r *RoleModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	r.CreatedAt = now
 	r.UpdatedAt = now
@@ -165,7 +165,7 @@ func (r *RoleModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (r *RoleModel) BeforeUpdate(ctx interface{}) error {
+func (r *RoleModel) BeforeUpdate(ctx any) error {
 	r.UpdatedAt = time.Now()
 	return nil
 }
@@ -200,7 +200,7 @@ func (UserRoleModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (ur *UserRoleModel) BeforeInsert(ctx interface{}) error {
+func (ur *UserRoleModel) BeforeInsert(ctx any) error {
 	ur.AssignedAt = time.Now()
 	return nil
 }
@@ -226,7 +226,7 @@ func (AuditLogModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps
-func (a *AuditLogModel) BeforeInsert(ctx interface{}) error {
+func (a *AuditLogModel) BeforeInsert(ctx any) error {
 	a.CreatedAt = time.Now()
 	if a.ID == uuid.Nil {
 		a.ID = uuid.New()
@@ -247,7 +247,7 @@ func ToUserDomain(u *UserModel, roles []string) *pkgmodels.User {
 		return nil
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if u.Metadata != nil {
 		metadata = u.Metadata
 	}

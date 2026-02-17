@@ -208,7 +208,7 @@ func TestLLMMessage_WithMetadata(t *testing.T) {
 	msg := LLMMessage{
 		Role:    "assistant",
 		Content: "Response",
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"model":       "gpt-4",
 			"temperature": 0.7,
 		},
@@ -241,10 +241,10 @@ func TestFunctionDefinition_Builtin(t *testing.T) {
 		Type:        FunctionTypeBuiltin,
 		Name:        "http_request",
 		Description: "Make HTTP request",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"url": map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"url": map[string]any{"type": "string"},
 			},
 		},
 		BuiltinName: "http",
@@ -267,10 +267,10 @@ func TestFunctionDefinition_SubWorkflow(t *testing.T) {
 		Type:        FunctionTypeSubWorkflow,
 		Name:        "process_order",
 		Description: "Process customer order",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"order_id": map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"order_id": map[string]any{"type": "string"},
 			},
 		},
 		WorkflowID: "wf_123",
@@ -299,10 +299,10 @@ func TestFunctionDefinition_CustomCode_JavaScript(t *testing.T) {
 		Type:        FunctionTypeCustomCode,
 		Name:        "calculate_total",
 		Description: "Calculate order total",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"items": map[string]interface{}{"type": "array"},
+			"properties": map[string]any{
+				"items": map[string]any{"type": "array"},
 			},
 		},
 		Language: "javascript",
@@ -326,10 +326,10 @@ func TestFunctionDefinition_CustomCode_Python(t *testing.T) {
 		Type:        FunctionTypeCustomCode,
 		Name:        "analyze_data",
 		Description: "Analyze dataset",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"data": map[string]interface{}{"type": "array"},
+			"properties": map[string]any{
+				"data": map[string]any{"type": "array"},
 			},
 		},
 		Language: "python",
@@ -353,17 +353,17 @@ func TestFunctionDefinition_OpenAPI(t *testing.T) {
 		Type:        FunctionTypeOpenAPI,
 		Name:        "create_user",
 		Description: "Create new user via API",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"name":  map[string]interface{}{"type": "string"},
-				"email": map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"name":  map[string]any{"type": "string"},
+				"email": map[string]any{"type": "string"},
 			},
 		},
 		OpenAPISpec: "https://api.example.com/openapi.json",
 		OperationID: "createUser",
 		BaseURL:     "https://api.example.com",
-		AuthConfig: map[string]interface{}{
+		AuthConfig: map[string]any{
 			"type":  "bearer",
 			"token": "sk-123",
 		},
@@ -390,10 +390,10 @@ func TestToolExecutionResult_Success(t *testing.T) {
 	result := ToolExecutionResult{
 		ToolCallID:    "call_123",
 		FunctionName:  "get_weather",
-		Result:        map[string]interface{}{"temperature": 22, "conditions": "sunny"},
+		Result:        map[string]any{"temperature": 22, "conditions": "sunny"},
 		Error:         "",
 		ExecutionTime: 150,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"cache_hit": false,
 		},
 	}
@@ -439,9 +439,9 @@ func TestToolExecutionResult_WithMetadata(t *testing.T) {
 	result := ToolExecutionResult{
 		ToolCallID:    "call_789",
 		FunctionName:  "http_request",
-		Result:        map[string]interface{}{"status": 200},
+		Result:        map[string]any{"status": 200},
 		ExecutionTime: 250,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"retries":       2,
 			"cache_hit":     true,
 			"response_size": 1024,
@@ -545,7 +545,7 @@ func TestConversationHistory_WithToolCalls(t *testing.T) {
 			{
 				ToolCallID:    "call_123",
 				FunctionName:  "get_weather",
-				Result:        map[string]interface{}{"temperature": 22, "conditions": "sunny"},
+				Result:        map[string]any{"temperature": 22, "conditions": "sunny"},
 				ExecutionTime: 150,
 			},
 		},
@@ -620,10 +620,10 @@ func TestToolCalling_CompleteWorkflow(t *testing.T) {
 			Type:        FunctionTypeBuiltin,
 			Name:        "get_weather",
 			Description: "Get weather information",
-			Parameters: map[string]interface{}{
+			Parameters: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"location": map[string]interface{}{"type": "string"},
+				"properties": map[string]any{
+					"location": map[string]any{"type": "string"},
 				},
 			},
 			BuiltinName: "weather_api",
@@ -670,13 +670,13 @@ func TestToolCalling_CompleteWorkflow(t *testing.T) {
 			{
 				ToolCallID:    "call_1",
 				FunctionName:  "get_weather",
-				Result:        map[string]interface{}{"temperature": 22},
+				Result:        map[string]any{"temperature": 22},
 				ExecutionTime: 150,
 			},
 			{
 				ToolCallID:    "call_2",
 				FunctionName:  "process_data",
-				Result:        map[string]interface{}{"sum": 6},
+				Result:        map[string]any{"sum": 6},
 				ExecutionTime: 200,
 			},
 		},

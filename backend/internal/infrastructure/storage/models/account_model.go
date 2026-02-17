@@ -32,7 +32,7 @@ func (BillingAccountModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and defaults
-func (b *BillingAccountModel) BeforeInsert(ctx interface{}) error {
+func (b *BillingAccountModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	b.CreatedAt = now
 	b.UpdatedAt = now
@@ -49,7 +49,7 @@ func (b *BillingAccountModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (b *BillingAccountModel) BeforeUpdate(ctx interface{}) error {
+func (b *BillingAccountModel) BeforeUpdate(ctx any) error {
 	b.UpdatedAt = time.Now()
 	return nil
 }
@@ -98,7 +98,7 @@ func (TransactionModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and defaults
-func (t *TransactionModel) BeforeInsert(ctx interface{}) error {
+func (t *TransactionModel) BeforeInsert(ctx any) error {
 	t.CreatedAt = time.Now()
 	if t.ID == uuid.Nil {
 		t.ID = uuid.New()
@@ -166,7 +166,7 @@ func ToTransactionDomain(t *TransactionModel) *pkgmodels.Transaction {
 		return nil
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if t.Metadata != nil {
 		metadata = t.Metadata
 	}

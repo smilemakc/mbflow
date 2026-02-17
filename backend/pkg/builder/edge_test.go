@@ -275,7 +275,7 @@ func TestWithEdgeMetadata_VariousTypes(t *testing.T) {
 		WithEdgeMetadata("int", 42),
 		WithEdgeMetadata("float", 3.14),
 		WithEdgeMetadata("bool", true),
-		WithEdgeMetadata("map", map[string]interface{}{"nested": "value"}),
+		WithEdgeMetadata("map", map[string]any{"nested": "value"}),
 		WithEdgeMetadata("slice", []string{"a", "b", "c"}),
 	).Build()
 

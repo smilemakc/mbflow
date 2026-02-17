@@ -12,7 +12,7 @@ func TestConditionCache_GetPut(t *testing.T) {
 	cache := NewConditionCache(3)
 
 	// Compile a test expression
-	program, err := expr.Compile("x > 5", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
+	program, err := expr.Compile("x > 5", expr.Env(map[string]any{"x": 0}), expr.AsBool())
 	if err != nil {
 		t.Fatalf("failed to compile expression: %v", err)
 	}
@@ -40,9 +40,9 @@ func TestConditionCache_Eviction(t *testing.T) {
 	cache := NewConditionCache(2) // Capacity of 2
 
 	// Compile test expressions
-	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
-	prog2, _ := expr.Compile("x > 2", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
-	prog3, _ := expr.Compile("x > 3", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
+	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]any{"x": 0}), expr.AsBool())
+	prog2, _ := expr.Compile("x > 2", expr.Env(map[string]any{"x": 0}), expr.AsBool())
+	prog3, _ := expr.Compile("x > 3", expr.Env(map[string]any{"x": 0}), expr.AsBool())
 
 	// Add first two
 	cache.Put("x > 1", prog1)
@@ -81,9 +81,9 @@ func TestConditionCache_LRUBehavior(t *testing.T) {
 	t.Parallel()
 	cache := NewConditionCache(2)
 
-	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
-	prog2, _ := expr.Compile("x > 2", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
-	prog3, _ := expr.Compile("x > 3", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
+	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]any{"x": 0}), expr.AsBool())
+	prog2, _ := expr.Compile("x > 2", expr.Env(map[string]any{"x": 0}), expr.AsBool())
+	prog3, _ := expr.Compile("x > 3", expr.Env(map[string]any{"x": 0}), expr.AsBool())
 
 	// Add two items
 	cache.Put("x > 1", prog1)
@@ -118,8 +118,8 @@ func TestConditionCache_UpdateExisting(t *testing.T) {
 	t.Parallel()
 	cache := NewConditionCache(3)
 
-	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
-	prog2, _ := expr.Compile("x > 2", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
+	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]any{"x": 0}), expr.AsBool())
+	prog2, _ := expr.Compile("x > 2", expr.Env(map[string]any{"x": 0}), expr.AsBool())
 
 	// Add initial program
 	cache.Put("test", prog1)
@@ -146,8 +146,8 @@ func TestConditionCache_Clear(t *testing.T) {
 	t.Parallel()
 	cache := NewConditionCache(10)
 
-	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
-	prog2, _ := expr.Compile("x > 2", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
+	prog1, _ := expr.Compile("x > 1", expr.Env(map[string]any{"x": 0}), expr.AsBool())
+	prog2, _ := expr.Compile("x > 2", expr.Env(map[string]any{"x": 0}), expr.AsBool())
 
 	cache.Put("x > 1", prog1)
 	cache.Put("x > 2", prog2)
@@ -172,7 +172,7 @@ func TestConditionCache_CompileAndCache(t *testing.T) {
 	t.Parallel()
 	cache := NewConditionCache(10)
 
-	env := map[string]interface{}{"x": 10}
+	env := map[string]any{"x": 10}
 
 	// First call should compile and cache
 	prog1, err := cache.CompileAndCache("x > 5", env)
@@ -211,7 +211,7 @@ func TestConditionCache_ThreadSafety(t *testing.T) {
 
 			for j := 0; j < 100; j++ {
 				condition := "x > 5"
-				prog, _ := expr.Compile(condition, expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
+				prog, _ := expr.Compile(condition, expr.Env(map[string]any{"x": 0}), expr.AsBool())
 
 				// Put
 				cache.Put(condition, prog)
@@ -220,7 +220,7 @@ func TestConditionCache_ThreadSafety(t *testing.T) {
 				cache.Get(condition)
 
 				// CompileAndCache
-				cache.CompileAndCache(condition, map[string]interface{}{"x": 0})
+				cache.CompileAndCache(condition, map[string]any{"x": 0})
 			}
 		}(i)
 	}
@@ -234,7 +234,7 @@ func TestConditionCache_ZeroCapacity(t *testing.T) {
 	t.Parallel()
 	cache := NewConditionCache(0) // Should default to 100
 
-	prog, _ := expr.Compile("x > 5", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
+	prog, _ := expr.Compile("x > 5", expr.Env(map[string]any{"x": 0}), expr.AsBool())
 	cache.Put("x > 5", prog)
 
 	_, found := cache.Get("x > 5")
@@ -247,7 +247,7 @@ func TestConditionCache_NegativeCapacity(t *testing.T) {
 	t.Parallel()
 	cache := NewConditionCache(-5) // Should default to 100
 
-	prog, _ := expr.Compile("x > 5", expr.Env(map[string]interface{}{"x": 0}), expr.AsBool())
+	prog, _ := expr.Compile("x > 5", expr.Env(map[string]any{"x": 0}), expr.AsBool())
 	cache.Put("x > 5", prog)
 
 	_, found := cache.Get("x > 5")

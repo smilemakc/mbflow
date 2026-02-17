@@ -129,7 +129,7 @@ func TestHTTPCallbackObserver_Filter(t *testing.T) {
 
 func TestHTTPCallbackObserver_OnEvent(t *testing.T) {
 	t.Run("successful POST request", func(t *testing.T) {
-		var receivedPayload map[string]interface{}
+		var receivedPayload map[string]any
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "POST", r.Method)
 			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
@@ -207,7 +207,7 @@ func TestHTTPCallbackObserver_OnEvent(t *testing.T) {
 	})
 
 	t.Run("event with all fields", func(t *testing.T) {
-		var receivedPayload map[string]interface{}
+		var receivedPayload map[string]any
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, _ := io.ReadAll(r.Body)
 			json.Unmarshal(body, &receivedPayload)
@@ -236,10 +236,10 @@ func TestHTTPCallbackObserver_OnEvent(t *testing.T) {
 			NodeCount:   &nodeCount,
 			Status:      "completed",
 			DurationMs:  &durationMs,
-			Input: map[string]interface{}{
+			Input: map[string]any{
 				"url": "https://api.example.com",
 			},
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"status": 200,
 			},
 		}
@@ -257,7 +257,7 @@ func TestHTTPCallbackObserver_OnEvent(t *testing.T) {
 	})
 
 	t.Run("event with error", func(t *testing.T) {
-		var receivedPayload map[string]interface{}
+		var receivedPayload map[string]any
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, _ := io.ReadAll(r.Body)
 			json.Unmarshal(body, &receivedPayload)
@@ -517,10 +517,10 @@ func TestHTTPCallbackObserver_buildPayload(t *testing.T) {
 			Status:      "completed",
 			DurationMs:  &durationMs,
 			Error:       errors.New("test error"),
-			Input: map[string]interface{}{
+			Input: map[string]any{
 				"data": "input",
 			},
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"result": "output",
 			},
 		}

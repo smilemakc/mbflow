@@ -15,12 +15,12 @@ type ExecutionEvent struct {
 	NodeCount   int
 	Status      string
 	Error       error
-	Output      interface{}
+	Output      any
 	DurationMs  int64
 	Message     string
 	Timestamp   time.Time
-	Input       map[string]interface{}
-	Variables   map[string]interface{}
+	Input       map[string]any
+	Variables   map[string]any
 
 	// Loop-related fields
 	LoopEdgeID    string `json:"-"`

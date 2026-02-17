@@ -90,7 +90,7 @@ func (e *LLMExecutor) RegisterProvider(providerType models.LLMProvider, provider
 // directly in the request when use_input_directly is enabled in config.
 //
 // See: executor.Executor for implementation details.
-func (e *LLMExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *LLMExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Parse config into LLMRequest
 	req, err := e.parseConfig(config)
 	if err != nil {
@@ -133,7 +133,7 @@ func (e *LLMExecutor) Execute(ctx context.Context, config map[string]interface{}
 }
 
 // Validate validates the LLM executor configuration.
-func (e *LLMExecutor) Validate(config map[string]interface{}) error {
+func (e *LLMExecutor) Validate(config map[string]any) error {
 	// Validate required fields
 	if err := e.ValidateRequired(config, "provider", "model", "prompt", "api_key"); err != nil {
 		return err
@@ -179,14 +179,14 @@ func (e *LLMExecutor) Validate(config map[string]interface{}) error {
 	}
 
 	// Validate response_format if present
-	if responseFormat, ok := config["response_format"].(map[string]interface{}); ok {
+	if responseFormat, ok := config["response_format"].(map[string]any); ok {
 		if err := e.validateResponseFormat(responseFormat); err != nil {
 			return err
 		}
 	}
 
 	// Validate tools if present
-	if tools, ok := config["tools"].([]interface{}); ok {
+	if tools, ok := config["tools"].([]any); ok {
 		if err := e.validateTools(tools); err != nil {
 			return err
 		}
@@ -196,7 +196,7 @@ func (e *LLMExecutor) Validate(config map[string]interface{}) error {
 }
 
 // parseConfig parses the executor config into an LLMRequest.
-func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMRequest, error) {
+func (e *LLMExecutor) parseConfig(config map[string]any) (*models.LLMRequest, error) {
 	req := &models.LLMRequest{}
 
 	// Required fields
@@ -227,21 +227,21 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 	}
 
 	// Arrays
-	if imageURLs, ok := config["image_url"].([]interface{}); ok {
+	if imageURLs, ok := config["image_url"].([]any); ok {
 		req.ImageURLs = e.toStringSlice(imageURLs)
 	}
-	if imageIDs, ok := config["image_id"].([]interface{}); ok {
+	if imageIDs, ok := config["image_id"].([]any); ok {
 		req.ImageIDs = e.toStringSlice(imageIDs)
 	}
-	if fileIDs, ok := config["file_id"].([]interface{}); ok {
+	if fileIDs, ok := config["file_id"].([]any); ok {
 		req.FileIDs = e.toStringSlice(fileIDs)
 	}
-	if stopSeqs, ok := config["stop_sequences"].([]interface{}); ok {
+	if stopSeqs, ok := config["stop_sequences"].([]any); ok {
 		req.StopSequences = e.toStringSlice(stopSeqs)
 	}
 
 	// Parse file attachments
-	if files, ok := config["files"].([]interface{}); ok {
+	if files, ok := config["files"].([]any); ok {
 		parsedFiles, err := e.parseFiles(files)
 		if err != nil {
 			return nil, err
@@ -250,7 +250,7 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 	}
 
 	// Tools
-	if tools, ok := config["tools"].([]interface{}); ok {
+	if tools, ok := config["tools"].([]any); ok {
 		parsedTools, err := e.parseTools(tools)
 		if err != nil {
 			return nil, err
@@ -259,7 +259,7 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 	}
 
 	// Response format
-	if responseFormat, ok := config["response_format"].(map[string]interface{}); ok {
+	if responseFormat, ok := config["response_format"].(map[string]any); ok {
 		parsedFormat, err := e.parseResponseFormat(responseFormat)
 		if err != nil {
 			return nil, err
@@ -290,7 +290,7 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 	}
 
 	// Parse reasoning
-	if reasoning, ok := config["reasoning"].(map[string]interface{}); ok {
+	if reasoning, ok := config["reasoning"].(map[string]any); ok {
 		req.Reasoning = &models.LLMReasoningInfo{}
 		if effort, ok := reasoning["effort"].(string); ok {
 			req.Reasoning.Effort = effort
@@ -298,7 +298,7 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 	}
 
 	// Parse hosted tools
-	if hostedTools, ok := config["hosted_tools"].([]interface{}); ok {
+	if hostedTools, ok := config["hosted_tools"].([]any); ok {
 		parsedHostedTools, err := e.parseHostedTools(hostedTools)
 		if err != nil {
 			return nil, err
@@ -307,7 +307,7 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 	}
 
 	// Parse tool calling configuration
-	if toolCallConfig, ok := config["tool_call_config"].(map[string]interface{}); ok {
+	if toolCallConfig, ok := config["tool_call_config"].(map[string]any); ok {
 		parsedConfig, err := e.parseToolCallConfig(toolCallConfig)
 		if err != nil {
 			return nil, err
@@ -316,7 +316,7 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 	}
 
 	// Parse messages (conversation history)
-	if messages, ok := config["messages"].([]interface{}); ok {
+	if messages, ok := config["messages"].([]any); ok {
 		parsedMessages, err := e.parseMessages(messages)
 		if err != nil {
 			return nil, err
@@ -325,7 +325,7 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 	}
 
 	// Parse functions (extended function definitions)
-	if functions, ok := config["functions"].([]interface{}); ok {
+	if functions, ok := config["functions"].([]any); ok {
 		parsedFunctions, err := e.parseFunctions(functions)
 		if err != nil {
 			return nil, err
@@ -337,11 +337,11 @@ func (e *LLMExecutor) parseConfig(config map[string]interface{}) (*models.LLMReq
 }
 
 // parseTools parses tools configuration into LLMTool structs.
-func (e *LLMExecutor) parseTools(toolsConfig []interface{}) ([]models.LLMTool, error) {
+func (e *LLMExecutor) parseTools(toolsConfig []any) ([]models.LLMTool, error) {
 	tools := make([]models.LLMTool, len(toolsConfig))
 
 	for i, toolConfig := range toolsConfig {
-		toolMap, ok := toolConfig.(map[string]interface{})
+		toolMap, ok := toolConfig.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("tool %d is not a valid object", i)
 		}
@@ -351,14 +351,14 @@ func (e *LLMExecutor) parseTools(toolsConfig []interface{}) ([]models.LLMTool, e
 			return nil, fmt.Errorf("tool %d: only 'function' type is supported", i)
 		}
 
-		funcConfig, ok := toolMap["function"].(map[string]interface{})
+		funcConfig, ok := toolMap["function"].(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("tool %d: missing function definition", i)
 		}
 
 		name, _ := funcConfig["name"].(string)
 		description, _ := funcConfig["description"].(string)
-		params, _ := funcConfig["parameters"].(map[string]interface{})
+		params, _ := funcConfig["parameters"].(map[string]any)
 
 		if name == "" {
 			return nil, fmt.Errorf("tool %d: function name is required", i)
@@ -378,7 +378,7 @@ func (e *LLMExecutor) parseTools(toolsConfig []interface{}) ([]models.LLMTool, e
 }
 
 // parseResponseFormat parses response format configuration.
-func (e *LLMExecutor) parseResponseFormat(formatConfig map[string]interface{}) (*models.LLMResponseFormat, error) {
+func (e *LLMExecutor) parseResponseFormat(formatConfig map[string]any) (*models.LLMResponseFormat, error) {
 	formatType, _ := formatConfig["type"].(string)
 	if formatType == "" {
 		return nil, fmt.Errorf("response_format type is required")
@@ -390,14 +390,14 @@ func (e *LLMExecutor) parseResponseFormat(formatConfig map[string]interface{}) (
 
 	// Parse JSON schema if present
 	if formatType == "json_schema" {
-		schemaConfig, ok := formatConfig["json_schema"].(map[string]interface{})
+		schemaConfig, ok := formatConfig["json_schema"].(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("json_schema is required for json_schema type")
 		}
 
 		name, _ := schemaConfig["name"].(string)
 		description, _ := schemaConfig["description"].(string)
-		schema, _ := schemaConfig["schema"].(map[string]interface{})
+		schema, _ := schemaConfig["schema"].(map[string]any)
 		strict, _ := schemaConfig["strict"].(bool)
 
 		if name == "" {
@@ -416,7 +416,7 @@ func (e *LLMExecutor) parseResponseFormat(formatConfig map[string]interface{}) (
 }
 
 // validateResponseFormat validates response format configuration.
-func (e *LLMExecutor) validateResponseFormat(formatConfig map[string]interface{}) error {
+func (e *LLMExecutor) validateResponseFormat(formatConfig map[string]any) error {
 	formatType, ok := formatConfig["type"].(string)
 	if !ok || formatType == "" {
 		return fmt.Errorf("response_format type is required")
@@ -433,7 +433,7 @@ func (e *LLMExecutor) validateResponseFormat(formatConfig map[string]interface{}
 	}
 
 	if formatType == "json_schema" {
-		schemaConfig, ok := formatConfig["json_schema"].(map[string]interface{})
+		schemaConfig, ok := formatConfig["json_schema"].(map[string]any)
 		if !ok {
 			return fmt.Errorf("json_schema is required for json_schema type")
 		}
@@ -443,7 +443,7 @@ func (e *LLMExecutor) validateResponseFormat(formatConfig map[string]interface{}
 			return fmt.Errorf("json_schema name is required")
 		}
 
-		if _, ok := schemaConfig["schema"].(map[string]interface{}); !ok {
+		if _, ok := schemaConfig["schema"].(map[string]any); !ok {
 			return fmt.Errorf("json_schema schema is required")
 		}
 	}
@@ -452,9 +452,9 @@ func (e *LLMExecutor) validateResponseFormat(formatConfig map[string]interface{}
 }
 
 // validateTools validates tools configuration.
-func (e *LLMExecutor) validateTools(toolsConfig []interface{}) error {
+func (e *LLMExecutor) validateTools(toolsConfig []any) error {
 	for i, toolConfig := range toolsConfig {
-		toolMap, ok := toolConfig.(map[string]interface{})
+		toolMap, ok := toolConfig.(map[string]any)
 		if !ok {
 			return fmt.Errorf("tool %d is not a valid object", i)
 		}
@@ -464,7 +464,7 @@ func (e *LLMExecutor) validateTools(toolsConfig []interface{}) error {
 			return fmt.Errorf("tool %d: only 'function' type is supported", i)
 		}
 
-		funcConfig, ok := toolMap["function"].(map[string]interface{})
+		funcConfig, ok := toolMap["function"].(map[string]any)
 		if !ok {
 			return fmt.Errorf("tool %d: missing function definition", i)
 		}
@@ -530,14 +530,14 @@ func (e *LLMExecutor) getOrCreateProvider(req *models.LLMRequest) (LLMProvider, 
 }
 
 // responseToMap converts LLMResponse to a map for output.
-func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]interface{} {
-	result := map[string]interface{}{
+func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]any {
+	result := map[string]any{
 		"content":       response.Content,
 		"response_id":   response.ResponseID,
 		"model":         response.Model,
 		"finish_reason": response.FinishReason,
 		"created_at":    response.CreatedAt,
-		"usage": map[string]interface{}{
+		"usage": map[string]any{
 			"prompt_tokens":     response.Usage.PromptTokens,
 			"completion_tokens": response.Usage.CompletionTokens,
 			"total_tokens":      response.Usage.TotalTokens,
@@ -545,12 +545,12 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 	}
 
 	if len(response.ToolCalls) > 0 {
-		toolCalls := make([]map[string]interface{}, len(response.ToolCalls))
+		toolCalls := make([]map[string]any, len(response.ToolCalls))
 		for i, tc := range response.ToolCalls {
-			toolCalls[i] = map[string]interface{}{
+			toolCalls[i] = map[string]any{
 				"id":   tc.ID,
 				"type": tc.Type,
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":      tc.Function.Name,
 					"arguments": tc.Function.Arguments,
 				},
@@ -568,9 +568,9 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 		result["status"] = response.Status
 	}
 	if len(response.OutputItems) > 0 {
-		outputItems := make([]map[string]interface{}, len(response.OutputItems))
+		outputItems := make([]map[string]any, len(response.OutputItems))
 		for i, item := range response.OutputItems {
-			itemMap := map[string]interface{}{
+			itemMap := map[string]any{
 				"id":     item.ID,
 				"type":   item.Type,
 				"status": item.Status,
@@ -579,16 +579,16 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 				itemMap["role"] = item.Role
 			}
 			if len(item.Content) > 0 {
-				content := make([]map[string]interface{}, len(item.Content))
+				content := make([]map[string]any, len(item.Content))
 				for j, c := range item.Content {
-					content[j] = map[string]interface{}{
+					content[j] = map[string]any{
 						"type": c.Type,
 						"text": c.Text,
 					}
 					if len(c.Annotations) > 0 {
-						annotations := make([]map[string]interface{}, len(c.Annotations))
+						annotations := make([]map[string]any, len(c.Annotations))
 						for k, ann := range c.Annotations {
-							annotations[k] = map[string]interface{}{
+							annotations[k] = map[string]any{
 								"type":        ann.Type,
 								"start_index": ann.StartIndex,
 								"end_index":   ann.EndIndex,
@@ -624,7 +624,7 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 		result["output_items"] = outputItems
 	}
 	if response.Error != nil {
-		result["error"] = map[string]interface{}{
+		result["error"] = map[string]any{
 			"provider": response.Error.Provider,
 			"code":     response.Error.Code,
 			"message":  response.Error.Message,
@@ -635,7 +635,7 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 		result["incomplete_details"] = response.IncompleteDetails
 	}
 	if response.Reasoning != nil {
-		result["reasoning"] = map[string]interface{}{
+		result["reasoning"] = map[string]any{
 			"effort":  response.Reasoning.Effort,
 			"summary": response.Reasoning.Summary,
 		}
@@ -643,19 +643,19 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 
 	// Tool calling auto mode fields
 	if len(response.Messages) > 0 {
-		messages := make([]interface{}, len(response.Messages))
+		messages := make([]any, len(response.Messages))
 		for i, msg := range response.Messages {
-			msgMap := map[string]interface{}{
+			msgMap := map[string]any{
 				"role":    msg.Role,
 				"content": msg.Content,
 			}
 			if len(msg.ToolCalls) > 0 {
-				toolCalls := make([]interface{}, len(msg.ToolCalls))
+				toolCalls := make([]any, len(msg.ToolCalls))
 				for j, tc := range msg.ToolCalls {
-					toolCalls[j] = map[string]interface{}{
+					toolCalls[j] = map[string]any{
 						"id":   tc.ID,
 						"type": tc.Type,
-						"function": map[string]interface{}{
+						"function": map[string]any{
 							"name":      tc.Function.Name,
 							"arguments": tc.Function.Arguments,
 						},
@@ -678,9 +678,9 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 	}
 
 	if len(response.ToolExecutions) > 0 {
-		toolExecutions := make([]interface{}, len(response.ToolExecutions))
+		toolExecutions := make([]any, len(response.ToolExecutions))
 		for i, exec := range response.ToolExecutions {
-			execMap := map[string]interface{}{
+			execMap := map[string]any{
 				"tool_call_id":   exec.ToolCallID,
 				"function_name":  exec.FunctionName,
 				"execution_time": exec.ExecutionTime,
@@ -711,8 +711,8 @@ func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]int
 }
 
 // extractProviderConfig extracts provider-specific configuration from the node config.
-func (e *LLMExecutor) extractProviderConfig(config map[string]interface{}) map[string]interface{} {
-	providerConfig := make(map[string]interface{})
+func (e *LLMExecutor) extractProviderConfig(config map[string]any) map[string]any {
+	providerConfig := make(map[string]any)
 
 	// OpenAI-specific fields
 	if apiKey := e.GetStringDefault(config, "api_key", ""); apiKey != "" {
@@ -728,8 +728,8 @@ func (e *LLMExecutor) extractProviderConfig(config map[string]interface{}) map[s
 	return providerConfig
 }
 
-// toStringSlice converts []interface{} to []string.
-func (e *LLMExecutor) toStringSlice(items []interface{}) []string {
+// toStringSlice converts []any to []string.
+func (e *LLMExecutor) toStringSlice(items []any) []string {
 	result := make([]string, 0, len(items))
 	for _, item := range items {
 		if str, ok := item.(string); ok {
@@ -740,11 +740,11 @@ func (e *LLMExecutor) toStringSlice(items []interface{}) []string {
 }
 
 // parseFiles parses file attachments configuration.
-func (e *LLMExecutor) parseFiles(filesConfig []interface{}) ([]models.LLMFileAttachment, error) {
+func (e *LLMExecutor) parseFiles(filesConfig []any) ([]models.LLMFileAttachment, error) {
 	files := make([]models.LLMFileAttachment, 0, len(filesConfig))
 
 	for i, fileConfig := range filesConfig {
-		fileMap, ok := fileConfig.(map[string]interface{})
+		fileMap, ok := fileConfig.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("file %d is not a valid object", i)
 		}
@@ -779,7 +779,7 @@ func (e *LLMExecutor) parseFiles(filesConfig []interface{}) ([]models.LLMFileAtt
 }
 
 // Helper function to convert response to JSON for debugging
-func (e *LLMExecutor) toJSON(v interface{}) string {
+func (e *LLMExecutor) toJSON(v any) string {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return fmt.Sprintf("error: %v", err)
@@ -788,11 +788,11 @@ func (e *LLMExecutor) toJSON(v interface{}) string {
 }
 
 // parseHostedTools parses hosted tools configuration (Responses API).
-func (e *LLMExecutor) parseHostedTools(toolsConfig []interface{}) ([]models.LLMHostedTool, error) {
+func (e *LLMExecutor) parseHostedTools(toolsConfig []any) ([]models.LLMHostedTool, error) {
 	tools := make([]models.LLMHostedTool, 0, len(toolsConfig))
 
 	for i, toolConfig := range toolsConfig {
-		toolMap, ok := toolConfig.(map[string]interface{})
+		toolMap, ok := toolConfig.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("hosted tool %d is not a valid object", i)
 		}
@@ -808,14 +808,14 @@ func (e *LLMExecutor) parseHostedTools(toolsConfig []interface{}) ([]models.LLMH
 
 		switch toolType {
 		case "web_search_preview":
-			if domains, ok := toolMap["domains"].([]interface{}); ok {
+			if domains, ok := toolMap["domains"].([]any); ok {
 				tool.Domains = e.toStringSlice(domains)
 			}
 			if contextSize, ok := toolMap["search_context_size"].(string); ok {
 				tool.SearchContextSize = contextSize
 			}
 		case "file_search":
-			if vectorStoreIDs, ok := toolMap["vector_store_ids"].([]interface{}); ok {
+			if vectorStoreIDs, ok := toolMap["vector_store_ids"].([]any); ok {
 				tool.VectorStoreIDs = e.toStringSlice(vectorStoreIDs)
 			}
 			if maxResults, ok := toolMap["max_num_results"].(int); ok {
@@ -823,7 +823,7 @@ func (e *LLMExecutor) parseHostedTools(toolsConfig []interface{}) ([]models.LLMH
 			} else if maxResultsFloat, ok := toolMap["max_num_results"].(float64); ok {
 				tool.MaxNumResults = int(maxResultsFloat)
 			}
-			if rankingOptions, ok := toolMap["ranking_options"].(map[string]interface{}); ok {
+			if rankingOptions, ok := toolMap["ranking_options"].(map[string]any); ok {
 				tool.RankingOptions = rankingOptions
 			}
 		case "code_interpreter":
@@ -839,7 +839,7 @@ func (e *LLMExecutor) parseHostedTools(toolsConfig []interface{}) ([]models.LLMH
 }
 
 // parseToolCallConfig parses tool calling configuration.
-func (e *LLMExecutor) parseToolCallConfig(config map[string]interface{}) (*models.ToolCallConfig, error) {
+func (e *LLMExecutor) parseToolCallConfig(config map[string]any) (*models.ToolCallConfig, error) {
 	tc := models.DefaultToolCallConfig()
 
 	if mode, ok := config["mode"].(string); ok {
@@ -876,11 +876,11 @@ func (e *LLMExecutor) parseToolCallConfig(config map[string]interface{}) (*model
 }
 
 // parseMessages parses conversation messages.
-func (e *LLMExecutor) parseMessages(messagesConfig []interface{}) ([]models.LLMMessage, error) {
+func (e *LLMExecutor) parseMessages(messagesConfig []any) ([]models.LLMMessage, error) {
 	messages := make([]models.LLMMessage, 0, len(messagesConfig))
 
 	for i, msgConfig := range messagesConfig {
-		msgMap, ok := msgConfig.(map[string]interface{})
+		msgMap, ok := msgConfig.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("message %d is not a valid object", i)
 		}
@@ -901,9 +901,9 @@ func (e *LLMExecutor) parseMessages(messagesConfig []interface{}) ([]models.LLMM
 		}
 
 		// Parse tool calls if present
-		if toolCalls, ok := msgMap["tool_calls"].([]interface{}); ok {
+		if toolCalls, ok := msgMap["tool_calls"].([]any); ok {
 			for _, tc := range toolCalls {
-				tcMap, ok := tc.(map[string]interface{})
+				tcMap, ok := tc.(map[string]any)
 				if !ok {
 					continue
 				}
@@ -914,7 +914,7 @@ func (e *LLMExecutor) parseMessages(messagesConfig []interface{}) ([]models.LLMM
 				if typ, ok := tcMap["type"].(string); ok {
 					toolCall.Type = typ
 				}
-				if funcMap, ok := tcMap["function"].(map[string]interface{}); ok {
+				if funcMap, ok := tcMap["function"].(map[string]any); ok {
 					if name, ok := funcMap["name"].(string); ok {
 						toolCall.Function.Name = name
 					}
@@ -933,11 +933,11 @@ func (e *LLMExecutor) parseMessages(messagesConfig []interface{}) ([]models.LLMM
 }
 
 // parseFunctions parses extended function definitions.
-func (e *LLMExecutor) parseFunctions(functionsConfig []interface{}) ([]models.FunctionDefinition, error) {
+func (e *LLMExecutor) parseFunctions(functionsConfig []any) ([]models.FunctionDefinition, error) {
 	functions := make([]models.FunctionDefinition, 0, len(functionsConfig))
 
 	for i, funcConfig := range functionsConfig {
-		funcMap, ok := funcConfig.(map[string]interface{})
+		funcMap, ok := funcConfig.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("function %d is not a valid object", i)
 		}
@@ -953,7 +953,7 @@ func (e *LLMExecutor) parseFunctions(functionsConfig []interface{}) ([]models.Fu
 		if desc, ok := funcMap["description"].(string); ok {
 			funcDef.Description = desc
 		}
-		if params, ok := funcMap["parameters"].(map[string]interface{}); ok {
+		if params, ok := funcMap["parameters"].(map[string]any); ok {
 			funcDef.Parameters = params
 		}
 
@@ -964,7 +964,7 @@ func (e *LLMExecutor) parseFunctions(functionsConfig []interface{}) ([]models.Fu
 		if workflowID, ok := funcMap["workflow_id"].(string); ok {
 			funcDef.WorkflowID = workflowID
 		}
-		if inputMapping, ok := funcMap["input_mapping"].(map[string]interface{}); ok {
+		if inputMapping, ok := funcMap["input_mapping"].(map[string]any); ok {
 			funcDef.InputMapping = make(map[string]string)
 			for k, v := range inputMapping {
 				if str, ok := v.(string); ok {
@@ -990,7 +990,7 @@ func (e *LLMExecutor) parseFunctions(functionsConfig []interface{}) ([]models.Fu
 		if baseURL, ok := funcMap["base_url"].(string); ok {
 			funcDef.BaseURL = baseURL
 		}
-		if authConfig, ok := funcMap["auth_config"].(map[string]interface{}); ok {
+		if authConfig, ok := funcMap["auth_config"].(map[string]any); ok {
 			funcDef.AuthConfig = authConfig
 		}
 

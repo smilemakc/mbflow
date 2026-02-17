@@ -59,10 +59,10 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 	// Dispatches behavior based on nodeID from config.
 	// Conditional nodes return map{"result": bool} for SourceHandle routing.
 	mainExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID, _ := config["nodeID"].(string)
 			if nodeID == "" {
-				return map[string]interface{}{"status": "ok"}, nil
+				return map[string]any{"status": "ok"}, nil
 			}
 			count := countCall(nodeID)
 			logNode(nodeID)
@@ -73,37 +73,37 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 			// Data sources (Wave 0)
 			// ═══════════════════════════════════════════
 			case "S0_WIZARD":
-				return map[string]interface{}{
+				return map[string]any{
 					"topic": "AI в маркетинге", "channels": []string{"telegram", "instagram"},
 					"period": "2_weeks", "posts_per_week": 3,
 				}, nil
 			case "S1_SETTINGS":
-				return map[string]interface{}{
+				return map[string]any{
 					"brand": "TechCorp", "timezone": "Europe/Moscow",
 				}, nil
 			case "S2_STYLE":
-				return map[string]interface{}{
+				return map[string]any{
 					"tone": "professional", "emoji": false, "max_length": 2000,
 				}, nil
 			case "S3_TOPICS":
-				return map[string]interface{}{
+				return map[string]any{
 					"topics": []string{"AI trends", "marketing automation", "content strategy"},
 				}, nil
 			case "S4_ANALYTICS":
-				return map[string]interface{}{
+				return map[string]any{
 					"avg_engagement": 4.2, "top_posts": []string{"ai-intro"},
 				}, nil
 			case "S5_KB":
-				return map[string]interface{}{"index_id": "kb-001", "doc_count": 150}, nil
+				return map[string]any{"index_id": "kb-001", "doc_count": 150}, nil
 			case "S6_RULES":
-				return map[string]interface{}{"max_per_day": 2, "min_gap_hours": 4}, nil
+				return map[string]any{"max_per_day": 2, "min_gap_hours": 4}, nil
 			case "S7_CHANNELS":
-				return map[string]interface{}{
-					"telegram": map[string]interface{}{"max_len": 4096},
-					"instagram": map[string]interface{}{"max_len": 2200},
+				return map[string]any{
+					"telegram":  map[string]any{"max_len": 4096},
+					"instagram": map[string]any{"max_len": 2200},
 				}, nil
 			case "S8_POLICIES":
-				return map[string]interface{}{
+				return map[string]any{
 					"banned_words": []string{"guaranteed"}, "compliance": "standard",
 				}, nil
 
@@ -111,35 +111,35 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 			// Context preparation
 			// ═══════════════════════════════════════════
 			case "D1_SCENARIO":
-				return map[string]interface{}{
+				return map[string]any{
 					"scenario": "2-week AI marketing plan", "validated": true,
 				}, nil
 			case "D3_TOPICS":
-				return map[string]interface{}{
+				return map[string]any{
 					"ordered": []string{"AI trends", "automation", "strategy"},
 				}, nil
 			case "D4_STYLE":
-				return map[string]interface{}{
+				return map[string]any{
 					"rules": []string{"no-emoji", "professional-tone"},
 				}, nil
 			case "D5_SETTINGS":
-				return map[string]interface{}{
+				return map[string]any{
 					"brand_summary": "TechCorp - B2B AI solutions",
 				}, nil
 			case "D6_RAG":
-				return map[string]interface{}{
+				return map[string]any{
 					"queries": []string{"AI marketing trends", "automation practices"},
 				}, nil
 			case "D6_1_SEARCH":
-				return map[string]interface{}{
+				return map[string]any{
 					"fragments": []string{"AI market growth 40%...", "Automation cuts costs..."},
 				}, nil
 			case "D7_KB_SUM":
-				return map[string]interface{}{
+				return map[string]any{
 					"summary": "AI adoption growing, automation effective for B2B",
 				}, nil
 			case "D8_CTX":
-				return map[string]interface{}{
+				return map[string]any{
 					"context": "merged project context", "ready": true,
 				}, nil
 
@@ -147,86 +147,86 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 			// Block 1: Grid — conditional N2 with loop
 			// ═══════════════════════════════════════════
 			case "N1_GRID":
-				return map[string]interface{}{
+				return map[string]any{
 					"grid": []string{"Mon-AM-tg", "Wed-AM-tg", "Fri-AM-tg"},
 				}, nil
 			case "N2_CHECK_GRID":
 				// Fails twice, passes on 3rd call
 				if count <= 2 {
-					return map[string]interface{}{
+					return map[string]any{
 						"result": false,
 						"errors": []string{fmt.Sprintf("grid_issue_%d", count)},
 					}, nil
 				}
-				return map[string]interface{}{"result": true, "grid": "validated"}, nil
+				return map[string]any{"result": true, "grid": "validated"}, nil
 			case "N3_FIX_GRID":
-				return map[string]interface{}{
-					"grid": []string{"Mon-AM-tg", "Tue-PM-ig", "Thu-AM-tg"},
+				return map[string]any{
+					"grid":          []string{"Mon-AM-tg", "Tue-PM-ig", "Thu-AM-tg"},
 					"fix_iteration": count,
 				}, nil
 			case "N4_GRID_OK":
-				return map[string]interface{}{"final_grid": "approved", "slots": 6}, nil
+				return map[string]any{"final_grid": "approved", "slots": 6}, nil
 			case "F1_GRID_FAIL":
-				return map[string]interface{}{"status": "manual_review_needed"}, nil
+				return map[string]any{"status": "manual_review_needed"}, nil
 
 			// ═══════════════════════════════════════════
 			// Block 2: Balance — conditional N6 with loop
 			// ═══════════════════════════════════════════
 			case "N5_ROLES":
-				return map[string]interface{}{
+				return map[string]any{
 					"cells": []string{"cell-1-expert", "cell-2-story", "cell-3-tips"},
 				}, nil
 			case "N6_CHECK_BAL":
 				// Fails once, passes on 2nd call
 				if count <= 1 {
-					return map[string]interface{}{
+					return map[string]any{
 						"result": false, "issues": []string{"topic_imbalance"},
 					}, nil
 				}
-				return map[string]interface{}{"result": true, "balanced": true}, nil
+				return map[string]any{"result": true, "balanced": true}, nil
 			case "N7_FIX_BAL":
-				return map[string]interface{}{
+				return map[string]any{
 					"cells": []string{"cell-1-expert", "cell-2-how-to", "cell-3-story"},
 				}, nil
 			case "N8_GOALS":
-				return map[string]interface{}{
+				return map[string]any{
 					"cells_with_goals": []string{"cell-1:awareness", "cell-2:engagement", "cell-3:traffic"},
 				}, nil
 			case "F2_BAL_FAIL":
-				return map[string]interface{}{"status": "manual_balance_needed"}, nil
+				return map[string]any{"status": "manual_balance_needed"}, nil
 
 			// ═══════════════════════════════════════════
 			// Block 3: Cell generation — conditional N11
 			// ═══════════════════════════════════════════
 			case "CELL_KB":
-				return map[string]interface{}{
+				return map[string]any{
 					"cell_fragments": []string{"KB fragment about AI trends"},
 				}, nil
 			case "N9_PROMPT":
-				return map[string]interface{}{
+				return map[string]any{
 					"prompt": "Generate professional post about AI trends for Telegram...",
 				}, nil
 			case "N10_GEN":
-				return map[string]interface{}{
+				return map[string]any{
 					"drafts": []string{"Draft A: AI transforms...", "Draft B: In 2024..."},
 				}, nil
 			case "N11_CHECK":
 				// Passes immediately — no loop
-				return map[string]interface{}{"result": true, "quality": "good"}, nil
+				return map[string]any{"result": true, "quality": "good"}, nil
 			case "N12_REGEN":
-				return map[string]interface{}{
+				return map[string]any{
 					"drafts": []string{"Draft C: Improved version..."},
 				}, nil
 			case "N13_SELECT":
-				return map[string]interface{}{
-					"publication": map[string]interface{}{
+				return map[string]any{
+					"publication": map[string]any{
 						"text": "AI is transforming marketing...", "channel": "telegram",
 					},
 				}, nil
 			case "F3_CELL_FAIL":
-				return map[string]interface{}{"status": "cell_manual_edit"}, nil
+				return map[string]any{"status": "cell_manual_edit"}, nil
 			case "R1_PUBS":
-				return map[string]interface{}{
+				return map[string]any{
 					"publications": []string{"pub-1", "pub-2", "pub-3"}, "total": 3,
 				}, nil
 
@@ -234,31 +234,31 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 			// Block 4: Global check — conditional CRIT
 			// ═══════════════════════════════════════════
 			case "N15_INTEGRITY":
-				return map[string]interface{}{"issues": []string{}, "score": 95}, nil
+				return map[string]any{"issues": []string{}, "score": 95}, nil
 			case "N16_INSTRUCT":
-				return map[string]interface{}{"instructions": []string{}, "critical": false}, nil
+				return map[string]any{"instructions": []string{}, "critical": false}, nil
 			case "CRIT_CHECK":
 				// Not critical — no patch loop
-				return map[string]interface{}{"result": false}, nil
+				return map[string]any{"result": false}, nil
 			case "PATCH_APPLY":
-				return map[string]interface{}{"patched": true}, nil
+				return map[string]any{"patched": true}, nil
 			case "N17_STATUS":
-				return map[string]interface{}{
-					"statuses": map[string]interface{}{"pub-1": "ready", "pub-2": "ready"},
+				return map[string]any{
+					"statuses": map[string]any{"pub-1": "ready", "pub-2": "ready"},
 				}, nil
 			case "R2_PLAN":
-				return map[string]interface{}{"plan_id": "plan-001", "status": "complete"}, nil
+				return map[string]any{"plan_id": "plan-001", "status": "complete"}, nil
 
 			// ═══════════════════════════════════════════
 			// Block 5: Save
 			// ═══════════════════════════════════════════
 			case "SAVE_PACK":
-				return map[string]interface{}{"package": "ready", "entities": 3}, nil
+				return map[string]any{"package": "ready", "entities": 3}, nil
 			case "N20_SAVE":
-				return map[string]interface{}{"saved": true, "plan_id": "plan-001"}, nil
+				return map[string]any{"saved": true, "plan_id": "plan-001"}, nil
 
 			default:
-				return map[string]interface{}{"status": "ok"}, nil
+				return map[string]any{"status": "ok"}, nil
 			}
 		},
 	}
@@ -280,7 +280,7 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 	n := func(id, name, typ string) *models.Node {
 		return &models.Node{
 			ID: id, Name: name, Type: typ,
-			Config: map[string]interface{}{"nodeID": id},
+			Config: map[string]any{"nodeID": id},
 		}
 	}
 	// Regular edge
@@ -389,7 +389,7 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 			ce("e22", "N2_CHECK_GRID", "N4_GRID_OK", "true"),
 			ce("e23", "N2_CHECK_GRID", "N3_FIX_GRID", "false"),
 			le("e24", "N3_FIX_GRID", "N2_CHECK_GRID", 3), // Loop: fix → recheck (max 3)
-			e("e25", "N3_FIX_GRID", "F1_GRID_FAIL"),       // Executes only when loop exhausted
+			e("e25", "N3_FIX_GRID", "F1_GRID_FAIL"),      // Executes only when loop exhausted
 
 			// ── Block 2: Balance ──
 			e("e26", "N4_GRID_OK", "N5_ROLES"),
@@ -427,7 +427,7 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 	}
 
 	// ── Execute ──
-	execState := NewExecutionState("exec-plan-1", workflow.ID, workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-plan-1", workflow.ID, workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -486,13 +486,13 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 
 	// 3. Verify skipped nodes
 	skippedNodes := []string{
-		"F1_GRID_FAIL",  // Grid loop succeeded → fail node skipped
-		"F2_BAL_FAIL",   // Balance loop succeeded → fail node skipped
-		"N12_REGEN",     // Draft check passed → regeneration skipped
-		"F3_CELL_FAIL",  // No regeneration → cell fail skipped
-		"PATCH_APPLY",   // Not critical → patch skipped
-		"N3_FIX_GRID",   // Last N2 call returned true → fix skipped (final status after reset)
-		"N7_FIX_BAL",    // Last N6 call returned true → fix skipped (final status after reset)
+		"F1_GRID_FAIL", // Grid loop succeeded → fail node skipped
+		"F2_BAL_FAIL",  // Balance loop succeeded → fail node skipped
+		"N12_REGEN",    // Draft check passed → regeneration skipped
+		"F3_CELL_FAIL", // No regeneration → cell fail skipped
+		"PATCH_APPLY",  // Not critical → patch skipped
+		"N3_FIX_GRID",  // Last N2 call returned true → fix skipped (final status after reset)
+		"N7_FIX_BAL",   // Last N6 call returned true → fix skipped (final status after reset)
 	}
 	for _, nodeID := range skippedNodes {
 		status, _ := execState.GetNodeStatus(nodeID)
@@ -523,7 +523,7 @@ func TestContentPlanDAG_FullWorkflow(t *testing.T) {
 	if !ok {
 		t.Fatal("N20_SAVE has no output")
 	}
-	outputMap, ok := output.(map[string]interface{})
+	outputMap, ok := output.(map[string]any)
 	if !ok {
 		t.Fatal("N20_SAVE output is not a map")
 	}

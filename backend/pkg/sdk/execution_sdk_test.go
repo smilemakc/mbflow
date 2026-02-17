@@ -397,7 +397,7 @@ func TestExecutionAPI_GetNodeResult_NotAvailableInStandalone(t *testing.T) {
 func TestExecutionAPI_ExecutionRequest_Creation(t *testing.T) {
 	req := &ExecutionRequest{
 		WorkflowID: "test-workflow",
-		Input: map[string]interface{}{
+		Input: map[string]any{
 			"key": "value",
 		},
 		Async: true,
@@ -437,7 +437,7 @@ func TestExecutionAPI_ExecutionUpdate_Creation(t *testing.T) {
 		Status:      "running",
 		NodeID:      "node-1",
 		Event:       "node_started",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"progress": 50,
 		},
 		Timestamp: 1234567890,

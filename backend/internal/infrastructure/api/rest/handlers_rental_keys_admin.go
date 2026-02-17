@@ -32,26 +32,26 @@ func NewRentalKeyAdminHandlers(adminService *rentalkey.AdminService, log *logger
 
 // CreateRentalKeyRequest represents request to create a rental key
 type CreateRentalKeyRequest struct {
-	OwnerID           string                 `json:"owner_id" binding:"required,uuid"`
-	Name              string                 `json:"name" binding:"required,min=1,max=255"`
-	Description       string                 `json:"description" binding:"max=1000"`
-	Provider          string                 `json:"provider" binding:"required,oneof=openai anthropic google_ai"`
-	APIKey            string                 `json:"api_key" binding:"required"`
-	ProviderConfig    map[string]interface{} `json:"provider_config,omitempty"`
-	DailyRequestLimit *int                   `json:"daily_request_limit,omitempty"`
-	MonthlyTokenLimit *int64                 `json:"monthly_token_limit,omitempty"`
-	PricingPlanID     string                 `json:"pricing_plan_id,omitempty"`
-	ProvisionerType   string                 `json:"provisioner_type,omitempty"`
+	OwnerID           string         `json:"owner_id" binding:"required,uuid"`
+	Name              string         `json:"name" binding:"required,min=1,max=255"`
+	Description       string         `json:"description" binding:"max=1000"`
+	Provider          string         `json:"provider" binding:"required,oneof=openai anthropic google_ai"`
+	APIKey            string         `json:"api_key" binding:"required"`
+	ProviderConfig    map[string]any `json:"provider_config,omitempty"`
+	DailyRequestLimit *int           `json:"daily_request_limit,omitempty"`
+	MonthlyTokenLimit *int64         `json:"monthly_token_limit,omitempty"`
+	PricingPlanID     string         `json:"pricing_plan_id,omitempty"`
+	ProvisionerType   string         `json:"provisioner_type,omitempty"`
 }
 
 // UpdateRentalKeyRequest represents request to update a rental key
 type UpdateRentalKeyRequest struct {
-	Name              *string                `json:"name,omitempty"`
-	Description       *string                `json:"description,omitempty"`
-	Status            *string                `json:"status,omitempty"`
-	DailyRequestLimit *int                   `json:"daily_request_limit,omitempty"`
-	MonthlyTokenLimit *int64                 `json:"monthly_token_limit,omitempty"`
-	ProviderConfig    map[string]interface{} `json:"provider_config,omitempty"`
+	Name              *string        `json:"name,omitempty"`
+	Description       *string        `json:"description,omitempty"`
+	Status            *string        `json:"status,omitempty"`
+	DailyRequestLimit *int           `json:"daily_request_limit,omitempty"`
+	MonthlyTokenLimit *int64         `json:"monthly_token_limit,omitempty"`
+	ProviderConfig    map[string]any `json:"provider_config,omitempty"`
 }
 
 // RotateKeyRequest represents request to rotate API key

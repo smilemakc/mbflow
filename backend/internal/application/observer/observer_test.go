@@ -166,19 +166,19 @@ func TestEvent_AllFields(t *testing.T) {
 		NodeCount:   &nodeCount,
 		Status:      "completed",
 		Error:       testErr,
-		Input: map[string]interface{}{
+		Input: map[string]any{
 			"url": "https://api.example.com",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"status": 200,
 			"data":   "response",
 		},
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"user_id": "123",
 		},
 		DurationMs: &durationMs,
 		RetryCount: &retryCount,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"custom": "value",
 		},
 	}

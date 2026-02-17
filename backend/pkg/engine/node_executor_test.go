@@ -10,22 +10,22 @@ import (
 
 // mockExecutor is a simple mock executor for testing
 type mockExecutor struct {
-	validateFn func(config map[string]interface{}) error
-	executeFn  func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error)
+	validateFn func(config map[string]any) error
+	executeFn  func(ctx context.Context, config map[string]any, input any) (any, error)
 }
 
-func (m *mockExecutor) Validate(config map[string]interface{}) error {
+func (m *mockExecutor) Validate(config map[string]any) error {
 	if m.validateFn != nil {
 		return m.validateFn(config)
 	}
 	return nil
 }
 
-func (m *mockExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (m *mockExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	if m.executeFn != nil {
 		return m.executeFn(ctx, config, input)
 	}
-	return map[string]interface{}{"status": "ok"}, nil
+	return map[string]any{"status": "ok"}, nil
 }
 
 // TestNodeExecutor_Execute_TemplateResolution tests that templates are resolved correctly
@@ -33,7 +33,7 @@ func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
 	t.Parallel()
 	// Create mock executor that verifies templates were resolved
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			// Verify that templates were resolved
 			if url, ok := config["url"].(string); ok {
 				if url != "https://api.com/12345" {
@@ -51,7 +51,7 @@ func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
 				t.Error("api_key not found in config")
 			}
 
-			return map[string]interface{}{"result": "success"}, nil
+			return map[string]any{"result": "success"}, nil
 		},
 	}
 
@@ -72,16 +72,16 @@ func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
 			ID:   "node-1",
 			Name: "Test Node",
 			Type: "http",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"url":     "https://api.com/{{input.userId}}",
 				"api_key": "{{env.apiKey}}",
 			},
 		},
-		WorkflowVariables: map[string]interface{}{
+		WorkflowVariables: map[string]any{
 			"apiKey": "secret-key",
 		},
-		ExecutionVariables: map[string]interface{}{},
-		DirectParentOutput: map[string]interface{}{
+		ExecutionVariables: map[string]any{},
+		DirectParentOutput: map[string]any{
 			"userId": "12345",
 		},
 		StrictMode: false,
@@ -98,7 +98,7 @@ func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
 		t.Fatalf("expected NodeExecutionResult, got nil")
 	}
 
-	resultMap, ok := execResult.Output.(map[string]interface{})
+	resultMap, ok := execResult.Output.(map[string]any)
 	if !ok {
 		t.Fatalf("expected map result, got %T", execResult.Output)
 	}
@@ -123,7 +123,7 @@ func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
 func TestNodeExecutor_Execute_ExecutionVariablesOverride(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			// Verify that execution var overrode workflow var
 			if val, ok := config["key"].(string); ok {
 				if val != "execution-value" {
@@ -132,7 +132,7 @@ func TestNodeExecutor_Execute_ExecutionVariablesOverride(t *testing.T) {
 			} else {
 				t.Error("key not found in config")
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -146,17 +146,17 @@ func TestNodeExecutor_Execute_ExecutionVariablesOverride(t *testing.T) {
 		Node: &models.Node{
 			ID:   "node-1",
 			Type: "test",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"key": "{{env.testKey}}",
 			},
 		},
-		WorkflowVariables: map[string]interface{}{
+		WorkflowVariables: map[string]any{
 			"testKey": "workflow-value",
 		},
-		ExecutionVariables: map[string]interface{}{
+		ExecutionVariables: map[string]any{
 			"testKey": "execution-value", // This should override workflow value
 		},
-		DirectParentOutput: map[string]interface{}{},
+		DirectParentOutput: map[string]any{},
 		StrictMode:         false,
 	}
 
@@ -179,11 +179,11 @@ func TestPrepareNodeContext_MultipleParents(t *testing.T) {
 		Workflow: &models.Workflow{
 			ID:        "wf-123",
 			Name:      "Test",
-			Variables: map[string]interface{}{"key": "value"},
+			Variables: map[string]any{"key": "value"},
 		},
-		NodeOutputs: map[string]interface{}{
-			"parent1": map[string]interface{}{"field1": "value1"},
-			"parent2": map[string]interface{}{"field2": "value2"},
+		NodeOutputs: map[string]any{
+			"parent1": map[string]any{"field1": "value1"},
+			"parent2": map[string]any{"field2": "value2"},
 		},
 	}
 
@@ -208,7 +208,7 @@ func TestPrepareNodeContext_MultipleParents(t *testing.T) {
 	}
 
 	// Check that outputs are namespaced by parent ID
-	parent1Output, ok := nodeCtx.DirectParentOutput["parent1"].(map[string]interface{})
+	parent1Output, ok := nodeCtx.DirectParentOutput["parent1"].(map[string]any)
 	if !ok {
 		t.Error("parent1 output not found or wrong type")
 	} else {
@@ -217,7 +217,7 @@ func TestPrepareNodeContext_MultipleParents(t *testing.T) {
 		}
 	}
 
-	parent2Output, ok := nodeCtx.DirectParentOutput["parent2"].(map[string]interface{})
+	parent2Output, ok := nodeCtx.DirectParentOutput["parent2"].(map[string]any)
 	if !ok {
 		t.Error("parent2 output not found or wrong type")
 	} else {
@@ -236,9 +236,9 @@ func TestPrepareNodeContext_NoParents(t *testing.T) {
 		Workflow: &models.Workflow{
 			ID:        "wf-123",
 			Name:      "Test",
-			Variables: map[string]interface{}{},
+			Variables: map[string]any{},
 		},
-		Input: map[string]interface{}{
+		Input: map[string]any{
 			"initialData": "test-value",
 		},
 	}

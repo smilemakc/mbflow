@@ -76,7 +76,7 @@ type CredentialsRepository interface {
 	IncrementUsageCount(ctx context.Context, resourceID string) error
 
 	// LogCredentialAccess logs an access event to the audit log
-	LogCredentialAccess(ctx context.Context, resourceID, action, actorID, actorType string, metadata map[string]interface{}) error
+	LogCredentialAccess(ctx context.Context, resourceID, action, actorID, actorType string, metadata map[string]any) error
 }
 
 // RentalKeyRepository defines the interface for rental key resource operations

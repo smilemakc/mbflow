@@ -16,7 +16,7 @@ import (
 func TestWebhookRegistry_ComputeSignature(t *testing.T) {
 	wr := NewWebhookRegistry(WebhookRegistryConfig{})
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"user_id": "123",
 		"action":  "created",
 	}
@@ -49,7 +49,7 @@ func TestWebhookRegistry_CheckIPWhitelist(t *testing.T) {
 			name: "no whitelist - allow all",
 			trigger: &models.Trigger{
 				Type:   models.TriggerTypeWebhook,
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			sourceIP:    "192.168.1.100",
 			expectError: false,
@@ -58,8 +58,8 @@ func TestWebhookRegistry_CheckIPWhitelist(t *testing.T) {
 			name: "exact IP match",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
-					"ip_whitelist": []interface{}{
+				Config: map[string]any{
+					"ip_whitelist": []any{
 						"192.168.1.100",
 						"10.0.0.1",
 					},
@@ -72,8 +72,8 @@ func TestWebhookRegistry_CheckIPWhitelist(t *testing.T) {
 			name: "exact IP no match",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
-					"ip_whitelist": []interface{}{
+				Config: map[string]any{
+					"ip_whitelist": []any{
 						"192.168.1.100",
 						"10.0.0.1",
 					},
@@ -86,8 +86,8 @@ func TestWebhookRegistry_CheckIPWhitelist(t *testing.T) {
 			name: "CIDR range match",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
-					"ip_whitelist": []interface{}{
+				Config: map[string]any{
+					"ip_whitelist": []any{
 						"192.168.1.0/24",
 					},
 				},
@@ -99,8 +99,8 @@ func TestWebhookRegistry_CheckIPWhitelist(t *testing.T) {
 			name: "CIDR range no match",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
-					"ip_whitelist": []interface{}{
+				Config: map[string]any{
+					"ip_whitelist": []any{
 						"192.168.1.0/24",
 					},
 				},
@@ -112,8 +112,8 @@ func TestWebhookRegistry_CheckIPWhitelist(t *testing.T) {
 			name: "mixed exact and CIDR",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
-					"ip_whitelist": []interface{}{
+				Config: map[string]any{
+					"ip_whitelist": []any{
 						"10.0.0.1",
 						"192.168.1.0/24",
 					},
@@ -144,7 +144,7 @@ func TestWebhookRegistry_RegisterUnregister(t *testing.T) {
 		ID:         "webhook-1",
 		WorkflowID: "workflow-1",
 		Type:       models.TriggerTypeWebhook,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"secret": "test-secret",
 		},
 		Enabled: true,
@@ -171,7 +171,7 @@ func TestWebhookRegistry_RegisterUnregister(t *testing.T) {
 func TestWebhookRegistry_ValidateSignature(t *testing.T) {
 	wr := NewWebhookRegistry(WebhookRegistryConfig{})
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"data": "test",
 	}
 
@@ -185,7 +185,7 @@ func TestWebhookRegistry_ValidateSignature(t *testing.T) {
 			name: "no secret - skip validation",
 			trigger: &models.Trigger{
 				Type:   models.TriggerTypeWebhook,
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			headers:     map[string]string{},
 			expectError: false,
@@ -194,7 +194,7 @@ func TestWebhookRegistry_ValidateSignature(t *testing.T) {
 			name: "secret configured but no header",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"secret": "test-secret",
 				},
 			},
@@ -205,7 +205,7 @@ func TestWebhookRegistry_ValidateSignature(t *testing.T) {
 			name: "valid signature",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"secret": "test-secret",
 				},
 			},
@@ -218,7 +218,7 @@ func TestWebhookRegistry_ValidateSignature(t *testing.T) {
 			name: "invalid signature",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"secret": "test-secret",
 				},
 			},
@@ -262,7 +262,7 @@ func TestWebhookRegistry_RegisterAll(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeWebhook),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"path": "/webhook/1",
 			},
 			Enabled: true,
@@ -271,7 +271,7 @@ func TestWebhookRegistry_RegisterAll(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeWebhook),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"path": "/webhook/2",
 			},
 			Enabled: true,
@@ -280,7 +280,7 @@ func TestWebhookRegistry_RegisterAll(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeCron), // Should be ignored
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"schedule": "0 0 * * * *",
 			},
 			Enabled: true,
@@ -305,7 +305,7 @@ func TestWebhookRegistry_RegisterNonWebhookTrigger(t *testing.T) {
 		ID:         "cron-1",
 		WorkflowID: "wf-1",
 		Type:       models.TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 0 * * * *",
 		},
 		Enabled: true,
@@ -345,7 +345,7 @@ func TestWebhookRegistry_ConcurrentOperations(t *testing.T) {
 					ID:         fmt.Sprintf("webhook-%d-%d", goroutineID, j),
 					WorkflowID: fmt.Sprintf("wf-%d-%d", goroutineID, j),
 					Type:       models.TriggerTypeWebhook,
-					Config: map[string]interface{}{
+					Config: map[string]any{
 						"path": fmt.Sprintf("/webhook/%d/%d", goroutineID, j),
 					},
 					Enabled: true,
@@ -392,7 +392,7 @@ func TestWebhookRegistry_DuplicateRegistration(t *testing.T) {
 		ID:         triggerID,
 		WorkflowID: "wf-1",
 		Type:       models.TriggerTypeWebhook,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"path": "/webhook/original",
 		},
 		Enabled: true,
@@ -402,7 +402,7 @@ func TestWebhookRegistry_DuplicateRegistration(t *testing.T) {
 		ID:         triggerID,
 		WorkflowID: "wf-2", // Different workflow
 		Type:       models.TriggerTypeWebhook,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"path": "/webhook/updated",
 		},
 		Enabled: true,
@@ -454,7 +454,7 @@ func TestWebhookRegistry_EmptyRegisterAll(t *testing.T) {
 func TestWebhookRegistry_SignatureWithEmptyPayload(t *testing.T) {
 	wr := NewWebhookRegistry(WebhookRegistryConfig{})
 
-	emptyPayload := map[string]interface{}{}
+	emptyPayload := map[string]any{}
 	secret := "test-secret"
 
 	signature := wr.computeSignature(secret, emptyPayload)
@@ -471,8 +471,8 @@ func TestWebhookRegistry_IPWhitelistInvalidIP(t *testing.T) {
 
 	trigger := &models.Trigger{
 		Type: models.TriggerTypeWebhook,
-		Config: map[string]interface{}{
-			"ip_whitelist": []interface{}{
+		Config: map[string]any{
+			"ip_whitelist": []any{
 				"invalid-ip-format",
 			},
 		},
@@ -490,13 +490,13 @@ func TestWebhookRegistry_IPWhitelistIPv6(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		whitelist   []interface{}
+		whitelist   []any
 		sourceIP    string
 		expectError bool
 	}{
 		{
 			name: "IPv6 exact match",
-			whitelist: []interface{}{
+			whitelist: []any{
 				"2001:db8::1",
 			},
 			sourceIP:    "2001:db8::1",
@@ -504,7 +504,7 @@ func TestWebhookRegistry_IPWhitelistIPv6(t *testing.T) {
 		},
 		{
 			name: "IPv6 CIDR match",
-			whitelist: []interface{}{
+			whitelist: []any{
 				"2001:db8::/32",
 			},
 			sourceIP:    "2001:db8::100",
@@ -512,7 +512,7 @@ func TestWebhookRegistry_IPWhitelistIPv6(t *testing.T) {
 		},
 		{
 			name: "IPv6 no match",
-			whitelist: []interface{}{
+			whitelist: []any{
 				"2001:db8::1",
 			},
 			sourceIP:    "2001:db8::2",
@@ -524,7 +524,7 @@ func TestWebhookRegistry_IPWhitelistIPv6(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			trigger := &models.Trigger{
 				Type: models.TriggerTypeWebhook,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"ip_whitelist": tt.whitelist,
 				},
 			}
@@ -543,17 +543,17 @@ func TestWebhookRegistry_IPWhitelistIPv6(t *testing.T) {
 func TestWebhookRegistry_SignatureWithNestedPayload(t *testing.T) {
 	wr := NewWebhookRegistry(WebhookRegistryConfig{})
 
-	nestedPayload := map[string]interface{}{
-		"user": map[string]interface{}{
+	nestedPayload := map[string]any{
+		"user": map[string]any{
 			"id":   123,
 			"name": "John Doe",
-			"profile": map[string]interface{}{
+			"profile": map[string]any{
 				"email": "john@example.com",
 			},
 		},
-		"items": []interface{}{
-			map[string]interface{}{"id": 1, "name": "Item 1"},
-			map[string]interface{}{"id": 2, "name": "Item 2"},
+		"items": []any{
+			map[string]any{"id": 1, "name": "Item 1"},
+			map[string]any{"id": 2, "name": "Item 2"},
 		},
 	}
 
@@ -573,8 +573,8 @@ func TestWebhookRegistry_CheckIPWhitelistInvalidSourceIP(t *testing.T) {
 
 	trigger := &models.Trigger{
 		Type: models.TriggerTypeWebhook,
-		Config: map[string]interface{}{
-			"ip_whitelist": []interface{}{
+		Config: map[string]any{
+			"ip_whitelist": []any{
 				"192.168.1.100",
 			},
 		},
@@ -592,8 +592,8 @@ func TestWebhookRegistry_CheckIPWhitelistNonStringEntry(t *testing.T) {
 
 	trigger := &models.Trigger{
 		Type: models.TriggerTypeWebhook,
-		Config: map[string]interface{}{
-			"ip_whitelist": []interface{}{
+		Config: map[string]any{
+			"ip_whitelist": []any{
 				123,           // Non-string entry (should be skipped)
 				"192.168.1.1", // Valid entry
 			},
@@ -607,8 +607,8 @@ func TestWebhookRegistry_CheckIPWhitelistNonStringEntry(t *testing.T) {
 	// Should not match if only non-string entries in whitelist
 	trigger2 := &models.Trigger{
 		Type: models.TriggerTypeWebhook,
-		Config: map[string]interface{}{
-			"ip_whitelist": []interface{}{
+		Config: map[string]any{
+			"ip_whitelist": []any{
 				123,  // Non-string entry
 				true, // Non-string entry
 			},

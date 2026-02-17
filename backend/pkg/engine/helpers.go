@@ -101,8 +101,8 @@ func GetNodeTimeout(node *models.Node) int64 {
 	return 0
 }
 
-// EstimateSize provides a rough estimate of memory size for an interface{}.
-func EstimateSize(v interface{}) int64 {
+// EstimateSize provides a rough estimate of memory size for an any.
+func EstimateSize(v any) int64 {
 	switch val := v.(type) {
 	case nil:
 		return 0
@@ -110,13 +110,13 @@ func EstimateSize(v interface{}) int64 {
 		return int64(len(val))
 	case []byte:
 		return int64(len(val))
-	case map[string]interface{}:
+	case map[string]any:
 		var size int64
 		for k, v := range val {
 			size += int64(len(k)) + EstimateSize(v)
 		}
 		return size
-	case []interface{}:
+	case []any:
 		var size int64
 		for _, item := range val {
 			size += EstimateSize(item)
@@ -129,8 +129,8 @@ func EstimateSize(v interface{}) int64 {
 
 // MergeVariables merges workflow and execution variables.
 // Execution variables override workflow variables.
-func MergeVariables(workflowVars, executionVars map[string]interface{}) map[string]interface{} {
-	merged := make(map[string]interface{})
+func MergeVariables(workflowVars, executionVars map[string]any) map[string]any {
+	merged := make(map[string]any)
 	for k, v := range workflowVars {
 		merged[k] = v
 	}

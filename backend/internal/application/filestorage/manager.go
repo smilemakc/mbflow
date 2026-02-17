@@ -435,7 +435,7 @@ func (s *storageWrapper) GetMetadata(ctx context.Context, fileID string) (*model
 }
 
 // UpdateMetadata updates file metadata
-func (s *storageWrapper) UpdateMetadata(ctx context.Context, fileID string, metadata map[string]interface{}) error {
+func (s *storageWrapper) UpdateMetadata(ctx context.Context, fileID string, metadata map[string]any) error {
 	// TODO: Implement with repository integration
 	return fmt.Errorf("not implemented: requires repository integration")
 }

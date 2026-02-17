@@ -48,14 +48,14 @@ func TestHandlers_AddNode_Success(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"id":   "new_node",
 		"name": "New Node",
 		"type": "transform",
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"mode": "passthrough",
 		},
-		"position": map[string]interface{}{
+		"position": map[string]any{
 			"x": 100,
 			"y": 200,
 		},
@@ -66,7 +66,7 @@ func TestHandlers_AddNode_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 	assert.Equal(t, "new_node", result["id"])
 	assert.Equal(t, "New Node", result["name"])
@@ -77,7 +77,7 @@ func TestHandlers_AddNode_WorkflowNotFound(t *testing.T) {
 	_, router, _, cleanup := setupNodeHandlersTest(t)
 	defer cleanup()
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"id":   "new_node",
 		"name": "New Node",
 		"type": "transform",
@@ -101,7 +101,7 @@ func TestHandlers_AddNode_DuplicateID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to add node with existing ID
-	req := map[string]interface{}{
+	req := map[string]any{
 		"id":   "n1", // This ID already exists in simple workflow
 		"name": "Duplicate",
 		"type": "transform",
@@ -130,7 +130,7 @@ func TestHandlers_ListNodes_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var nodes []interface{}
+	var nodes []any
 	testutil.ParseListResponse(t, w, &nodes)
 	assert.Len(t, nodes, 3)
 }
@@ -164,7 +164,7 @@ func TestHandlers_GetNode_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 	assert.Equal(t, "n1", result["id"])
 }
@@ -197,9 +197,9 @@ func TestHandlers_UpdateNode_Success(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name": "Updated Node Name",
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"mode": "template",
 		},
 	}
@@ -209,7 +209,7 @@ func TestHandlers_UpdateNode_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 	assert.Equal(t, "Updated Node Name", result["name"])
 }
@@ -224,7 +224,7 @@ func TestHandlers_UpdateNode_NotFound(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name": "Updated",
 	}
 

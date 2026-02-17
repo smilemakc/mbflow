@@ -9,7 +9,7 @@ import (
 // ==================== ValidateHTTPConfig Tests ====================
 
 func TestValidateHTTPConfig_Success(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "https://api.example.com",
 	}
@@ -19,7 +19,7 @@ func TestValidateHTTPConfig_Success(t *testing.T) {
 }
 
 func TestValidateHTTPConfig_WithAdditionalFields(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method":  "POST",
 		"url":     "https://api.example.com",
 		"headers": map[string]string{"Content-Type": "application/json"},
@@ -31,7 +31,7 @@ func TestValidateHTTPConfig_WithAdditionalFields(t *testing.T) {
 }
 
 func TestValidateHTTPConfig_MissingMethod(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url": "https://api.example.com",
 	}
 
@@ -41,7 +41,7 @@ func TestValidateHTTPConfig_MissingMethod(t *testing.T) {
 }
 
 func TestValidateHTTPConfig_MissingURL(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 	}
 
@@ -51,7 +51,7 @@ func TestValidateHTTPConfig_MissingURL(t *testing.T) {
 }
 
 func TestValidateHTTPConfig_EmptyConfig(t *testing.T) {
-	config := map[string]interface{}{}
+	config := map[string]any{}
 
 	err := ValidateHTTPConfig(config)
 	assert.Error(t, err)
@@ -60,7 +60,7 @@ func TestValidateHTTPConfig_EmptyConfig(t *testing.T) {
 // ==================== ValidateLLMConfig Tests ====================
 
 func TestValidateLLMConfig_Success(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "openai",
 		"model":    "gpt-4",
 		"prompt":   "Hello",
@@ -72,7 +72,7 @@ func TestValidateLLMConfig_Success(t *testing.T) {
 }
 
 func TestValidateLLMConfig_WithOptionalFields(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":    "anthropic",
 		"model":       "claude-3",
 		"prompt":      "Hello",
@@ -87,7 +87,7 @@ func TestValidateLLMConfig_WithOptionalFields(t *testing.T) {
 }
 
 func TestValidateLLMConfig_MissingProvider(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"model":   "gpt-4",
 		"prompt":  "Hello",
 		"api_key": "sk-test",
@@ -99,7 +99,7 @@ func TestValidateLLMConfig_MissingProvider(t *testing.T) {
 }
 
 func TestValidateLLMConfig_MissingModel(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "openai",
 		"prompt":   "Hello",
 		"api_key":  "sk-test",
@@ -111,7 +111,7 @@ func TestValidateLLMConfig_MissingModel(t *testing.T) {
 }
 
 func TestValidateLLMConfig_MissingPrompt(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "openai",
 		"model":    "gpt-4",
 		"api_key":  "sk-test",
@@ -123,7 +123,7 @@ func TestValidateLLMConfig_MissingPrompt(t *testing.T) {
 }
 
 func TestValidateLLMConfig_MissingAPIKey(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "openai",
 		"model":    "gpt-4",
 		"prompt":   "Hello",
@@ -135,7 +135,7 @@ func TestValidateLLMConfig_MissingAPIKey(t *testing.T) {
 }
 
 func TestValidateLLMConfig_InvalidTemperatureTooLow(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":    "openai",
 		"model":       "gpt-4",
 		"prompt":      "Hello",
@@ -149,7 +149,7 @@ func TestValidateLLMConfig_InvalidTemperatureTooLow(t *testing.T) {
 }
 
 func TestValidateLLMConfig_InvalidTemperatureTooHigh(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":    "openai",
 		"model":       "gpt-4",
 		"prompt":      "Hello",
@@ -163,7 +163,7 @@ func TestValidateLLMConfig_InvalidTemperatureTooHigh(t *testing.T) {
 }
 
 func TestValidateLLMConfig_InvalidTopPTooLow(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "openai",
 		"model":    "gpt-4",
 		"prompt":   "Hello",
@@ -177,7 +177,7 @@ func TestValidateLLMConfig_InvalidTopPTooLow(t *testing.T) {
 }
 
 func TestValidateLLMConfig_InvalidTopPTooHigh(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "openai",
 		"model":    "gpt-4",
 		"prompt":   "Hello",
@@ -191,7 +191,7 @@ func TestValidateLLMConfig_InvalidTopPTooHigh(t *testing.T) {
 }
 
 func TestValidateLLMConfig_InvalidMaxTokensNegative(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":   "openai",
 		"model":      "gpt-4",
 		"prompt":     "Hello",
@@ -217,7 +217,7 @@ func TestValidateLLMConfig_BoundaryTemperature(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := map[string]interface{}{
+			config := map[string]any{
 				"provider":    "openai",
 				"model":       "gpt-4",
 				"prompt":      "Hello",
@@ -238,7 +238,7 @@ func TestValidateLLMConfig_BoundaryTemperature(t *testing.T) {
 // ==================== ValidateTransformConfig Tests ====================
 
 func TestValidateTransformConfig_Passthrough(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type": "passthrough",
 	}
 
@@ -247,7 +247,7 @@ func TestValidateTransformConfig_Passthrough(t *testing.T) {
 }
 
 func TestValidateTransformConfig_Expression(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type":       "expression",
 		"expression": "input.value * 2",
 	}
@@ -257,7 +257,7 @@ func TestValidateTransformConfig_Expression(t *testing.T) {
 }
 
 func TestValidateTransformConfig_JQ(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type":   "jq",
 		"filter": ".data | select(.active)",
 	}
@@ -267,7 +267,7 @@ func TestValidateTransformConfig_JQ(t *testing.T) {
 }
 
 func TestValidateTransformConfig_Template(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type":     "template",
 		"template": "Hello {{.name}}",
 	}
@@ -277,7 +277,7 @@ func TestValidateTransformConfig_Template(t *testing.T) {
 }
 
 func TestValidateTransformConfig_MissingType(t *testing.T) {
-	config := map[string]interface{}{}
+	config := map[string]any{}
 
 	err := ValidateTransformConfig(config)
 	assert.Error(t, err)
@@ -285,7 +285,7 @@ func TestValidateTransformConfig_MissingType(t *testing.T) {
 }
 
 func TestValidateTransformConfig_TypeNotString(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type": 123,
 	}
 
@@ -295,7 +295,7 @@ func TestValidateTransformConfig_TypeNotString(t *testing.T) {
 }
 
 func TestValidateTransformConfig_InvalidType(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type": "unknown_type",
 	}
 
@@ -305,7 +305,7 @@ func TestValidateTransformConfig_InvalidType(t *testing.T) {
 }
 
 func TestValidateTransformConfig_ExpressionMissingExpression(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type": "expression",
 	}
 
@@ -315,7 +315,7 @@ func TestValidateTransformConfig_ExpressionMissingExpression(t *testing.T) {
 }
 
 func TestValidateTransformConfig_JQMissingFilter(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type": "jq",
 	}
 
@@ -325,7 +325,7 @@ func TestValidateTransformConfig_JQMissingFilter(t *testing.T) {
 }
 
 func TestValidateTransformConfig_TemplateMissingTemplate(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type": "template",
 	}
 
@@ -337,7 +337,7 @@ func TestValidateTransformConfig_TemplateMissingTemplate(t *testing.T) {
 // ==================== ValidateNodeConfig Tests ====================
 
 func TestValidateNodeConfig_HTTP(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "https://api.example.com",
 	}
@@ -347,7 +347,7 @@ func TestValidateNodeConfig_HTTP(t *testing.T) {
 }
 
 func TestValidateNodeConfig_LLM(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "openai",
 		"model":    "gpt-4",
 		"prompt":   "Hello",
@@ -359,7 +359,7 @@ func TestValidateNodeConfig_LLM(t *testing.T) {
 }
 
 func TestValidateNodeConfig_Transform(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type": "passthrough",
 	}
 
@@ -368,7 +368,7 @@ func TestValidateNodeConfig_Transform(t *testing.T) {
 }
 
 func TestValidateNodeConfig_UnknownType(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"custom_field": "value",
 	}
 
@@ -378,7 +378,7 @@ func TestValidateNodeConfig_UnknownType(t *testing.T) {
 }
 
 func TestValidateNodeConfig_HTTPInvalid(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		// Missing URL
 	}
@@ -388,7 +388,7 @@ func TestValidateNodeConfig_HTTPInvalid(t *testing.T) {
 }
 
 func TestValidateNodeConfig_LLMInvalid(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "openai",
 		// Missing model, prompt, api_key
 	}
@@ -398,7 +398,7 @@ func TestValidateNodeConfig_LLMInvalid(t *testing.T) {
 }
 
 func TestValidateNodeConfig_TransformInvalid(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"type": "expression",
 		// Missing expression
 	}

@@ -42,13 +42,13 @@ func TestLLMExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "valid basic config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"prompt":   "Hello",
@@ -58,7 +58,7 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing provider",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"model":   "gpt-4",
 				"prompt":  "Hello",
 				"api_key": "sk-test",
@@ -68,7 +68,7 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing model",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"prompt":   "Hello",
 				"api_key":  "sk-test",
@@ -78,7 +78,7 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing prompt",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"api_key":  "sk-test",
@@ -88,7 +88,7 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing api_key",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"prompt":   "Hello",
@@ -98,7 +98,7 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid temperature",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider":    "openai",
 				"model":       "gpt-4",
 				"prompt":      "Hello",
@@ -110,7 +110,7 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid top_p",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"prompt":   "Hello",
@@ -122,7 +122,7 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid with all parameters",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider":          "openai",
 				"model":             "gpt-4",
 				"instruction":       "You are a helpful assistant",
@@ -138,12 +138,12 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid with response format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"prompt":   "Hello",
 				"api_key":  "sk-test",
-				"response_format": map[string]interface{}{
+				"response_format": map[string]any{
 					"type": "json_object",
 				},
 			},
@@ -151,19 +151,19 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid with json_schema",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"prompt":   "Hello",
 				"api_key":  "sk-test",
-				"response_format": map[string]interface{}{
+				"response_format": map[string]any{
 					"type": "json_schema",
-					"json_schema": map[string]interface{}{
+					"json_schema": map[string]any{
 						"name": "user_schema",
-						"schema": map[string]interface{}{
+						"schema": map[string]any{
 							"type": "object",
-							"properties": map[string]interface{}{
-								"name": map[string]interface{}{"type": "string"},
+							"properties": map[string]any{
+								"name": map[string]any{"type": "string"},
 							},
 						},
 					},
@@ -173,15 +173,15 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid json_schema - missing name",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"prompt":   "Hello",
 				"api_key":  "sk-test",
-				"response_format": map[string]interface{}{
+				"response_format": map[string]any{
 					"type": "json_schema",
-					"json_schema": map[string]interface{}{
-						"schema": map[string]interface{}{
+					"json_schema": map[string]any{
+						"schema": map[string]any{
 							"type": "object",
 						},
 					},
@@ -192,21 +192,21 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid with tools",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"prompt":   "Hello",
 				"api_key":  "sk-test",
-				"tools": []interface{}{
-					map[string]interface{}{
+				"tools": []any{
+					map[string]any{
 						"type": "function",
-						"function": map[string]interface{}{
+						"function": map[string]any{
 							"name":        "get_weather",
 							"description": "Get weather",
-							"parameters": map[string]interface{}{
+							"parameters": map[string]any{
 								"type": "object",
-								"properties": map[string]interface{}{
-									"location": map[string]interface{}{"type": "string"},
+								"properties": map[string]any{
+									"location": map[string]any{"type": "string"},
 								},
 							},
 						},
@@ -217,15 +217,15 @@ func TestLLMExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid tools - missing name",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"provider": "openai",
 				"model":    "gpt-4",
 				"prompt":   "Hello",
 				"api_key":  "sk-test",
-				"tools": []interface{}{
-					map[string]interface{}{
+				"tools": []any{
+					map[string]any{
 						"type": "function",
-						"function": map[string]interface{}{
+						"function": map[string]any{
 							"description": "Get weather",
 						},
 					},
@@ -279,7 +279,7 @@ func TestLLMExecutor_Execute_BasicRequest(t *testing.T) {
 
 	executor.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":    "mock",
 		"model":       "gpt-4",
 		"instruction": "You are helpful",
@@ -292,7 +292,7 @@ func TestLLMExecutor_Execute_BasicRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 
 	assert.Equal(t, "Hi there!", resultMap["content"])
@@ -300,7 +300,7 @@ func TestLLMExecutor_Execute_BasicRequest(t *testing.T) {
 	assert.Equal(t, "gpt-4", resultMap["model"])
 	assert.Equal(t, "stop", resultMap["finish_reason"])
 
-	usage, ok := resultMap["usage"].(map[string]interface{})
+	usage, ok := resultMap["usage"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 5, usage["prompt_tokens"])
 	assert.Equal(t, 3, usage["completion_tokens"])
@@ -342,20 +342,20 @@ func TestLLMExecutor_Execute_WithToolCalls(t *testing.T) {
 
 	executor.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "What's the weather in London?",
-		"tools": []interface{}{
-			map[string]interface{}{
+		"tools": []any{
+			map[string]any{
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":        "get_weather",
 					"description": "Get weather for a location",
-					"parameters": map[string]interface{}{
+					"parameters": map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"location": map[string]interface{}{"type": "string"},
+						"properties": map[string]any{
+							"location": map[string]any{"type": "string"},
 						},
 					},
 				},
@@ -367,19 +367,19 @@ func TestLLMExecutor_Execute_WithToolCalls(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 
 	assert.Equal(t, "tool_calls", resultMap["finish_reason"])
 
-	toolCalls, ok := resultMap["tool_calls"].([]map[string]interface{})
+	toolCalls, ok := resultMap["tool_calls"].([]map[string]any)
 	require.True(t, ok)
 	require.Len(t, toolCalls, 1)
 
 	assert.Equal(t, "call-123", toolCalls[0]["id"])
 	assert.Equal(t, "function", toolCalls[0]["type"])
 
-	function, ok := toolCalls[0]["function"].(map[string]interface{})
+	function, ok := toolCalls[0]["function"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "get_weather", function["name"])
 	assert.Equal(t, `{"location":"London"}`, function["arguments"])
@@ -412,19 +412,19 @@ func TestLLMExecutor_Execute_WithResponseFormat(t *testing.T) {
 
 	executor.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "Extract user info",
-		"response_format": map[string]interface{}{
+		"response_format": map[string]any{
 			"type": "json_schema",
-			"json_schema": map[string]interface{}{
+			"json_schema": map[string]any{
 				"name": "user_info",
-				"schema": map[string]interface{}{
+				"schema": map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"name": map[string]interface{}{"type": "string"},
-						"age":  map[string]interface{}{"type": "integer"},
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string"},
+						"age":  map[string]any{"type": "integer"},
 					},
 				},
 				"strict": true,
@@ -436,7 +436,7 @@ func TestLLMExecutor_Execute_WithResponseFormat(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, `{"name":"John","age":30}`, resultMap["content"])
 }
@@ -466,11 +466,11 @@ func TestLLMExecutor_Execute_WithMultimodal(t *testing.T) {
 
 	executor.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4-vision",
 		"prompt":   "Describe this image",
-		"image_url": []interface{}{
+		"image_url": []any{
 			"https://example.com/image.jpg",
 		},
 	}
@@ -479,7 +479,7 @@ func TestLLMExecutor_Execute_WithMultimodal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "This is a picture of a cat", resultMap["content"])
 }
@@ -487,7 +487,7 @@ func TestLLMExecutor_Execute_WithMultimodal(t *testing.T) {
 func TestLLMExecutor_ParseConfig(t *testing.T) {
 	executor := NewLLMExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":          "openai",
 		"model":             "gpt-4",
 		"instruction":       "You are helpful",
@@ -498,8 +498,8 @@ func TestLLMExecutor_ParseConfig(t *testing.T) {
 		"frequency_penalty": 0.5,
 		"presence_penalty":  0.3,
 		"vector_store_id":   "vs-123",
-		"image_url":         []interface{}{"https://example.com/image.jpg"},
-		"stop_sequences":    []interface{}{"END"},
+		"image_url":         []any{"https://example.com/image.jpg"},
+		"stop_sequences":    []any{"END"},
 	}
 
 	req, err := executor.parseConfig(config)
@@ -522,18 +522,18 @@ func TestLLMExecutor_ParseConfig(t *testing.T) {
 func TestLLMExecutor_ParseTools(t *testing.T) {
 	executor := NewLLMExecutor()
 
-	toolsConfig := []interface{}{
-		map[string]interface{}{
+	toolsConfig := []any{
+		map[string]any{
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":        "get_weather",
 				"description": "Get weather for a location",
-				"parameters": map[string]interface{}{
+				"parameters": map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"location": map[string]interface{}{"type": "string"},
+					"properties": map[string]any{
+						"location": map[string]any{"type": "string"},
 					},
-					"required": []interface{}{"location"},
+					"required": []any{"location"},
 				},
 			},
 		},
@@ -552,7 +552,7 @@ func TestLLMExecutor_ParseTools(t *testing.T) {
 func TestLLMExecutor_UnsupportedProvider(t *testing.T) {
 	executor := NewLLMExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "unsupported",
 		"model":    "gpt-4",
 		"prompt":   "Hello",
@@ -567,7 +567,7 @@ func TestLLMExecutor_UnsupportedProvider(t *testing.T) {
 func TestLLMExecutor_Validate_GeminiProvider(t *testing.T) {
 	executor := NewLLMExecutor()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "gemini",
 		"model":    "gemini-2.5-flash",
 		"prompt":   "Hello",
@@ -604,7 +604,7 @@ func TestLLMExecutor_WithInputTemplates(t *testing.T) {
 	exec.RegisterProvider("mock", mockProvider)
 
 	// Конфигурация с input шаблонами
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":    "mock",
 		"model":       "gpt-4",
 		"prompt":      "Summarize this article: {{input.article}}",
@@ -612,7 +612,7 @@ func TestLLMExecutor_WithInputTemplates(t *testing.T) {
 	}
 
 	// Input от предыдущей ноды
-	inputData := map[string]interface{}{
+	inputData := map[string]any{
 		"article":  "Long article text...",
 		"language": "English",
 	}
@@ -628,13 +628,13 @@ func TestLLMExecutor_WithInputTemplates(t *testing.T) {
 	result, err := wrappedExec.Execute(context.Background(), config, inputData)
 	require.NoError(t, err)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "Article summary", resultMap["content"])
 	assert.Equal(t, "gpt-4", resultMap["model"])
 	assert.Equal(t, "stop", resultMap["finish_reason"])
 
-	usage, ok := resultMap["usage"].(map[string]interface{})
+	usage, ok := resultMap["usage"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 50, usage["prompt_tokens"])
 	assert.Equal(t, 20, usage["completion_tokens"])
@@ -645,11 +645,11 @@ func TestLLMExecutor_WithInputDirectly(t *testing.T) {
 	exec := NewLLMExecutor()
 
 	// Expected structured input for Responses API
-	expectedInput := map[string]interface{}{
-		"messages": []interface{}{
-			map[string]interface{}{"role": "user", "content": "Hello"},
-			map[string]interface{}{"role": "assistant", "content": "Hi there!"},
-			map[string]interface{}{"role": "user", "content": "How are you?"},
+	expectedInput := map[string]any{
+		"messages": []any{
+			map[string]any{"role": "user", "content": "Hello"},
+			map[string]any{"role": "assistant", "content": "Hi there!"},
+			map[string]any{"role": "user", "content": "How are you?"},
 		},
 	}
 
@@ -658,10 +658,10 @@ func TestLLMExecutor_WithInputDirectly(t *testing.T) {
 			// Verify that input was passed directly to the request
 			require.NotNil(t, req.Input, "Input should be passed to LLM request")
 
-			inputMap, ok := req.Input.(map[string]interface{})
+			inputMap, ok := req.Input.(map[string]any)
 			require.True(t, ok, "Input should be a map")
 
-			messages, ok := inputMap["messages"].([]interface{})
+			messages, ok := inputMap["messages"].([]any)
 			require.True(t, ok, "Input should contain messages array")
 			require.Len(t, messages, 3, "Should have 3 messages")
 
@@ -683,7 +683,7 @@ func TestLLMExecutor_WithInputDirectly(t *testing.T) {
 	exec.RegisterProvider("mock", mockProvider)
 
 	// Config with use_input_directly flag
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":           "mock",
 		"model":              "gpt-4",
 		"prompt":             "Continue the conversation",
@@ -695,7 +695,7 @@ func TestLLMExecutor_WithInputDirectly(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "I'm doing great, thanks!", resultMap["content"])
 	assert.Equal(t, "resp-input-test", resultMap["response_id"])
@@ -727,13 +727,13 @@ func TestLLMExecutor_WithoutInputDirectly(t *testing.T) {
 	exec.RegisterProvider("mock", mockProvider)
 
 	// Config WITHOUT use_input_directly flag (default behavior)
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "Simple prompt",
 	}
 
-	inputData := map[string]interface{}{
+	inputData := map[string]any{
 		"some_data": "This should not be passed directly",
 	}
 
@@ -742,7 +742,7 @@ func TestLLMExecutor_WithoutInputDirectly(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "Response without direct input", resultMap["content"])
 }
@@ -776,14 +776,14 @@ func TestLLMExecutor_WithExplicitInputInConfig(t *testing.T) {
 	exec.RegisterProvider("mock", mockProvider)
 
 	// Config with explicit "input" field
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "Process this",
 		"input":    explicitInput, // Explicit input in config
 	}
 
-	paramInput := map[string]interface{}{
+	paramInput := map[string]any{
 		"this": "should be ignored",
 	}
 
@@ -792,7 +792,7 @@ func TestLLMExecutor_WithExplicitInputInConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "Response with explicit config input", resultMap["content"])
 }
@@ -802,10 +802,10 @@ func TestLLMExecutor_InputPriorityOrder(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		configInput    interface{}
+		configInput    any
 		useInputDirect bool
-		paramInput     interface{}
-		expectedInput  interface{}
+		paramInput     any
+		expectedInput  any
 	}{
 		{
 			name:           "explicit config input takes precedence over use_input_directly",
@@ -854,7 +854,7 @@ func TestLLMExecutor_InputPriorityOrder(t *testing.T) {
 
 			exec.RegisterProvider("mock", mockProvider)
 
-			config := map[string]interface{}{
+			config := map[string]any{
 				"provider": "mock",
 				"model":    "gpt-4",
 				"prompt":   "test",
@@ -881,9 +881,9 @@ func TestLLMExecutor_AutoMode_SingleToolCall(t *testing.T) {
 
 	// Setup mock function registry
 	funcRegistry := models.NewFunctionRegistry()
-	funcRegistry.Register("get_weather", func(args map[string]interface{}) (interface{}, error) {
+	funcRegistry.Register("get_weather", func(args map[string]any) (any, error) {
 		location := args["location"].(string)
-		return map[string]interface{}{
+		return map[string]any{
 			"location":    location,
 			"temperature": 22,
 			"condition":   "sunny",
@@ -940,24 +940,24 @@ func TestLLMExecutor_AutoMode_SingleToolCall(t *testing.T) {
 
 	exec.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "What's the weather in London?",
-		"tool_call_config": map[string]interface{}{
+		"tool_call_config": map[string]any{
 			"mode":           "auto",
 			"max_iterations": 10,
 		},
-		"functions": []interface{}{
-			map[string]interface{}{
+		"functions": []any{
+			map[string]any{
 				"type":         "builtin",
 				"name":         "get_weather",
 				"description":  "Get weather for a location",
 				"builtin_name": "get_weather",
-				"parameters": map[string]interface{}{
+				"parameters": map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"location": map[string]interface{}{"type": "string"},
+					"properties": map[string]any{
+						"location": map[string]any{"type": "string"},
 					},
 				},
 			},
@@ -968,7 +968,7 @@ func TestLLMExecutor_AutoMode_SingleToolCall(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 
 	assert.Equal(t, "The weather in London is sunny with 22°C", resultMap["content"])
@@ -977,16 +977,16 @@ func TestLLMExecutor_AutoMode_SingleToolCall(t *testing.T) {
 	assert.Equal(t, 2, resultMap["total_iterations"])
 
 	// Check messages history
-	messagesRaw, ok := resultMap["messages"].([]interface{})
+	messagesRaw, ok := resultMap["messages"].([]any)
 	require.True(t, ok, "messages should be an array")
 	assert.GreaterOrEqual(t, len(messagesRaw), 3) // user, assistant with tool_calls, tool result
 
 	// Check tool executions
-	toolExecsRaw, ok := resultMap["tool_executions"].([]interface{})
+	toolExecsRaw, ok := resultMap["tool_executions"].([]any)
 	require.True(t, ok, "tool_executions should be an array")
 	assert.Len(t, toolExecsRaw, 1)
 
-	toolExec0 := toolExecsRaw[0].(map[string]interface{})
+	toolExec0 := toolExecsRaw[0].(map[string]any)
 	assert.Equal(t, "call-123", toolExec0["tool_call_id"])
 	assert.Equal(t, "get_weather", toolExec0["function_name"])
 	assert.NotNil(t, toolExec0["result"])
@@ -997,11 +997,11 @@ func TestLLMExecutor_AutoMode_MultipleIterations(t *testing.T) {
 
 	// Setup registry with two functions
 	funcRegistry := models.NewFunctionRegistry()
-	funcRegistry.Register("get_weather", func(args map[string]interface{}) (interface{}, error) {
-		return map[string]interface{}{"temperature": 22, "condition": "sunny"}, nil
+	funcRegistry.Register("get_weather", func(args map[string]any) (any, error) {
+		return map[string]any{"temperature": 22, "condition": "sunny"}, nil
 	})
-	funcRegistry.Register("get_time", func(args map[string]interface{}) (interface{}, error) {
-		return map[string]interface{}{"time": "14:30"}, nil
+	funcRegistry.Register("get_time", func(args map[string]any) (any, error) {
+		return map[string]any{"time": "14:30"}, nil
 	})
 
 	registry := NewToolCallingRegistry(funcRegistry)
@@ -1065,20 +1065,20 @@ func TestLLMExecutor_AutoMode_MultipleIterations(t *testing.T) {
 
 	exec.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "What's the weather and time?",
-		"tool_call_config": map[string]interface{}{
+		"tool_call_config": map[string]any{
 			"mode": "auto",
 		},
-		"functions": []interface{}{
-			map[string]interface{}{
+		"functions": []any{
+			map[string]any{
 				"type":         "builtin",
 				"name":         "get_weather",
 				"builtin_name": "get_weather",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"type":         "builtin",
 				"name":         "get_time",
 				"builtin_name": "get_time",
@@ -1089,13 +1089,13 @@ func TestLLMExecutor_AutoMode_MultipleIterations(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 
 	assert.Equal(t, "It's 14:30 and sunny with 22°C", resultMap["content"])
 	assert.Equal(t, 3, resultMap["total_iterations"])
 
-	toolExecsRaw, ok := resultMap["tool_executions"].([]interface{})
+	toolExecsRaw, ok := resultMap["tool_executions"].([]any)
 	require.True(t, ok, "tool_executions should be an array")
 	assert.Len(t, toolExecsRaw, 2) // Two tool calls
 }
@@ -1104,8 +1104,8 @@ func TestLLMExecutor_AutoMode_MaxIterations(t *testing.T) {
 	exec := NewLLMExecutor()
 
 	funcRegistry := models.NewFunctionRegistry()
-	funcRegistry.Register("infinite_tool", func(args map[string]interface{}) (interface{}, error) {
-		return map[string]interface{}{"status": "ok"}, nil
+	funcRegistry.Register("infinite_tool", func(args map[string]any) (any, error) {
+		return map[string]any{"status": "ok"}, nil
 	})
 
 	registry := NewToolCallingRegistry(funcRegistry)
@@ -1136,16 +1136,16 @@ func TestLLMExecutor_AutoMode_MaxIterations(t *testing.T) {
 
 	exec.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "Test infinite loop",
-		"tool_call_config": map[string]interface{}{
+		"tool_call_config": map[string]any{
 			"mode":           "auto",
 			"max_iterations": 3,
 		},
-		"functions": []interface{}{
-			map[string]interface{}{
+		"functions": []any{
+			map[string]any{
 				"type":         "builtin",
 				"name":         "infinite_tool",
 				"builtin_name": "infinite_tool",
@@ -1156,13 +1156,13 @@ func TestLLMExecutor_AutoMode_MaxIterations(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 
 	assert.Equal(t, 3, resultMap["total_iterations"])
 	assert.Equal(t, "max_iterations", resultMap["stopped_reason"])
 
-	toolExecsRaw, ok := resultMap["tool_executions"].([]interface{})
+	toolExecsRaw, ok := resultMap["tool_executions"].([]any)
 	require.True(t, ok, "tool_executions should be an array")
 	assert.Len(t, toolExecsRaw, 3) // Should have 3 tool executions
 }
@@ -1171,7 +1171,7 @@ func TestLLMExecutor_AutoMode_StopOnToolFailure(t *testing.T) {
 	exec := NewLLMExecutor()
 
 	funcRegistry := models.NewFunctionRegistry()
-	funcRegistry.Register("failing_tool", func(args map[string]interface{}) (interface{}, error) {
+	funcRegistry.Register("failing_tool", func(args map[string]any) (any, error) {
 		return nil, fmt.Errorf("tool execution failed")
 	})
 
@@ -1202,16 +1202,16 @@ func TestLLMExecutor_AutoMode_StopOnToolFailure(t *testing.T) {
 
 	exec.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "Test tool failure",
-		"tool_call_config": map[string]interface{}{
+		"tool_call_config": map[string]any{
 			"mode":                 "auto",
 			"stop_on_tool_failure": true,
 		},
-		"functions": []interface{}{
-			map[string]interface{}{
+		"functions": []any{
+			map[string]any{
 				"type":         "builtin",
 				"name":         "failing_tool",
 				"builtin_name": "failing_tool",
@@ -1229,12 +1229,12 @@ func TestLLMExecutor_ParseToolCallConfig(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		config   map[string]interface{}
+		config   map[string]any
 		expected *models.ToolCallConfig
 	}{
 		{
 			name: "full config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"mode":                 "auto",
 				"max_iterations":       5.0,
 				"timeout_per_tool":     30.0,
@@ -1251,7 +1251,7 @@ func TestLLMExecutor_ParseToolCallConfig(t *testing.T) {
 		},
 		{
 			name: "backward compatibility - auto_execute_tools",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"auto_execute_tools": true,
 			},
 			expected: &models.ToolCallConfig{
@@ -1264,7 +1264,7 @@ func TestLLMExecutor_ParseToolCallConfig(t *testing.T) {
 		},
 		{
 			name:   "default config",
-			config: map[string]interface{}{},
+			config: map[string]any{},
 			expected: &models.ToolCallConfig{
 				Mode:              models.ToolCallModeManual,
 				MaxIterations:     10,
@@ -1291,25 +1291,25 @@ func TestLLMExecutor_ParseToolCallConfig(t *testing.T) {
 func TestLLMExecutor_ParseFunctions(t *testing.T) {
 	exec := NewLLMExecutor()
 
-	functionsConfig := []interface{}{
-		map[string]interface{}{
+	functionsConfig := []any{
+		map[string]any{
 			"type":         "builtin",
 			"name":         "get_weather",
 			"description":  "Get weather",
 			"builtin_name": "get_weather",
-			"parameters": map[string]interface{}{
+			"parameters": map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"location": map[string]interface{}{"type": "string"},
+				"properties": map[string]any{
+					"location": map[string]any{"type": "string"},
 				},
 			},
 		},
-		map[string]interface{}{
+		map[string]any{
 			"type":        "sub_workflow",
 			"name":        "process_data",
 			"description": "Process data via workflow",
 			"workflow_id": "workflow-123",
-			"input_mapping": map[string]interface{}{
+			"input_mapping": map[string]any{
 				"data":   "input_data",
 				"format": "output_format",
 			},
@@ -1341,10 +1341,10 @@ func TestLLMExecutor_ConvertFunctionsToTools(t *testing.T) {
 		{
 			Name:        "get_weather",
 			Description: "Get weather for a location",
-			Parameters: map[string]interface{}{
+			Parameters: map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"location": map[string]interface{}{"type": "string"},
+				"properties": map[string]any{
+					"location": map[string]any{"type": "string"},
 				},
 			},
 		},
@@ -1367,15 +1367,15 @@ func TestLLMExecutor_AutoMode_WithoutRegistry(t *testing.T) {
 	mockProvider := &MockLLMProvider{}
 	exec.RegisterProvider("mock", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider": "mock",
 		"model":    "gpt-4",
 		"prompt":   "Test",
-		"tool_call_config": map[string]interface{}{
+		"tool_call_config": map[string]any{
 			"mode": "auto",
 		},
-		"functions": []interface{}{
-			map[string]interface{}{
+		"functions": []any{
+			map[string]any{
 				"type": "builtin",
 				"name": "test_func",
 			},
@@ -1397,7 +1397,7 @@ func TestLLMExecutor_getOrCreateProvider_OpenAI(t *testing.T) {
 		Messages: []models.LLMMessage{
 			{Role: "user", Content: "test"},
 		},
-		ProviderConfig: map[string]interface{}{
+		ProviderConfig: map[string]any{
 			"api_key":  "sk-test-key",
 			"base_url": "https://api.openai.com/v1",
 			"org_id":   "org-test",
@@ -1423,7 +1423,7 @@ func TestLLMExecutor_getOrCreateProvider_OpenAIResponses(t *testing.T) {
 		Messages: []models.LLMMessage{
 			{Role: "user", Content: "test"},
 		},
-		ProviderConfig: map[string]interface{}{
+		ProviderConfig: map[string]any{
 			"api_key":  "sk-test-key",
 			"base_url": "https://api.openai.com/v1",
 			"org_id":   "org-test",
@@ -1449,7 +1449,7 @@ func TestLLMExecutor_getOrCreateProvider_Gemini(t *testing.T) {
 		Messages: []models.LLMMessage{
 			{Role: "user", Content: "test"},
 		},
-		ProviderConfig: map[string]interface{}{
+		ProviderConfig: map[string]any{
 			"api_key": "test-gemini-key",
 		},
 	}
@@ -1472,7 +1472,7 @@ func TestLLMExecutor_getOrCreateProvider_GeminiWithBaseURL(t *testing.T) {
 		Messages: []models.LLMMessage{
 			{Role: "user", Content: "test"},
 		},
-		ProviderConfig: map[string]interface{}{
+		ProviderConfig: map[string]any{
 			"api_key":  "test-gemini-key",
 			"base_url": "https://custom-proxy.example.com/v1beta",
 		},
@@ -1497,7 +1497,7 @@ func TestLLMExecutor_getOrCreateProvider_UnsupportedProvider(t *testing.T) {
 		Messages: []models.LLMMessage{
 			{Role: "user", Content: "test"},
 		},
-		ProviderConfig: map[string]interface{}{
+		ProviderConfig: map[string]any{
 			"api_key": "sk-test",
 		},
 	}
@@ -1549,7 +1549,7 @@ func TestLLMExecutor_getOrCreateProvider_OpenAIMinimalConfig(t *testing.T) {
 		Messages: []models.LLMMessage{
 			{Role: "user", Content: "test"},
 		},
-		ProviderConfig: map[string]interface{}{
+		ProviderConfig: map[string]any{
 			"api_key": "sk-test",
 			// No base_url or org_id - should use defaults
 		},

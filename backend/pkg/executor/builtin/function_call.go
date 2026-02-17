@@ -64,7 +64,7 @@ func (e *FunctionCallExecutor) ListFunctions() []string {
 // 1. Map with function_name and arguments fields
 // 2. FunctionCallInput struct
 // 3. LLM tool_calls array (will execute first tool call)
-func (e *FunctionCallExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *FunctionCallExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Parse input into FunctionCallInput
 	funcInput, err := e.parseInput(config, input)
 	if err != nil {
@@ -94,7 +94,7 @@ func (e *FunctionCallExecutor) Execute(ctx context.Context, config map[string]in
 }
 
 // Validate validates the function call executor configuration.
-func (e *FunctionCallExecutor) Validate(config map[string]interface{}) error {
+func (e *FunctionCallExecutor) Validate(config map[string]any) error {
 	// Check if function_name is provided in config
 	if functionName, ok := config["function_name"].(string); ok {
 		if functionName == "" {
@@ -107,7 +107,7 @@ func (e *FunctionCallExecutor) Validate(config map[string]interface{}) error {
 }
 
 // parseInput parses various input formats into FunctionCallInput.
-func (e *FunctionCallExecutor) parseInput(config map[string]interface{}, input interface{}) (*models.FunctionCallInput, error) {
+func (e *FunctionCallExecutor) parseInput(config map[string]any, input any) (*models.FunctionCallInput, error) {
 	funcInput := &models.FunctionCallInput{}
 
 	// Try to get function_name from config first (template-resolved)
@@ -145,11 +145,11 @@ func (e *FunctionCallExecutor) parseInput(config map[string]interface{}, input i
 }
 
 // parseInputData parses input data into FunctionCallInput.
-func (e *FunctionCallExecutor) parseInputData(funcInput *models.FunctionCallInput, input interface{}) error {
+func (e *FunctionCallExecutor) parseInputData(funcInput *models.FunctionCallInput, input any) error {
 	switch v := input.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		// Check if input contains tool_calls (from LLM output)
-		if toolCalls, ok := v["tool_calls"].([]interface{}); ok && len(toolCalls) > 0 {
+		if toolCalls, ok := v["tool_calls"].([]any); ok && len(toolCalls) > 0 {
 			return e.parseToolCall(funcInput, toolCalls[0])
 		}
 
@@ -166,7 +166,7 @@ func (e *FunctionCallExecutor) parseInputData(funcInput *models.FunctionCallInpu
 		}
 
 		// Check if input has function field (tool call format)
-		if function, ok := v["function"].(map[string]interface{}); ok {
+		if function, ok := v["function"].(map[string]any); ok {
 			return e.parseFunctionField(funcInput, v, function)
 		}
 
@@ -176,7 +176,7 @@ func (e *FunctionCallExecutor) parseInputData(funcInput *models.FunctionCallInpu
 
 	case string:
 		// Try to parse as JSON
-		var data map[string]interface{}
+		var data map[string]any
 		if err := json.Unmarshal([]byte(v), &data); err != nil {
 			return fmt.Errorf("failed to parse input JSON: %w", err)
 		}
@@ -187,8 +187,8 @@ func (e *FunctionCallExecutor) parseInputData(funcInput *models.FunctionCallInpu
 }
 
 // parseToolCall parses a tool call from LLM output.
-func (e *FunctionCallExecutor) parseToolCall(funcInput *models.FunctionCallInput, toolCall interface{}) error {
-	toolCallMap, ok := toolCall.(map[string]interface{})
+func (e *FunctionCallExecutor) parseToolCall(funcInput *models.FunctionCallInput, toolCall any) error {
+	toolCallMap, ok := toolCall.(map[string]any)
 	if !ok {
 		return fmt.Errorf("invalid tool call format")
 	}
@@ -197,7 +197,7 @@ func (e *FunctionCallExecutor) parseToolCall(funcInput *models.FunctionCallInput
 		funcInput.ToolCallID = id
 	}
 
-	function, ok := toolCallMap["function"].(map[string]interface{})
+	function, ok := toolCallMap["function"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("tool call missing function field")
 	}
@@ -206,7 +206,7 @@ func (e *FunctionCallExecutor) parseToolCall(funcInput *models.FunctionCallInput
 }
 
 // parseFunctionField parses the function field.
-func (e *FunctionCallExecutor) parseFunctionField(funcInput *models.FunctionCallInput, parent map[string]interface{}, function map[string]interface{}) error {
+func (e *FunctionCallExecutor) parseFunctionField(funcInput *models.FunctionCallInput, parent map[string]any, function map[string]any) error {
 	name, ok := function["name"].(string)
 	if !ok {
 		return fmt.Errorf("function name is required")
@@ -228,7 +228,7 @@ func (e *FunctionCallExecutor) parseFunctionField(funcInput *models.FunctionCall
 }
 
 // buildSuccessOutput builds a success output.
-func (e *FunctionCallExecutor) buildSuccessOutput(input *models.FunctionCallInput, result interface{}) *models.FunctionCallOutput {
+func (e *FunctionCallExecutor) buildSuccessOutput(input *models.FunctionCallInput, result any) *models.FunctionCallOutput {
 	return &models.FunctionCallOutput{
 		Result:       result,
 		FunctionName: input.FunctionName,
@@ -251,7 +251,7 @@ func (e *FunctionCallExecutor) buildErrorOutput(input *models.FunctionCallInput,
 // registerBuiltInFunctions registers built-in function handlers.
 func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 	// get_current_time - Returns current time in various formats
-	e.registry.Register("get_current_time", func(args map[string]interface{}) (interface{}, error) {
+	e.registry.Register("get_current_time", func(args map[string]any) (any, error) {
 		format := "RFC3339"
 		if f, ok := args["format"].(string); ok {
 			format = f
@@ -272,12 +272,12 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 	})
 
 	// get_current_date - Returns current date
-	e.registry.Register("get_current_date", func(args map[string]interface{}) (interface{}, error) {
+	e.registry.Register("get_current_date", func(args map[string]any) (any, error) {
 		return time.Now().Format("2006-01-02"), nil
 	})
 
 	// http_request - Makes an HTTP request
-	e.registry.Register("http_request", func(args map[string]interface{}) (interface{}, error) {
+	e.registry.Register("http_request", func(args map[string]any) (any, error) {
 		method, ok := args["method"].(string)
 		if !ok {
 			method = "GET"
@@ -305,7 +305,7 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 
-		if headers, ok := args["headers"].(map[string]interface{}); ok {
+		if headers, ok := args["headers"].(map[string]any); ok {
 			for key, value := range headers {
 				if strVal, ok := value.(string); ok {
 					req.Header.Set(key, strVal)
@@ -324,27 +324,27 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 			return nil, fmt.Errorf("failed to read response: %w", err)
 		}
 
-		var result interface{}
+		var result any
 		if len(respBody) > 0 {
 			if err := json.Unmarshal(respBody, &result); err != nil {
 				result = string(respBody)
 			}
 		}
 
-		return map[string]interface{}{
+		return map[string]any{
 			"status": resp.StatusCode,
 			"body":   result,
 		}, nil
 	})
 
 	// json_parse - Parses a JSON string
-	e.registry.Register("json_parse", func(args map[string]interface{}) (interface{}, error) {
+	e.registry.Register("json_parse", func(args map[string]any) (any, error) {
 		jsonStr, ok := args["json"].(string)
 		if !ok {
 			return nil, fmt.Errorf("json parameter is required")
 		}
 
-		var result interface{}
+		var result any
 		if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
@@ -353,7 +353,7 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 	})
 
 	// json_stringify - Converts a value to JSON string
-	e.registry.Register("json_stringify", func(args map[string]interface{}) (interface{}, error) {
+	e.registry.Register("json_stringify", func(args map[string]any) (any, error) {
 		value, ok := args["value"]
 		if !ok {
 			return nil, fmt.Errorf("value parameter is required")
@@ -381,7 +381,7 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 	})
 
 	// Example weather function (mock implementation)
-	e.registry.Register("get_weather", func(args map[string]interface{}) (interface{}, error) {
+	e.registry.Register("get_weather", func(args map[string]any) (any, error) {
 		location, ok := args["location"].(string)
 		if !ok {
 			return nil, fmt.Errorf("location is required")
@@ -393,7 +393,7 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 		}
 
 		// Mock weather data
-		return map[string]interface{}{
+		return map[string]any{
 			"location":    location,
 			"temperature": 22,
 			"unit":        unit,

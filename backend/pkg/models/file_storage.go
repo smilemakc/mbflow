@@ -34,23 +34,23 @@ func (s AccessScope) IsValid() bool {
 
 // FileEntry represents a file stored in the file storage system
 type FileEntry struct {
-	ID           string                 `json:"id"`
-	StorageID    string                 `json:"storage_id"`     // Storage identifier
-	Name         string                 `json:"name"`           // Original file name
-	Path         string                 `json:"path"`           // Path within storage
-	MimeType     string                 `json:"mime_type"`      // MIME type
-	Size         int64                  `json:"size"`           // Size in bytes
-	Checksum     string                 `json:"checksum"`       // SHA256 checksum
-	AccessScope  AccessScope            `json:"access_scope"`   // Access scope
-	Tags         []string               `json:"tags,omitempty"` // Tags for filtering
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
-	TTL          *time.Duration         `json:"ttl,omitempty"`         // Time to live
-	ExpiresAt    *time.Time             `json:"expires_at,omitempty"`  // Expiration timestamp
-	WorkflowID   *string                `json:"workflow_id,omitempty"` // Optional workflow reference
-	ExecutionID  *string                `json:"execution_id,omitempty"`
-	SourceNodeID *string                `json:"source_node_id,omitempty"`
-	CreatedAt    time.Time              `json:"created_at"`
-	UpdatedAt    time.Time              `json:"updated_at"`
+	ID           string         `json:"id"`
+	StorageID    string         `json:"storage_id"`     // Storage identifier
+	Name         string         `json:"name"`           // Original file name
+	Path         string         `json:"path"`           // Path within storage
+	MimeType     string         `json:"mime_type"`      // MIME type
+	Size         int64          `json:"size"`           // Size in bytes
+	Checksum     string         `json:"checksum"`       // SHA256 checksum
+	AccessScope  AccessScope    `json:"access_scope"`   // Access scope
+	Tags         []string       `json:"tags,omitempty"` // Tags for filtering
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	TTL          *time.Duration `json:"ttl,omitempty"`         // Time to live
+	ExpiresAt    *time.Time     `json:"expires_at,omitempty"`  // Expiration timestamp
+	WorkflowID   *string        `json:"workflow_id,omitempty"` // Optional workflow reference
+	ExecutionID  *string        `json:"execution_id,omitempty"`
+	SourceNodeID *string        `json:"source_node_id,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 // Validate validates the file entry
@@ -93,12 +93,12 @@ func (f *FileEntry) SetTTL(ttl time.Duration) {
 
 // StorageConfig holds configuration for a storage instance
 type StorageConfig struct {
-	Type        StorageType            `json:"type"`              // Storage type (local, s3, etc.)
-	BasePath    string                 `json:"base_path"`         // Base path for local storage
-	MaxSize     int64                  `json:"max_size"`          // Maximum storage size in bytes (0 = unlimited)
-	MaxFileSize int64                  `json:"max_file_size"`     // Maximum file size in bytes
-	DefaultTTL  *time.Duration         `json:"default_ttl"`       // Default TTL for files
-	Options     map[string]interface{} `json:"options,omitempty"` // Provider-specific options
+	Type        StorageType    `json:"type"`              // Storage type (local, s3, etc.)
+	BasePath    string         `json:"base_path"`         // Base path for local storage
+	MaxSize     int64          `json:"max_size"`          // Maximum storage size in bytes (0 = unlimited)
+	MaxFileSize int64          `json:"max_file_size"`     // Maximum file size in bytes
+	DefaultTTL  *time.Duration `json:"default_ttl"`       // Default TTL for files
+	Options     map[string]any `json:"options,omitempty"` // Provider-specific options
 }
 
 // StorageType represents the type of storage backend

@@ -32,7 +32,7 @@ var templatePattern = regexp.MustCompile(`\{\{([^}]+)\}\}`)
 
 // Resolve resolves all templates in the input data.
 // Supports strings, maps, slices, and nested structures.
-func (e *Engine) Resolve(data interface{}) (interface{}, error) {
+func (e *Engine) Resolve(data any) (any, error) {
 	if data == nil {
 		return nil, nil
 	}
@@ -40,9 +40,9 @@ func (e *Engine) Resolve(data interface{}) (interface{}, error) {
 	switch v := data.(type) {
 	case string:
 		return e.ResolveString(v)
-	case map[string]interface{}:
+	case map[string]any:
 		return e.resolveMap(v)
-	case []interface{}:
+	case []any:
 		return e.resolveSlice(v)
 	default:
 		// For other types, try to convert to map and resolve
@@ -108,8 +108,8 @@ func (e *Engine) ResolveString(template string) (string, error) {
 }
 
 // resolveMap resolves templates in all values of a map.
-func (e *Engine) resolveMap(m map[string]interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{}, len(m))
+func (e *Engine) resolveMap(m map[string]any) (map[string]any, error) {
+	result := make(map[string]any, len(m))
 
 	for key, value := range m {
 		resolved, err := e.Resolve(value)
@@ -123,8 +123,8 @@ func (e *Engine) resolveMap(m map[string]interface{}) (map[string]interface{}, e
 }
 
 // resolveSlice resolves templates in all elements of a slice.
-func (e *Engine) resolveSlice(s []interface{}) ([]interface{}, error) {
-	result := make([]interface{}, len(s))
+func (e *Engine) resolveSlice(s []any) ([]any, error) {
+	result := make([]any, len(s))
 
 	for i, value := range s {
 		resolved, err := e.Resolve(value)
@@ -138,7 +138,7 @@ func (e *Engine) resolveSlice(s []interface{}) ([]interface{}, error) {
 }
 
 // resolveComplex handles complex types by converting to JSON and back.
-func (e *Engine) resolveComplex(data interface{}) (interface{}, error) {
+func (e *Engine) resolveComplex(data any) (any, error) {
 	// For primitive types that don't need template resolution, return as-is
 	switch data.(type) {
 	case bool, int, int8, int16, int32, int64,
@@ -155,7 +155,7 @@ func (e *Engine) resolveComplex(data interface{}) (interface{}, error) {
 	}
 
 	// Try to unmarshal to generic structure
-	var generic interface{}
+	var generic any
 	if err := json.Unmarshal(jsonData, &generic); err != nil {
 		return data, nil
 	}
@@ -163,9 +163,9 @@ func (e *Engine) resolveComplex(data interface{}) (interface{}, error) {
 	// Check if the unmarshaled type is one of the supported types
 	// to avoid infinite recursion
 	switch v := generic.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return e.resolveMap(v)
-	case []interface{}:
+	case []any:
 		return e.resolveSlice(v)
 	case string:
 		return e.ResolveString(v)
@@ -201,7 +201,7 @@ func (e *Engine) parseVariableRef(ref string) (string, string) {
 }
 
 // valueToString converts a value to its string representation.
-func (e *Engine) valueToString(value interface{}) string {
+func (e *Engine) valueToString(value any) string {
 	if value == nil {
 		return ""
 	}
@@ -228,7 +228,7 @@ func (e *Engine) valueToString(value interface{}) string {
 
 // ResolveConfig is a convenience method for resolving templates in node configurations.
 // It resolves all template strings in the config map.
-func (e *Engine) ResolveConfig(config map[string]interface{}) (map[string]interface{}, error) {
+func (e *Engine) ResolveConfig(config map[string]any) (map[string]any, error) {
 	resolved, err := e.resolveMap(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve config: %w", err)

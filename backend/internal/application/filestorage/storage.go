@@ -55,7 +55,7 @@ type Storage interface {
 	GetMetadata(ctx context.Context, fileID string) (*models.FileEntry, error)
 
 	// UpdateMetadata updates file metadata
-	UpdateMetadata(ctx context.Context, fileID string, metadata map[string]interface{}) error
+	UpdateMetadata(ctx context.Context, fileID string, metadata map[string]any) error
 
 	// UpdateTags updates file tags
 	UpdateTags(ctx context.Context, fileID string, tags []string) error

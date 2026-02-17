@@ -418,7 +418,7 @@ func (m *mockCredentialsRepo) IncrementUsageCount(ctx context.Context, resourceI
 	return m.Called(ctx, resourceID).Error(0)
 }
 
-func (m *mockCredentialsRepo) LogCredentialAccess(ctx context.Context, resourceID, action, actorID, actorType string, metadata map[string]interface{}) error {
+func (m *mockCredentialsRepo) LogCredentialAccess(ctx context.Context, resourceID, action, actorID, actorType string, metadata map[string]any) error {
 	return m.Called(ctx, resourceID, action, actorID, actorType, metadata).Error(0)
 }
 
@@ -475,7 +475,7 @@ type mockExecutionManager struct {
 	mock.Mock
 }
 
-func (m *mockExecutionManager) ExecuteAsync(ctx context.Context, workflowID string, input map[string]interface{}, opts *engine.ExecutionOptions) (*models.Execution, error) {
+func (m *mockExecutionManager) ExecuteAsync(ctx context.Context, workflowID string, input map[string]any, opts *engine.ExecutionOptions) (*models.Execution, error) {
 	args := m.Called(ctx, workflowID, input, opts)
 	exec, _ := args.Get(0).(*models.Execution)
 	return exec, args.Error(1)
@@ -539,9 +539,9 @@ func newTestOperations(
 
 // Compile-time interface checks.
 var (
-	_ repository.WorkflowRepository      = (*mockWorkflowRepo)(nil)
-	_ repository.ExecutionRepository      = (*mockExecutionRepo)(nil)
-	_ repository.TriggerRepository        = (*mockTriggerRepo)(nil)
-	_ repository.CredentialsRepository    = (*mockCredentialsRepo)(nil)
+	_ repository.WorkflowRepository        = (*mockWorkflowRepo)(nil)
+	_ repository.ExecutionRepository       = (*mockExecutionRepo)(nil)
+	_ repository.TriggerRepository         = (*mockTriggerRepo)(nil)
+	_ repository.CredentialsRepository     = (*mockCredentialsRepo)(nil)
 	_ repository.ServiceAuditLogRepository = (*mockAuditLogRepo)(nil)
 )

@@ -123,8 +123,8 @@ type RentalKeyResource struct {
 	BaseResource
 
 	// Provider information
-	Provider       LLMProviderType        `json:"provider"`
-	ProviderConfig map[string]interface{} `json:"provider_config,omitempty"`
+	Provider       LLMProviderType `json:"provider"`
+	ProviderConfig map[string]any  `json:"provider_config,omitempty"`
 
 	// Encrypted API key - NEVER serialized to JSON, never exposed via API
 	EncryptedAPIKey string `json:"-"`
@@ -161,12 +161,12 @@ func NewRentalKeyResource(ownerID, name string, provider LLMProviderType) *Renta
 			OwnerID:   ownerID,
 			Name:      name,
 			Status:    ResourceStatusActive,
-			Metadata:  make(map[string]interface{}),
+			Metadata:  make(map[string]any),
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
 		Provider:         provider,
-		ProviderConfig:   make(map[string]interface{}),
+		ProviderConfig:   make(map[string]any),
 		ProvisionerType:  ProvisionerTypeManual,
 		LastUsageResetAt: now,
 		TotalUsage:       MultimodalUsage{},

@@ -256,7 +256,7 @@ This may result in `[object Object]` or similar. Use specific field access inste
 The template resolution happens in `backend/internal/application/engine/node_executor.go`:
 
 ```go
-func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (interface{}, error) {
+func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (any, error) {
     // 1. Get base executor
     baseExecutor := ne.executorManager.Get(nodeCtx.Node.Type)
 

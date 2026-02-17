@@ -173,9 +173,9 @@ workflow := &models.Workflow{
 			ID:   "step1",
 			Name: "Transform Data",
 			Type: "transform",
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"type": "template",
-				"output": map[string]interface{}{
+				"output": map[string]any{
 					"greeting": "Hello, {{input.name}}!",
 				},
 			},
@@ -184,7 +184,7 @@ workflow := &models.Workflow{
 	Edges: []*models.Edge{},
 }
 
-input := map[string]interface{}{
+input := map[string]any{
 	"name": "World",
 }
 ```

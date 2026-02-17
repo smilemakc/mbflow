@@ -248,10 +248,10 @@ func (r *MermaidRenderer) extractKeyConfig(node *models.Node) string {
 		provider, _ := node.Config["provider"].(string)
 		if provider == "openai-responses" {
 			// Show hosted tools if present
-			if hostedTools, ok := node.Config["hosted_tools"].([]interface{}); ok && len(hostedTools) > 0 {
+			if hostedTools, ok := node.Config["hosted_tools"].([]any); ok && len(hostedTools) > 0 {
 				var tools []string
 				for _, tool := range hostedTools {
-					if toolMap, ok := tool.(map[string]interface{}); ok {
+					if toolMap, ok := tool.(map[string]any); ok {
 						if toolType, ok := toolMap["type"].(string); ok {
 							switch toolType {
 							case "web_search_preview":
@@ -272,7 +272,7 @@ func (r *MermaidRenderer) extractKeyConfig(node *models.Node) string {
 			}
 
 			// Show reasoning effort if present
-			if reasoning, ok := node.Config["reasoning"].(map[string]interface{}); ok {
+			if reasoning, ok := node.Config["reasoning"].(map[string]any); ok {
 				if effort, ok := reasoning["effort"].(string); ok && effort != "" {
 					parts = append(parts, "💭 "+effort+" reasoning")
 				}

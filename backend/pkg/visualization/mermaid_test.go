@@ -33,8 +33,8 @@ func TestMermaidRenderer_Render(t *testing.T) {
 			workflow: &models.Workflow{
 				Name: "Simple Workflow",
 				Nodes: []*models.Node{
-					{ID: "a", Name: "Node A", Type: "http", Config: map[string]interface{}{"method": "GET", "url": "/api/a"}},
-					{ID: "b", Name: "Node B", Type: "http", Config: map[string]interface{}{"method": "POST", "url": "/api/b"}},
+					{ID: "a", Name: "Node A", Type: "http", Config: map[string]any{"method": "GET", "url": "/api/a"}},
+					{ID: "b", Name: "Node B", Type: "http", Config: map[string]any{"method": "POST", "url": "/api/b"}},
 				},
 				Edges: []*models.Edge{
 					{ID: "e1", From: "a", To: "b"},
@@ -101,7 +101,7 @@ func TestMermaidRenderer_Render(t *testing.T) {
 			workflow: &models.Workflow{
 				Name: "No Config",
 				Nodes: []*models.Node{
-					{ID: "a", Name: "Node A", Type: "http", Config: map[string]interface{}{"url": "/api/test"}},
+					{ID: "a", Name: "Node A", Type: "http", Config: map[string]any{"url": "/api/test"}},
 				},
 				Edges: []*models.Edge{},
 			},
@@ -190,7 +190,7 @@ func TestMermaidRenderer_NodeShapes(t *testing.T) {
 			workflow := &models.Workflow{
 				Name: "Test",
 				Nodes: []*models.Node{
-					{ID: "test", Name: "Test Node", Type: tt.nodeType, Config: map[string]interface{}{}},
+					{ID: "test", Name: "Test Node", Type: tt.nodeType, Config: map[string]any{}},
 				},
 				Edges: []*models.Edge{},
 			}
@@ -222,7 +222,7 @@ func TestMermaidRenderer_ConfigExtraction(t *testing.T) {
 				ID:   "http1",
 				Name: "HTTP Call",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "POST",
 					"url":    "https://api.example.com/users",
 				},
@@ -235,7 +235,7 @@ func TestMermaidRenderer_ConfigExtraction(t *testing.T) {
 				ID:   "llm1",
 				Name: "LLM Call",
 				Type: "llm",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"provider": "openai",
 					"model":    "gpt-4",
 				},
@@ -248,7 +248,7 @@ func TestMermaidRenderer_ConfigExtraction(t *testing.T) {
 				ID:   "transform1",
 				Name: "Transform",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "expression",
 				},
 			},

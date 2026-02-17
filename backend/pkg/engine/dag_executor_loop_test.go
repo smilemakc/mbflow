@@ -20,25 +20,25 @@ func TestLoopEdge_BasicLoop(t *testing.T) {
 	var validateCallCount int32
 
 	mockValidate := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			count := atomic.AddInt32(&validateCallCount, 1)
 			// Return false on first 2 calls, true on 3rd
 			if count <= 2 {
-				return map[string]interface{}{"result": false}, nil
+				return map[string]any{"result": false}, nil
 			}
-			return map[string]interface{}{"result": true}, nil
+			return map[string]any{"result": true}, nil
 		},
 	}
 
 	mockFix := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"fixed": true}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"fixed": true}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"status": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -67,7 +67,7 @@ func TestLoopEdge_BasicLoop(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -93,21 +93,21 @@ func TestLoopEdge_LoopExhausted(t *testing.T) {
 	t.Parallel()
 
 	mockValidate := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			// Always return false
-			return map[string]interface{}{"result": false}, nil
+			return map[string]any{"result": false}, nil
 		},
 	}
 
 	mockFix := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"fixed": true}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"fixed": true}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"status": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -136,7 +136,7 @@ func TestLoopEdge_LoopExhausted(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -162,21 +162,21 @@ func TestLoopEdge_ImmediateSuccess(t *testing.T) {
 	t.Parallel()
 
 	mockValidate := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			// Return true immediately
-			return map[string]interface{}{"result": true}, nil
+			return map[string]any{"result": true}, nil
 		},
 	}
 
 	mockFix := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"fixed": true}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"fixed": true}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"status": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -205,7 +205,7 @@ func TestLoopEdge_ImmediateSuccess(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -268,17 +268,17 @@ func TestLoopEdge_InputPropagation(t *testing.T) {
 	t.Parallel()
 
 	var mu sync.Mutex
-	var n2Inputs []map[string]interface{}
+	var n2Inputs []map[string]any
 	var n2CallCount int32
 
 	mockN2 := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			count := atomic.AddInt32(&n2CallCount, 1)
 
 			mu.Lock()
-			if inputMap, ok := input.(map[string]interface{}); ok {
+			if inputMap, ok := input.(map[string]any); ok {
 				// Deep copy to preserve the input state
-				inputCopy := make(map[string]interface{})
+				inputCopy := make(map[string]any)
 				for k, v := range inputMap {
 					inputCopy[k] = v
 				}
@@ -288,21 +288,21 @@ func TestLoopEdge_InputPropagation(t *testing.T) {
 
 			// Return false first time, true second time
 			if count == 1 {
-				return map[string]interface{}{"result": false}, nil
+				return map[string]any{"result": false}, nil
 			}
-			return map[string]interface{}{"result": true}, nil
+			return map[string]any{"result": true}, nil
 		},
 	}
 
 	mockN1 := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"data": "from_n1"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"data": "from_n1"}, nil
 		},
 	}
 
 	mockN3 := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"data": "from_n3"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"data": "from_n3"}, nil
 		},
 	}
 
@@ -329,7 +329,7 @@ func TestLoopEdge_InputPropagation(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -361,16 +361,16 @@ func TestLoopEdge_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	mockValidate := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			time.Sleep(20 * time.Millisecond)
-			return map[string]interface{}{"result": false}, nil
+			return map[string]any{"result": false}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			time.Sleep(20 * time.Millisecond)
-			return map[string]interface{}{"status": "ok"}, nil
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -396,7 +396,7 @@ func TestLoopEdge_ContextCancellation(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -419,19 +419,19 @@ func TestLoopEdge_MultipleLoops(t *testing.T) {
 	var a2CallCount int32
 
 	mockA2 := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			count := atomic.AddInt32(&a2CallCount, 1)
 			// Return false once, then true
 			if count == 1 {
-				return map[string]interface{}{"result": false}, nil
+				return map[string]any{"result": false}, nil
 			}
-			return map[string]interface{}{"result": true}, nil
+			return map[string]any{"result": true}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"status": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -460,7 +460,7 @@ func TestLoopEdge_MultipleLoops(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -571,19 +571,19 @@ func TestLoopEdge_Events(t *testing.T) {
 	var validateCallCount int32
 
 	mockValidate := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			count := atomic.AddInt32(&validateCallCount, 1)
 			// Return false once, then true
 			if count == 1 {
-				return map[string]interface{}{"result": false}, nil
+				return map[string]any{"result": false}, nil
 			}
-			return map[string]interface{}{"result": true}, nil
+			return map[string]any{"result": true}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"status": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -611,7 +611,7 @@ func TestLoopEdge_Events(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -656,20 +656,20 @@ func TestLoopEdge_ResetClearsState(t *testing.T) {
 	var n2ExecutionCount int32
 
 	mockN2 := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			count := atomic.AddInt32(&n2ExecutionCount, 1)
 
 			// Return false first time, true second time
 			if count == 1 {
-				return map[string]interface{}{"result": false}, nil
+				return map[string]any{"result": false}, nil
 			}
-			return map[string]interface{}{"result": true}, nil
+			return map[string]any{"result": true}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"status": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -695,7 +695,7 @@ func TestLoopEdge_ResetClearsState(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -757,19 +757,19 @@ func TestLoopEdge_ComplexWorkflow(t *testing.T) {
 	var processCallCount int32
 
 	mockProcess := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			count := atomic.AddInt32(&processCallCount, 1)
 			// Succeed on third attempt
 			if count < 3 {
-				return map[string]interface{}{"result": false}, nil
+				return map[string]any{"result": false}, nil
 			}
-			return map[string]interface{}{"result": true}, nil
+			return map[string]any{"result": true}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"status": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -799,7 +799,7 @@ func TestLoopEdge_ComplexWorkflow(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -877,7 +877,7 @@ func TestLoopEdge_EdgeIsLoop(t *testing.T) {
 func TestLoopEdge_LoopIterationTracking(t *testing.T) {
 	t.Parallel()
 
-	execState := NewExecutionState("exec-1", "wf-1", nil, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", nil, map[string]any{}, map[string]any{})
 
 	// Initial count should be 0
 	count := execState.GetLoopIteration("loop1")
@@ -908,7 +908,7 @@ func TestLoopEdge_LoopIterationTracking(t *testing.T) {
 func TestLoopEdge_LoopInputManagement(t *testing.T) {
 	t.Parallel()
 
-	execState := NewExecutionState("exec-1", "wf-1", nil, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", nil, map[string]any{}, map[string]any{})
 
 	// Initially no loop input
 	_, hasInput := execState.GetLoopInput("N2")
@@ -917,7 +917,7 @@ func TestLoopEdge_LoopInputManagement(t *testing.T) {
 	}
 
 	// Set loop input
-	testInput := map[string]interface{}{"key": "value"}
+	testInput := map[string]any{"key": "value"}
 	execState.SetLoopInput("N2", testInput)
 
 	// Verify it was set
@@ -926,7 +926,7 @@ func TestLoopEdge_LoopInputManagement(t *testing.T) {
 		t.Error("expected loop input to be set")
 	}
 
-	if inputMap, ok := loopInput.(map[string]interface{}); ok {
+	if inputMap, ok := loopInput.(map[string]any); ok {
 		if inputMap["key"] != "value" {
 			t.Errorf("expected loop input key='value', got: %v", inputMap["key"])
 		}
@@ -951,15 +951,15 @@ func TestLoopEdge_MaxIterationsReached(t *testing.T) {
 	recorder := &recordingNotifier{}
 
 	mockValidate := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			// Always return false
-			return map[string]interface{}{"result": false}, nil
+			return map[string]any{"result": false}, nil
 		},
 	}
 
 	mockDefault := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"status": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"status": "ok"}, nil
 		},
 	}
 
@@ -985,7 +985,7 @@ func TestLoopEdge_MaxIterationsReached(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)

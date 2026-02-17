@@ -48,7 +48,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		clientIP := c.ClientIP()
 
 		if !rl.Allow(clientIP) {
-			respondErrorWithDetails(c, http.StatusTooManyRequests, "too many requests", "RATE_LIMIT_EXCEEDED", map[string]interface{}{
+			respondErrorWithDetails(c, http.StatusTooManyRequests, "too many requests", "RATE_LIMIT_EXCEEDED", map[string]any{
 				"retry_after": int(rl.cleanup.Seconds()),
 			})
 			c.Abort()

@@ -27,23 +27,23 @@ func NewGoogleSheetsExecutor() *GoogleSheetsExecutor {
 
 // GoogleSheetsOutput represents the output structure.
 type GoogleSheetsOutput struct {
-	Success       bool                   `json:"success"`
-	Operation     string                 `json:"operation"`
-	SpreadsheetID string                 `json:"spreadsheet_id"`
-	SheetName     string                 `json:"sheet_name,omitempty"`
-	Range         string                 `json:"range,omitempty"`
-	Data          [][]interface{}        `json:"data,omitempty"`
-	UpdatedCells  int                    `json:"updated_cells,omitempty"`
-	UpdatedRows   int                    `json:"updated_rows,omitempty"`
-	UpdatedRange  string                 `json:"updated_range,omitempty"`
-	RowCount      int                    `json:"row_count,omitempty"`
-	ColumnCount   int                    `json:"column_count,omitempty"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
-	DurationMs    int64                  `json:"duration_ms"`
+	Success       bool           `json:"success"`
+	Operation     string         `json:"operation"`
+	SpreadsheetID string         `json:"spreadsheet_id"`
+	SheetName     string         `json:"sheet_name,omitempty"`
+	Range         string         `json:"range,omitempty"`
+	Data          [][]any        `json:"data,omitempty"`
+	UpdatedCells  int            `json:"updated_cells,omitempty"`
+	UpdatedRows   int            `json:"updated_rows,omitempty"`
+	UpdatedRange  string         `json:"updated_range,omitempty"`
+	RowCount      int            `json:"row_count,omitempty"`
+	ColumnCount   int            `json:"column_count,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+	DurationMs    int64          `json:"duration_ms"`
 }
 
 // Execute implements the Executor interface.
-func (e *GoogleSheetsExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *GoogleSheetsExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Extract required config
@@ -135,7 +135,7 @@ func (e *GoogleSheetsExecutor) buildRangeNotation(sheetName, rangeNotation strin
 
 // extractColumns extracts column names from config.
 // Supports: comma-separated string, or array of strings.
-func (e *GoogleSheetsExecutor) extractColumns(config map[string]interface{}) []string {
+func (e *GoogleSheetsExecutor) extractColumns(config map[string]any) []string {
 	columnsVal, ok := config["columns"]
 	if !ok {
 		return nil
@@ -166,7 +166,7 @@ func (e *GoogleSheetsExecutor) extractColumns(config map[string]interface{}) []s
 		}
 		return parts
 
-	case []interface{}:
+	case []any:
 		result := make([]string, 0, len(v))
 		for _, item := range v {
 			if str, ok := item.(string); ok && str != "" {
@@ -201,7 +201,7 @@ func trimString(s string) string {
 // With COLUMNS mode: each inner array is a column → values[cols][rows] → range A1:${len(values)}${maxInnerLen}
 // E.g., for 3 rows x 5 columns with ROWS returns "A1:E3"
 // E.g., for 3 arrays x 5 elements with COLUMNS returns "A1:C5" (3 columns, 5 rows)
-func (e *GoogleSheetsExecutor) calculateDefaultRange(values [][]interface{}, majorDimension string) string {
+func (e *GoogleSheetsExecutor) calculateDefaultRange(values [][]any, majorDimension string) string {
 	if len(values) == 0 {
 		return "A1"
 	}
@@ -270,7 +270,7 @@ func (e *GoogleSheetsExecutor) executeRead(ctx context.Context, srv *sheets.Serv
 		Data:        resp.Values,
 		RowCount:    rowCount,
 		ColumnCount: columnCount,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"major_dimension": resp.MajorDimension,
 			"range":           resp.Range,
 		},
@@ -278,7 +278,7 @@ func (e *GoogleSheetsExecutor) executeRead(ctx context.Context, srv *sheets.Serv
 }
 
 // executeWrite writes data to spreadsheet (overwrites existing data).
-func (e *GoogleSheetsExecutor) executeWrite(ctx context.Context, srv *sheets.Service, spreadsheetID, sheetName, rangeNotation string, input interface{}, valueInputOption, majorDimension string, columns []string) (*GoogleSheetsOutput, error) {
+func (e *GoogleSheetsExecutor) executeWrite(ctx context.Context, srv *sheets.Service, spreadsheetID, sheetName, rangeNotation string, input any, valueInputOption, majorDimension string, columns []string) (*GoogleSheetsOutput, error) {
 	values, err := e.extractValuesFromInput(input, columns)
 	if err != nil {
 		return nil, err
@@ -313,14 +313,14 @@ func (e *GoogleSheetsExecutor) executeWrite(ctx context.Context, srv *sheets.Ser
 		UpdatedCells: int(resp.UpdatedCells),
 		UpdatedRows:  int(resp.UpdatedRows),
 		UpdatedRange: resp.UpdatedRange,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"updated_columns": resp.UpdatedColumns,
 		},
 	}, nil
 }
 
 // executeAppend appends data to the end of spreadsheet.
-func (e *GoogleSheetsExecutor) executeAppend(ctx context.Context, srv *sheets.Service, spreadsheetID, sheetName, rangeNotation string, input interface{}, valueInputOption, majorDimension string, columns []string) (*GoogleSheetsOutput, error) {
+func (e *GoogleSheetsExecutor) executeAppend(ctx context.Context, srv *sheets.Service, spreadsheetID, sheetName, rangeNotation string, input any, valueInputOption, majorDimension string, columns []string) (*GoogleSheetsOutput, error) {
 	values, err := e.extractValuesFromInput(input, columns)
 	if err != nil {
 		return nil, err
@@ -367,14 +367,14 @@ func (e *GoogleSheetsExecutor) executeAppend(ctx context.Context, srv *sheets.Se
 		UpdatedCells: int(updateResp.UpdatedCells),
 		UpdatedRows:  int(updateResp.UpdatedRows),
 		UpdatedRange: updateResp.UpdatedRange,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"updated_columns": updateResp.UpdatedColumns,
 		},
 	}, nil
 }
 
 // maxColumns returns the maximum number of columns across all rows.
-func (e *GoogleSheetsExecutor) maxColumns(values [][]interface{}) int {
+func (e *GoogleSheetsExecutor) maxColumns(values [][]any) int {
 	maxCols := 0
 	for _, row := range values {
 		if len(row) > maxCols {
@@ -389,29 +389,29 @@ func (e *GoogleSheetsExecutor) maxColumns(values [][]interface{}) int {
 
 // extractValuesFromInput extracts 2D array of values from input.
 // columns parameter allows specifying which fields to extract and in what order.
-func (e *GoogleSheetsExecutor) extractValuesFromInput(input interface{}, columns []string) ([][]interface{}, error) {
+func (e *GoogleSheetsExecutor) extractValuesFromInput(input any, columns []string) ([][]any, error) {
 	switch v := input.(type) {
-	case [][]interface{}:
+	case [][]any:
 		// Direct 2D array - serialize any complex values
 		return e.serializeNestedValues(v), nil
 
-	case []map[string]interface{}:
+	case []map[string]any:
 		// Typed slice of maps - convert each map to row
-		result := make([][]interface{}, 0, len(v))
+		result := make([][]any, 0, len(v))
 		for _, row := range v {
 			values := e.objectToRow(row, columns)
 			result = append(result, values)
 		}
 		return result, nil
 
-	case []interface{}:
-		// Array of rows - convert each row to []interface{}
-		result := make([][]interface{}, 0, len(v))
+	case []any:
+		// Array of rows - convert each row to []any
+		result := make([][]any, 0, len(v))
 		for i, row := range v {
 			switch r := row.(type) {
-			case []interface{}:
+			case []any:
 				result = append(result, e.serializeRow(r))
-			case map[string]interface{}:
+			case map[string]any:
 				// Convert object to array of values using specified columns or all fields
 				values := e.objectToRow(r, columns)
 				result = append(result, values)
@@ -421,7 +421,7 @@ func (e *GoogleSheetsExecutor) extractValuesFromInput(input interface{}, columns
 		}
 		return result, nil
 
-	case map[string]interface{}:
+	case map[string]any:
 		// Try to extract from common field names
 		for _, field := range []string{"data", "values", "rows", "content", "body", "items"} {
 			if val, ok := v[field]; ok {
@@ -432,7 +432,7 @@ func (e *GoogleSheetsExecutor) extractValuesFromInput(input interface{}, columns
 		// Try to parse from JSON string field
 		for _, field := range []string{"json", "text"} {
 			if str, ok := v[field].(string); ok {
-				var parsed interface{}
+				var parsed any
 				if err := json.Unmarshal([]byte(str), &parsed); err == nil {
 					return e.extractValuesFromInput(parsed, columns)
 				}
@@ -441,11 +441,11 @@ func (e *GoogleSheetsExecutor) extractValuesFromInput(input interface{}, columns
 
 		// Single object - treat as single row
 		values := e.objectToRow(v, columns)
-		return [][]interface{}{values}, nil
+		return [][]any{values}, nil
 
 	case string:
 		// Try to parse JSON string
-		var parsed interface{}
+		var parsed any
 		if err := json.Unmarshal([]byte(v), &parsed); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON from string input: %w", err)
 		}
@@ -453,7 +453,7 @@ func (e *GoogleSheetsExecutor) extractValuesFromInput(input interface{}, columns
 
 	case []byte:
 		// Try to parse JSON bytes
-		var parsed interface{}
+		var parsed any
 		if err := json.Unmarshal(v, &parsed); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON from bytes input: %w", err)
 		}
@@ -467,10 +467,10 @@ func (e *GoogleSheetsExecutor) extractValuesFromInput(input interface{}, columns
 // objectToRow converts a map to an array of values.
 // If columns is specified, extracts values in that order.
 // Otherwise extracts all values in alphabetical key order.
-func (e *GoogleSheetsExecutor) objectToRow(obj map[string]interface{}, columns []string) []interface{} {
+func (e *GoogleSheetsExecutor) objectToRow(obj map[string]any, columns []string) []any {
 	if len(columns) > 0 {
 		// Use specified column order
-		values := make([]interface{}, len(columns))
+		values := make([]any, len(columns))
 		for i, col := range columns {
 			if val, ok := obj[col]; ok {
 				values[i] = e.serializeValue(val)
@@ -495,7 +495,7 @@ func (e *GoogleSheetsExecutor) objectToRow(obj map[string]interface{}, columns [
 		}
 	}
 
-	values := make([]interface{}, len(keys))
+	values := make([]any, len(keys))
 	for i, k := range keys {
 		values[i] = e.serializeValue(obj[k])
 	}
@@ -505,7 +505,7 @@ func (e *GoogleSheetsExecutor) objectToRow(obj map[string]interface{}, columns [
 // serializeValue converts a value to a string suitable for Google Sheets.
 // Complex types (arrays, objects) are serialized as JSON.
 // String values are trimmed of leading/trailing whitespace.
-func (e *GoogleSheetsExecutor) serializeValue(val interface{}) interface{} {
+func (e *GoogleSheetsExecutor) serializeValue(val any) any {
 	if val == nil {
 		return ""
 	}
@@ -522,7 +522,7 @@ func (e *GoogleSheetsExecutor) serializeValue(val interface{}) interface{} {
 		return v
 	case float32, float64:
 		return v
-	case []interface{}, map[string]interface{}:
+	case []any, map[string]any:
 		// Serialize complex types as JSON
 		jsonBytes, err := json.Marshal(v)
 		if err != nil {
@@ -545,8 +545,8 @@ func (e *GoogleSheetsExecutor) serializeValue(val interface{}) interface{} {
 }
 
 // serializeRow serializes all values in a row.
-func (e *GoogleSheetsExecutor) serializeRow(row []interface{}) []interface{} {
-	result := make([]interface{}, len(row))
+func (e *GoogleSheetsExecutor) serializeRow(row []any) []any {
+	result := make([]any, len(row))
 	for i, val := range row {
 		result[i] = e.serializeValue(val)
 	}
@@ -554,8 +554,8 @@ func (e *GoogleSheetsExecutor) serializeRow(row []interface{}) []interface{} {
 }
 
 // serializeNestedValues serializes any nested complex values in a 2D array.
-func (e *GoogleSheetsExecutor) serializeNestedValues(data [][]interface{}) [][]interface{} {
-	result := make([][]interface{}, len(data))
+func (e *GoogleSheetsExecutor) serializeNestedValues(data [][]any) [][]any {
+	result := make([][]any, len(data))
 	for i, row := range data {
 		result[i] = e.serializeRow(row)
 	}
@@ -563,7 +563,7 @@ func (e *GoogleSheetsExecutor) serializeNestedValues(data [][]interface{}) [][]i
 }
 
 // Validate validates the executor configuration.
-func (e *GoogleSheetsExecutor) Validate(config map[string]interface{}) error {
+func (e *GoogleSheetsExecutor) Validate(config map[string]any) error {
 	// Validate required fields
 	if err := e.ValidateRequired(config, "operation", "spreadsheet_id", "credentials"); err != nil {
 		return err
@@ -604,7 +604,7 @@ func (e *GoogleSheetsExecutor) Validate(config map[string]interface{}) error {
 	}
 
 	// Try to parse credentials as JSON
-	var creds map[string]interface{}
+	var creds map[string]any
 	if err := json.Unmarshal([]byte(credentials), &creds); err != nil {
 		return fmt.Errorf("credentials must be valid JSON: %w", err)
 	}

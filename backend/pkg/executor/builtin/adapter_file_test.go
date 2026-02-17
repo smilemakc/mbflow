@@ -90,7 +90,7 @@ func (m *adapterMockStorage) GetMetadata(ctx context.Context, fileID string) (*m
 	return entry, nil
 }
 
-func (m *adapterMockStorage) UpdateMetadata(ctx context.Context, fileID string, metadata map[string]interface{}) error {
+func (m *adapterMockStorage) UpdateMetadata(ctx context.Context, fileID string, metadata map[string]any) error {
 	entry, ok := m.entries[fileID]
 	if !ok {
 		return assert.AnError
@@ -197,22 +197,22 @@ func TestFileToBytesExecutor_Execute(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		config        map[string]interface{}
-		input         interface{}
+		config        map[string]any
+		input         any
 		expectError   bool
 		errorContains string
-		validateFunc  func(t *testing.T, result map[string]interface{})
+		validateFunc  func(t *testing.T, result map[string]any)
 	}{
 		{
 			name: "read file as base64 (default)",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":    "default",
 				"file_id":       fileID,
 				"output_format": "base64",
 			},
 			input:       nil,
 			expectError: false,
-			validateFunc: func(t *testing.T, result map[string]interface{}) {
+			validateFunc: func(t *testing.T, result map[string]any) {
 				assert.True(t, result["success"].(bool))
 				assert.Equal(t, base64.StdEncoding.EncodeToString(testData), result["result"].(string))
 				assert.Equal(t, fileID, result["file_id"].(string))
@@ -224,14 +224,14 @@ func TestFileToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "read file as raw bytes",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":    "default",
 				"file_id":       fileID,
 				"output_format": "raw",
 			},
 			input:       nil,
 			expectError: false,
-			validateFunc: func(t *testing.T, result map[string]interface{}) {
+			validateFunc: func(t *testing.T, result map[string]any) {
 				assert.True(t, result["success"].(bool))
 				assert.Equal(t, testData, result["result"].([]byte))
 				assert.Equal(t, "raw", result["format"].(string))
@@ -239,33 +239,33 @@ func TestFileToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "file_id from input string",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 			},
 			input:       fileID,
 			expectError: false,
-			validateFunc: func(t *testing.T, result map[string]interface{}) {
+			validateFunc: func(t *testing.T, result map[string]any) {
 				assert.True(t, result["success"].(bool))
 				assert.Equal(t, fileID, result["file_id"].(string))
 			},
 		},
 		{
 			name: "file_id from input map",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"file_id": fileID,
 			},
 			expectError: false,
-			validateFunc: func(t *testing.T, result map[string]interface{}) {
+			validateFunc: func(t *testing.T, result map[string]any) {
 				assert.True(t, result["success"].(bool))
 				assert.Equal(t, fileID, result["file_id"].(string))
 			},
 		},
 		{
 			name: "invalid output format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":    "default",
 				"file_id":       fileID,
 				"output_format": "invalid",
@@ -276,7 +276,7 @@ func TestFileToBytesExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "storage not found",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "non-existent",
 				"file_id":    fileID,
 			},
@@ -299,7 +299,7 @@ func TestFileToBytesExecutor_Execute(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			resultMap, ok := result.(map[string]interface{})
+			resultMap, ok := result.(map[string]any)
 			require.True(t, ok, "result should be a map")
 
 			if tt.validateFunc != nil {
@@ -315,13 +315,13 @@ func TestFileToBytesExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		config        map[string]interface{}
+		config        map[string]any
 		expectError   bool
 		errorContains string
 	}{
 		{
 			name: "valid config with base64",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":    "default",
 				"file_id":       "test-id",
 				"output_format": "base64",
@@ -330,7 +330,7 @@ func TestFileToBytesExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid config with raw",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":    "default",
 				"file_id":       "test-id",
 				"output_format": "raw",
@@ -339,7 +339,7 @@ func TestFileToBytesExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing file_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 			},
 			expectError:   true,
@@ -347,7 +347,7 @@ func TestFileToBytesExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid output_format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":    "default",
 				"file_id":       "test-id",
 				"output_format": "json",
@@ -383,15 +383,15 @@ func TestBytesToFileExecutor_Execute(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		config        map[string]interface{}
-		input         interface{}
+		config        map[string]any
+		input         any
 		expectError   bool
 		errorContains string
-		validateFunc  func(t *testing.T, result map[string]interface{})
+		validateFunc  func(t *testing.T, result map[string]any)
 	}{
 		{
 			name: "save bytes to file",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":   "default",
 				"file_name":    "output.txt",
 				"mime_type":    "text/plain",
@@ -400,7 +400,7 @@ func TestBytesToFileExecutor_Execute(t *testing.T) {
 			},
 			input:       testData,
 			expectError: false,
-			validateFunc: func(t *testing.T, result map[string]interface{}) {
+			validateFunc: func(t *testing.T, result map[string]any) {
 				assert.True(t, result["success"].(bool))
 				assert.NotEmpty(t, result["file_id"].(string))
 				assert.Equal(t, "default", result["storage_id"].(string))
@@ -412,13 +412,13 @@ func TestBytesToFileExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "save base64 string to file",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 				"file_name":  "encoded.bin",
 			},
 			input:       base64.StdEncoding.EncodeToString(testData),
 			expectError: false,
-			validateFunc: func(t *testing.T, result map[string]interface{}) {
+			validateFunc: func(t *testing.T, result map[string]any) {
 				assert.True(t, result["success"].(bool))
 				// Should auto-decode base64
 				fileID := result["file_id"].(string)
@@ -428,13 +428,13 @@ func TestBytesToFileExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "save with auto mime type detection",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 				"file_name":  "data.json",
 			},
 			input:       []byte(`{"test":true}`),
 			expectError: false,
-			validateFunc: func(t *testing.T, result map[string]interface{}) {
+			validateFunc: func(t *testing.T, result map[string]any) {
 				assert.True(t, result["success"].(bool))
 				// MIME type should be auto-detected
 				assert.NotEmpty(t, result["mime_type"].(string))
@@ -442,41 +442,41 @@ func TestBytesToFileExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "save with edge access scope",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":   "default",
 				"file_name":    "edge.bin",
 				"access_scope": "edge",
 			},
 			input:       testData,
 			expectError: false,
-			validateFunc: func(t *testing.T, result map[string]interface{}) {
+			validateFunc: func(t *testing.T, result map[string]any) {
 				assert.Equal(t, "edge", result["access_scope"].(string))
 			},
 		},
 		{
 			name: "save with tags",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 				"file_name":  "tagged.bin",
-				"tags":       []interface{}{"processed", "output"},
+				"tags":       []any{"processed", "output"},
 			},
 			input:       testData,
 			expectError: false,
 		},
 		{
 			name: "input from map with data field",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 				"file_name":  "from-map.bin",
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"data": testData,
 			},
 			expectError: false,
 		},
 		{
 			name: "missing file_name",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 			},
 			input:         testData,
@@ -485,7 +485,7 @@ func TestBytesToFileExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "invalid storage",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "non-existent",
 				"file_name":  "test.bin",
 			},
@@ -495,7 +495,7 @@ func TestBytesToFileExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "invalid access_scope",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":   "default",
 				"file_name":    "test.bin",
 				"access_scope": "invalid",
@@ -519,7 +519,7 @@ func TestBytesToFileExecutor_Execute(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			resultMap, ok := result.(map[string]interface{})
+			resultMap, ok := result.(map[string]any)
 			require.True(t, ok, "result should be a map")
 
 			if tt.validateFunc != nil {
@@ -535,13 +535,13 @@ func TestBytesToFileExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		config        map[string]interface{}
+		config        map[string]any
 		expectError   bool
 		errorContains string
 	}{
 		{
 			name: "valid config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":   "default",
 				"file_name":    "test.txt",
 				"access_scope": "workflow",
@@ -551,7 +551,7 @@ func TestBytesToFileExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing file_name",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 			},
 			expectError:   true,
@@ -559,7 +559,7 @@ func TestBytesToFileExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid access_scope",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":   "default",
 				"file_name":    "test.txt",
 				"access_scope": "invalid",
@@ -569,7 +569,7 @@ func TestBytesToFileExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "negative TTL",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id": "default",
 				"file_name":  "test.txt",
 				"ttl":        -100,
@@ -579,7 +579,7 @@ func TestBytesToFileExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid edge scope",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":   "default",
 				"file_name":    "test.txt",
 				"access_scope": "edge",
@@ -588,7 +588,7 @@ func TestBytesToFileExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid result scope",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"storage_id":   "default",
 				"file_name":    "test.txt",
 				"access_scope": "result",
@@ -620,7 +620,7 @@ func TestBytesToFileExecutor_ExtractBytes(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		input         interface{}
+		input         any
 		expected      []byte
 		expectError   bool
 		errorContains string
@@ -642,17 +642,17 @@ func TestBytesToFileExecutor_ExtractBytes(t *testing.T) {
 		},
 		{
 			name:     "map with data field (bytes)",
-			input:    map[string]interface{}{"data": []byte("test")},
+			input:    map[string]any{"data": []byte("test")},
 			expected: []byte("test"),
 		},
 		{
 			name:     "map with data field (string)",
-			input:    map[string]interface{}{"data": "plaintext"},
+			input:    map[string]any{"data": "plaintext"},
 			expected: []byte("plaintext"),
 		},
 		{
 			name:          "map without data field",
-			input:         map[string]interface{}{"other": "value"},
+			input:         map[string]any{"other": "value"},
 			expectError:   true,
 			errorContains: "expected 'data' field",
 		},

@@ -57,7 +57,7 @@ func (h *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.hub.Register(client)
 
 	// Send welcome message
-	welcomeMsg := map[string]interface{}{
+	welcomeMsg := map[string]any{
 		"type":         "control",
 		"message":      "Connected to MBFlow WebSocket",
 		"client_id":    clientID,
@@ -90,7 +90,7 @@ func (h *WebSocketHandler) HandleHealthCheck(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	status := map[string]interface{}{
+	status := map[string]any{
 		"status":            "healthy",
 		"connected_clients": h.hub.ClientCount(),
 		"timestamp":         time.Now().Format(time.RFC3339),

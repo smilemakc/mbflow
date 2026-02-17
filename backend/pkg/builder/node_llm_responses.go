@@ -46,17 +46,17 @@ func WithInstructions(instructions string) NodeOption {
 //
 // Example:
 //
-//	input := []map[string]interface{}{
+//	input := []map[string]any{
 //	    {
 //	        "role": "user",
-//	        "content": []map[string]interface{}{
+//	        "content": []map[string]any{
 //	            {"type": "input_text", "text": "What is in this image?"},
 //	            {"type": "input_image", "image_url": "https://..."},
 //	        },
 //	    },
 //	}
 //	WithStructuredInput(input)
-func WithStructuredInput(items []map[string]interface{}) NodeOption {
+func WithStructuredInput(items []map[string]any) NodeOption {
 	return WithConfigValue("input", items)
 }
 
@@ -74,7 +74,7 @@ func WithStructuredInput(items []map[string]interface{}) NodeOption {
 func WithWebSearch(domains []string, contextSize string) NodeOption {
 	return func(nb *NodeBuilder) error {
 		tools := getHostedTools(nb)
-		tool := map[string]interface{}{
+		tool := map[string]any{
 			"type": "web_search_preview",
 		}
 		if len(domains) > 0 {
@@ -102,7 +102,7 @@ func WithWebSearch(domains []string, contextSize string) NodeOption {
 func WithFileSearch(vectorStoreIDs []string, maxResults int) NodeOption {
 	return func(nb *NodeBuilder) error {
 		tools := getHostedTools(nb)
-		tool := map[string]interface{}{
+		tool := map[string]any{
 			"type":             "file_search",
 			"vector_store_ids": vectorStoreIDs,
 		}
@@ -124,7 +124,7 @@ func WithFileSearch(vectorStoreIDs []string, maxResults int) NodeOption {
 func WithCodeInterpreter() NodeOption {
 	return func(nb *NodeBuilder) error {
 		tools := getHostedTools(nb)
-		tools = append(tools, map[string]interface{}{
+		tools = append(tools, map[string]any{
 			"type": "code_interpreter",
 		})
 		nb.config["hosted_tools"] = tools
@@ -144,7 +144,7 @@ func WithCodeInterpreter() NodeOption {
 //	WithReasoningEffort("high")  // For complex problem solving
 //	WithReasoningEffort("low")   // For simpler queries
 func WithReasoningEffort(effort string) NodeOption {
-	return WithConfigValue("reasoning", map[string]interface{}{
+	return WithConfigValue("reasoning", map[string]any{
 		"effort": effort,
 	})
 }
@@ -190,9 +190,9 @@ func WithStore(store bool) NodeOption {
 }
 
 // Helper function to get or initialize hosted_tools array
-func getHostedTools(nb *NodeBuilder) []map[string]interface{} {
-	if tools, ok := nb.config["hosted_tools"].([]map[string]interface{}); ok {
+func getHostedTools(nb *NodeBuilder) []map[string]any {
+	if tools, ok := nb.config["hosted_tools"].([]map[string]any); ok {
 		return tools
 	}
-	return []map[string]interface{}{}
+	return []map[string]any{}
 }

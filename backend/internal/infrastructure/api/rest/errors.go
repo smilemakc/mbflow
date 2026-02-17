@@ -12,10 +12,10 @@ import (
 )
 
 type APIError struct {
-	Code       string                 `json:"code"`
-	Message    string                 `json:"message"`
-	Details    map[string]interface{} `json:"details,omitempty"`
-	HTTPStatus int                    `json:"-"`
+	Code       string         `json:"code"`
+	Message    string         `json:"message"`
+	Details    map[string]any `json:"details,omitempty"`
+	HTTPStatus int            `json:"-"`
 }
 
 func (e *APIError) Error() string {
@@ -30,7 +30,7 @@ func NewAPIError(code, message string, httpStatus int) *APIError {
 	}
 }
 
-func NewAPIErrorWithDetails(code, message string, httpStatus int, details map[string]interface{}) *APIError {
+func NewAPIErrorWithDetails(code, message string, httpStatus int, details map[string]any) *APIError {
 	return &APIError{
 		Code:       code,
 		Message:    message,
@@ -196,19 +196,19 @@ func TranslateError(err error) *APIError {
 	case errors.Is(err, auth.ErrGRPCProviderNotConfigured):
 		return NewAPIError("GRPC_NOT_CONFIGURED", "gRPC authentication provider is not configured", http.StatusServiceUnavailable)
 	case errors.Is(err, auth.ErrGRPCLoginFailed):
-		return NewAPIErrorWithDetails("GRPC_LOGIN_FAILED", "Login via gRPC auth-gateway failed", http.StatusBadGateway, map[string]interface{}{
+		return NewAPIErrorWithDetails("GRPC_LOGIN_FAILED", "Login via gRPC auth-gateway failed", http.StatusBadGateway, map[string]any{
 			"original_error": err.Error(),
 		})
 	case errors.Is(err, auth.ErrGRPCTokenValidationFailed):
-		return NewAPIErrorWithDetails("GRPC_TOKEN_VALIDATION_FAILED", "Token validation via gRPC auth-gateway failed", http.StatusBadGateway, map[string]interface{}{
+		return NewAPIErrorWithDetails("GRPC_TOKEN_VALIDATION_FAILED", "Token validation via gRPC auth-gateway failed", http.StatusBadGateway, map[string]any{
 			"original_error": err.Error(),
 		})
 	case errors.Is(err, auth.ErrGRPCUserFetchFailed):
-		return NewAPIErrorWithDetails("GRPC_USER_FETCH_FAILED", "User fetch via gRPC auth-gateway failed", http.StatusBadGateway, map[string]interface{}{
+		return NewAPIErrorWithDetails("GRPC_USER_FETCH_FAILED", "User fetch via gRPC auth-gateway failed", http.StatusBadGateway, map[string]any{
 			"original_error": err.Error(),
 		})
 	case errors.Is(err, auth.ErrGRPCUserCreateFailed):
-		return NewAPIErrorWithDetails("GRPC_USER_CREATE_FAILED", "User creation via gRPC auth-gateway failed", http.StatusBadGateway, map[string]interface{}{
+		return NewAPIErrorWithDetails("GRPC_USER_CREATE_FAILED", "User creation via gRPC auth-gateway failed", http.StatusBadGateway, map[string]any{
 			"original_error": err.Error(),
 		})
 	case errors.Is(err, auth.ErrRefreshNotSupported):
@@ -218,7 +218,7 @@ func TranslateError(err error) *APIError {
 	case errors.Is(err, auth.ErrNoProvidersAvailable):
 		return NewAPIError("NO_AUTH_PROVIDERS", "No authentication providers available", http.StatusServiceUnavailable)
 	case errors.Is(err, auth.ErrAllProvidersFailed):
-		return NewAPIErrorWithDetails("ALL_PROVIDERS_FAILED", "All authentication providers failed", http.StatusServiceUnavailable, map[string]interface{}{
+		return NewAPIErrorWithDetails("ALL_PROVIDERS_FAILED", "All authentication providers failed", http.StatusServiceUnavailable, map[string]any{
 			"original_error": err.Error(),
 		})
 
@@ -246,7 +246,7 @@ func TranslateError(err error) *APIError {
 				"VALIDATION_ERROR",
 				validationErr.Message,
 				http.StatusBadRequest,
-				map[string]interface{}{
+				map[string]any{
 					"field": validationErr.Field,
 				},
 			)
@@ -254,7 +254,7 @@ func TranslateError(err error) *APIError {
 
 		var validationErrs models.ValidationErrors
 		if errors.As(err, &validationErrs) {
-			details := make(map[string]interface{})
+			details := make(map[string]any)
 			for i, ve := range validationErrs {
 				details[ve.Field] = ve.Message
 				if i == 0 {

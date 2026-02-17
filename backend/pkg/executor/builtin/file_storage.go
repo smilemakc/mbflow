@@ -50,7 +50,7 @@ func NewFileStorageExecutor(manager filestorage.Manager) *FileStorageExecutor {
 //   - file_data: Base64 encoded file content (for get)
 //   - metadata: File metadata
 //   - files: Array of files (for list)
-func (e *FileStorageExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *FileStorageExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	action, err := e.GetString(config, "action")
@@ -58,7 +58,7 @@ func (e *FileStorageExecutor) Execute(ctx context.Context, config map[string]int
 		return nil, fmt.Errorf("action is required: %w", err)
 	}
 
-	var result interface{}
+	var result any
 	switch action {
 	case "store":
 		result, err = e.executeStore(ctx, config, input)
@@ -79,7 +79,7 @@ func (e *FileStorageExecutor) Execute(ctx context.Context, config map[string]int
 	}
 
 	// Add duration to result
-	if resultMap, ok := result.(map[string]interface{}); ok {
+	if resultMap, ok := result.(map[string]any); ok {
 		resultMap["duration_ms"] = time.Since(startTime).Milliseconds()
 		resultMap["action"] = action
 		return resultMap, nil
@@ -89,7 +89,7 @@ func (e *FileStorageExecutor) Execute(ctx context.Context, config map[string]int
 }
 
 // executeStore stores a file
-func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[string]interface{}, input interface{}) (map[string]interface{}, error) {
+func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[string]any, input any) (map[string]any, error) {
 	// Get storage
 	storageID := e.GetStringDefault(config, "storage_id", "default")
 	storage, err := e.manager.GetStorage(storageID)
@@ -176,7 +176,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 	// Get tags
 	var tags []string
 	if tagsVal, ok := config["tags"]; ok {
-		if tagsArr, ok := tagsVal.([]interface{}); ok {
+		if tagsArr, ok := tagsVal.([]any); ok {
 			for _, t := range tagsArr {
 				if str, ok := t.(string); ok {
 					tags = append(tags, str)
@@ -196,7 +196,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		Size:        size,
 		AccessScope: models.AccessScope(accessScope),
 		Tags:        tags,
-		Metadata:    make(map[string]interface{}),
+		Metadata:    make(map[string]any),
 	}
 
 	// Set TTL if provided
@@ -210,7 +210,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		return nil, fmt.Errorf("failed to store file: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":      true,
 		"file_id":      stored.ID,
 		"storage_id":   stored.StorageID,
@@ -224,7 +224,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 }
 
 // executeGet retrieves a file
-func (e *FileStorageExecutor) executeGet(ctx context.Context, config map[string]interface{}) (map[string]interface{}, error) {
+func (e *FileStorageExecutor) executeGet(ctx context.Context, config map[string]any) (map[string]any, error) {
 	storageID := e.GetStringDefault(config, "storage_id", "default")
 	storage, err := e.manager.GetStorage(storageID)
 	if err != nil {
@@ -248,7 +248,7 @@ func (e *FileStorageExecutor) executeGet(ctx context.Context, config map[string]
 		return nil, fmt.Errorf("failed to read file content: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":      true,
 		"file_id":      entry.ID,
 		"storage_id":   entry.StorageID,
@@ -264,7 +264,7 @@ func (e *FileStorageExecutor) executeGet(ctx context.Context, config map[string]
 }
 
 // executeDelete deletes a file
-func (e *FileStorageExecutor) executeDelete(ctx context.Context, config map[string]interface{}) (map[string]interface{}, error) {
+func (e *FileStorageExecutor) executeDelete(ctx context.Context, config map[string]any) (map[string]any, error) {
 	storageID := e.GetStringDefault(config, "storage_id", "default")
 	storage, err := e.manager.GetStorage(storageID)
 	if err != nil {
@@ -280,7 +280,7 @@ func (e *FileStorageExecutor) executeDelete(ctx context.Context, config map[stri
 		return nil, fmt.Errorf("failed to delete file: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":    true,
 		"file_id":    fileID,
 		"storage_id": storageID,
@@ -288,7 +288,7 @@ func (e *FileStorageExecutor) executeDelete(ctx context.Context, config map[stri
 }
 
 // executeList lists files
-func (e *FileStorageExecutor) executeList(ctx context.Context, config map[string]interface{}) (map[string]interface{}, error) {
+func (e *FileStorageExecutor) executeList(ctx context.Context, config map[string]any) (map[string]any, error) {
 	storageID := e.GetStringDefault(config, "storage_id", "default")
 	storage, err := e.manager.GetStorage(storageID)
 	if err != nil {
@@ -308,7 +308,7 @@ func (e *FileStorageExecutor) executeList(ctx context.Context, config map[string
 
 	// Get tags
 	if tagsVal, ok := config["tags"]; ok {
-		if tagsArr, ok := tagsVal.([]interface{}); ok {
+		if tagsArr, ok := tagsVal.([]any); ok {
 			for _, t := range tagsArr {
 				if str, ok := t.(string); ok {
 					query.Tags = append(query.Tags, str)
@@ -323,9 +323,9 @@ func (e *FileStorageExecutor) executeList(ctx context.Context, config map[string
 	}
 
 	// Convert to output format
-	fileList := make([]map[string]interface{}, len(files))
+	fileList := make([]map[string]any, len(files))
 	for i, f := range files {
-		fileList[i] = map[string]interface{}{
+		fileList[i] = map[string]any{
 			"file_id":      f.ID,
 			"storage_id":   f.StorageID,
 			"file_name":    f.Name,
@@ -337,7 +337,7 @@ func (e *FileStorageExecutor) executeList(ctx context.Context, config map[string
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":    true,
 		"storage_id": storageID,
 		"files":      fileList,
@@ -346,7 +346,7 @@ func (e *FileStorageExecutor) executeList(ctx context.Context, config map[string
 }
 
 // executeMetadata gets file metadata
-func (e *FileStorageExecutor) executeMetadata(ctx context.Context, config map[string]interface{}) (map[string]interface{}, error) {
+func (e *FileStorageExecutor) executeMetadata(ctx context.Context, config map[string]any) (map[string]any, error) {
 	storageID := e.GetStringDefault(config, "storage_id", "default")
 	storage, err := e.manager.GetStorage(storageID)
 	if err != nil {
@@ -363,7 +363,7 @@ func (e *FileStorageExecutor) executeMetadata(ctx context.Context, config map[st
 		return nil, fmt.Errorf("failed to get file metadata: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":      true,
 		"file_id":      entry.ID,
 		"storage_id":   entry.StorageID,
@@ -380,7 +380,7 @@ func (e *FileStorageExecutor) executeMetadata(ctx context.Context, config map[st
 }
 
 // Validate validates the file storage executor configuration
-func (e *FileStorageExecutor) Validate(config map[string]interface{}) error {
+func (e *FileStorageExecutor) Validate(config map[string]any) error {
 	// Validate action
 	action, err := e.GetString(config, "action")
 	if err != nil {

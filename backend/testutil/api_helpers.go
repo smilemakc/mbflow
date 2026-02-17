@@ -13,7 +13,7 @@ import (
 )
 
 // MakeRequest helper function to make HTTP requests to the test server
-func MakeRequest(t *testing.T, router *gin.Engine, method, path string, body interface{}) *httptest.ResponseRecorder {
+func MakeRequest(t *testing.T, router *gin.Engine, method, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var reqBody io.Reader
@@ -46,7 +46,7 @@ func MakeRequestRaw(t *testing.T, router *gin.Engine, method, path, rawBody stri
 }
 
 // MakeRequestWithHeaders makes a request with custom headers
-func MakeRequestWithHeaders(t *testing.T, router *gin.Engine, method, path string, body interface{}, headers map[string]string) *httptest.ResponseRecorder {
+func MakeRequestWithHeaders(t *testing.T, router *gin.Engine, method, path string, body any, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var reqBody io.Reader
@@ -71,7 +71,7 @@ func MakeRequestWithHeaders(t *testing.T, router *gin.Engine, method, path strin
 }
 
 // ParseResponse helper function to parse JSON response directly into result.
-func ParseResponse(t *testing.T, w *httptest.ResponseRecorder, result interface{}) {
+func ParseResponse(t *testing.T, w *httptest.ResponseRecorder, result any) {
 	t.Helper()
 
 	body := w.Body.Bytes()
@@ -81,7 +81,7 @@ func ParseResponse(t *testing.T, w *httptest.ResponseRecorder, result interface{
 
 // ParseListResponse parses a list response with flat {data: [...], total, limit, offset} structure.
 // Stores the data array in result and returns a map with total/limit/offset.
-func ParseListResponse(t *testing.T, w *httptest.ResponseRecorder, result interface{}) map[string]interface{} {
+func ParseListResponse(t *testing.T, w *httptest.ResponseRecorder, result any) map[string]any {
 	t.Helper()
 
 	var envelope struct {
@@ -98,7 +98,7 @@ func ParseListResponse(t *testing.T, w *httptest.ResponseRecorder, result interf
 	err = json.Unmarshal(envelope.Data, result)
 	require.NoError(t, err, "Failed to parse list data: %s", string(body))
 
-	meta := map[string]interface{}{}
+	meta := map[string]any{}
 	if envelope.Total != nil {
 		meta["total"] = float64(*envelope.Total)
 	}
@@ -112,7 +112,7 @@ func ParseListResponse(t *testing.T, w *httptest.ResponseRecorder, result interf
 }
 
 // AssertJSONResponse asserts the response status code and parses JSON
-func AssertJSONResponse(t *testing.T, w *httptest.ResponseRecorder, expectedStatus int, result interface{}) {
+func AssertJSONResponse(t *testing.T, w *httptest.ResponseRecorder, expectedStatus int, result any) {
 	t.Helper()
 
 	require.Equal(t, expectedStatus, w.Code, "Unexpected status code. Response: %s", w.Body.String())
@@ -129,7 +129,7 @@ func AssertErrorResponse(t *testing.T, w *httptest.ResponseRecorder, expectedSta
 
 	require.Equal(t, expectedStatus, w.Code, "Unexpected status code")
 
-	var errorResp map[string]interface{}
+	var errorResp map[string]any
 	ParseResponse(t, w, &errorResp)
 
 	if expectedMessage != "" {
@@ -153,21 +153,21 @@ func MockHTTPServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 }
 
 // MockJSONServer creates a mock server that returns JSON responses
-func MockJSONServer(t *testing.T, responses map[string]interface{}) *httptest.Server {
+func MockJSONServer(t *testing.T, responses map[string]any) *httptest.Server {
 	t.Helper()
 
 	return MockHTTPServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		// Default response
-		response := map[string]interface{}{
+		response := map[string]any{
 			"success": true,
 			"data":    "mock response",
 		}
 
 		// Check if we have a specific response for this path
 		if pathResponse, ok := responses[r.URL.Path]; ok {
-			response = pathResponse.(map[string]interface{})
+			response = pathResponse.(map[string]any)
 		}
 
 		json.NewEncoder(w).Encode(response)
@@ -182,7 +182,7 @@ func MockErrorServer(t *testing.T, statusCode int, errorMessage string) *httptes
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"error": errorMessage,
 		}
 
@@ -191,10 +191,10 @@ func MockErrorServer(t *testing.T, statusCode int, errorMessage string) *httptes
 }
 
 // AssertWorkflowCreated asserts that a workflow was created successfully
-func AssertWorkflowCreated(t *testing.T, w *httptest.ResponseRecorder) map[string]interface{} {
+func AssertWorkflowCreated(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 
-	var result map[string]interface{}
+	var result map[string]any
 	AssertJSONResponse(t, w, http.StatusCreated, &result)
 	require.NotEmpty(t, result["id"], "Workflow ID should not be empty")
 	return result
@@ -208,10 +208,10 @@ func AssertWorkflowDeleted(t *testing.T, w *httptest.ResponseRecorder) {
 }
 
 // AssertExecutionStarted asserts that an execution was started successfully
-func AssertExecutionStarted(t *testing.T, w *httptest.ResponseRecorder) map[string]interface{} {
+func AssertExecutionStarted(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 
-	var result map[string]interface{}
+	var result map[string]any
 	AssertJSONResponse(t, w, http.StatusOK, &result)
 	require.NotEmpty(t, result["id"], "Execution ID should not be empty")
 	return result

@@ -9,22 +9,22 @@ import (
 
 // mockExecutor is a simple mock for testing
 type mockExecutor struct {
-	validateFn func(config map[string]interface{}) error
-	executeFn  func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error)
+	validateFn func(config map[string]any) error
+	executeFn  func(ctx context.Context, config map[string]any, input any) (any, error)
 }
 
-func (m *mockExecutor) Validate(config map[string]interface{}) error {
+func (m *mockExecutor) Validate(config map[string]any) error {
 	if m.validateFn != nil {
 		return m.validateFn(config)
 	}
 	return nil
 }
 
-func (m *mockExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (m *mockExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	if m.executeFn != nil {
 		return m.executeFn(ctx, config, input)
 	}
-	return map[string]interface{}{"status": "ok"}, nil
+	return map[string]any{"status": "ok"}, nil
 }
 
 func TestNewRegistry(t *testing.T) {

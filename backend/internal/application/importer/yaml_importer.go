@@ -14,11 +14,11 @@ import (
 
 // YAMLWorkflow represents the top-level YAML workflow configuration.
 type YAMLWorkflow struct {
-	Metadata  YAMLMetadata           `yaml:"metadata"`
-	Variables map[string]interface{} `yaml:"variables,omitempty"`
-	Nodes     []YAMLNode             `yaml:"nodes"`
-	Edges     []YAMLEdge             `yaml:"edges,omitempty"`
-	Trigger   *YAMLTrigger           `yaml:"trigger,omitempty"`
+	Metadata  YAMLMetadata   `yaml:"metadata"`
+	Variables map[string]any `yaml:"variables,omitempty"`
+	Nodes     []YAMLNode     `yaml:"nodes"`
+	Edges     []YAMLEdge     `yaml:"edges,omitempty"`
+	Trigger   *YAMLTrigger   `yaml:"trigger,omitempty"`
 }
 
 // YAMLMetadata represents workflow metadata in YAML.
@@ -31,13 +31,13 @@ type YAMLMetadata struct {
 
 // YAMLNode represents a node in YAML format.
 type YAMLNode struct {
-	ID          string                 `yaml:"id"`
-	Name        string                 `yaml:"name"`
-	Type        string                 `yaml:"type"`
-	Description string                 `yaml:"description,omitempty"`
-	Config      map[string]interface{} `yaml:"config,omitempty"`
-	Position    *YAMLPosition          `yaml:"position,omitempty"`
-	Metadata    map[string]interface{} `yaml:"metadata,omitempty"`
+	ID          string         `yaml:"id"`
+	Name        string         `yaml:"name"`
+	Type        string         `yaml:"type"`
+	Description string         `yaml:"description,omitempty"`
+	Config      map[string]any `yaml:"config,omitempty"`
+	Position    *YAMLPosition  `yaml:"position,omitempty"`
+	Metadata    map[string]any `yaml:"metadata,omitempty"`
 }
 
 // YAMLPosition represents node position in YAML.
@@ -48,22 +48,22 @@ type YAMLPosition struct {
 
 // YAMLEdge represents an edge in YAML format.
 type YAMLEdge struct {
-	ID           string                 `yaml:"id"`
-	From         string                 `yaml:"from"`
-	To           string                 `yaml:"to"`
-	SourceHandle string                 `yaml:"source_handle,omitempty"`
-	Condition    string                 `yaml:"condition,omitempty"`
-	Metadata     map[string]interface{} `yaml:"metadata,omitempty"`
+	ID           string         `yaml:"id"`
+	From         string         `yaml:"from"`
+	To           string         `yaml:"to"`
+	SourceHandle string         `yaml:"source_handle,omitempty"`
+	Condition    string         `yaml:"condition,omitempty"`
+	Metadata     map[string]any `yaml:"metadata,omitempty"`
 }
 
 // YAMLTrigger represents a trigger in YAML format.
 type YAMLTrigger struct {
-	Name        string                 `yaml:"name"`
-	Description string                 `yaml:"description,omitempty"`
-	Type        string                 `yaml:"type"`
-	Enabled     *bool                  `yaml:"enabled,omitempty"`
-	Config      map[string]interface{} `yaml:"config,omitempty"`
-	Metadata    map[string]interface{} `yaml:"metadata,omitempty"`
+	Name        string         `yaml:"name"`
+	Description string         `yaml:"description,omitempty"`
+	Type        string         `yaml:"type"`
+	Enabled     *bool          `yaml:"enabled,omitempty"`
+	Config      map[string]any `yaml:"config,omitempty"`
+	Metadata    map[string]any `yaml:"metadata,omitempty"`
 }
 
 // ImportResult contains the result of importing a YAML workflow.
@@ -307,7 +307,7 @@ func (i *YAMLImporter) convertToWorkflow(y *YAMLWorkflow) *models.Workflow {
 			}
 		}
 		if node.Config == nil {
-			node.Config = make(map[string]interface{})
+			node.Config = make(map[string]any)
 		}
 		workflow.Nodes = append(workflow.Nodes, node)
 	}
@@ -342,7 +342,7 @@ func (i *YAMLImporter) convertToTrigger(y *YAMLWorkflow, workflowID string) *mod
 
 	config := y.Trigger.Config
 	if config == nil {
-		config = make(map[string]interface{})
+		config = make(map[string]any)
 	}
 
 	return &models.Trigger{

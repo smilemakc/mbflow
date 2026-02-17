@@ -39,7 +39,7 @@ func New(cfg config.LoggingConfig) *Logger {
 }
 
 // With creates a new logger with the given attributes.
-func (l *Logger) With(args ...interface{}) *Logger {
+func (l *Logger) With(args ...any) *Logger {
 	return &Logger{
 		logger: l.logger.With(args...),
 	}
@@ -53,42 +53,42 @@ func (l *Logger) WithContext(ctx context.Context) *Logger {
 }
 
 // Debug logs a debug message.
-func (l *Logger) Debug(msg string, args ...interface{}) {
+func (l *Logger) Debug(msg string, args ...any) {
 	l.logger.Debug(msg, args...)
 }
 
 // Info logs an info message.
-func (l *Logger) Info(msg string, args ...interface{}) {
+func (l *Logger) Info(msg string, args ...any) {
 	l.logger.Info(msg, args...)
 }
 
 // Warn logs a warning message.
-func (l *Logger) Warn(msg string, args ...interface{}) {
+func (l *Logger) Warn(msg string, args ...any) {
 	l.logger.Warn(msg, args...)
 }
 
 // Error logs an error message.
-func (l *Logger) Error(msg string, args ...interface{}) {
+func (l *Logger) Error(msg string, args ...any) {
 	l.logger.Error(msg, args...)
 }
 
 // DebugContext logs a debug message with context.
-func (l *Logger) DebugContext(ctx context.Context, msg string, args ...interface{}) {
+func (l *Logger) DebugContext(ctx context.Context, msg string, args ...any) {
 	l.logger.DebugContext(ctx, msg, args...)
 }
 
 // InfoContext logs an info message with context.
-func (l *Logger) InfoContext(ctx context.Context, msg string, args ...interface{}) {
+func (l *Logger) InfoContext(ctx context.Context, msg string, args ...any) {
 	l.logger.InfoContext(ctx, msg, args...)
 }
 
 // WarnContext logs a warning message with context.
-func (l *Logger) WarnContext(ctx context.Context, msg string, args ...interface{}) {
+func (l *Logger) WarnContext(ctx context.Context, msg string, args ...any) {
 	l.logger.WarnContext(ctx, msg, args...)
 }
 
 // ErrorContext logs an error message with context.
-func (l *Logger) ErrorContext(ctx context.Context, msg string, args ...interface{}) {
+func (l *Logger) ErrorContext(ctx context.Context, msg string, args ...any) {
 	l.logger.ErrorContext(ctx, msg, args...)
 }
 
@@ -129,21 +129,21 @@ func SetDefault(logger *Logger) {
 }
 
 // Debug logs a debug message using the default logger.
-func Debug(msg string, args ...interface{}) {
+func Debug(msg string, args ...any) {
 	defaultLogger.Debug(msg, args...)
 }
 
 // Info logs an info message using the default logger.
-func Info(msg string, args ...interface{}) {
+func Info(msg string, args ...any) {
 	defaultLogger.Info(msg, args...)
 }
 
 // Warn logs a warning message using the default logger.
-func Warn(msg string, args ...interface{}) {
+func Warn(msg string, args ...any) {
 	defaultLogger.Warn(msg, args...)
 }
 
 // Error logs an error message using the default logger.
-func Error(msg string, args ...interface{}) {
+func Error(msg string, args ...any) {
 	defaultLogger.Error(msg, args...)
 }

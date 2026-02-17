@@ -301,7 +301,7 @@ func (r *CredentialsRepositoryImpl) IncrementUsageCount(ctx context.Context, res
 }
 
 // LogCredentialAccess logs an access event to the audit log
-func (r *CredentialsRepositoryImpl) LogCredentialAccess(ctx context.Context, resourceID, action, actorID, actorType string, metadata map[string]interface{}) error {
+func (r *CredentialsRepositoryImpl) LogCredentialAccess(ctx context.Context, resourceID, action, actorID, actorType string, metadata map[string]any) error {
 	return r.logAccessInTx(ctx, r.db, resourceID, action, actorID, actorType, metadata)
 }
 
@@ -320,7 +320,7 @@ type CredentialAuditLogModel struct {
 	CreatedAt    time.Time       `bun:"created_at,notnull,default:current_timestamp"`
 }
 
-func (r *CredentialsRepositoryImpl) logAccessInTx(ctx context.Context, db bun.IDB, resourceID, action, actorID, actorType string, metadata map[string]interface{}) error {
+func (r *CredentialsRepositoryImpl) logAccessInTx(ctx context.Context, db bun.IDB, resourceID, action, actorID, actorType string, metadata map[string]any) error {
 	credID, err := uuid.Parse(resourceID)
 	if err != nil {
 		return err

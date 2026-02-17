@@ -14,13 +14,13 @@ import (
 func TestTelegramExecutor_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "valid text message config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
@@ -30,7 +30,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing bot_token",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
 				"text":         "Hello",
@@ -40,7 +40,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing chat_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"message_type": "text",
 				"text":         "Hello",
@@ -50,7 +50,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing message_type",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token": "123456:ABC-DEF",
 				"chat_id":   "-1001234567890",
 				"text":      "Hello",
@@ -60,7 +60,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid bot_token format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "invalid-token",
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
@@ -71,7 +71,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid message_type",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "invalid",
@@ -81,7 +81,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "text message without text",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
@@ -91,7 +91,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid photo config with file_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "photo",
@@ -102,7 +102,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid photo config with url",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "photo",
@@ -113,7 +113,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid document config with base64",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "document",
@@ -125,7 +125,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "media message without file_source",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "document",
@@ -136,7 +136,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "media message without file_data",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "document",
@@ -147,7 +147,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid file_source",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "photo",
@@ -159,7 +159,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid parse_mode",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
@@ -171,7 +171,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid parse_mode Markdown",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
@@ -182,7 +182,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid parse_mode HTML",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
@@ -193,7 +193,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "timeout too small",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
@@ -205,7 +205,7 @@ func TestTelegramExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "timeout too large",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":    "123456:ABC-DEF",
 				"chat_id":      "-1001234567890",
 				"message_type": "text",
@@ -241,7 +241,7 @@ func TestTelegramExecutor_Execute_TextMessage(t *testing.T) {
 		assert.Contains(t, r.URL.Path, "/sendMessage")
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
-		var payload map[string]interface{}
+		var payload map[string]any
 		err := json.NewDecoder(r.Body).Decode(&payload)
 		require.NoError(t, err)
 
@@ -268,7 +268,7 @@ func TestTelegramExecutor_Execute_TextMessage(t *testing.T) {
 	executor := NewTelegramExecutor()
 	executor.baseURL = server.URL // Override base URL for testing
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"bot_token":    "test-token",
 		"chat_id":      "123456",
 		"message_type": "text",
@@ -292,7 +292,7 @@ func TestTelegramExecutor_Execute_TextMessage(t *testing.T) {
 
 func TestTelegramExecutor_Execute_TextMessage_WithOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]interface{}
+		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
 
 		assert.Equal(t, true, payload["disable_web_page_preview"])
@@ -318,7 +318,7 @@ func TestTelegramExecutor_Execute_TextMessage_WithOptions(t *testing.T) {
 	executor := NewTelegramExecutor()
 	executor.baseURL = server.URL
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"bot_token":                "test-token",
 		"chat_id":                  "123456",
 		"message_type":             "text",
@@ -352,7 +352,7 @@ func TestTelegramExecutor_Execute_APIError(t *testing.T) {
 	executor := NewTelegramExecutor()
 	executor.baseURL = server.URL
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"bot_token":    "test-token",
 		"chat_id":      "123456",
 		"message_type": "text",
@@ -374,7 +374,7 @@ func TestTelegramExecutor_Execute_PhotoByFileID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Contains(t, r.URL.Path, "/sendPhoto")
 
-		var payload map[string]interface{}
+		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
 
 		assert.Equal(t, "AgACAgIAAxkBAAIC...", payload["photo"])
@@ -402,7 +402,7 @@ func TestTelegramExecutor_Execute_PhotoByFileID(t *testing.T) {
 	executor := NewTelegramExecutor()
 	executor.baseURL = server.URL
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"bot_token":    "test-token",
 		"chat_id":      "123456",
 		"message_type": "photo",
@@ -427,7 +427,7 @@ func TestTelegramExecutor_Execute_PhotoByFileID(t *testing.T) {
 
 func TestTelegramExecutor_Execute_PhotoByURL(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]interface{}
+		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
 
 		assert.Equal(t, "https://example.com/image.jpg", payload["photo"])
@@ -452,7 +452,7 @@ func TestTelegramExecutor_Execute_PhotoByURL(t *testing.T) {
 	executor := NewTelegramExecutor()
 	executor.baseURL = server.URL
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"bot_token":    "test-token",
 		"chat_id":      "123456",
 		"message_type": "photo",
@@ -515,7 +515,7 @@ func TestTelegramExecutor_Execute_DocumentByBase64(t *testing.T) {
 	// "Hello World!" in base64
 	base64Data := "SGVsbG8gV29ybGQh"
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"bot_token":    "test-token",
 		"chat_id":      "123456",
 		"message_type": "document",

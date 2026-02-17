@@ -79,13 +79,13 @@ func TestHandlers_CreateWorkflow_Success(t *testing.T) {
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name":        "Test Workflow",
 		"description": "Test Description",
-		"variables": map[string]interface{}{
+		"variables": map[string]any{
 			"api_key": "test-key",
 		},
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"author": "test-user",
 		},
 	}
@@ -94,7 +94,7 @@ func TestHandlers_CreateWorkflow_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
@@ -108,7 +108,7 @@ func TestHandlers_CreateWorkflow_MissingName(t *testing.T) {
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"description": "Test Description",
 	}
 
@@ -136,7 +136,7 @@ func TestHandlers_CreateWorkflow_WithMinimalData(t *testing.T) {
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name": "Minimal Workflow",
 	}
 
@@ -144,7 +144,7 @@ func TestHandlers_CreateWorkflow_WithMinimalData(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
@@ -159,7 +159,7 @@ func TestHandlers_GetWorkflow_Success(t *testing.T) {
 	defer cleanup()
 
 	// Create workflow first
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name":        "Test Workflow",
 		"description": "Test Description",
 	}
@@ -167,7 +167,7 @@ func TestHandlers_GetWorkflow_Success(t *testing.T) {
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	workflowID := created["id"].(string)
 
@@ -176,7 +176,7 @@ func TestHandlers_GetWorkflow_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, getW.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, getW, &result)
 
 	assert.Equal(t, workflowID, result["id"])
@@ -215,7 +215,7 @@ func TestHandlers_ListWorkflows_Empty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var workflows []interface{}
+	var workflows []any
 	meta := testutil.ParseListResponse(t, w, &workflows)
 
 	assert.Empty(t, workflows)
@@ -229,7 +229,7 @@ func TestHandlers_ListWorkflows_WithData(t *testing.T) {
 
 	// Create 3 workflows
 	for i := 1; i <= 3; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"name": fmt.Sprintf("Workflow %d", i),
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", req)
@@ -241,7 +241,7 @@ func TestHandlers_ListWorkflows_WithData(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var workflows []interface{}
+	var workflows []any
 	meta := testutil.ParseListResponse(t, w, &workflows)
 
 	assert.Len(t, workflows, 3)
@@ -255,7 +255,7 @@ func TestHandlers_ListWorkflows_Pagination(t *testing.T) {
 
 	// Create 5 workflows
 	for i := 1; i <= 5; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"name": fmt.Sprintf("Workflow %d", i),
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", req)
@@ -267,7 +267,7 @@ func TestHandlers_ListWorkflows_Pagination(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var workflows []interface{}
+	var workflows []any
 	meta := testutil.ParseListResponse(t, w, &workflows)
 
 	assert.Len(t, workflows, 2)
@@ -284,7 +284,7 @@ func TestHandlers_ListWorkflows_FilterByStatus(t *testing.T) {
 
 	// Create 2 workflows (both will be draft by default)
 	for i := 1; i <= 2; i++ {
-		req := map[string]interface{}{"name": fmt.Sprintf("Workflow %d", i)}
+		req := map[string]any{"name": fmt.Sprintf("Workflow %d", i)}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", req)
 		require.Equal(t, http.StatusCreated, w.Code)
 	}
@@ -294,7 +294,7 @@ func TestHandlers_ListWorkflows_FilterByStatus(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var workflows []interface{}
+	var workflows []any
 	testutil.ParseListResponse(t, w, &workflows)
 
 	assert.Len(t, workflows, 2)
@@ -308,18 +308,18 @@ func TestHandlers_UpdateWorkflow_Success(t *testing.T) {
 	defer cleanup()
 
 	// Create workflow
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name": "Original Name",
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	workflowID := created["id"].(string)
 
 	// Update workflow
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name":        "Updated Name",
 		"description": "Updated Description",
 	}
@@ -327,7 +327,7 @@ func TestHandlers_UpdateWorkflow_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, updateW.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, updateW, &result)
 
 	assert.Equal(t, "Updated Name", result["name"])
@@ -340,7 +340,7 @@ func TestHandlers_UpdateWorkflow_NotFound(t *testing.T) {
 	defer cleanup()
 
 	randomID := uuid.New().String()
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name": "Updated Name",
 	}
 
@@ -354,7 +354,7 @@ func TestHandlers_UpdateWorkflow_InvalidID(t *testing.T) {
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name": "Updated Name",
 	}
 
@@ -371,13 +371,13 @@ func TestHandlers_DeleteWorkflow_Success(t *testing.T) {
 	defer cleanup()
 
 	// Create workflow
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name": "To Delete",
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	workflowID := created["id"].(string)
 
@@ -386,7 +386,7 @@ func TestHandlers_DeleteWorkflow_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, deleteW.Code)
 
-	var deleteResult map[string]interface{}
+	var deleteResult map[string]any
 	testutil.ParseResponse(t, deleteW, &deleteResult)
 	assert.Equal(t, "workflow deleted successfully", deleteResult["message"])
 
@@ -408,7 +408,7 @@ func TestHandlers_DeleteWorkflow_NotFound(t *testing.T) {
 	// TODO: Consider returning 404 when workflow is not found
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 	assert.Equal(t, "workflow deleted successfully", result["message"])
 }
@@ -431,13 +431,13 @@ func TestHandlers_PublishWorkflow_Success(t *testing.T) {
 	defer cleanup()
 
 	// Create workflow
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name": "To Publish",
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	workflowID := created["id"].(string)
 
@@ -446,7 +446,7 @@ func TestHandlers_PublishWorkflow_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, publishW.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, publishW, &result)
 
 	assert.Equal(t, "active", result["status"])
@@ -458,13 +458,13 @@ func TestHandlers_UnpublishWorkflow_Success(t *testing.T) {
 	defer cleanup()
 
 	// Create and publish workflow
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name": "To Unpublish",
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	workflowID := created["id"].(string)
 
@@ -477,7 +477,7 @@ func TestHandlers_UnpublishWorkflow_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, unpublishW.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, unpublishW, &result)
 
 	assert.Equal(t, "draft", result["status"])
@@ -491,13 +491,13 @@ func TestHandlers_GetWorkflowDiagram_Success(t *testing.T) {
 	defer cleanup()
 
 	// Create workflow
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name": "Diagram Test",
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	workflowID := created["id"].(string)
 
@@ -520,13 +520,13 @@ func TestHandlers_GetWorkflowDiagram_ASCIIFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create workflow
-	createReq := map[string]interface{}{
+	createReq := map[string]any{
 		"name": "ASCII Diagram Test",
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
 
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, createW, &created)
 	workflowID := created["id"].(string)
 
@@ -617,7 +617,7 @@ func TestHandlers_CreateWorkflow_WithoutAuthentication(t *testing.T) {
 	_, router, cleanup := setupWorkflowHandlersTest(t)
 	defer cleanup()
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"name": "Anonymous Workflow",
 	}
 
@@ -625,7 +625,7 @@ func TestHandlers_CreateWorkflow_WithoutAuthentication(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 
 	assert.NotEmpty(t, result["id"])
@@ -661,7 +661,7 @@ func TestHandlers_ListWorkflows_FilterByUserID_Admin(t *testing.T) {
 	// Admin should be able to filter by any user_id
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var workflows []interface{}
+	var workflows []any
 	testutil.ParseListResponse(t, w, &workflows)
 
 	// Should return empty list (no workflows for that user)
@@ -699,7 +699,7 @@ func TestHandlers_ListWorkflows_FilterByOwnUserID_Empty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var workflows []interface{}
+	var workflows []any
 	testutil.ParseListResponse(t, w, &workflows)
 
 	assert.Empty(t, workflows)
@@ -713,7 +713,7 @@ func TestHandlers_ListWorkflows_UnauthenticatedSeeAll(t *testing.T) {
 
 	// Create some workflows without auth (created_by = NULL)
 	for i := 1; i <= 3; i++ {
-		req := map[string]interface{}{
+		req := map[string]any{
 			"name": fmt.Sprintf("Workflow %d", i),
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", req)
@@ -725,7 +725,7 @@ func TestHandlers_ListWorkflows_UnauthenticatedSeeAll(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var workflows []interface{}
+	var workflows []any
 	testutil.ParseListResponse(t, w, &workflows)
 
 	assert.Len(t, workflows, 3)

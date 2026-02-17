@@ -154,7 +154,7 @@ type CreateKeyRequest struct {
 	Description       string
 	Provider          models.LLMProviderType
 	PlainAPIKey       string
-	ProviderConfig    map[string]interface{}
+	ProviderConfig    map[string]any
 	DailyRequestLimit *int
 	MonthlyTokenLimit *int64
 	PricingPlanID     string
@@ -208,7 +208,7 @@ type UpdateKeyRequest struct {
 	Status            *models.ResourceStatus
 	DailyRequestLimit *int
 	MonthlyTokenLimit *int64
-	ProviderConfig    map[string]interface{}
+	ProviderConfig    map[string]any
 }
 
 // UpdateKey updates an existing rental key.

@@ -584,7 +584,7 @@ func evaluateSourceHandleCondition(
 		}
 	}
 
-	if mapOutput, ok := output.(map[string]interface{}); ok {
+	if mapOutput, ok := output.(map[string]any); ok {
 		if result, exists := mapOutput["result"]; exists {
 			if boolResult, ok := result.(bool); ok {
 				switch edge.SourceHandle {

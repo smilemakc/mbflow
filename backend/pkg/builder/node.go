@@ -12,9 +12,9 @@ type NodeBuilder struct {
 	name        string
 	nodeType    string
 	description string
-	config      map[string]interface{}
+	config      map[string]any
 	position    *models.Position
-	metadata    map[string]interface{}
+	metadata    map[string]any
 	err         error
 }
 
@@ -27,8 +27,8 @@ func NewNode(id, nodeType, name string, opts ...NodeOption) *NodeBuilder {
 		id:       id,
 		nodeType: nodeType,
 		name:     name,
-		config:   make(map[string]interface{}),
-		metadata: make(map[string]interface{}),
+		config:   make(map[string]any),
+		metadata: make(map[string]any),
 	}
 
 	for _, opt := range opts {
@@ -96,7 +96,7 @@ func GridPosition(row, col int) NodeOption {
 }
 
 // WithNodeMetadata adds node metadata.
-func WithNodeMetadata(key string, value interface{}) NodeOption {
+func WithNodeMetadata(key string, value any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		if key == "" {
 			return fmt.Errorf("metadata key cannot be empty")
@@ -108,7 +108,7 @@ func WithNodeMetadata(key string, value interface{}) NodeOption {
 
 // WithConfig sets the raw config map.
 // This is an escape hatch for advanced use cases.
-func WithConfig(config map[string]interface{}) NodeOption {
+func WithConfig(config map[string]any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		nb.config = config
 		return nil
@@ -116,7 +116,7 @@ func WithConfig(config map[string]interface{}) NodeOption {
 }
 
 // WithConfigValue sets a single config value.
-func WithConfigValue(key string, value interface{}) NodeOption {
+func WithConfigValue(key string, value any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		if key == "" {
 			return fmt.Errorf("config key cannot be empty")

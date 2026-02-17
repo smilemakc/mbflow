@@ -33,13 +33,13 @@ const (
 
 // FileEvent represents an event in the file storage system
 type FileEvent struct {
-	Type      FileEventType          `json:"type"`
-	FileID    string                 `json:"file_id,omitempty"`
-	StorageID string                 `json:"storage_id"`
-	FileEntry *models.FileEntry      `json:"file_entry,omitempty"`
-	Timestamp time.Time              `json:"timestamp"`
-	Error     error                  `json:"error,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	Type      FileEventType     `json:"type"`
+	FileID    string            `json:"file_id,omitempty"`
+	StorageID string            `json:"storage_id"`
+	FileEntry *models.FileEntry `json:"file_entry,omitempty"`
+	Timestamp time.Time         `json:"timestamp"`
+	Error     error             `json:"error,omitempty"`
+	Metadata  map[string]any    `json:"metadata,omitempty"`
 }
 
 // NewFileEvent creates a new file event
@@ -63,9 +63,9 @@ func (e *FileEvent) WithError(err error) *FileEvent {
 }
 
 // WithMetadata adds metadata to the event
-func (e *FileEvent) WithMetadata(key string, value interface{}) *FileEvent {
+func (e *FileEvent) WithMetadata(key string, value any) *FileEvent {
 	if e.Metadata == nil {
-		e.Metadata = make(map[string]interface{})
+		e.Metadata = make(map[string]any)
 	}
 	e.Metadata[key] = value
 	return e

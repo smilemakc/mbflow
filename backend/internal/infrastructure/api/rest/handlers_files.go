@@ -106,7 +106,7 @@ func (h *FileHandlers) handleMultipartUpload(c *gin.Context) {
 		Size:        header.Size,
 		AccessScope: models.AccessScope(accessScope),
 		Tags:        tags,
-		Metadata:    make(map[string]interface{}),
+		Metadata:    make(map[string]any),
 	}
 
 	// Set optional workflow/execution
@@ -244,7 +244,7 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 		Size:        size,
 		AccessScope: models.AccessScope(accessScope),
 		Tags:        req.Tags,
-		Metadata:    make(map[string]interface{}),
+		Metadata:    make(map[string]any),
 	}
 
 	if req.WorkflowID != "" {
@@ -444,7 +444,7 @@ func (h *FileHandlers) HandleListFiles(c *gin.Context) {
 	total, _ := h.fileRepo.CountByQuery(c.Request.Context(), query)
 
 	// Convert to response format
-	response := make([]map[string]interface{}, len(files))
+	response := make([]map[string]any, len(files))
 	for i, f := range files {
 		response[i] = h.modelToResponse(f)
 	}
@@ -553,8 +553,8 @@ func (h *FileHandlers) entryToModel(entry *models.FileEntry) *storagemodels.File
 	return model
 }
 
-func (h *FileHandlers) modelToResponse(model *storagemodels.FileModel) map[string]interface{} {
-	resp := map[string]interface{}{
+func (h *FileHandlers) modelToResponse(model *storagemodels.FileModel) map[string]any {
+	resp := map[string]any{
 		"id":           model.ID.String(),
 		"storage_id":   model.StorageID,
 		"name":         model.Name,

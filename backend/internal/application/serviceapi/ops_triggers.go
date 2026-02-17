@@ -237,7 +237,7 @@ func triggerModelToDomain(tm *storagemodels.TriggerModel, name, description stri
 		ID:         tm.ID.String(),
 		WorkflowID: tm.WorkflowID.String(),
 		Type:       models.TriggerType(tm.Type),
-		Config:     make(map[string]interface{}),
+		Config:     make(map[string]any),
 		Enabled:    tm.Enabled,
 		CreatedAt:  tm.CreatedAt,
 		UpdatedAt:  tm.UpdatedAt,
@@ -256,7 +256,7 @@ func triggerModelToDomain(tm *storagemodels.TriggerModel, name, description stri
 	}
 
 	if tm.Config != nil {
-		trigger.Config = map[string]interface{}(tm.Config)
+		trigger.Config = map[string]any(tm.Config)
 	}
 
 	if tm.LastTriggeredAt != nil {

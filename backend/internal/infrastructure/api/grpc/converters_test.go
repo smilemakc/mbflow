@@ -34,14 +34,14 @@ func TestToProtoWorkflow_ShouldConvertFullWorkflow_WhenAllFieldsPopulated(t *tes
 		CreatedBy:   "user-456",
 		CreatedAt:   now,
 		UpdatedAt:   updated,
-		Variables:   map[string]interface{}{"env": "production"},
-		Metadata:    map[string]interface{}{"priority": "high"},
+		Variables:   map[string]any{"env": "production"},
+		Metadata:    map[string]any{"priority": "high"},
 		Nodes: []*models.Node{
 			{
 				ID:   "node-1",
 				Name: "Start",
 				Type: "start",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"timeout": float64(30),
 				},
 				Position: &models.Position{X: 100.0, Y: 200.0},
@@ -57,7 +57,7 @@ func TestToProtoWorkflow_ShouldConvertFullWorkflow_WhenAllFieldsPopulated(t *tes
 				ID:       "edge-1",
 				From:     "node-1",
 				To:       "node-2",
-				Metadata: map[string]interface{}{"label": "next"},
+				Metadata: map[string]any{"label": "next"},
 			},
 		},
 	}
@@ -181,8 +181,8 @@ func TestToProtoExecution_ShouldConvertFullExecution_WhenAllFieldsPopulated(t *t
 		StartedAt:   startedAt,
 		CompletedAt: &completedAt,
 		Duration:    300000,
-		Input:       map[string]interface{}{"param": "value"},
-		Output:      map[string]interface{}{"result": "success"},
+		Input:       map[string]any{"param": "value"},
+		Output:      map[string]any{"result": "success"},
 		NodeExecutions: []*models.NodeExecution{
 			{
 				ID:          "ne-001",
@@ -194,8 +194,8 @@ func TestToProtoExecution_ShouldConvertFullExecution_WhenAllFieldsPopulated(t *t
 				StartedAt:   nodeStarted,
 				CompletedAt: &nodeCompleted,
 				Duration:    60000,
-				Input:       map[string]interface{}{"in": "data"},
-				Output:      map[string]interface{}{"out": "result"},
+				Input:       map[string]any{"in": "data"},
+				Output:      map[string]any{"out": "result"},
 			},
 		},
 	}
@@ -326,7 +326,7 @@ func TestToProtoTrigger_ShouldConvertFullTrigger_WhenAllFieldsPopulated(t *testi
 		Name:        "Nightly Build",
 		Description: "Runs every night at midnight",
 		Type:        models.TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 0 * * *",
 			"timezone": "UTC",
 		},
@@ -497,7 +497,7 @@ func TestMapToStruct_ShouldReturnNil_WhenMapIsNil(t *testing.T) {
 }
 
 func TestMapToStruct_ShouldConvertValidMap_WhenMapHasStringKeys(t *testing.T) {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"name":    "test",
 		"count":   float64(42),
 		"enabled": true,
@@ -513,7 +513,7 @@ func TestMapToStruct_ShouldConvertValidMap_WhenMapHasStringKeys(t *testing.T) {
 }
 
 func TestMapToStruct_ShouldHandleEmptyMap_WhenMapHasNoEntries(t *testing.T) {
-	m := map[string]interface{}{}
+	m := map[string]any{}
 
 	result := mapToStruct(m)
 
@@ -522,8 +522,8 @@ func TestMapToStruct_ShouldHandleEmptyMap_WhenMapHasNoEntries(t *testing.T) {
 }
 
 func TestMapToStruct_ShouldHandleNestedMap_WhenMapContainsSubMaps(t *testing.T) {
-	m := map[string]interface{}{
-		"nested": map[string]interface{}{
+	m := map[string]any{
+		"nested": map[string]any{
 			"key": "value",
 		},
 	}
@@ -532,21 +532,21 @@ func TestMapToStruct_ShouldHandleNestedMap_WhenMapContainsSubMaps(t *testing.T) 
 
 	require.NotNil(t, result)
 	asMap := result.AsMap()
-	nested, ok := asMap["nested"].(map[string]interface{})
+	nested, ok := asMap["nested"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "value", nested["key"])
 }
 
 func TestMapToStruct_ShouldHandleListValues_WhenMapContainsSlices(t *testing.T) {
-	m := map[string]interface{}{
-		"tags": []interface{}{"a", "b", "c"},
+	m := map[string]any{
+		"tags": []any{"a", "b", "c"},
 	}
 
 	result := mapToStruct(m)
 
 	require.NotNil(t, result)
 	asMap := result.AsMap()
-	tags, ok := asMap["tags"].([]interface{})
+	tags, ok := asMap["tags"].([]any)
 	require.True(t, ok)
 	assert.Len(t, tags, 3)
 	assert.Equal(t, "a", tags[0])
@@ -554,7 +554,7 @@ func TestMapToStruct_ShouldHandleListValues_WhenMapContainsSlices(t *testing.T) 
 
 func TestMapToStruct_ShouldReturnNil_WhenMapContainsInvalidValues(t *testing.T) {
 	// structpb.NewStruct fails for values that cannot be represented in protobuf struct
-	m := map[string]interface{}{
+	m := map[string]any{
 		"channel": make(chan int),
 	}
 
@@ -572,7 +572,7 @@ func TestStructToMap_ShouldReturnNil_WhenStructIsNil(t *testing.T) {
 }
 
 func TestStructToMap_ShouldConvertValidStruct_WhenStructHasFields(t *testing.T) {
-	s, err := structpb.NewStruct(map[string]interface{}{
+	s, err := structpb.NewStruct(map[string]any{
 		"name":  "workflow",
 		"count": float64(10),
 	})
@@ -586,7 +586,7 @@ func TestStructToMap_ShouldConvertValidStruct_WhenStructHasFields(t *testing.T) 
 }
 
 func TestStructToMap_ShouldHandleEmptyStruct_WhenStructHasNoFields(t *testing.T) {
-	s, err := structpb.NewStruct(map[string]interface{}{})
+	s, err := structpb.NewStruct(map[string]any{})
 	require.NoError(t, err)
 
 	result := structToMap(s)
@@ -596,8 +596,8 @@ func TestStructToMap_ShouldHandleEmptyStruct_WhenStructHasNoFields(t *testing.T)
 }
 
 func TestStructToMap_ShouldHandleNestedStruct_WhenStructContainsSubStructs(t *testing.T) {
-	s, err := structpb.NewStruct(map[string]interface{}{
-		"outer": map[string]interface{}{
+	s, err := structpb.NewStruct(map[string]any{
+		"outer": map[string]any{
 			"inner": "deep",
 		},
 	})
@@ -606,7 +606,7 @@ func TestStructToMap_ShouldHandleNestedStruct_WhenStructContainsSubStructs(t *te
 	result := structToMap(s)
 
 	require.NotNil(t, result)
-	outer, ok := result["outer"].(map[string]interface{})
+	outer, ok := result["outer"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "deep", outer["inner"])
 }
@@ -652,7 +652,7 @@ func TestOptionalTimestamp_ShouldPreserveNanoseconds_WhenTimestampHasNanos(t *te
 // --- mapToStruct / structToMap roundtrip ---
 
 func TestMapToStructAndStructToMap_ShouldRoundTrip_WhenValidMap(t *testing.T) {
-	original := map[string]interface{}{
+	original := map[string]any{
 		"string_val": "hello",
 		"number_val": float64(3.14),
 		"bool_val":   true,

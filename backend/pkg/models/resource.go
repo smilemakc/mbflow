@@ -28,21 +28,21 @@ type Resource interface {
 	GetName() string
 	GetDescription() string
 	GetStatus() ResourceStatus
-	GetMetadata() map[string]interface{}
+	GetMetadata() map[string]any
 	Validate() error
 }
 
 // BaseResource базовая структура с общими полями для всех ресурсов
 type BaseResource struct {
-	ID          string                 `json:"id"`
-	Type        ResourceType           `json:"type"`
-	OwnerID     string                 `json:"owner_id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Status      ResourceStatus         `json:"status"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
+	ID          string         `json:"id"`
+	Type        ResourceType   `json:"type"`
+	OwnerID     string         `json:"owner_id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Status      ResourceStatus `json:"status"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // GetID returns the resource ID
@@ -76,7 +76,7 @@ func (r *BaseResource) GetStatus() ResourceStatus {
 }
 
 // GetMetadata returns the resource metadata
-func (r *BaseResource) GetMetadata() map[string]interface{} {
+func (r *BaseResource) GetMetadata() map[string]any {
 	return r.Metadata
 }
 

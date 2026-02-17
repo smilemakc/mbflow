@@ -32,7 +32,7 @@ func (h *WebhookHandlers) HandleWebhook(c *gin.Context) {
 	}
 
 	// Parse request body as JSON
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		h.logger.Error("Failed to bind JSON in HandleWebhook", "error", err, "trigger_id", triggerID)
 		respondError(c, http.StatusBadRequest, "invalid request body")
@@ -117,7 +117,7 @@ func (h *WebhookHandlers) HandleWebhookGet(c *gin.Context) {
 	}
 
 	// Include non-sensitive config
-	config := make(map[string]interface{})
+	config := make(map[string]any)
 	if ipWhitelist, ok := trigger.Config["ip_whitelist"]; ok {
 		config["ip_whitelist_enabled"] = true
 		config["ip_whitelist"] = ipWhitelist

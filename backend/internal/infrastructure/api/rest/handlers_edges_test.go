@@ -47,7 +47,7 @@ func TestHandlers_AddEdge_Success(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"id":   "new_edge",
 		"from": "n1",
 		"to":   "n3",
@@ -58,7 +58,7 @@ func TestHandlers_AddEdge_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 	assert.Equal(t, "new_edge", result["id"])
 	assert.Equal(t, "n1", result["from"])
@@ -70,7 +70,7 @@ func TestHandlers_AddEdge_WorkflowNotFound(t *testing.T) {
 	_, router, _, cleanup := setupEdgeHandlersTest(t)
 	defer cleanup()
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"id":   "new_edge",
 		"from": "n1",
 		"to":   "n2",
@@ -94,7 +94,7 @@ func TestHandlers_AddEdge_CreatesCycle(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to add edge n3 -> n1 which creates a cycle
-	req := map[string]interface{}{
+	req := map[string]any{
 		"id":   "cycle_edge",
 		"from": "n3",
 		"to":   "n1",
@@ -116,7 +116,7 @@ func TestHandlers_AddEdge_InvalidNodes(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"id":   "invalid_edge",
 		"from": "nonexistent",
 		"to":   "n2",
@@ -145,7 +145,7 @@ func TestHandlers_ListEdges_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var edges []interface{}
+	var edges []any
 	testutil.ParseListResponse(t, w, &edges)
 	assert.Len(t, edges, 2)
 }
@@ -182,7 +182,7 @@ func TestHandlers_GetEdge_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 	assert.Equal(t, edgeID, result["id"])
 }
@@ -217,7 +217,7 @@ func TestHandlers_UpdateEdge_Success(t *testing.T) {
 
 	edgeID := workflowModel.Edges[0].EdgeID
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"condition": "input.value > 10",
 	}
 
@@ -226,7 +226,7 @@ func TestHandlers_UpdateEdge_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var result map[string]interface{}
+	var result map[string]any
 	testutil.ParseResponse(t, w, &result)
 	assert.NotNil(t, result["condition"])
 }
@@ -241,7 +241,7 @@ func TestHandlers_UpdateEdge_NotFound(t *testing.T) {
 	err := workflowRepo.Create(context.Background(), workflowModel)
 	require.NoError(t, err)
 
-	req := map[string]interface{}{
+	req := map[string]any{
 		"condition": "input.value > 5",
 	}
 

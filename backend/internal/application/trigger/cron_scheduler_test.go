@@ -24,7 +24,7 @@ func TestParseCronSchedule(t *testing.T) {
 			name: "valid cron expression with seconds",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeCron,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"schedule": "0 */5 * * * *", // Every 5 minutes
 				},
 			},
@@ -34,7 +34,7 @@ func TestParseCronSchedule(t *testing.T) {
 			name: "valid cron expression with timezone",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeCron,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"schedule": "0 0 9 * * *", // 9 AM daily
 					"timezone": "America/New_York",
 				},
@@ -45,7 +45,7 @@ func TestParseCronSchedule(t *testing.T) {
 			name: "invalid cron expression",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeCron,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"schedule": "invalid",
 				},
 			},
@@ -55,7 +55,7 @@ func TestParseCronSchedule(t *testing.T) {
 			name: "missing schedule",
 			trigger: &models.Trigger{
 				Type:   models.TriggerTypeCron,
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			expectError: true,
 		},
@@ -63,7 +63,7 @@ func TestParseCronSchedule(t *testing.T) {
 			name: "invalid timezone",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeCron,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"schedule": "0 0 9 * * *",
 					"timezone": "Invalid/Timezone",
 				},
@@ -100,7 +100,7 @@ func TestParseIntervalSchedule(t *testing.T) {
 			name: "valid duration string",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeInterval,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"interval": "30s",
 				},
 			},
@@ -110,7 +110,7 @@ func TestParseIntervalSchedule(t *testing.T) {
 			name: "valid integer seconds",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeInterval,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"interval": 60,
 				},
 			},
@@ -120,7 +120,7 @@ func TestParseIntervalSchedule(t *testing.T) {
 			name: "valid float seconds",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeInterval,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"interval": 30.5,
 				},
 			},
@@ -130,7 +130,7 @@ func TestParseIntervalSchedule(t *testing.T) {
 			name: "invalid duration string",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeInterval,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"interval": "invalid",
 				},
 			},
@@ -140,7 +140,7 @@ func TestParseIntervalSchedule(t *testing.T) {
 			name: "negative interval",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeInterval,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"interval": -30,
 				},
 			},
@@ -150,7 +150,7 @@ func TestParseIntervalSchedule(t *testing.T) {
 			name: "zero interval",
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeInterval,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"interval": 0,
 				},
 			},
@@ -160,7 +160,7 @@ func TestParseIntervalSchedule(t *testing.T) {
 			name: "missing interval",
 			trigger: &models.Trigger{
 				Type:   models.TriggerTypeInterval,
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 			expectError: true,
 		},
@@ -196,7 +196,7 @@ func TestCronScheduler_AddRemoveTrigger(t *testing.T) {
 		ID:         "test-trigger-1",
 		WorkflowID: "test-workflow-1",
 		Type:       models.TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 */5 * * * *", // Every 5 minutes
 		},
 		Enabled: true,
@@ -264,7 +264,7 @@ func TestCronScheduler_AddMultipleTriggers(t *testing.T) {
 			ID:         "cron-1",
 			WorkflowID: "wf-1",
 			Type:       models.TriggerTypeCron,
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"schedule": "0 0 * * * *", // Every hour
 			},
 			Enabled: true,
@@ -273,7 +273,7 @@ func TestCronScheduler_AddMultipleTriggers(t *testing.T) {
 			ID:         "interval-1",
 			WorkflowID: "wf-2",
 			Type:       models.TriggerTypeInterval,
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"interval": "30s",
 			},
 			Enabled: true,
@@ -282,7 +282,7 @@ func TestCronScheduler_AddMultipleTriggers(t *testing.T) {
 			ID:         "cron-2",
 			WorkflowID: "wf-3",
 			Type:       models.TriggerTypeCron,
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"schedule": "0 */15 * * * *", // Every 15 minutes
 			},
 			Enabled: true,
@@ -334,7 +334,7 @@ func TestCronScheduler_UpdateTrigger(t *testing.T) {
 		ID:         triggerID,
 		WorkflowID: "wf-1",
 		Type:       models.TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 0 * * * *", // Every hour
 		},
 		Enabled: true,
@@ -377,7 +377,7 @@ func TestCronScheduler_IgnoreNonCronTriggers(t *testing.T) {
 		ID:         "webhook-1",
 		WorkflowID: "wf-1",
 		Type:       models.TriggerTypeWebhook,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"path": "/webhook/test",
 		},
 		Enabled: true,
@@ -417,7 +417,7 @@ func TestCronScheduler_ConcurrentOperations(t *testing.T) {
 					ID:         fmt.Sprintf("trigger-%d-%d", goroutineID, j),
 					WorkflowID: fmt.Sprintf("wf-%d-%d", goroutineID, j),
 					Type:       models.TriggerTypeCron,
-					Config: map[string]interface{}{
+					Config: map[string]any{
 						"schedule": "0 0 * * * *",
 					},
 					Enabled: true,
@@ -468,7 +468,7 @@ func TestCronScheduler_StartWithInitialTriggers(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeCron),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"schedule": "0 0 * * * *",
 			},
 			Enabled: true,
@@ -477,7 +477,7 @@ func TestCronScheduler_StartWithInitialTriggers(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeInterval),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"interval": "1m",
 			},
 			Enabled: true,
@@ -486,7 +486,7 @@ func TestCronScheduler_StartWithInitialTriggers(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeWebhook), // Should be ignored
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"path": "/webhook",
 			},
 			Enabled: true,
@@ -519,7 +519,7 @@ func TestCronScheduler_InvalidScheduleDoesNotCrash(t *testing.T) {
 		ID:         "invalid-1",
 		WorkflowID: "wf-1",
 		Type:       models.TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "this is not a valid cron expression",
 		},
 		Enabled: true,
@@ -562,7 +562,7 @@ func TestCronScheduler_LargeInterval(t *testing.T) {
 
 	trigger := &models.Trigger{
 		Type: models.TriggerTypeInterval,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"interval": "24h", // 1 day
 		},
 	}
@@ -579,7 +579,7 @@ func TestCronScheduler_SmallInterval(t *testing.T) {
 
 	trigger := &models.Trigger{
 		Type: models.TriggerTypeInterval,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"interval": "1s", // 1 second
 		},
 	}
@@ -630,7 +630,7 @@ func TestCronScheduler_ComplexCronExpressions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			trigger := &models.Trigger{
 				Type: models.TriggerTypeCron,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"schedule": tt.expression,
 					"timezone": tt.timezone,
 				},
@@ -665,7 +665,7 @@ func TestCronScheduler_DuplicateTriggerID(t *testing.T) {
 		ID:         triggerID,
 		WorkflowID: "wf-1",
 		Type:       models.TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 0 * * * *",
 		},
 		Enabled: true,
@@ -679,7 +679,7 @@ func TestCronScheduler_DuplicateTriggerID(t *testing.T) {
 		ID:         triggerID,
 		WorkflowID: "wf-2", // Different workflow
 		Type:       models.TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 */30 * * * *", // Different schedule
 		},
 		Enabled: true,

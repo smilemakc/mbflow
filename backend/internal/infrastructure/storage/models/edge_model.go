@@ -32,7 +32,7 @@ func (EdgeModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and validate
-func (e *EdgeModel) BeforeInsert(ctx interface{}) error {
+func (e *EdgeModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	e.CreatedAt = now
 	e.UpdatedAt = now
@@ -47,7 +47,7 @@ func (e *EdgeModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (e *EdgeModel) BeforeUpdate(ctx interface{}) error {
+func (e *EdgeModel) BeforeUpdate(ctx any) error {
 	e.UpdatedAt = time.Now()
 	// Validate no self-reference
 	if e.FromNodeID == e.ToNodeID {

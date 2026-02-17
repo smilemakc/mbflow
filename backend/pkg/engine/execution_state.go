@@ -14,23 +14,23 @@ type ExecutionState struct {
 	ExecutionID string
 	WorkflowID  string
 	Workflow    *models.Workflow
-	Input       map[string]interface{}
-	Variables   map[string]interface{}
-	Resources   map[string]interface{} // alias -> resource data for template resolution
+	Input       map[string]any
+	Variables   map[string]any
+	Resources   map[string]any // alias -> resource data for template resolution
 
 	// Node execution tracking
-	NodeOutputs         map[string]interface{}                // nodeID -> output
-	NodeInputs          map[string]interface{}                // nodeID -> input (passed to executor)
+	NodeOutputs         map[string]any                        // nodeID -> output
+	NodeInputs          map[string]any                        // nodeID -> input (passed to executor)
 	NodeErrors          map[string]error                      // nodeID -> error
 	NodeStatus          map[string]models.NodeExecutionStatus // nodeID -> status
 	NodeStartTimes      map[string]time.Time                  // nodeID -> start time
 	NodeEndTimes        map[string]time.Time                  // nodeID -> end time
-	NodeConfigs         map[string]map[string]interface{}     // nodeID -> original config
-	NodeResolvedConfigs map[string]map[string]interface{}     // nodeID -> resolved config
+	NodeConfigs         map[string]map[string]any             // nodeID -> original config
+	NodeResolvedConfigs map[string]map[string]any             // nodeID -> resolved config
 
 	// Loop tracking
-	LoopIterations map[string]int         // edgeID -> iteration count
-	LoopInputs     map[string]interface{} // nodeID -> loop input override
+	LoopIterations map[string]int // edgeID -> iteration count
+	LoopInputs     map[string]any // nodeID -> loop input override
 
 	// Sub-workflow parent tracking
 	ParentExecutionID string
@@ -42,36 +42,36 @@ type ExecutionState struct {
 }
 
 // NewExecutionState creates a new execution state.
-func NewExecutionState(executionID, workflowID string, workflow *models.Workflow, input, variables map[string]interface{}) *ExecutionState {
+func NewExecutionState(executionID, workflowID string, workflow *models.Workflow, input, variables map[string]any) *ExecutionState {
 	return &ExecutionState{
 		ExecutionID:         executionID,
 		WorkflowID:          workflowID,
 		Workflow:            workflow,
 		Input:               input,
 		Variables:           variables,
-		Resources:           make(map[string]interface{}),
-		NodeOutputs:         make(map[string]interface{}),
-		NodeInputs:          make(map[string]interface{}),
+		Resources:           make(map[string]any),
+		NodeOutputs:         make(map[string]any),
+		NodeInputs:          make(map[string]any),
 		NodeErrors:          make(map[string]error),
 		NodeStatus:          make(map[string]models.NodeExecutionStatus),
 		NodeStartTimes:      make(map[string]time.Time),
 		NodeEndTimes:        make(map[string]time.Time),
-		NodeConfigs:         make(map[string]map[string]interface{}),
-		NodeResolvedConfigs: make(map[string]map[string]interface{}),
+		NodeConfigs:         make(map[string]map[string]any),
+		NodeResolvedConfigs: make(map[string]map[string]any),
 		LoopIterations:      make(map[string]int),
-		LoopInputs:          make(map[string]interface{}),
+		LoopInputs:          make(map[string]any),
 	}
 }
 
 // SetNodeOutput safely sets node output.
-func (es *ExecutionState) SetNodeOutput(nodeID string, output interface{}) {
+func (es *ExecutionState) SetNodeOutput(nodeID string, output any) {
 	es.mu.Lock()
 	defer es.mu.Unlock()
 	es.NodeOutputs[nodeID] = output
 }
 
 // GetNodeOutput safely gets node output.
-func (es *ExecutionState) GetNodeOutput(nodeID string) (interface{}, bool) {
+func (es *ExecutionState) GetNodeOutput(nodeID string) (any, bool) {
 	es.mu.RLock()
 	defer es.mu.RUnlock()
 	output, ok := es.NodeOutputs[nodeID]
@@ -139,14 +139,14 @@ func (es *ExecutionState) GetNodeEndTime(nodeID string) (time.Time, bool) {
 }
 
 // SetNodeInput safely sets node input.
-func (es *ExecutionState) SetNodeInput(nodeID string, input interface{}) {
+func (es *ExecutionState) SetNodeInput(nodeID string, input any) {
 	es.mu.Lock()
 	defer es.mu.Unlock()
 	es.NodeInputs[nodeID] = input
 }
 
 // GetNodeInput safely gets node input.
-func (es *ExecutionState) GetNodeInput(nodeID string) (interface{}, bool) {
+func (es *ExecutionState) GetNodeInput(nodeID string) (any, bool) {
 	es.mu.RLock()
 	defer es.mu.RUnlock()
 	input, ok := es.NodeInputs[nodeID]
@@ -154,14 +154,14 @@ func (es *ExecutionState) GetNodeInput(nodeID string) (interface{}, bool) {
 }
 
 // SetNodeConfig safely sets node original config.
-func (es *ExecutionState) SetNodeConfig(nodeID string, config map[string]interface{}) {
+func (es *ExecutionState) SetNodeConfig(nodeID string, config map[string]any) {
 	es.mu.Lock()
 	defer es.mu.Unlock()
 	es.NodeConfigs[nodeID] = config
 }
 
 // GetNodeConfig safely gets node original config.
-func (es *ExecutionState) GetNodeConfig(nodeID string) (map[string]interface{}, bool) {
+func (es *ExecutionState) GetNodeConfig(nodeID string) (map[string]any, bool) {
 	es.mu.RLock()
 	defer es.mu.RUnlock()
 	config, ok := es.NodeConfigs[nodeID]
@@ -169,14 +169,14 @@ func (es *ExecutionState) GetNodeConfig(nodeID string) (map[string]interface{}, 
 }
 
 // SetNodeResolvedConfig safely sets node resolved config.
-func (es *ExecutionState) SetNodeResolvedConfig(nodeID string, config map[string]interface{}) {
+func (es *ExecutionState) SetNodeResolvedConfig(nodeID string, config map[string]any) {
 	es.mu.Lock()
 	defer es.mu.Unlock()
 	es.NodeResolvedConfigs[nodeID] = config
 }
 
 // GetNodeResolvedConfig safely gets node resolved config.
-func (es *ExecutionState) GetNodeResolvedConfig(nodeID string) (map[string]interface{}, bool) {
+func (es *ExecutionState) GetNodeResolvedConfig(nodeID string) (map[string]any, bool) {
 	es.mu.RLock()
 	defer es.mu.RUnlock()
 	config, ok := es.NodeResolvedConfigs[nodeID]
@@ -199,14 +199,14 @@ func (es *ExecutionState) IncrementLoopIteration(edgeID string) int {
 }
 
 // SetLoopInput sets a loop input override for a node.
-func (es *ExecutionState) SetLoopInput(nodeID string, input interface{}) {
+func (es *ExecutionState) SetLoopInput(nodeID string, input any) {
 	es.mu.Lock()
 	defer es.mu.Unlock()
 	es.LoopInputs[nodeID] = input
 }
 
 // GetLoopInput returns the loop input for a node, if any.
-func (es *ExecutionState) GetLoopInput(nodeID string) (interface{}, bool) {
+func (es *ExecutionState) GetLoopInput(nodeID string) (any, bool) {
 	es.mu.RLock()
 	defer es.mu.RUnlock()
 	input, ok := es.LoopInputs[nodeID]
@@ -253,22 +253,22 @@ func (es *ExecutionState) GetTotalMemoryUsage() int64 {
 	return total
 }
 
-// ToMapInterface converts any value to map[string]interface{}.
+// ToMapInterface converts any value to map[string]any.
 // Fast path for already-map values, JSON roundtrip for structs.
-func ToMapInterface(v interface{}) map[string]interface{} {
+func ToMapInterface(v any) map[string]any {
 	if v == nil {
 		return nil
 	}
-	if m, ok := v.(map[string]interface{}); ok {
+	if m, ok := v.(map[string]any); ok {
 		return m
 	}
 	data, err := json.Marshal(v)
 	if err != nil {
-		return map[string]interface{}{"value": v}
+		return map[string]any{"value": v}
 	}
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
-		return map[string]interface{}{"value": v}
+		return map[string]any{"value": v}
 	}
 	return result
 }

@@ -380,7 +380,7 @@ func setupAuthTestService() (*auth.Service, *MockUserRepository) {
 	return service, mockRepo
 }
 
-func performAuthRequest(r http.Handler, method, path string, body interface{}) *httptest.ResponseRecorder {
+func performAuthRequest(r http.Handler, method, path string, body any) *httptest.ResponseRecorder {
 	var bodyBytes []byte
 	if body != nil {
 		bodyBytes, _ = json.Marshal(body)
@@ -674,7 +674,7 @@ func TestHandleGetAuthInfo(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -813,7 +813,7 @@ func TestHandleRegister_ValidationErrors(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		request        interface{}
+		request        any
 		expectedStatus int
 		description    string
 	}{
@@ -954,7 +954,7 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		var response map[string]interface{}
+		var response map[string]any
 		json.Unmarshal(w.Body.Bytes(), &response)
 
 		if response["authenticated"] != false {
@@ -986,7 +986,7 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
 
-		var response map[string]interface{}
+		var response map[string]any
 		json.Unmarshal(w.Body.Bytes(), &response)
 
 		if response["authenticated"] != true {

@@ -227,7 +227,7 @@ func (el *EventListener) handleEvent(ctx context.Context, event Event) {
 
 // matchesFilter checks if event matches trigger filter
 func (el *EventListener) matchesFilter(event Event, trigger *models.Trigger) bool {
-	filter, ok := trigger.Config["filter"].(map[string]interface{})
+	filter, ok := trigger.Config["filter"].(map[string]any)
 	if !ok || len(filter) == 0 {
 		return true // No filter means match all
 	}
@@ -255,12 +255,12 @@ func (el *EventListener) matchesFilter(event Event, trigger *models.Trigger) boo
 }
 
 // executeTrigger executes a workflow triggered by an event
-func (el *EventListener) executeTrigger(ctx context.Context, trigger *models.Trigger, eventData map[string]interface{}) error {
+func (el *EventListener) executeTrigger(ctx context.Context, trigger *models.Trigger, eventData map[string]any) error {
 	// Merge trigger input with event data
-	input := make(map[string]interface{})
+	input := make(map[string]any)
 
 	// First add trigger's default input
-	if defaultInput, ok := trigger.Config["input"].(map[string]interface{}); ok {
+	if defaultInput, ok := trigger.Config["input"].(map[string]any); ok {
 		for k, v := range defaultInput {
 			input[k] = v
 		}
@@ -317,14 +317,14 @@ func (el *EventListener) modelToDomain(tm *storagemodels.TriggerModel) *models.T
 		ID:         tm.ID.String(),
 		WorkflowID: tm.WorkflowID.String(),
 		Type:       models.TriggerType(tm.Type),
-		Config:     make(map[string]interface{}),
+		Config:     make(map[string]any),
 		Enabled:    tm.Enabled,
 		CreatedAt:  tm.CreatedAt,
 		UpdatedAt:  tm.UpdatedAt,
 	}
 
 	if tm.Config != nil {
-		trigger.Config = map[string]interface{}(tm.Config)
+		trigger.Config = map[string]any(tm.Config)
 	}
 
 	if tm.LastTriggeredAt != nil {
@@ -336,10 +336,10 @@ func (el *EventListener) modelToDomain(tm *storagemodels.TriggerModel) *models.T
 
 // Event represents an event published to Redis
 type Event struct {
-	Type      string                 `json:"type"`
-	Source    string                 `json:"source"`
-	Data      map[string]interface{} `json:"data"`
-	Timestamp time.Time              `json:"timestamp"`
+	Type      string         `json:"type"`
+	Source    string         `json:"source"`
+	Data      map[string]any `json:"data"`
+	Timestamp time.Time      `json:"timestamp"`
 }
 
 // PublishEvent publishes an event to Redis

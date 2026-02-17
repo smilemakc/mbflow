@@ -13,26 +13,26 @@ import (
 
 func TestExecutorFunc_Execute(t *testing.T) {
 	ctx := context.Background()
-	config := map[string]interface{}{"key": "value"}
-	input := map[string]interface{}{"data": "test"}
+	config := map[string]any{"key": "value"}
+	input := map[string]any{"data": "test"}
 
 	tests := []struct {
 		name      string
-		executeFn func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error)
-		wantOut   interface{}
+		executeFn func(ctx context.Context, config map[string]any, input any) (any, error)
+		wantOut   any
 		wantErr   bool
 	}{
 		{
 			name: "successful execution",
-			executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-				return map[string]interface{}{"result": "success"}, nil
+			executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+				return map[string]any{"result": "success"}, nil
 			},
-			wantOut: map[string]interface{}{"result": "success"},
+			wantOut: map[string]any{"result": "success"},
 			wantErr: false,
 		},
 		{
 			name: "execution with error",
-			executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 				return nil, errors.New("execution failed")
 			},
 			wantOut: nil,
@@ -40,7 +40,7 @@ func TestExecutorFunc_Execute(t *testing.T) {
 		},
 		{
 			name: "execution returns input",
-			executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+			executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 				return input, nil
 			},
 			wantOut: input,
@@ -67,23 +67,23 @@ func TestExecutorFunc_Execute(t *testing.T) {
 }
 
 func TestExecutorFunc_Validate(t *testing.T) {
-	config := map[string]interface{}{"required_field": "value"}
+	config := map[string]any{"required_field": "value"}
 
 	tests := []struct {
 		name       string
-		validateFn func(config map[string]interface{}) error
+		validateFn func(config map[string]any) error
 		wantErr    bool
 	}{
 		{
 			name: "validation success",
-			validateFn: func(config map[string]interface{}) error {
+			validateFn: func(config map[string]any) error {
 				return nil
 			},
 			wantErr: false,
 		},
 		{
 			name: "validation error",
-			validateFn: func(config map[string]interface{}) error {
+			validateFn: func(config map[string]any) error {
 				return errors.New("validation failed")
 			},
 			wantErr: true,
@@ -113,10 +113,10 @@ func TestExecutorFunc_Validate(t *testing.T) {
 }
 
 func TestNewExecutorFunc(t *testing.T) {
-	executeFn := func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+	executeFn := func(ctx context.Context, config map[string]any, input any) (any, error) {
 		return "result", nil
 	}
-	validateFn := func(config map[string]interface{}) error {
+	validateFn := func(config map[string]any) error {
 		return nil
 	}
 
@@ -139,7 +139,7 @@ func TestNewExecutorFunc(t *testing.T) {
 }
 
 func TestNewExecutorFunc_NilValidate(t *testing.T) {
-	executeFn := func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+	executeFn := func(ctx context.Context, config map[string]any, input any) (any, error) {
 		return "result", nil
 	}
 
@@ -166,27 +166,27 @@ func TestBaseExecutor_ValidateRequired(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		config   map[string]interface{}
+		config   map[string]any
 		fields   []string
 		wantErr  bool
 		errField string
 	}{
 		{
 			name:    "all fields present",
-			config:  map[string]interface{}{"field1": "value1", "field2": "value2"},
+			config:  map[string]any{"field1": "value1", "field2": "value2"},
 			fields:  []string{"field1", "field2"},
 			wantErr: false,
 		},
 		{
 			name:     "missing required field",
-			config:   map[string]interface{}{"field1": "value1"},
+			config:   map[string]any{"field1": "value1"},
 			fields:   []string{"field1", "field2"},
 			wantErr:  true,
 			errField: "field2",
 		},
 		{
 			name:    "empty fields list",
-			config:  map[string]interface{}{"field1": "value1"},
+			config:  map[string]any{"field1": "value1"},
 			fields:  []string{},
 			wantErr: false,
 		},
@@ -226,7 +226,7 @@ func TestBaseExecutor_GetString(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		key     string
 		wantVal string
 		wantErr bool
@@ -234,14 +234,14 @@ func TestBaseExecutor_GetString(t *testing.T) {
 	}{
 		{
 			name:    "get string success",
-			config:  map[string]interface{}{"key": "value"},
+			config:  map[string]any{"key": "value"},
 			key:     "key",
 			wantVal: "value",
 			wantErr: false,
 		},
 		{
 			name:    "field not found",
-			config:  map[string]interface{}{"other": "value"},
+			config:  map[string]any{"other": "value"},
 			key:     "key",
 			wantVal: "",
 			wantErr: true,
@@ -249,7 +249,7 @@ func TestBaseExecutor_GetString(t *testing.T) {
 		},
 		{
 			name:    "field is not a string",
-			config:  map[string]interface{}{"key": 123},
+			config:  map[string]any{"key": 123},
 			key:     "key",
 			wantVal: "",
 			wantErr: true,
@@ -257,7 +257,7 @@ func TestBaseExecutor_GetString(t *testing.T) {
 		},
 		{
 			name:    "empty string is valid",
-			config:  map[string]interface{}{"key": ""},
+			config:  map[string]any{"key": ""},
 			key:     "key",
 			wantVal: "",
 			wantErr: false,
@@ -286,35 +286,35 @@ func TestBaseExecutor_GetStringDefault(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		config       map[string]interface{}
+		config       map[string]any
 		key          string
 		defaultValue string
 		wantVal      string
 	}{
 		{
 			name:         "get existing string",
-			config:       map[string]interface{}{"key": "value"},
+			config:       map[string]any{"key": "value"},
 			key:          "key",
 			defaultValue: "default",
 			wantVal:      "value",
 		},
 		{
 			name:         "use default when field not found",
-			config:       map[string]interface{}{"other": "value"},
+			config:       map[string]any{"other": "value"},
 			key:          "key",
 			defaultValue: "default",
 			wantVal:      "default",
 		},
 		{
 			name:         "use default when field is not a string",
-			config:       map[string]interface{}{"key": 123},
+			config:       map[string]any{"key": 123},
 			key:          "key",
 			defaultValue: "default",
 			wantVal:      "default",
 		},
 		{
 			name:         "empty string overrides default",
-			config:       map[string]interface{}{"key": ""},
+			config:       map[string]any{"key": ""},
 			key:          "key",
 			defaultValue: "default",
 			wantVal:      "",
@@ -334,7 +334,7 @@ func TestBaseExecutor_GetInt(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		key     string
 		wantVal int
 		wantErr bool
@@ -342,28 +342,28 @@ func TestBaseExecutor_GetInt(t *testing.T) {
 	}{
 		{
 			name:    "get int success",
-			config:  map[string]interface{}{"key": 42},
+			config:  map[string]any{"key": 42},
 			key:     "key",
 			wantVal: 42,
 			wantErr: false,
 		},
 		{
 			name:    "get float64 as int (JSON unmarshaling)",
-			config:  map[string]interface{}{"key": float64(42.0)},
+			config:  map[string]any{"key": float64(42.0)},
 			key:     "key",
 			wantVal: 42,
 			wantErr: false,
 		},
 		{
 			name:    "get float64 with decimals truncated",
-			config:  map[string]interface{}{"key": float64(42.7)},
+			config:  map[string]any{"key": float64(42.7)},
 			key:     "key",
 			wantVal: 42,
 			wantErr: false,
 		},
 		{
 			name:    "field not found",
-			config:  map[string]interface{}{"other": 42},
+			config:  map[string]any{"other": 42},
 			key:     "key",
 			wantVal: 0,
 			wantErr: true,
@@ -371,7 +371,7 @@ func TestBaseExecutor_GetInt(t *testing.T) {
 		},
 		{
 			name:    "field is not a number",
-			config:  map[string]interface{}{"key": "not a number"},
+			config:  map[string]any{"key": "not a number"},
 			key:     "key",
 			wantVal: 0,
 			wantErr: true,
@@ -379,14 +379,14 @@ func TestBaseExecutor_GetInt(t *testing.T) {
 		},
 		{
 			name:    "zero is valid",
-			config:  map[string]interface{}{"key": 0},
+			config:  map[string]any{"key": 0},
 			key:     "key",
 			wantVal: 0,
 			wantErr: false,
 		},
 		{
 			name:    "negative int",
-			config:  map[string]interface{}{"key": -42},
+			config:  map[string]any{"key": -42},
 			key:     "key",
 			wantVal: -42,
 			wantErr: false,
@@ -415,42 +415,42 @@ func TestBaseExecutor_GetIntDefault(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		config       map[string]interface{}
+		config       map[string]any
 		key          string
 		defaultValue int
 		wantVal      int
 	}{
 		{
 			name:         "get existing int",
-			config:       map[string]interface{}{"key": 42},
+			config:       map[string]any{"key": 42},
 			key:          "key",
 			defaultValue: 100,
 			wantVal:      42,
 		},
 		{
 			name:         "get float64 as int",
-			config:       map[string]interface{}{"key": float64(42.0)},
+			config:       map[string]any{"key": float64(42.0)},
 			key:          "key",
 			defaultValue: 100,
 			wantVal:      42,
 		},
 		{
 			name:         "use default when field not found",
-			config:       map[string]interface{}{"other": 42},
+			config:       map[string]any{"other": 42},
 			key:          "key",
 			defaultValue: 100,
 			wantVal:      100,
 		},
 		{
 			name:         "use default when field is not a number",
-			config:       map[string]interface{}{"key": "not a number"},
+			config:       map[string]any{"key": "not a number"},
 			key:          "key",
 			defaultValue: 100,
 			wantVal:      100,
 		},
 		{
 			name:         "zero overrides default",
-			config:       map[string]interface{}{"key": 0},
+			config:       map[string]any{"key": 0},
 			key:          "key",
 			defaultValue: 100,
 			wantVal:      0,
@@ -470,7 +470,7 @@ func TestBaseExecutor_GetBool(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		key     string
 		wantVal bool
 		wantErr bool
@@ -478,21 +478,21 @@ func TestBaseExecutor_GetBool(t *testing.T) {
 	}{
 		{
 			name:    "get true",
-			config:  map[string]interface{}{"key": true},
+			config:  map[string]any{"key": true},
 			key:     "key",
 			wantVal: true,
 			wantErr: false,
 		},
 		{
 			name:    "get false",
-			config:  map[string]interface{}{"key": false},
+			config:  map[string]any{"key": false},
 			key:     "key",
 			wantVal: false,
 			wantErr: false,
 		},
 		{
 			name:    "field not found",
-			config:  map[string]interface{}{"other": true},
+			config:  map[string]any{"other": true},
 			key:     "key",
 			wantVal: false,
 			wantErr: true,
@@ -500,7 +500,7 @@ func TestBaseExecutor_GetBool(t *testing.T) {
 		},
 		{
 			name:    "field is not a boolean",
-			config:  map[string]interface{}{"key": "not a bool"},
+			config:  map[string]any{"key": "not a bool"},
 			key:     "key",
 			wantVal: false,
 			wantErr: true,
@@ -530,42 +530,42 @@ func TestBaseExecutor_GetBoolDefault(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		config       map[string]interface{}
+		config       map[string]any
 		key          string
 		defaultValue bool
 		wantVal      bool
 	}{
 		{
 			name:         "get existing true",
-			config:       map[string]interface{}{"key": true},
+			config:       map[string]any{"key": true},
 			key:          "key",
 			defaultValue: false,
 			wantVal:      true,
 		},
 		{
 			name:         "get existing false",
-			config:       map[string]interface{}{"key": false},
+			config:       map[string]any{"key": false},
 			key:          "key",
 			defaultValue: true,
 			wantVal:      false,
 		},
 		{
 			name:         "use default when field not found",
-			config:       map[string]interface{}{"other": true},
+			config:       map[string]any{"other": true},
 			key:          "key",
 			defaultValue: true,
 			wantVal:      true,
 		},
 		{
 			name:         "use default when field is not a boolean",
-			config:       map[string]interface{}{"key": "not a bool"},
+			config:       map[string]any{"key": "not a bool"},
 			key:          "key",
 			defaultValue: true,
 			wantVal:      true,
 		},
 		{
 			name:         "false overrides default",
-			config:       map[string]interface{}{"key": false},
+			config:       map[string]any{"key": false},
 			key:          "key",
 			defaultValue: true,
 			wantVal:      false,
@@ -585,22 +585,22 @@ func TestBaseExecutor_GetMap(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		key     string
-		wantVal map[string]interface{}
+		wantVal map[string]any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name:    "get map success",
-			config:  map[string]interface{}{"key": map[string]interface{}{"nested": "value"}},
+			config:  map[string]any{"key": map[string]any{"nested": "value"}},
 			key:     "key",
-			wantVal: map[string]interface{}{"nested": "value"},
+			wantVal: map[string]any{"nested": "value"},
 			wantErr: false,
 		},
 		{
 			name:    "field not found",
-			config:  map[string]interface{}{"other": map[string]interface{}{}},
+			config:  map[string]any{"other": map[string]any{}},
 			key:     "key",
 			wantVal: nil,
 			wantErr: true,
@@ -608,7 +608,7 @@ func TestBaseExecutor_GetMap(t *testing.T) {
 		},
 		{
 			name:    "field is not a map",
-			config:  map[string]interface{}{"key": "not a map"},
+			config:  map[string]any{"key": "not a map"},
 			key:     "key",
 			wantVal: nil,
 			wantErr: true,
@@ -616,9 +616,9 @@ func TestBaseExecutor_GetMap(t *testing.T) {
 		},
 		{
 			name:    "empty map is valid",
-			config:  map[string]interface{}{"key": map[string]interface{}{}},
+			config:  map[string]any{"key": map[string]any{}},
 			key:     "key",
-			wantVal: map[string]interface{}{},
+			wantVal: map[string]any{},
 			wantErr: false,
 		},
 	}
@@ -648,7 +648,7 @@ func TestExecutionContext(t *testing.T) {
 		ExecutionID: "exec-123",
 		NodeID:      "node-456",
 		WorkflowID:  "workflow-789",
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"key":   "value",
 			"count": 42,
 		},
@@ -679,12 +679,12 @@ func TestBaseExecutor_IntegrationScenario(t *testing.T) {
 	base := NewBaseExecutor("http")
 
 	// Simulate HTTP executor config
-	config := map[string]interface{}{
+	config := map[string]any{
 		"url":     "https://api.example.com/users",
 		"method":  "POST",
 		"timeout": float64(30),
 		"retry":   true,
-		"headers": map[string]interface{}{
+		"headers": map[string]any{
 			"Content-Type": "application/json",
 		},
 	}

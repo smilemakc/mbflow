@@ -26,7 +26,7 @@ func TestWorkflowAPI_Create_StandaloneMode(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -34,7 +34,7 @@ func TestWorkflowAPI_Create_StandaloneMode(t *testing.T) {
 				ID:   "node2",
 				Name: "Node 2",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -76,7 +76,7 @@ func TestWorkflowAPI_Create_WithEdges(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -84,7 +84,7 @@ func TestWorkflowAPI_Create_WithEdges(t *testing.T) {
 				ID:   "node2",
 				Name: "Node 2",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -158,7 +158,7 @@ func TestWorkflowAPI_Create_WithCycle(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -166,7 +166,7 @@ func TestWorkflowAPI_Create_WithCycle(t *testing.T) {
 				ID:   "node2",
 				Name: "Node 2",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -198,7 +198,7 @@ func TestWorkflowAPI_Create_InvalidEdge(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -233,7 +233,7 @@ func TestWorkflowAPI_Create_ClosedClient(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -254,7 +254,7 @@ func TestWorkflowAPI_Create_WithVariables(t *testing.T) {
 
 	workflow := &models.Workflow{
 		Name: "Workflow With Variables",
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"api_key": "secret",
 			"timeout": 30,
 		},
@@ -263,7 +263,7 @@ func TestWorkflowAPI_Create_WithVariables(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -271,7 +271,7 @@ func TestWorkflowAPI_Create_WithVariables(t *testing.T) {
 				ID:   "node2",
 				Name: "Node 2",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -305,7 +305,7 @@ func TestWorkflowAPI_Create_WithTags(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -313,7 +313,7 @@ func TestWorkflowAPI_Create_WithTags(t *testing.T) {
 				ID:   "node2",
 				Name: "Node 2",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -407,7 +407,7 @@ func TestWorkflowAPI_Update_EmptyID(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -453,7 +453,7 @@ func TestWorkflowAPI_Update_ClosedClient(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -503,7 +503,7 @@ func TestWorkflowAPI_ValidateDAG_Success(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -511,7 +511,7 @@ func TestWorkflowAPI_ValidateDAG_Success(t *testing.T) {
 				ID:   "node2",
 				Name: "Node 2",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -544,7 +544,7 @@ func TestWorkflowAPI_ValidateDAG_Cycle(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -552,7 +552,7 @@ func TestWorkflowAPI_ValidateDAG_Cycle(t *testing.T) {
 				ID:   "node2",
 				Name: "Node 2",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -587,7 +587,7 @@ func TestWorkflowAPI_ValidateDAG_InvalidEdge(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -620,7 +620,7 @@ func TestWorkflowAPI_ValidateDAG_ClosedClient(t *testing.T) {
 				ID:   "node1",
 				Name: "Node 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -642,7 +642,7 @@ func TestWorkflowAPI_Create_ComplexWorkflow(t *testing.T) {
 	workflow := &models.Workflow{
 		Name:        "Complex Workflow",
 		Description: "Multi-node parallel workflow",
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"api_base": "https://api.example.com",
 		},
 		Tags: []string{"complex", "parallel"},
@@ -651,7 +651,7 @@ func TestWorkflowAPI_Create_ComplexWorkflow(t *testing.T) {
 				ID:   "start",
 				Name: "Start Node",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -659,7 +659,7 @@ func TestWorkflowAPI_Create_ComplexWorkflow(t *testing.T) {
 				ID:   "parallel1",
 				Name: "Parallel 1",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -667,7 +667,7 @@ func TestWorkflowAPI_Create_ComplexWorkflow(t *testing.T) {
 				ID:   "parallel2",
 				Name: "Parallel 2",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -675,7 +675,7 @@ func TestWorkflowAPI_Create_ComplexWorkflow(t *testing.T) {
 				ID:   "merge",
 				Name: "Merge Node",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -717,7 +717,7 @@ func TestWorkflowAPI_Create_Concurrent(t *testing.T) {
 						ID:   "node1",
 						Name: "Node 1",
 						Type: "transform",
-						Config: map[string]interface{}{
+						Config: map[string]any{
 							"type": "passthrough",
 						},
 					},
@@ -725,7 +725,7 @@ func TestWorkflowAPI_Create_Concurrent(t *testing.T) {
 						ID:   "node2",
 						Name: "Node 2",
 						Type: "transform",
-						Config: map[string]interface{}{
+						Config: map[string]any{
 							"type": "passthrough",
 						},
 					},

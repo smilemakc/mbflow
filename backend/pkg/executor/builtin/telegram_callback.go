@@ -54,7 +54,7 @@ type answerCallbackResponse struct {
 // Output:
 //   - success: true/false
 //   - duration_ms: Execution time
-func (e *TelegramCallbackExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *TelegramCallbackExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get required fields
@@ -76,7 +76,7 @@ func (e *TelegramCallbackExecutor) Execute(ctx context.Context, config map[strin
 	timeout := e.GetIntDefault(config, "timeout", 30)
 
 	// Build request payload
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"callback_query_id": callbackQueryID,
 	}
 
@@ -107,14 +107,14 @@ func (e *TelegramCallbackExecutor) Execute(ctx context.Context, config map[strin
 		return nil, fmt.Errorf("failed to answer callback query: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":     response.OK,
 		"duration_ms": time.Since(startTime).Milliseconds(),
 	}, nil
 }
 
 // executeRequest sends the API request.
-func (e *TelegramCallbackExecutor) executeRequest(ctx context.Context, url string, payload map[string]interface{}, timeout time.Duration) (*answerCallbackResponse, error) {
+func (e *TelegramCallbackExecutor) executeRequest(ctx context.Context, url string, payload map[string]any, timeout time.Duration) (*answerCallbackResponse, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -154,7 +154,7 @@ func (e *TelegramCallbackExecutor) executeRequest(ctx context.Context, url strin
 }
 
 // Validate validates the Telegram callback executor configuration.
-func (e *TelegramCallbackExecutor) Validate(config map[string]interface{}) error {
+func (e *TelegramCallbackExecutor) Validate(config map[string]any) error {
 	// Validate required fields
 	if err := e.ValidateRequired(config, "bot_token", "callback_query_id"); err != nil {
 		return err

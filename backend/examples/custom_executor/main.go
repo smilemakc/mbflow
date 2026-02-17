@@ -25,13 +25,13 @@ func NewUppercaseExecutor() *UppercaseExecutor {
 }
 
 // Execute converts the input text to uppercase.
-func (e *UppercaseExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *UppercaseExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Get the text field from config or input
 	var text string
 
 	if config["text"] != nil {
 		text = config["text"].(string)
-	} else if inputMap, ok := input.(map[string]interface{}); ok {
+	} else if inputMap, ok := input.(map[string]any); ok {
 		if inputMap["text"] != nil {
 			text = inputMap["text"].(string)
 		}
@@ -44,14 +44,14 @@ func (e *UppercaseExecutor) Execute(ctx context.Context, config map[string]inter
 	// Convert to uppercase
 	result := strings.ToUpper(text)
 
-	return map[string]interface{}{
+	return map[string]any{
 		"original":  text,
 		"uppercase": result,
 	}, nil
 }
 
 // Validate validates the uppercase executor configuration.
-func (e *UppercaseExecutor) Validate(config map[string]interface{}) error {
+func (e *UppercaseExecutor) Validate(config map[string]any) error {
 	// Text can come from either config or input, so validation is lenient
 	return nil
 }
@@ -87,7 +87,7 @@ func main() {
 				ID:   "uppercase-node",
 				Name: "Convert to Uppercase",
 				Type: "uppercase",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"text": "hello world from mbflow!",
 				},
 			},

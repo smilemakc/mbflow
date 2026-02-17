@@ -88,7 +88,7 @@ func main() {
 	fmt.Println("\n=== Example 3: LLM Analysis Workflow ===")
 	llmWorkflow := builder.NewWorkflow("Code Analysis",
 		builder.WithDescription("Analyze code using OpenAI GPT-4"),
-		builder.WithVariables(map[string]interface{}{
+		builder.WithVariables(map[string]any{
 			"openai_api_key": apiKey,
 			"model":          "gpt-4",
 		}),

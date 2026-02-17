@@ -329,12 +329,12 @@ type mockExecutionManager struct {
 	mock.Mock
 }
 
-func (m *mockExecutionManager) Execute(ctx context.Context, workflowID string, input map[string]interface{}, variables map[string]interface{}) (string, error) {
+func (m *mockExecutionManager) Execute(ctx context.Context, workflowID string, input map[string]any, variables map[string]any) (string, error) {
 	args := m.Called(ctx, workflowID, input, variables)
 	return args.String(0), args.Error(1)
 }
 
-func (m *mockExecutionManager) ExecuteAsync(ctx context.Context, workflowID string, input map[string]interface{}, variables map[string]interface{}) (string, error) {
+func (m *mockExecutionManager) ExecuteAsync(ctx context.Context, workflowID string, input map[string]any, variables map[string]any) (string, error) {
 	args := m.Called(ctx, workflowID, input, variables)
 	return args.String(0), args.Error(1)
 }
@@ -354,7 +354,7 @@ func (m *mockCronScheduler) Stop() error {
 	return args.Error(0)
 }
 
-func (m *mockCronScheduler) AddTrigger(ctx context.Context, trigger interface{}) error {
+func (m *mockCronScheduler) AddTrigger(ctx context.Context, trigger any) error {
 	args := m.Called(ctx, trigger)
 	return args.Error(0)
 }
@@ -379,7 +379,7 @@ func (m *mockEventListener) Stop() error {
 	return args.Error(0)
 }
 
-func (m *mockEventListener) AddTrigger(ctx context.Context, trigger interface{}) error {
+func (m *mockEventListener) AddTrigger(ctx context.Context, trigger any) error {
 	args := m.Called(ctx, trigger)
 	return args.Error(0)
 }
@@ -399,7 +399,7 @@ func (m *mockWebhookRegistry) RegisterAll(ctx context.Context, triggers []*stora
 	return args.Error(0)
 }
 
-func (m *mockWebhookRegistry) RegisterWebhook(ctx context.Context, trigger interface{}) error {
+func (m *mockWebhookRegistry) RegisterWebhook(ctx context.Context, trigger any) error {
 	args := m.Called(ctx, trigger)
 	return args.Error(0)
 }

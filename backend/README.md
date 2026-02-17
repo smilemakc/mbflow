@@ -226,7 +226,7 @@ func main() {
 				ID:   "node-1",
 				Name: "Fetch Data",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "GET",
 					"url":    "https://api.example.com/data",
 				},
@@ -272,12 +272,12 @@ type MyExecutor struct {
 	*executor.BaseExecutor
 }
 
-func (e *MyExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *MyExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Your custom logic here
-	return map[string]interface{}{"result": "success"}, nil
+	return map[string]any{"result": "success"}, nil
 }
 
-func (e *MyExecutor) Validate(config map[string]interface{}) error {
+func (e *MyExecutor) Validate(config map[string]any) error {
 	return e.ValidateRequired(config, "required_field")
 }
 

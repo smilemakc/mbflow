@@ -411,10 +411,10 @@ func TestParseConfig(t *testing.T) {
 	t.Run("parse HTTP config", func(t *testing.T) {
 		t.Parallel()
 
-		input := map[string]interface{}{
+		input := map[string]any{
 			"method":  "POST",
 			"url":     "https://api.example.com",
-			"headers": map[string]interface{}{"Content-Type": "application/json"},
+			"headers": map[string]any{"Content-Type": "application/json"},
 			"timeout": 30,
 		}
 
@@ -428,9 +428,9 @@ func TestParseConfig(t *testing.T) {
 	t.Run("parse Transform config", func(t *testing.T) {
 		t.Parallel()
 
-		input := map[string]interface{}{
-			"type":       "jq",
-			"filter":     ".items[]",
+		input := map[string]any{
+			"type":   "jq",
+			"filter": ".items[]",
 		}
 
 		cfg, err := ParseConfig[TransformConfig](input)
@@ -442,7 +442,7 @@ func TestParseConfig(t *testing.T) {
 	t.Run("parse LLM config", func(t *testing.T) {
 		t.Parallel()
 
-		input := map[string]interface{}{
+		input := map[string]any{
 			"provider":    "openai",
 			"model":       "gpt-4",
 			"temperature": 0.7,
@@ -548,10 +548,10 @@ func TestLLMConfig_WithTools(t *testing.T) {
 				Function: LLMToolFunction{
 					Name:        "get_weather",
 					Description: "Get current weather",
-					Parameters: map[string]interface{}{
+					Parameters: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"location": map[string]interface{}{
+						"properties": map[string]any{
+							"location": map[string]any{
 								"type":        "string",
 								"description": "City name",
 							},

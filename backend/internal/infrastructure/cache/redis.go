@@ -66,7 +66,7 @@ func (c *RedisCache) Health(ctx context.Context) error {
 }
 
 // Set sets a key-value pair with optional TTL.
-func (c *RedisCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+func (c *RedisCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
 	return c.client.Set(ctx, key, value, ttl).Err()
 }
 

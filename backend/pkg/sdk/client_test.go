@@ -375,11 +375,11 @@ type mockExecutor struct {
 	nodeType string
 }
 
-func (m *mockExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-	return map[string]interface{}{"output": "test"}, nil
+func (m *mockExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
+	return map[string]any{"output": "test"}, nil
 }
 
-func (m *mockExecutor) Validate(config map[string]interface{}) error {
+func (m *mockExecutor) Validate(config map[string]any) error {
 	return nil
 }
 

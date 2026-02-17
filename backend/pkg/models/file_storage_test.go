@@ -258,7 +258,7 @@ func TestFileEntry_JSONMarshaling(t *testing.T) {
 		Checksum:     "abc123",
 		AccessScope:  ScopeWorkflow,
 		Tags:         []string{"important", "archived"},
-		Metadata:     map[string]interface{}{"author": "John Doe"},
+		Metadata:     map[string]any{"author": "John Doe"},
 		TTL:          &ttl,
 		ExpiresAt:    &now,
 		WorkflowID:   &workflowID,
@@ -300,7 +300,7 @@ func TestStorageConfig_JSONMarshaling(t *testing.T) {
 		MaxSize:     1024 * 1024 * 1024, // 1GB
 		MaxFileSize: 100 * 1024 * 1024,  // 100MB
 		DefaultTTL:  &ttl,
-		Options: map[string]interface{}{
+		Options: map[string]any{
 			"encryption":  true,
 			"compression": "gzip",
 		},
@@ -325,7 +325,7 @@ func TestStorageConfig_JSONMarshaling(t *testing.T) {
 func TestStorageConfig_S3Type(t *testing.T) {
 	config := &StorageConfig{
 		Type: StorageTypeS3,
-		Options: map[string]interface{}{
+		Options: map[string]any{
 			"bucket":  "my-bucket",
 			"region":  "us-east-1",
 			"api_key": "secret",

@@ -29,13 +29,13 @@ func TestEventListener_MatchesFilter(t *testing.T) {
 			name: "no filter - matches all",
 			event: Event{
 				Type: "user.created",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"user_id": "123",
 				},
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.created",
 				},
 			},
@@ -46,15 +46,15 @@ func TestEventListener_MatchesFilter(t *testing.T) {
 			event: Event{
 				Type:   "user.created",
 				Source: "api",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"user_id": "123",
 				},
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.created",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"source": "api",
 					},
 				},
@@ -66,15 +66,15 @@ func TestEventListener_MatchesFilter(t *testing.T) {
 			event: Event{
 				Type:   "user.created",
 				Source: "webhook",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"user_id": "123",
 				},
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.created",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"source": "api",
 					},
 				},
@@ -85,16 +85,16 @@ func TestEventListener_MatchesFilter(t *testing.T) {
 			name: "custom field filter match",
 			event: Event{
 				Type: "user.created",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"user_id": "123",
 					"role":    "admin",
 				},
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.created",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"role": "admin",
 					},
 				},
@@ -105,16 +105,16 @@ func TestEventListener_MatchesFilter(t *testing.T) {
 			name: "custom field filter no match",
 			event: Event{
 				Type: "user.created",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"user_id": "123",
 					"role":    "user",
 				},
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.created",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"role": "admin",
 					},
 				},
@@ -125,15 +125,15 @@ func TestEventListener_MatchesFilter(t *testing.T) {
 			name: "missing field in event data",
 			event: Event{
 				Type: "user.created",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"user_id": "123",
 				},
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.created",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"role": "admin",
 					},
 				},
@@ -188,7 +188,7 @@ func TestEventListener_AddRemoveTrigger(t *testing.T) {
 		ID:         "test-trigger-1",
 		WorkflowID: "test-workflow-1",
 		Type:       models.TriggerTypeEvent,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"event_type": "user.created",
 		},
 		Enabled: true,
@@ -220,7 +220,7 @@ func TestEvent_JSONSerialization(t *testing.T) {
 	event := Event{
 		Type:   "user.created",
 		Source: "api",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"user_id": "123",
 			"email":   "user@example.com",
 		},
@@ -325,7 +325,7 @@ func TestEventListener_AddTriggerNonEventType(t *testing.T) {
 		ID:         uuid.New().String(),
 		WorkflowID: uuid.New().String(),
 		Type:       models.TriggerTypeCron,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"schedule": "0 0 * * *",
 		},
 		Enabled: true,
@@ -351,7 +351,7 @@ func TestEventListener_AddTriggerMissingEventType(t *testing.T) {
 		ID:         uuid.New().String(),
 		WorkflowID: uuid.New().String(),
 		Type:       models.TriggerTypeEvent,
-		Config:     map[string]interface{}{}, // Missing event_type
+		Config:     map[string]any{}, // Missing event_type
 		Enabled:    true,
 	}
 
@@ -373,7 +373,7 @@ func TestEventListener_AddMultipleTriggersSameEventType(t *testing.T) {
 			ID:         fmt.Sprintf("trigger-%d", i+1),
 			WorkflowID: uuid.New().String(),
 			Type:       models.TriggerTypeEvent,
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"event_type": eventType,
 			},
 			Enabled: true,
@@ -421,7 +421,7 @@ func TestEventListener_RemoveLastTriggerForEventType(t *testing.T) {
 		ID:         "test-trigger",
 		WorkflowID: uuid.New().String(),
 		Type:       models.TriggerTypeEvent,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"event_type": "user.created",
 		},
 		Enabled: true,
@@ -467,7 +467,7 @@ func TestEventListener_ConcurrentOperations(t *testing.T) {
 					ID:         fmt.Sprintf("trigger-%d-%d", routineID, j),
 					WorkflowID: uuid.New().String(),
 					Type:       models.TriggerTypeEvent,
-					Config: map[string]interface{}{
+					Config: map[string]any{
 						"event_type": fmt.Sprintf("event.type.%d", routineID%3),
 					},
 					Enabled: true,
@@ -527,7 +527,7 @@ func TestEventListener_ComplexFilterMatching(t *testing.T) {
 			event: Event{
 				Type:   "user.updated",
 				Source: "api",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"user_id": "123",
 					"role":    "admin",
 					"status":  "active",
@@ -535,9 +535,9 @@ func TestEventListener_ComplexFilterMatching(t *testing.T) {
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.updated",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"source": "api",
 						"role":   "admin",
 						"status": "active",
@@ -551,7 +551,7 @@ func TestEventListener_ComplexFilterMatching(t *testing.T) {
 			event: Event{
 				Type:   "user.updated",
 				Source: "api",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"user_id": "123",
 					"role":    "admin",
 					"status":  "inactive",
@@ -559,9 +559,9 @@ func TestEventListener_ComplexFilterMatching(t *testing.T) {
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "user.updated",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"source": "api",
 						"role":   "admin",
 						"status": "active",
@@ -574,16 +574,16 @@ func TestEventListener_ComplexFilterMatching(t *testing.T) {
 			name: "numeric field filter match",
 			event: Event{
 				Type: "order.created",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"order_id": "456",
 					"amount":   100,
 				},
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "order.created",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"amount": 100,
 					},
 				},
@@ -594,16 +594,16 @@ func TestEventListener_ComplexFilterMatching(t *testing.T) {
 			name: "boolean field filter match",
 			event: Event{
 				Type: "task.completed",
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"task_id": "789",
 					"success": true,
 				},
 			},
 			trigger: &models.Trigger{
 				Type: models.TriggerTypeEvent,
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"event_type": "task.completed",
-					"filter": map[string]interface{}{
+					"filter": map[string]any{
 						"success": true,
 					},
 				},
@@ -633,7 +633,7 @@ func TestEventListener_GetChannels(t *testing.T) {
 			ID:         uuid.New().String(),
 			WorkflowID: uuid.New().String(),
 			Type:       models.TriggerTypeEvent,
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"event_type": eventType,
 			},
 			Enabled: true,
@@ -674,9 +674,9 @@ func TestEventListener_ModelToDomain(t *testing.T) {
 		ID:         triggerID,
 		WorkflowID: workflowID,
 		Type:       string(models.TriggerTypeEvent),
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"event_type": "user.created",
-			"filter": map[string]interface{}{
+			"filter": map[string]any{
 				"source": "api",
 			},
 		},
@@ -711,7 +711,7 @@ func TestEventListener_ModelToDomainWithLastTriggered(t *testing.T) {
 		ID:              triggerID,
 		WorkflowID:      workflowID,
 		Type:            string(models.TriggerTypeEvent),
-		Config:          map[string]interface{}{"event_type": "user.created"},
+		Config:          map[string]any{"event_type": "user.created"},
 		Enabled:         true,
 		CreatedAt:       now,
 		UpdatedAt:       now,
@@ -740,7 +740,7 @@ func TestEventListener_StartWithMixedTriggers(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeEvent),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"event_type": "user.created",
 			},
 			Enabled: true,
@@ -749,7 +749,7 @@ func TestEventListener_StartWithMixedTriggers(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeCron),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"schedule": "0 0 * * *",
 			},
 			Enabled: true,
@@ -758,7 +758,7 @@ func TestEventListener_StartWithMixedTriggers(t *testing.T) {
 			ID:         uuid.New(),
 			WorkflowID: uuid.New(),
 			Type:       string(models.TriggerTypeEvent),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"event_type": "order.completed",
 			},
 			Enabled: true,

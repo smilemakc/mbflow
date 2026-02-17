@@ -376,7 +376,7 @@ func TestTriggerAPI_Trigger_NoRepository(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"key": "value",
 	}
 

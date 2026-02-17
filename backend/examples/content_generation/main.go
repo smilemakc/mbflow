@@ -114,7 +114,7 @@ func main() {
 	}
 
 	// Sample input
-	input := map[string]interface{}{
+	input := map[string]any{
 		"topic":           "The Future of Artificial Intelligence in Healthcare",
 		"content_type":    "blog_post",
 		"target_length":   1500,

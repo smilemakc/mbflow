@@ -6,24 +6,24 @@ import (
 )
 
 // FunctionHandler is a function that executes a function call.
-type FunctionHandler func(args map[string]interface{}) (interface{}, error)
+type FunctionHandler func(args map[string]any) (any, error)
 
 // FunctionCallInput represents the input to a function call executor.
 type FunctionCallInput struct {
-	FunctionName string                 `json:"function_name"`
-	Arguments    string                 `json:"arguments"` // JSON string
-	ToolCallID   string                 `json:"tool_call_id,omitempty"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	FunctionName string         `json:"function_name"`
+	Arguments    string         `json:"arguments"` // JSON string
+	ToolCallID   string         `json:"tool_call_id,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // FunctionCallOutput represents the output from a function call executor.
 type FunctionCallOutput struct {
-	Result       interface{}            `json:"result"`
-	FunctionName string                 `json:"function_name"`
-	ToolCallID   string                 `json:"tool_call_id,omitempty"`
-	Success      bool                   `json:"success"`
-	Error        string                 `json:"error,omitempty"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	Result       any            `json:"result"`
+	FunctionName string         `json:"function_name"`
+	ToolCallID   string         `json:"tool_call_id,omitempty"`
+	Success      bool           `json:"success"`
+	Error        string         `json:"error,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // FunctionCallConfig represents the configuration for a function call executor.
@@ -34,8 +34,8 @@ type FunctionCallConfig struct {
 }
 
 // ParseArguments parses the arguments JSON string into a map.
-func (f *FunctionCallInput) ParseArguments() (map[string]interface{}, error) {
-	var args map[string]interface{}
+func (f *FunctionCallInput) ParseArguments() (map[string]any, error) {
+	var args map[string]any
 	if err := json.Unmarshal([]byte(f.Arguments), &args); err != nil {
 		return nil, fmt.Errorf("failed to parse function arguments: %w", err)
 	}

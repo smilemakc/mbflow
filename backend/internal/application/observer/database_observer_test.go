@@ -153,14 +153,14 @@ func TestDatabaseObserver_OnEvent(t *testing.T) {
 			NodeName:    &nodeName,
 			NodeType:    &nodeType,
 			Status:      "completed",
-			Input: map[string]interface{}{
+			Input: map[string]any{
 				"url": "https://api.example.com",
 			},
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"status": 200,
 				"data":   "response",
 			},
-			Variables: map[string]interface{}{
+			Variables: map[string]any{
 				"user_id": "123",
 			},
 			DurationMs: &durationMs,
@@ -242,14 +242,14 @@ func TestDatabaseObserver_OnEvent(t *testing.T) {
 			WorkflowID:  uuid.New().String(),
 			Timestamp:   time.Now(),
 			Status:      "running",
-			Metadata: map[string]interface{}{
+			Metadata: map[string]any{
 				"trigger_type": "manual",
 				"user_id":      "user-123",
 			},
 		}
 
 		mockRepo.On("Append", mock.Anything, mock.MatchedBy(func(e *models.EventModel) bool {
-			metadata, ok := e.Payload["metadata"].(map[string]interface{})
+			metadata, ok := e.Payload["metadata"].(map[string]any)
 			return ok &&
 				metadata["trigger_type"] == "manual" &&
 				metadata["user_id"] == "user-123"
@@ -325,10 +325,10 @@ func TestDatabaseObserver_convertToEventModel(t *testing.T) {
 			NodeType:    &nodeType,
 			Status:      "completed",
 			DurationMs:  &durationMs,
-			Input: map[string]interface{}{
+			Input: map[string]any{
 				"data": "input",
 			},
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"result": "output",
 			},
 		}
@@ -341,11 +341,11 @@ func TestDatabaseObserver_convertToEventModel(t *testing.T) {
 		assert.Equal(t, "transform", model.Payload["node_type"])
 		assert.Equal(t, int64(250), model.Payload["duration_ms"])
 
-		input, ok := model.Payload["input"].(map[string]interface{})
+		input, ok := model.Payload["input"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "input", input["data"])
 
-		output, ok := model.Payload["output"].(map[string]interface{})
+		output, ok := model.Payload["output"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "output", output["result"])
 	})
@@ -396,25 +396,25 @@ func TestDatabaseObserver_convertToEventModel(t *testing.T) {
 			WorkflowID:  uuid.New().String(),
 			Timestamp:   time.Now(),
 			Status:      "running",
-			Variables: map[string]interface{}{
-				"env": map[string]interface{}{
+			Variables: map[string]any{
+				"env": map[string]any{
 					"api_key": "secret",
 				},
 			},
-			Metadata: map[string]interface{}{
+			Metadata: map[string]any{
 				"trigger": "webhook",
 			},
 		}
 
 		model := obs.convertToEventModel(event)
 
-		variables, ok := model.Payload["variables"].(map[string]interface{})
+		variables, ok := model.Payload["variables"].(map[string]any)
 		require.True(t, ok)
-		env, ok := variables["env"].(map[string]interface{})
+		env, ok := variables["env"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "secret", env["api_key"])
 
-		metadata, ok := model.Payload["metadata"].(map[string]interface{})
+		metadata, ok := model.Payload["metadata"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "webhook", metadata["trigger"])
 	})

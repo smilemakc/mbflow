@@ -382,7 +382,7 @@ func (s *Service) toDomainUser(user *models.UserModel) *pkgmodels.User {
 		roleNames[i] = role.Name
 	}
 
-	var metadata map[string]interface{}
+	var metadata map[string]any
 	if user.Metadata != nil {
 		metadata = user.Metadata
 	}

@@ -43,10 +43,10 @@ func setupValidationTest(t *testing.T) (*gin.Engine, string, func()) {
 	api.POST("/workflows", handlers.HandleCreateWorkflow)
 	api.PUT("/workflows/:workflow_id", handlers.HandleUpdateWorkflow)
 
-	createReq := map[string]interface{}{"name": "Validation Test Workflow"}
+	createReq := map[string]any{"name": "Validation Test Workflow"}
 	w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", createReq)
 	require.Equal(t, http.StatusCreated, w.Code)
-	var created map[string]interface{}
+	var created map[string]any
 	testutil.ParseResponse(t, w, &created)
 	workflowID := created["id"].(string)
 
@@ -66,9 +66,9 @@ func TestValidateNodes_ValidTypes(t *testing.T) {
 			router, workflowID, cleanup := setupValidationTest(t)
 			defer cleanup()
 
-			updateReq := map[string]interface{}{
+			updateReq := map[string]any{
 				"name": "Updated Workflow",
-				"nodes": []map[string]interface{}{
+				"nodes": []map[string]any{
 					{
 						"id":   "node-1",
 						"name": "Test Node",
@@ -89,9 +89,9 @@ func TestValidateNodes_UIOnlyTypes(t *testing.T) {
 	router, workflowID, cleanup := setupValidationTest(t)
 	defer cleanup()
 
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name": "Updated Workflow",
-		"nodes": []map[string]interface{}{
+		"nodes": []map[string]any{
 			{
 				"id":   "comment-1",
 				"name": "Comment Node",
@@ -110,9 +110,9 @@ func TestValidateNodes_InvalidType(t *testing.T) {
 	router, workflowID, cleanup := setupValidationTest(t)
 	defer cleanup()
 
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name": "Updated Workflow",
-		"nodes": []map[string]interface{}{
+		"nodes": []map[string]any{
 			{
 				"id":   "node-1",
 				"name": "Invalid Node",
@@ -131,14 +131,14 @@ func TestValidateNodes_MixedTypes(t *testing.T) {
 	router, workflowID, cleanup := setupValidationTest(t)
 	defer cleanup()
 
-	validNodes := []map[string]interface{}{
+	validNodes := []map[string]any{
 		{"id": "node-1", "name": "HTTP Node", "type": "http"},
 		{"id": "node-2", "name": "Transform Node", "type": "transform"},
 		{"id": "node-3", "name": "Comment Node", "type": "comment"},
 		{"id": "node-4", "name": "RSS Node", "type": "rss_parser"},
 	}
 
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name":  "Updated Workflow",
 		"nodes": validNodes,
 	}
@@ -146,12 +146,12 @@ func TestValidateNodes_MixedTypes(t *testing.T) {
 	w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
 	assert.Equal(t, http.StatusOK, w.Code, "All valid nodes should pass. Response: %s", w.Body.String())
 
-	invalidNodes := []map[string]interface{}{
+	invalidNodes := []map[string]any{
 		{"id": "node-1", "name": "HTTP Node", "type": "http"},
 		{"id": "node-2", "name": "Invalid Node", "type": "invalid_type"},
 	}
 
-	updateReq = map[string]interface{}{
+	updateReq = map[string]any{
 		"name":  "Updated Workflow",
 		"nodes": invalidNodes,
 	}
@@ -165,22 +165,22 @@ func TestValidateNodes_RequiredFields(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name        string
-		node        map[string]interface{}
+		node        map[string]any
 		expectedErr string
 	}{
 		{
 			name:        "missing_id",
-			node:        map[string]interface{}{"name": "Test", "type": "http"},
+			node:        map[string]any{"name": "Test", "type": "http"},
 			expectedErr: "id",
 		},
 		{
 			name:        "missing_name",
-			node:        map[string]interface{}{"id": "node-1", "type": "http"},
+			node:        map[string]any{"id": "node-1", "type": "http"},
 			expectedErr: "name",
 		},
 		{
 			name:        "missing_type",
-			node:        map[string]interface{}{"id": "node-1", "name": "Test"},
+			node:        map[string]any{"id": "node-1", "name": "Test"},
 			expectedErr: "type",
 		},
 	}
@@ -190,15 +190,15 @@ func TestValidateNodes_RequiredFields(t *testing.T) {
 			router, workflowID, cleanup := setupValidationTest(t)
 			defer cleanup()
 
-			updateReq := map[string]interface{}{
+			updateReq := map[string]any{
 				"name":  "Updated Workflow",
-				"nodes": []map[string]interface{}{tt.node},
+				"nodes": []map[string]any{tt.node},
 			}
 
 			w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)
 			assert.Equal(t, http.StatusBadRequest, w.Code, "Should fail validation for %s", tt.name)
 
-			var errorResp map[string]interface{}
+			var errorResp map[string]any
 			testutil.ParseResponse(t, w, &errorResp)
 
 			message, ok := errorResp["message"]
@@ -218,9 +218,9 @@ func TestValidateNodes_DuplicateIDs(t *testing.T) {
 	router, workflowID, cleanup := setupValidationTest(t)
 	defer cleanup()
 
-	updateReq := map[string]interface{}{
+	updateReq := map[string]any{
 		"name": "Updated Workflow",
-		"nodes": []map[string]interface{}{
+		"nodes": []map[string]any{
 			{"id": "node-1", "name": "First", "type": "http"},
 			{"id": "node-1", "name": "Duplicate", "type": "transform"},
 		},
@@ -235,12 +235,12 @@ func TestValidateNodes_FieldLengths(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name        string
-		node        map[string]interface{}
+		node        map[string]any
 		expectedErr string
 	}{
 		{
 			name: "id_too_long",
-			node: map[string]interface{}{
+			node: map[string]any{
 				"id":   strings.Repeat("a", 101),
 				"name": "Test",
 				"type": "http",
@@ -249,7 +249,7 @@ func TestValidateNodes_FieldLengths(t *testing.T) {
 		},
 		{
 			name: "name_too_long",
-			node: map[string]interface{}{
+			node: map[string]any{
 				"id":   "node-1",
 				"name": strings.Repeat("a", 256),
 				"type": "http",
@@ -263,9 +263,9 @@ func TestValidateNodes_FieldLengths(t *testing.T) {
 			router, workflowID, cleanup := setupValidationTest(t)
 			defer cleanup()
 
-			updateReq := map[string]interface{}{
+			updateReq := map[string]any{
 				"name":  "Updated Workflow",
-				"nodes": []map[string]interface{}{tt.node},
+				"nodes": []map[string]any{tt.node},
 			}
 
 			w := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/workflows/%s", workflowID), updateReq)

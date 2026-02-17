@@ -80,9 +80,9 @@ func (p *OpenAIProvider) Execute(ctx context.Context, req *models.LLMRequest) (*
 
 	// Check for errors
 	if resp.StatusCode != http.StatusOK {
-		var errorResp map[string]interface{}
+		var errorResp map[string]any
 		if err := json.Unmarshal(respBody, &errorResp); err == nil {
-			if errorData, ok := errorResp["error"].(map[string]interface{}); ok {
+			if errorData, ok := errorResp["error"].(map[string]any); ok {
 				return nil, &models.LLMError{
 					Provider: models.LLMProviderOpenAI,
 					Code:     fmt.Sprintf("%v", errorData["code"]),
@@ -105,17 +105,17 @@ func (p *OpenAIProvider) Execute(ctx context.Context, req *models.LLMRequest) (*
 }
 
 // buildRequestBody builds the OpenAI API request body.
-func (p *OpenAIProvider) buildRequestBody(req *models.LLMRequest) map[string]interface{} {
-	body := map[string]interface{}{
+func (p *OpenAIProvider) buildRequestBody(req *models.LLMRequest) map[string]any {
+	body := map[string]any{
 		"model": req.Model,
 	}
 
 	// Build messages
-	messages := []map[string]interface{}{}
+	messages := []map[string]any{}
 
 	// System message (instruction)
 	if req.Instruction != "" {
-		messages = append(messages, map[string]interface{}{
+		messages = append(messages, map[string]any{
 			"role":    "system",
 			"content": req.Instruction,
 		})
@@ -123,7 +123,7 @@ func (p *OpenAIProvider) buildRequestBody(req *models.LLMRequest) map[string]int
 
 	// User message with multimodal support
 	userContent := p.buildUserContent(req)
-	messages = append(messages, map[string]interface{}{
+	messages = append(messages, map[string]any{
 		"role":    "user",
 		"content": userContent,
 	})
@@ -165,18 +165,18 @@ func (p *OpenAIProvider) buildRequestBody(req *models.LLMRequest) map[string]int
 }
 
 // buildUserContent builds the user message content with multimodal support.
-func (p *OpenAIProvider) buildUserContent(req *models.LLMRequest) interface{} {
+func (p *OpenAIProvider) buildUserContent(req *models.LLMRequest) any {
 	// If no images or files, just return text
 	if len(req.ImageURLs) == 0 && len(req.ImageIDs) == 0 && len(req.Files) == 0 {
 		return req.Prompt
 	}
 
 	// Build multimodal content array
-	content := []map[string]interface{}{}
+	content := []map[string]any{}
 
 	// Add text
 	if req.Prompt != "" {
-		content = append(content, map[string]interface{}{
+		content = append(content, map[string]any{
 			"type": "text",
 			"text": req.Prompt,
 		})
@@ -184,9 +184,9 @@ func (p *OpenAIProvider) buildUserContent(req *models.LLMRequest) interface{} {
 
 	// Add images from URLs
 	for _, imageURL := range req.ImageURLs {
-		content = append(content, map[string]interface{}{
+		content = append(content, map[string]any{
 			"type": "image_url",
-			"image_url": map[string]interface{}{
+			"image_url": map[string]any{
 				"url": imageURL,
 			},
 		})
@@ -204,20 +204,20 @@ func (p *OpenAIProvider) buildUserContent(req *models.LLMRequest) interface{} {
 			if detail == "" {
 				detail = "auto"
 			}
-			content = append(content, map[string]interface{}{
+			content = append(content, map[string]any{
 				"type": "image_url",
-				"image_url": map[string]interface{}{
+				"image_url": map[string]any{
 					"url":    "data:" + file.MimeType + ";base64," + file.Data,
 					"detail": detail,
 				},
 			})
 		} else if file.IsPDF() {
 			// PDFs use file content type (supported by gpt-4o, gpt-4o-mini)
-			content = append(content, map[string]interface{}{
+			content = append(content, map[string]any{
 				"type": "file",
-				"file": map[string]interface{}{
+				"file": map[string]any{
 					"filename": file.Name,
-					"file_data": map[string]interface{}{
+					"file_data": map[string]any{
 						"mime_type": file.MimeType,
 						"data":      file.Data,
 					},
@@ -233,13 +233,13 @@ func (p *OpenAIProvider) buildUserContent(req *models.LLMRequest) interface{} {
 }
 
 // buildTools builds the tools array for function calling.
-func (p *OpenAIProvider) buildTools(tools []models.LLMTool) []map[string]interface{} {
-	result := make([]map[string]interface{}, len(tools))
+func (p *OpenAIProvider) buildTools(tools []models.LLMTool) []map[string]any {
+	result := make([]map[string]any, len(tools))
 
 	for i, tool := range tools {
-		result[i] = map[string]interface{}{
+		result[i] = map[string]any{
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":        tool.Function.Name,
 				"description": tool.Function.Description,
 				"parameters":  tool.Function.Parameters,
@@ -251,13 +251,13 @@ func (p *OpenAIProvider) buildTools(tools []models.LLMTool) []map[string]interfa
 }
 
 // buildResponseFormat builds the response_format parameter.
-func (p *OpenAIProvider) buildResponseFormat(format *models.LLMResponseFormat) map[string]interface{} {
-	result := map[string]interface{}{
+func (p *OpenAIProvider) buildResponseFormat(format *models.LLMResponseFormat) map[string]any {
+	result := map[string]any{
 		"type": format.Type,
 	}
 
 	if format.Type == "json_schema" && format.JSONSchema != nil {
-		result["json_schema"] = map[string]interface{}{
+		result["json_schema"] = map[string]any{
 			"name":        format.JSONSchema.Name,
 			"description": format.JSONSchema.Description,
 			"schema":      format.JSONSchema.Schema,

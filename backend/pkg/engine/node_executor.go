@@ -22,10 +22,10 @@ func NewNodeExecutor(manager executor.Manager) *NodeExecutor {
 
 // NodeExecutionResult contains the result of node execution along with metadata.
 type NodeExecutionResult struct {
-	Output         interface{}
-	Input          interface{}
-	Config         map[string]interface{}
-	ResolvedConfig map[string]interface{}
+	Output         any
+	Input          any
+	Config         map[string]any
+	ResolvedConfig map[string]any
 }
 
 // NodeContext holds context for single node execution.
@@ -33,10 +33,10 @@ type NodeContext struct {
 	ExecutionID        string
 	NodeID             string
 	Node               *models.Node
-	WorkflowVariables  map[string]interface{}
-	ExecutionVariables map[string]interface{}
-	DirectParentOutput map[string]interface{}
-	Resources          map[string]interface{}
+	WorkflowVariables  map[string]any
+	ExecutionVariables map[string]any
+	DirectParentOutput map[string]any
+	Resources          map[string]any
 	StrictMode         bool
 }
 
@@ -98,21 +98,21 @@ func PrepareNodeContext(
 	parentNodes []*models.Node,
 	opts *ExecutionOptions,
 ) *NodeContext {
-	var directParentOutput map[string]interface{}
+	var directParentOutput map[string]any
 
 	if loopInput, ok := execState.GetLoopInput(node.ID); ok {
-		directParentOutput = make(map[string]interface{})
+		directParentOutput = make(map[string]any)
 		for k, v := range execState.Input {
 			directParentOutput[k] = v
 		}
-		if loopMap, ok := loopInput.(map[string]interface{}); ok {
+		if loopMap, ok := loopInput.(map[string]any); ok {
 			for k, v := range loopMap {
 				directParentOutput[k] = v
 			}
 		}
 		execState.ClearLoopInput(node.ID)
 	} else if len(parentNodes) == 1 {
-		directParentOutput = make(map[string]interface{})
+		directParentOutput = make(map[string]any)
 
 		for k, v := range execState.Input {
 			directParentOutput[k] = v
@@ -120,7 +120,7 @@ func PrepareNodeContext(
 
 		parentID := parentNodes[0].ID
 		if output, ok := execState.GetNodeOutput(parentID); ok {
-			if outputMap, ok := output.(map[string]interface{}); ok {
+			if outputMap, ok := output.(map[string]any); ok {
 				for k, v := range outputMap {
 					directParentOutput[k] = v
 				}
@@ -146,8 +146,8 @@ func PrepareNodeContext(
 
 // mergeParentOutputs merges outputs from multiple parent nodes.
 // Outputs are namespaced by parent node ID to avoid collisions.
-func mergeParentOutputs(execState *ExecutionState, parentNodes []*models.Node) map[string]interface{} {
-	merged := make(map[string]interface{})
+func mergeParentOutputs(execState *ExecutionState, parentNodes []*models.Node) map[string]any {
+	merged := make(map[string]any)
 
 	for _, parent := range parentNodes {
 		if output, ok := execState.GetNodeOutput(parent.ID); ok {

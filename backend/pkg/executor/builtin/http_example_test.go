@@ -32,10 +32,10 @@ func Example_httpExecutorWithTemplates() {
 	wrappedExec := executor.NewTemplateExecutorWrapper(httpExec, engine)
 
 	// Configuration with templates
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "{{env.apiUrl}}/users/{{input.userId}}",
-		"headers": map[string]interface{}{
+		"headers": map[string]any{
 			"Authorization": "Bearer {{env.apiKey}}",
 			"Content-Type":  "application/json",
 		},
@@ -72,10 +72,10 @@ func TestHTTPExecutor_TemplateResolution(t *testing.T) {
 	wrappedExec := executor.NewTemplateExecutorWrapper(httpExec, engine)
 
 	// Config with templates
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "{{env.baseUrl}}/resource/{{input.resourceId}}",
-		"headers": map[string]interface{}{
+		"headers": map[string]any{
 			"Authorization": "Bearer {{env.token}}",
 		},
 	}
@@ -106,10 +106,10 @@ func TestHTTPExecutor_StrictMode(t *testing.T) {
 	wrappedExec := executor.NewTemplateExecutorWrapper(httpExec, engine)
 
 	// Config with a missing variable
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "{{env.baseUrl}}/users",
-		"headers": map[string]interface{}{
+		"headers": map[string]any{
 			"Authorization": "Bearer {{env.apiKey}}", // apiKey is missing!
 		},
 	}
@@ -128,14 +128,14 @@ func TestHTTPExecutor_ComplexTemplates(t *testing.T) {
 	// Create template engine
 	varCtx := template.NewVariableContext()
 	varCtx.WorkflowVars["apiUrl"] = "https://api.example.com"
-	varCtx.InputVars["response"] = map[string]interface{}{
-		"data": map[string]interface{}{
-			"users": []interface{}{
-				map[string]interface{}{
+	varCtx.InputVars["response"] = map[string]any{
+		"data": map[string]any{
+			"users": []any{
+				map[string]any{
 					"id":   1,
 					"name": "Alice",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"id":   2,
 					"name": "Bob",
 				},
@@ -151,10 +151,10 @@ func TestHTTPExecutor_ComplexTemplates(t *testing.T) {
 	wrappedExec := executor.NewTemplateExecutorWrapper(httpExec, engine)
 
 	// Config with complex nested templates
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "POST",
 		"url":    "{{env.apiUrl}}/users/{{input.response.data.users[0].id}}/notify",
-		"body": map[string]interface{}{
+		"body": map[string]any{
 			"message": "Hello {{input.response.data.users[1].name}}!",
 		},
 	}

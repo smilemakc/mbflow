@@ -35,7 +35,7 @@ func (SystemKeyModel) TableName() string {
 }
 
 // BeforeInsert hook to set timestamps and defaults
-func (s *SystemKeyModel) BeforeInsert(ctx interface{}) error {
+func (s *SystemKeyModel) BeforeInsert(ctx any) error {
 	now := time.Now()
 	s.CreatedAt = now
 	s.UpdatedAt = now
@@ -49,7 +49,7 @@ func (s *SystemKeyModel) BeforeInsert(ctx interface{}) error {
 }
 
 // BeforeUpdate hook to update timestamp
-func (s *SystemKeyModel) BeforeUpdate(ctx interface{}) error {
+func (s *SystemKeyModel) BeforeUpdate(ctx any) error {
 	s.UpdatedAt = time.Now()
 	return nil
 }

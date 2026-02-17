@@ -14,13 +14,13 @@ import (
 func TestTelegramCallbackExecutor_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  map[string]interface{}
+		config  map[string]any
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "valid config minimal",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":         "123456:ABC-DEF",
 				"callback_query_id": "callback-123",
 			},
@@ -28,7 +28,7 @@ func TestTelegramCallbackExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "valid config with all options",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":         "123456:ABC-DEF",
 				"callback_query_id": "callback-123",
 				"text":              "Processing...",
@@ -39,7 +39,7 @@ func TestTelegramCallbackExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing bot_token",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"callback_query_id": "callback-123",
 			},
 			wantErr: true,
@@ -47,7 +47,7 @@ func TestTelegramCallbackExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "missing callback_query_id",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token": "123456:ABC-DEF",
 			},
 			wantErr: true,
@@ -55,7 +55,7 @@ func TestTelegramCallbackExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "timeout too small",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":         "123456:ABC-DEF",
 				"callback_query_id": "callback-123",
 				"timeout":           0,
@@ -65,7 +65,7 @@ func TestTelegramCallbackExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "negative cache_time",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"bot_token":         "123456:ABC-DEF",
 				"callback_query_id": "callback-123",
 				"cache_time":        -1,
@@ -98,7 +98,7 @@ func TestTelegramCallbackExecutor_Execute_Success(t *testing.T) {
 		assert.Contains(t, r.URL.Path, "/answerCallbackQuery")
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
-		var payload map[string]interface{}
+		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
 
 		assert.Equal(t, "callback-123", payload["callback_query_id"])
@@ -115,14 +115,14 @@ func TestTelegramCallbackExecutor_Execute_Success(t *testing.T) {
 	executor := NewTelegramCallbackExecutor()
 	executor.baseURL = server.URL
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":         "test-token",
 		"callback_query_id": "callback-123",
 		"text":              "Done!",
 	}, nil)
 
 	require.NoError(t, err)
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 
 	assert.True(t, resultMap["success"].(bool))
 	assert.GreaterOrEqual(t, resultMap["duration_ms"].(int64), int64(0))
@@ -130,7 +130,7 @@ func TestTelegramCallbackExecutor_Execute_Success(t *testing.T) {
 
 func TestTelegramCallbackExecutor_Execute_WithAlert(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]interface{}
+		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
 
 		assert.Equal(t, true, payload["show_alert"])
@@ -147,7 +147,7 @@ func TestTelegramCallbackExecutor_Execute_WithAlert(t *testing.T) {
 	executor := NewTelegramCallbackExecutor()
 	executor.baseURL = server.URL
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":         "test-token",
 		"callback_query_id": "callback-123",
 		"text":              "Warning!",
@@ -155,12 +155,12 @@ func TestTelegramCallbackExecutor_Execute_WithAlert(t *testing.T) {
 	}, nil)
 
 	require.NoError(t, err)
-	assert.True(t, result.(map[string]interface{})["success"].(bool))
+	assert.True(t, result.(map[string]any)["success"].(bool))
 }
 
 func TestTelegramCallbackExecutor_Execute_WithCacheTime(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]interface{}
+		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
 
 		assert.Equal(t, float64(300), payload["cache_time"])
@@ -173,19 +173,19 @@ func TestTelegramCallbackExecutor_Execute_WithCacheTime(t *testing.T) {
 	executor := NewTelegramCallbackExecutor()
 	executor.baseURL = server.URL
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":         "test-token",
 		"callback_query_id": "callback-123",
 		"cache_time":        300,
 	}, nil)
 
 	require.NoError(t, err)
-	assert.True(t, result.(map[string]interface{})["success"].(bool))
+	assert.True(t, result.(map[string]any)["success"].(bool))
 }
 
 func TestTelegramCallbackExecutor_Execute_TextTruncation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]interface{}
+		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
 
 		text := payload["text"].(string)
@@ -206,14 +206,14 @@ func TestTelegramCallbackExecutor_Execute_TextTruncation(t *testing.T) {
 		longText += "x"
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":         "test-token",
 		"callback_query_id": "callback-123",
 		"text":              longText,
 	}, nil)
 
 	require.NoError(t, err)
-	assert.True(t, result.(map[string]interface{})["success"].(bool))
+	assert.True(t, result.(map[string]any)["success"].(bool))
 }
 
 func TestTelegramCallbackExecutor_Execute_APIError(t *testing.T) {
@@ -230,7 +230,7 @@ func TestTelegramCallbackExecutor_Execute_APIError(t *testing.T) {
 	executor := NewTelegramCallbackExecutor()
 	executor.baseURL = server.URL
 
-	_, err := executor.Execute(context.Background(), map[string]interface{}{
+	_, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":         "test-token",
 		"callback_query_id": "old-callback",
 	}, nil)
@@ -242,7 +242,7 @@ func TestTelegramCallbackExecutor_Execute_APIError(t *testing.T) {
 func TestTelegramCallbackExecutor_Execute_EmptyResponse(t *testing.T) {
 	// Test with minimal payload (no text)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]interface{}
+		var payload map[string]any
 		json.NewDecoder(r.Body).Decode(&payload)
 
 		// Should only have callback_query_id
@@ -258,11 +258,11 @@ func TestTelegramCallbackExecutor_Execute_EmptyResponse(t *testing.T) {
 	executor := NewTelegramCallbackExecutor()
 	executor.baseURL = server.URL
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"bot_token":         "test-token",
 		"callback_query_id": "callback-123",
 	}, nil)
 
 	require.NoError(t, err)
-	assert.True(t, result.(map[string]interface{})["success"].(bool))
+	assert.True(t, result.(map[string]any)["success"].(bool))
 }

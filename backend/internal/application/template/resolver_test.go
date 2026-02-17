@@ -9,7 +9,7 @@ import (
 func TestResolver_ResolveVariable(t *testing.T) {
 	ctx := NewVariableContext()
 	ctx.WorkflowVars["simpleVar"] = "value"
-	ctx.InputVars["data"] = map[string]interface{}{
+	ctx.InputVars["data"] = map[string]any{
 		"name": "test",
 	}
 
@@ -19,7 +19,7 @@ func TestResolver_ResolveVariable(t *testing.T) {
 		name     string
 		varType  string
 		path     string
-		want     interface{}
+		want     any
 		wantErr  bool
 		errCheck func(error) bool
 	}{
@@ -50,8 +50,8 @@ func TestResolver_ResolveVariable(t *testing.T) {
 			name:    "input without path",
 			varType: "input",
 			path:    "",
-			want: map[string]interface{}{
-				"data": map[string]interface{}{
+			want: map[string]any{
+				"data": map[string]any{
 					"name": "test",
 				},
 			},
@@ -108,12 +108,12 @@ func TestResolver_ResolveVariable(t *testing.T) {
 func TestResolver_ResolveEnvPath(t *testing.T) {
 	ctx := NewVariableContext()
 	ctx.WorkflowVars["simple"] = "value"
-	ctx.WorkflowVars["nested"] = map[string]interface{}{
+	ctx.WorkflowVars["nested"] = map[string]any{
 		"field": "nested value",
 	}
-	ctx.WorkflowVars["array"] = []interface{}{
+	ctx.WorkflowVars["array"] = []any{
 		"item0",
-		map[string]interface{}{"name": "item1"},
+		map[string]any{"name": "item1"},
 	}
 
 	resolver := NewResolver(ctx, DefaultOptions())
@@ -121,7 +121,7 @@ func TestResolver_ResolveEnvPath(t *testing.T) {
 	tests := []struct {
 		name      string
 		path      string
-		wantValue interface{}
+		wantValue any
 		wantFound bool
 	}{
 		{
@@ -182,12 +182,12 @@ func TestResolver_ResolveEnvPath(t *testing.T) {
 func TestResolver_ResolveInputPath(t *testing.T) {
 	ctx := NewVariableContext()
 	ctx.InputVars["simple"] = "value"
-	ctx.InputVars["nested"] = map[string]interface{}{
+	ctx.InputVars["nested"] = map[string]any{
 		"field": "nested value",
 	}
-	ctx.InputVars["array"] = []interface{}{
+	ctx.InputVars["array"] = []any{
 		"item0",
-		map[string]interface{}{"name": "item1"},
+		map[string]any{"name": "item1"},
 	}
 
 	resolver := NewResolver(ctx, DefaultOptions())
@@ -195,7 +195,7 @@ func TestResolver_ResolveInputPath(t *testing.T) {
 	tests := []struct {
 		name      string
 		path      string
-		wantValue interface{}
+		wantValue any
 		wantFound bool
 	}{
 		{
@@ -254,7 +254,7 @@ func TestResolver_ResolveField(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		value    interface{}
+		value    any
 		field    string
 		wantNil  bool
 		wantType string
@@ -267,7 +267,7 @@ func TestResolver_ResolveField(t *testing.T) {
 		},
 		{
 			name: "map access",
-			value: map[string]interface{}{
+			value: map[string]any{
 				"field": "value",
 			},
 			field:    "field",
@@ -291,7 +291,7 @@ func TestResolver_ResolveField(t *testing.T) {
 		},
 		{
 			name: "missing map field",
-			value: map[string]interface{}{
+			value: map[string]any{
 				"other": "value",
 			},
 			field:   "missing",
@@ -337,34 +337,34 @@ func TestResolver_ResolveArrayIndex(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		value     interface{}
+		value     any
 		indexExpr string
 		wantErr   bool
 		errCheck  func(error) bool
 	}{
 		{
 			name:      "simple array index",
-			value:     []interface{}{"a", "b", "c"},
+			value:     []any{"a", "b", "c"},
 			indexExpr: "[1]",
 			wantErr:   false,
 		},
 		{
 			name: "field with array index",
-			value: map[string]interface{}{
-				"items": []interface{}{"a", "b"},
+			value: map[string]any{
+				"items": []any{"a", "b"},
 			},
 			indexExpr: "items[0]",
 			wantErr:   false,
 		},
 		{
 			name:      "chained array index",
-			value:     []interface{}{[]interface{}{"a", "b"}, []interface{}{"c", "d"}},
+			value:     []any{[]any{"a", "b"}, []any{"c", "d"}},
 			indexExpr: "[0][1]",
 			wantErr:   false,
 		},
 		{
 			name: "missing field",
-			value: map[string]interface{}{
+			value: map[string]any{
 				"other": "value",
 			},
 			indexExpr: "missing[0]",
@@ -375,7 +375,7 @@ func TestResolver_ResolveArrayIndex(t *testing.T) {
 		},
 		{
 			name:      "invalid index expression",
-			value:     []interface{}{"a"},
+			value:     []any{"a"},
 			indexExpr: "[invalid]",
 			wantErr:   true,
 			errCheck: func(err error) bool {
@@ -406,7 +406,7 @@ func TestResolver_IndexArray(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		value    interface{}
+		value    any
 		index    int
 		wantErr  bool
 		errCheck func(error) bool
@@ -422,7 +422,7 @@ func TestResolver_IndexArray(t *testing.T) {
 		},
 		{
 			name:    "slice access",
-			value:   []interface{}{"a", "b", "c"},
+			value:   []any{"a", "b", "c"},
 			index:   1,
 			wantErr: false,
 		},
@@ -434,7 +434,7 @@ func TestResolver_IndexArray(t *testing.T) {
 		},
 		{
 			name:    "slice out of bounds",
-			value:   []interface{}{"a"},
+			value:   []any{"a"},
 			index:   5,
 			wantErr: true,
 			errCheck: func(err error) bool {
@@ -443,7 +443,7 @@ func TestResolver_IndexArray(t *testing.T) {
 		},
 		{
 			name:    "negative index",
-			value:   []interface{}{"a", "b"},
+			value:   []any{"a", "b"},
 			index:   -1,
 			wantErr: true,
 			errCheck: func(err error) bool {
@@ -452,7 +452,7 @@ func TestResolver_IndexArray(t *testing.T) {
 		},
 		{
 			name: "json array",
-			value: []map[string]interface{}{
+			value: []map[string]any{
 				{"name": "item1"},
 				{"name": "item2"},
 			},
@@ -461,7 +461,7 @@ func TestResolver_IndexArray(t *testing.T) {
 		},
 		{
 			name: "json array out of bounds",
-			value: []map[string]interface{}{
+			value: []map[string]any{
 				{"name": "item1"},
 			},
 			index:   5,
@@ -472,7 +472,7 @@ func TestResolver_IndexArray(t *testing.T) {
 		},
 		{
 			name: "json array negative index",
-			value: []map[string]interface{}{
+			value: []map[string]any{
 				{"name": "item1"},
 			},
 			index:   -1,
@@ -492,7 +492,7 @@ func TestResolver_IndexArray(t *testing.T) {
 		},
 		{
 			name:    "map type (not array)",
-			value:   map[string]interface{}{"key": "value"},
+			value:   map[string]any{"key": "value"},
 			index:   0,
 			wantErr: true,
 			errCheck: func(err error) bool {
@@ -641,14 +641,14 @@ func TestResolver_TraversePath(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		value     interface{}
+		value     any
 		parts     []string
 		wantFound bool
 	}{
 		{
 			name: "traverse nested map",
-			value: map[string]interface{}{
-				"level1": map[string]interface{}{
+			value: map[string]any{
+				"level1": map[string]any{
 					"level2": "value",
 				},
 			},
@@ -657,13 +657,13 @@ func TestResolver_TraversePath(t *testing.T) {
 		},
 		{
 			name:      "traverse array",
-			value:     []interface{}{map[string]interface{}{"name": "test"}},
+			value:     []any{map[string]any{"name": "test"}},
 			parts:     []string{"[0]", "name"},
 			wantFound: true,
 		},
 		{
 			name: "traverse missing field",
-			value: map[string]interface{}{
+			value: map[string]any{
 				"field": "value",
 			},
 			parts:     []string{"missing"},
@@ -677,10 +677,10 @@ func TestResolver_TraversePath(t *testing.T) {
 		},
 		{
 			name: "traverse with field and array access",
-			value: map[string]interface{}{
-				"items": []interface{}{
-					map[string]interface{}{"id": 1},
-					map[string]interface{}{"id": 2},
+			value: map[string]any{
+				"items": []any{
+					map[string]any{"id": 1},
+					map[string]any{"id": 2},
 				},
 			},
 			parts:     []string{"items[1]", "id"},
@@ -688,7 +688,7 @@ func TestResolver_TraversePath(t *testing.T) {
 		},
 		{
 			name:      "traverse with invalid array index",
-			value:     []interface{}{"a", "b"},
+			value:     []any{"a", "b"},
 			parts:     []string{"[10]"},
 			wantFound: false,
 		},
@@ -706,7 +706,7 @@ func TestResolver_TraversePath(t *testing.T) {
 
 func TestResolver_ResolveEnvPath_ArrayIndexErrors(t *testing.T) {
 	ctx := NewVariableContext()
-	ctx.WorkflowVars["array"] = []interface{}{"a", "b"}
+	ctx.WorkflowVars["array"] = []any{"a", "b"}
 
 	resolver := NewResolver(ctx, DefaultOptions())
 
@@ -719,7 +719,7 @@ func TestResolver_ResolveEnvPath_ArrayIndexErrors(t *testing.T) {
 
 func TestResolver_ResolveInputPath_ArrayIndexErrors(t *testing.T) {
 	ctx := NewVariableContext()
-	ctx.InputVars["array"] = []interface{}{"a", "b"}
+	ctx.InputVars["array"] = []any{"a", "b"}
 
 	resolver := NewResolver(ctx, DefaultOptions())
 
@@ -750,27 +750,27 @@ func TestResolver_ResolveField_UnmarshalError(t *testing.T) {
 func TestResolver_ResolveResourceVariable(t *testing.T) {
 	tests := []struct {
 		name         string
-		resourceVars map[string]interface{}
+		resourceVars map[string]any
 		path         string
-		expected     interface{}
+		expected     any
 		expectError  bool
 	}{
 		{
 			name: "resolve full resource object",
-			resourceVars: map[string]interface{}{
-				"myStorage": map[string]interface{}{
+			resourceVars: map[string]any{
+				"myStorage": map[string]any{
 					"id":   "res-123",
 					"name": "My Storage",
 					"type": "file_storage",
 				},
 			},
 			path:     "myStorage",
-			expected: map[string]interface{}{"id": "res-123", "name": "My Storage", "type": "file_storage"},
+			expected: map[string]any{"id": "res-123", "name": "My Storage", "type": "file_storage"},
 		},
 		{
 			name: "resolve resource id field",
-			resourceVars: map[string]interface{}{
-				"myStorage": map[string]interface{}{
+			resourceVars: map[string]any{
+				"myStorage": map[string]any{
 					"id":   "res-123",
 					"name": "My Storage",
 					"type": "file_storage",
@@ -781,8 +781,8 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 		},
 		{
 			name: "resolve resource name field",
-			resourceVars: map[string]interface{}{
-				"myStorage": map[string]interface{}{
+			resourceVars: map[string]any{
+				"myStorage": map[string]any{
 					"id":   "res-123",
 					"name": "My Storage",
 					"type": "file_storage",
@@ -793,8 +793,8 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 		},
 		{
 			name: "resolve resource type field",
-			resourceVars: map[string]interface{}{
-				"myStorage": map[string]interface{}{
+			resourceVars: map[string]any{
+				"myStorage": map[string]any{
 					"id":   "res-123",
 					"name": "My Storage",
 					"type": "file_storage",
@@ -805,10 +805,10 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 		},
 		{
 			name: "resolve nested resource field",
-			resourceVars: map[string]interface{}{
-				"apiResource": map[string]interface{}{
+			resourceVars: map[string]any{
+				"apiResource": map[string]any{
 					"id": "api-456",
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"endpoint": "https://api.example.com",
 						"apiKey":   "secret-key",
 					},
@@ -819,10 +819,10 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 		},
 		{
 			name: "resolve nested resource field deep",
-			resourceVars: map[string]interface{}{
-				"apiResource": map[string]interface{}{
+			resourceVars: map[string]any{
+				"apiResource": map[string]any{
 					"id": "api-456",
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"endpoint": "https://api.example.com",
 						"apiKey":   "secret-key",
 					},
@@ -833,12 +833,12 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 		},
 		{
 			name: "multiple resources - access first",
-			resourceVars: map[string]interface{}{
-				"storage1": map[string]interface{}{
+			resourceVars: map[string]any{
+				"storage1": map[string]any{
 					"id":   "res-001",
 					"type": "s3",
 				},
-				"storage2": map[string]interface{}{
+				"storage2": map[string]any{
 					"id":   "res-002",
 					"type": "local",
 				},
@@ -848,12 +848,12 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 		},
 		{
 			name: "multiple resources - access second",
-			resourceVars: map[string]interface{}{
-				"storage1": map[string]interface{}{
+			resourceVars: map[string]any{
+				"storage1": map[string]any{
 					"id":   "res-001",
 					"type": "s3",
 				},
-				"storage2": map[string]interface{}{
+				"storage2": map[string]any{
 					"id":   "res-002",
 					"type": "local",
 				},
@@ -863,10 +863,10 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 		},
 		{
 			name: "resource with array field",
-			resourceVars: map[string]interface{}{
-				"database": map[string]interface{}{
+			resourceVars: map[string]any{
+				"database": map[string]any{
 					"id": "db-789",
-					"tables": []interface{}{
+					"tables": []any{
 						"users",
 						"products",
 						"orders",
@@ -878,15 +878,15 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 		},
 		{
 			name: "resource with array of objects",
-			resourceVars: map[string]interface{}{
-				"cluster": map[string]interface{}{
+			resourceVars: map[string]any{
+				"cluster": map[string]any{
 					"id": "cluster-001",
-					"nodes": []interface{}{
-						map[string]interface{}{
+					"nodes": []any{
+						map[string]any{
 							"id":   "node-1",
 							"host": "192.168.1.1",
 						},
-						map[string]interface{}{
+						map[string]any{
 							"id":   "node-2",
 							"host": "192.168.1.2",
 						},
@@ -927,13 +927,13 @@ func TestResolver_ResolveResourceVariable(t *testing.T) {
 func TestResolver_ResolveResourceVariable_Errors(t *testing.T) {
 	tests := []struct {
 		name         string
-		resourceVars map[string]interface{}
+		resourceVars map[string]any
 		path         string
 		errCheck     func(error) bool
 	}{
 		{
 			name:         "empty path",
-			resourceVars: map[string]interface{}{},
+			resourceVars: map[string]any{},
 			path:         "",
 			errCheck: func(err error) bool {
 				return errors.Is(err, ErrInvalidTemplate)
@@ -941,7 +941,7 @@ func TestResolver_ResolveResourceVariable_Errors(t *testing.T) {
 		},
 		{
 			name:         "resource not found",
-			resourceVars: map[string]interface{}{},
+			resourceVars: map[string]any{},
 			path:         "unknown",
 			errCheck: func(err error) bool {
 				return errors.Is(err, ErrVariableNotFound)
@@ -979,25 +979,25 @@ func TestResolver_ResolveResourceVariable_Errors(t *testing.T) {
 func TestGetResourceVariable(t *testing.T) {
 	tests := []struct {
 		name         string
-		resourceVars map[string]interface{}
+		resourceVars map[string]any
 		alias        string
-		expected     interface{}
+		expected     any
 		expectFound  bool
 	}{
 		{
 			name: "get existing resource",
-			resourceVars: map[string]interface{}{
-				"myStorage": map[string]interface{}{
+			resourceVars: map[string]any{
+				"myStorage": map[string]any{
 					"id": "res-123",
 				},
 			},
 			alias:       "myStorage",
-			expected:    map[string]interface{}{"id": "res-123"},
+			expected:    map[string]any{"id": "res-123"},
 			expectFound: true,
 		},
 		{
 			name:         "get non-existing resource",
-			resourceVars: map[string]interface{}{},
+			resourceVars: map[string]any{},
 			alias:        "unknown",
 			expected:     nil,
 			expectFound:  false,
@@ -1031,18 +1031,18 @@ func TestGetResourceVariable(t *testing.T) {
 func TestResolveResourcePath_ComplexScenarios(t *testing.T) {
 	tests := []struct {
 		name         string
-		resourceVars map[string]interface{}
+		resourceVars map[string]any
 		path         string
-		expected     interface{}
+		expected     any
 		expectFound  bool
 	}{
 		{
 			name: "deeply nested object",
-			resourceVars: map[string]interface{}{
-				"config": map[string]interface{}{
-					"database": map[string]interface{}{
-						"connections": map[string]interface{}{
-							"primary": map[string]interface{}{
+			resourceVars: map[string]any{
+				"config": map[string]any{
+					"database": map[string]any{
+						"connections": map[string]any{
+							"primary": map[string]any{
 								"host": "db.example.com",
 								"port": 5432,
 							},
@@ -1056,10 +1056,10 @@ func TestResolveResourcePath_ComplexScenarios(t *testing.T) {
 		},
 		{
 			name: "array within nested object",
-			resourceVars: map[string]interface{}{
-				"service": map[string]interface{}{
-					"endpoints": map[string]interface{}{
-						"api": []interface{}{
+			resourceVars: map[string]any{
+				"service": map[string]any{
+					"endpoints": map[string]any{
+						"api": []any{
 							"https://api1.example.com",
 							"https://api2.example.com",
 						},
@@ -1072,9 +1072,9 @@ func TestResolveResourcePath_ComplexScenarios(t *testing.T) {
 		},
 		{
 			name: "mixed types with numbers",
-			resourceVars: map[string]interface{}{
-				"metrics": map[string]interface{}{
-					"stats": map[string]interface{}{
+			resourceVars: map[string]any{
+				"metrics": map[string]any{
+					"stats": map[string]any{
 						"count":   100,
 						"average": 75.5,
 						"enabled": true,
@@ -1108,17 +1108,17 @@ func TestResolveResourcePath_ComplexScenarios(t *testing.T) {
 func TestResolver_ResolveVariable_AllTypesIncludingResource(t *testing.T) {
 	// Test that all variable types (env, input, resource) work together
 	ctx := &VariableContext{
-		WorkflowVars: map[string]interface{}{
+		WorkflowVars: map[string]any{
 			"apiKey": "workflow-key",
 		},
-		ExecutionVars: map[string]interface{}{
+		ExecutionVars: map[string]any{
 			"executionID": "exec-123",
 		},
-		InputVars: map[string]interface{}{
+		InputVars: map[string]any{
 			"userId": "user-456",
 		},
-		ResourceVars: map[string]interface{}{
-			"storage": map[string]interface{}{
+		ResourceVars: map[string]any{
+			"storage": map[string]any{
 				"id":   "res-789",
 				"type": "s3",
 			},
@@ -1130,7 +1130,7 @@ func TestResolver_ResolveVariable_AllTypesIncludingResource(t *testing.T) {
 		name     string
 		varType  string
 		path     string
-		expected interface{}
+		expected any
 	}{
 		{
 			name:     "env variable",
@@ -1154,7 +1154,7 @@ func TestResolver_ResolveVariable_AllTypesIncludingResource(t *testing.T) {
 			name:     "resource full object",
 			varType:  "resource",
 			path:     "storage",
-			expected: map[string]interface{}{"id": "res-789", "type": "s3"},
+			expected: map[string]any{"id": "res-789", "type": "s3"},
 		},
 		{
 			name:     "resource field",

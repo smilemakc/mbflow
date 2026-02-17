@@ -141,12 +141,12 @@ func TestDAGExecutor_Execute_Success(t *testing.T) {
 	var mu sync.Mutex
 
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			mu.Lock()
 			executionOrder = append(executionOrder, nodeID)
 			mu.Unlock()
-			return map[string]interface{}{"result": "ok", "from": nodeID}, nil
+			return map[string]any{"result": "ok", "from": nodeID}, nil
 		},
 	}
 
@@ -159,19 +159,19 @@ func TestDAGExecutor_Execute_Success(t *testing.T) {
 	workflow := &models.Workflow{
 		ID:   "wf-1",
 		Name: "Test Workflow",
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"key": "value",
 		},
 		Nodes: []*models.Node{
-			{ID: "node-1", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "node-1"}},
-			{ID: "node-2", Name: "End", Type: "test", Config: map[string]interface{}{"nodeID": "node-2"}},
+			{ID: "node-1", Name: "Start", Type: "test", Config: map[string]any{"nodeID": "node-1"}},
+			{ID: "node-2", Name: "End", Type: "test", Config: map[string]any{"nodeID": "node-2"}},
 		},
 		Edges: []*models.Edge{
 			{ID: "edge-1", From: "node-1", To: "node-2"},
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, workflow.Variables)
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, workflow.Variables)
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -213,7 +213,7 @@ func TestDAGExecutor_Execute_ParallelExecution(t *testing.T) {
 	var mu sync.Mutex
 
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			mu.Lock()
 			activeConcurrent++
 			if activeConcurrent > maxConcurrent {
@@ -228,7 +228,7 @@ func TestDAGExecutor_Execute_ParallelExecution(t *testing.T) {
 			activeConcurrent--
 			mu.Unlock()
 
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -243,10 +243,10 @@ func TestDAGExecutor_Execute_ParallelExecution(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Test Workflow",
 		Nodes: []*models.Node{
-			{ID: "node-1", Name: "Start", Type: "test", Config: map[string]interface{}{}},
-			{ID: "node-2", Name: "Parallel A", Type: "test", Config: map[string]interface{}{}},
-			{ID: "node-3", Name: "Parallel B", Type: "test", Config: map[string]interface{}{}},
-			{ID: "node-4", Name: "Parallel C", Type: "test", Config: map[string]interface{}{}},
+			{ID: "node-1", Name: "Start", Type: "test", Config: map[string]any{}},
+			{ID: "node-2", Name: "Parallel A", Type: "test", Config: map[string]any{}},
+			{ID: "node-3", Name: "Parallel B", Type: "test", Config: map[string]any{}},
+			{ID: "node-4", Name: "Parallel C", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "edge-1", From: "node-1", To: "node-2"},
@@ -255,7 +255,7 @@ func TestDAGExecutor_Execute_ParallelExecution(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -313,7 +313,7 @@ func TestDAGExecutor_ConditionalEdge_TrueBranch(t *testing.T) {
 
 	// Mock executor that returns true for conditional node
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			mu.Lock()
 			executedNodes = append(executedNodes, nodeID)
@@ -323,7 +323,7 @@ func TestDAGExecutor_ConditionalEdge_TrueBranch(t *testing.T) {
 			if nodeID == "conditional" {
 				return true, nil
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -339,10 +339,10 @@ func TestDAGExecutor_ConditionalEdge_TrueBranch(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Conditional Test",
 		Nodes: []*models.Node{
-			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
-			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
-			{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]interface{}{"nodeID": "true-branch"}},
-			{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]interface{}{"nodeID": "false-branch"}},
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]any{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]any{"nodeID": "conditional"}},
+			{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]any{"nodeID": "true-branch"}},
+			{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]any{"nodeID": "false-branch"}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "start", To: "conditional"},
@@ -351,7 +351,7 @@ func TestDAGExecutor_ConditionalEdge_TrueBranch(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -380,7 +380,7 @@ func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
 
 	// Mock executor that returns false for conditional node
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			mu.Lock()
 			executedNodes = append(executedNodes, nodeID)
@@ -390,7 +390,7 @@ func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
 			if nodeID == "conditional" {
 				return false, nil
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -406,10 +406,10 @@ func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Conditional Test",
 		Nodes: []*models.Node{
-			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
-			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
-			{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]interface{}{"nodeID": "true-branch"}},
-			{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]interface{}{"nodeID": "false-branch"}},
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]any{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]any{"nodeID": "conditional"}},
+			{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]any{"nodeID": "true-branch"}},
+			{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]any{"nodeID": "false-branch"}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "start", To: "conditional"},
@@ -418,7 +418,7 @@ func TestDAGExecutor_ConditionalEdge_FalseBranch(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -447,7 +447,7 @@ func TestDAGExecutor_MultiParentWithConditionalEdges(t *testing.T) {
 	var mu sync.Mutex
 
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			mu.Lock()
 			executedNodes = append(executedNodes, nodeID)
@@ -455,9 +455,9 @@ func TestDAGExecutor_MultiParentWithConditionalEdges(t *testing.T) {
 
 			// Analyze node returns score=50
 			if nodeID == "analyze" {
-				return map[string]interface{}{"score": 50}, nil
+				return map[string]any{"score": 50}, nil
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -475,9 +475,9 @@ func TestDAGExecutor_MultiParentWithConditionalEdges(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Multi-Parent Test",
 		Nodes: []*models.Node{
-			{ID: "generate", Name: "Generate", Type: "test", Config: map[string]interface{}{"nodeID": "generate"}},
-			{ID: "analyze", Name: "Analyze", Type: "test", Config: map[string]interface{}{"nodeID": "analyze"}},
-			{ID: "merge", Name: "Merge", Type: "test", Config: map[string]interface{}{"nodeID": "merge"}},
+			{ID: "generate", Name: "Generate", Type: "test", Config: map[string]any{"nodeID": "generate"}},
+			{ID: "analyze", Name: "Analyze", Type: "test", Config: map[string]any{"nodeID": "analyze"}},
+			{ID: "merge", Name: "Merge", Type: "test", Config: map[string]any{"nodeID": "merge"}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "generate", To: "analyze"},
@@ -486,7 +486,7 @@ func TestDAGExecutor_MultiParentWithConditionalEdges(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -515,7 +515,7 @@ func TestDAGExecutor_MultiParentAllConditionsFail(t *testing.T) {
 	var mu sync.Mutex
 
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			mu.Lock()
 			executedNodes = append(executedNodes, nodeID)
@@ -523,9 +523,9 @@ func TestDAGExecutor_MultiParentAllConditionsFail(t *testing.T) {
 
 			// Both parent nodes return score that fails merge conditions
 			if nodeID == "parent1" || nodeID == "parent2" {
-				return map[string]interface{}{"score": 10}, nil
+				return map[string]any{"score": 10}, nil
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -540,9 +540,9 @@ func TestDAGExecutor_MultiParentAllConditionsFail(t *testing.T) {
 		ID:   "wf-1",
 		Name: "All Conditions Fail Test",
 		Nodes: []*models.Node{
-			{ID: "parent1", Name: "Parent1", Type: "test", Config: map[string]interface{}{"nodeID": "parent1"}},
-			{ID: "parent2", Name: "Parent2", Type: "test", Config: map[string]interface{}{"nodeID": "parent2"}},
-			{ID: "merge", Name: "Merge", Type: "test", Config: map[string]interface{}{"nodeID": "merge"}},
+			{ID: "parent1", Name: "Parent1", Type: "test", Config: map[string]any{"nodeID": "parent1"}},
+			{ID: "parent2", Name: "Parent2", Type: "test", Config: map[string]any{"nodeID": "parent2"}},
+			{ID: "merge", Name: "Merge", Type: "test", Config: map[string]any{"nodeID": "merge"}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "parent1", To: "merge", Condition: "output.score >= 80"}, // Will fail (score=10)
@@ -550,7 +550,7 @@ func TestDAGExecutor_MultiParentAllConditionsFail(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -625,16 +625,16 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			mockExec := &mockExecutor{
-				executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+				executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 					nodeID := config["nodeID"].(string)
 					// Conditional node returns map with "result" key
 					if nodeID == "conditional" {
-						return map[string]interface{}{
+						return map[string]any{
 							"result":  tt.result,
 							"message": "some metadata",
 						}, nil
 					}
-					return map[string]interface{}{"result": "ok"}, nil
+					return map[string]any{"result": "ok"}, nil
 				},
 			}
 
@@ -649,10 +649,10 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
 				ID:   "wf-1",
 				Name: "Conditional Map Output Test",
 				Nodes: []*models.Node{
-					{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
-					{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
-					{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]interface{}{"nodeID": "true-branch"}},
-					{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]interface{}{"nodeID": "false-branch"}},
+					{ID: "start", Name: "Start", Type: "test", Config: map[string]any{"nodeID": "start"}},
+					{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]any{"nodeID": "conditional"}},
+					{ID: "true-branch", Name: "True Branch", Type: "test", Config: map[string]any{"nodeID": "true-branch"}},
+					{ID: "false-branch", Name: "False Branch", Type: "test", Config: map[string]any{"nodeID": "false-branch"}},
 				},
 				Edges: []*models.Edge{
 					{ID: "e1", From: "start", To: "conditional"},
@@ -661,7 +661,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
 				},
 			}
 
-			execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+			execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 			opts := DefaultExecutionOptions()
 
 			err := dagExec.Execute(context.Background(), execState, opts)
@@ -688,12 +688,12 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithResult(t *testing.T) {
 func TestDAGExecutor_ConditionalEdge_UnknownSourceHandle(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			if nodeID == "conditional" {
 				return false, nil // Returns false but sourceHandle is unknown
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -708,9 +708,9 @@ func TestDAGExecutor_ConditionalEdge_UnknownSourceHandle(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Unknown SourceHandle Test",
 		Nodes: []*models.Node{
-			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
-			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
-			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]interface{}{"nodeID": "branch"}},
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]any{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]any{"nodeID": "conditional"}},
+			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]any{"nodeID": "branch"}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "start", To: "conditional"},
@@ -718,7 +718,7 @@ func TestDAGExecutor_ConditionalEdge_UnknownSourceHandle(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -737,16 +737,16 @@ func TestDAGExecutor_ConditionalEdge_UnknownSourceHandle(t *testing.T) {
 func TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			if nodeID == "conditional" {
 				// Returns map without "result" key
-				return map[string]interface{}{
+				return map[string]any{
 					"data":   "some data",
 					"status": "ok",
 				}, nil
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -761,9 +761,9 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Map Without Result Test",
 		Nodes: []*models.Node{
-			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
-			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
-			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]interface{}{"nodeID": "branch"}},
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]any{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]any{"nodeID": "conditional"}},
+			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]any{"nodeID": "branch"}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "start", To: "conditional"},
@@ -771,7 +771,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -790,15 +790,15 @@ func TestDAGExecutor_ConditionalEdge_MapOutputWithoutResult(t *testing.T) {
 func TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			nodeID := config["nodeID"].(string)
 			if nodeID == "conditional" {
 				// Returns map with non-boolean "result"
-				return map[string]interface{}{
+				return map[string]any{
 					"result": "success", // String instead of bool
 				}, nil
 			}
-			return map[string]interface{}{"result": "ok"}, nil
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -813,9 +813,9 @@ func TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Non-Boolean Result Test",
 		Nodes: []*models.Node{
-			{ID: "start", Name: "Start", Type: "test", Config: map[string]interface{}{"nodeID": "start"}},
-			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]interface{}{"nodeID": "conditional"}},
-			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]interface{}{"nodeID": "branch"}},
+			{ID: "start", Name: "Start", Type: "test", Config: map[string]any{"nodeID": "start"}},
+			{ID: "conditional", Name: "Check", Type: "conditional", Config: map[string]any{"nodeID": "conditional"}},
+			{ID: "branch", Name: "Branch", Type: "test", Config: map[string]any{"nodeID": "branch"}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "start", To: "conditional"},
@@ -823,7 +823,7 @@ func TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -842,8 +842,8 @@ func TestDAGExecutor_ConditionalEdge_MapOutputNonBooleanResult(t *testing.T) {
 func TestDAGExecutor_EdgeCondition_CompilationError(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"score": 50}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"score": 50}, nil
 		},
 	}
 
@@ -857,15 +857,15 @@ func TestDAGExecutor_EdgeCondition_CompilationError(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Invalid Condition Syntax Test",
 		Nodes: []*models.Node{
-			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
-			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]any{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "source", To: "target", Condition: "output.score >= && 80"}, // Invalid syntax
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -884,8 +884,8 @@ func TestDAGExecutor_EdgeCondition_CompilationError(t *testing.T) {
 func TestDAGExecutor_EdgeCondition_RuntimeError(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"data": "value"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"data": "value"}, nil
 		},
 	}
 
@@ -899,15 +899,15 @@ func TestDAGExecutor_EdgeCondition_RuntimeError(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Condition Runtime Error Test",
 		Nodes: []*models.Node{
-			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
-			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]any{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "source", To: "target", Condition: "output.score >= 80"}, // score doesn't exist
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -926,8 +926,8 @@ func TestDAGExecutor_EdgeCondition_RuntimeError(t *testing.T) {
 func TestDAGExecutor_EdgeCondition_NonBooleanResult(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"score": 50}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"score": 50}, nil
 		},
 	}
 
@@ -941,15 +941,15 @@ func TestDAGExecutor_EdgeCondition_NonBooleanResult(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Non-Boolean Condition Result Test",
 		Nodes: []*models.Node{
-			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
-			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]any{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "source", To: "target", Condition: "output.score"}, // Returns number, not bool
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -968,8 +968,8 @@ func TestDAGExecutor_EdgeCondition_NonBooleanResult(t *testing.T) {
 func TestDAGExecutor_EdgeCondition_EmptyCondition(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"result": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -983,15 +983,15 @@ func TestDAGExecutor_EdgeCondition_EmptyCondition(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Empty Condition Test",
 		Nodes: []*models.Node{
-			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
-			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]any{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "source", To: "target", Condition: ""}, // Empty condition = always pass
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 	opts := DefaultExecutionOptions()
 
 	err := dagExec.Execute(context.Background(), execState, opts)
@@ -1010,8 +1010,8 @@ func TestDAGExecutor_EdgeCondition_EmptyCondition(t *testing.T) {
 func TestDAGExecutor_shouldExecuteNode_InvalidEdge(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"result": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -1025,8 +1025,8 @@ func TestDAGExecutor_shouldExecuteNode_InvalidEdge(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Invalid Edge Test",
 		Nodes: []*models.Node{
-			{ID: "node1", Name: "Node 1", Type: "test", Config: map[string]interface{}{}},
-			{ID: "node2", Name: "Node 2", Type: "test", Config: map[string]interface{}{}},
+			{ID: "node1", Name: "Node 1", Type: "test", Config: map[string]any{}},
+			{ID: "node2", Name: "Node 2", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "nonexistent", To: "node2"}, // Invalid source node
@@ -1034,11 +1034,11 @@ func TestDAGExecutor_shouldExecuteNode_InvalidEdge(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 
 	// Mark node1 as completed
 	execState.SetNodeStatus("node1", models.NodeExecutionStatusCompleted)
-	execState.SetNodeOutput("node1", map[string]interface{}{"result": "ok"})
+	execState.SetNodeOutput("node1", map[string]any{"result": "ok"})
 
 	// Check if node2 should execute (it should, because node1 edge is valid even though nonexistent edge is invalid)
 	shouldExecute, _ := dagExec.shouldExecuteNode(execState, workflow.Nodes[1])
@@ -1069,8 +1069,8 @@ func TestDAGExecutor_shouldExecuteNode_SourceNotCompleted(t *testing.T) {
 	// In normal wave execution this shouldn't happen, but we test the defensive check
 
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"result": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -1084,15 +1084,15 @@ func TestDAGExecutor_shouldExecuteNode_SourceNotCompleted(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Source Not Completed Test",
 		Nodes: []*models.Node{
-			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
-			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]any{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "source", To: "target"},
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 
 	// Manually set source node to "running" status to simulate the edge case
 	execState.SetNodeStatus("source", models.NodeExecutionStatusRunning)
@@ -1117,8 +1117,8 @@ func TestDAGExecutor_shouldExecuteNode_SourceNotCompleted(t *testing.T) {
 func TestDAGExecutor_shouldExecuteNode_SourceFailed(t *testing.T) {
 	t.Parallel()
 	mockExec := &mockExecutor{
-		executeFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"result": "ok"}, nil
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -1132,15 +1132,15 @@ func TestDAGExecutor_shouldExecuteNode_SourceFailed(t *testing.T) {
 		ID:   "wf-1",
 		Name: "Source Failed Test",
 		Nodes: []*models.Node{
-			{ID: "source", Name: "Source", Type: "test", Config: map[string]interface{}{}},
-			{ID: "target", Name: "Target", Type: "test", Config: map[string]interface{}{}},
+			{ID: "source", Name: "Source", Type: "test", Config: map[string]any{}},
+			{ID: "target", Name: "Target", Type: "test", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "source", To: "target"},
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]interface{}{}, map[string]interface{}{})
+	execState := NewExecutionState("exec-1", "wf-1", workflow, map[string]any{}, map[string]any{})
 
 	// Manually set source node to "failed" status
 	execState.SetNodeStatus("source", models.NodeExecutionStatusFailed)

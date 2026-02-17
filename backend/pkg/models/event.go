@@ -8,12 +8,12 @@ import (
 // Event represents an immutable event in the execution event log.
 // Events track workflow and node execution progress for observability and replay.
 type Event struct {
-	ID          string                 `json:"id"`
-	ExecutionID string                 `json:"execution_id"`
-	EventType   string                 `json:"event_type"`
-	Sequence    int64                  `json:"sequence"`
-	Payload     map[string]interface{} `json:"payload,omitempty"`
-	CreatedAt   time.Time              `json:"created_at"`
+	ID          string         `json:"id"`
+	ExecutionID string         `json:"execution_id"`
+	EventType   string         `json:"event_type"`
+	Sequence    int64          `json:"sequence"`
+	Payload     map[string]any `json:"payload,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
 }
 
 // Event type constants (dot notation for hierarchical categorization).

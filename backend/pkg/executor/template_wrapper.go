@@ -27,7 +27,7 @@ func NewTemplateExecutorWrapper(executor Executor, engine *template.Engine) Exec
 }
 
 // Execute resolves templates in the config before executing.
-func (w *TemplateExecutorWrapper) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (w *TemplateExecutorWrapper) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Resolve templates in the config
 	resolvedConfig, err := w.engine.ResolveConfig(config)
 	if err != nil {
@@ -40,7 +40,7 @@ func (w *TemplateExecutorWrapper) Execute(ctx context.Context, config map[string
 
 // Validate validates the config without resolving templates.
 // Template validation happens at execution time.
-func (w *TemplateExecutorWrapper) Validate(config map[string]interface{}) error {
+func (w *TemplateExecutorWrapper) Validate(config map[string]any) error {
 	return w.executor.Validate(config)
 }
 
@@ -49,10 +49,10 @@ type ExecutionContextKey struct{}
 
 // ExecutionContextData holds data needed for template resolution during execution.
 type ExecutionContextData struct {
-	WorkflowVariables  map[string]interface{}
-	ExecutionVariables map[string]interface{}
-	ParentNodeOutput   map[string]interface{}
-	Resources          map[string]interface{} // alias -> resource data
+	WorkflowVariables  map[string]any
+	ExecutionVariables map[string]any
+	ParentNodeOutput   map[string]any
+	Resources          map[string]any // alias -> resource data
 	StrictMode         bool
 }
 

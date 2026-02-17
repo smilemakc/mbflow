@@ -59,7 +59,7 @@ func TestWorkflowWithVariable(t *testing.T) {
 }
 
 func TestWorkflowWithVariables(t *testing.T) {
-	vars := map[string]interface{}{
+	vars := map[string]any{
 		"key1": "value1",
 		"key2": 42,
 	}

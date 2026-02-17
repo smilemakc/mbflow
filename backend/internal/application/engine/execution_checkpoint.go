@@ -16,17 +16,17 @@ type ExecutionCheckpoint struct {
 	WaveIndex      int                                   `json:"wave_index"`
 	Timestamp      time.Time                             `json:"timestamp"`
 	CompletedNodes []string                              `json:"completed_nodes"`
-	NodeOutputs    map[string]interface{}                `json:"node_outputs"`
+	NodeOutputs    map[string]any                        `json:"node_outputs"`
 	NodeStatuses   map[string]models.NodeExecutionStatus `json:"node_statuses"`
-	Variables      map[string]interface{}                `json:"variables"`
+	Variables      map[string]any                        `json:"variables"`
 }
 
 // CreateCheckpoint creates a checkpoint from current execution state.
 func CreateCheckpoint(execState *pkgengine.ExecutionState, waveIndex int) *ExecutionCheckpoint {
 	completedNodes := []string{}
-	outputs := make(map[string]interface{})
+	outputs := make(map[string]any)
 	statuses := make(map[string]models.NodeExecutionStatus)
-	variables := make(map[string]interface{})
+	variables := make(map[string]any)
 
 	for _, node := range execState.Workflow.Nodes {
 		if status, ok := execState.GetNodeStatus(node.ID); ok {
@@ -57,7 +57,7 @@ func CreateCheckpoint(execState *pkgengine.ExecutionState, waveIndex int) *Execu
 }
 
 // RestoreFromCheckpoint restores execution state from a checkpoint.
-func RestoreFromCheckpoint(checkpoint *ExecutionCheckpoint, workflow *models.Workflow, input map[string]interface{}) *pkgengine.ExecutionState {
+func RestoreFromCheckpoint(checkpoint *ExecutionCheckpoint, workflow *models.Workflow, input map[string]any) *pkgengine.ExecutionState {
 	execState := pkgengine.NewExecutionState(
 		checkpoint.ExecutionID,
 		checkpoint.WorkflowID,

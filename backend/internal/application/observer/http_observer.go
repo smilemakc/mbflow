@@ -100,8 +100,8 @@ func (o *HTTPCallbackObserver) OnEvent(ctx context.Context, event Event) error {
 }
 
 // buildPayload constructs the HTTP request payload
-func (o *HTTPCallbackObserver) buildPayload(event Event) map[string]interface{} {
-	payload := map[string]interface{}{
+func (o *HTTPCallbackObserver) buildPayload(event Event) map[string]any {
+	payload := map[string]any{
 		"event_type":   string(event.Type),
 		"execution_id": event.ExecutionID,
 		"workflow_id":  event.WorkflowID,
@@ -144,7 +144,7 @@ func (o *HTTPCallbackObserver) buildPayload(event Event) map[string]interface{} 
 }
 
 // sendWithRetry sends HTTP request with exponential backoff retry
-func (o *HTTPCallbackObserver) sendWithRetry(ctx context.Context, payload map[string]interface{}) error {
+func (o *HTTPCallbackObserver) sendWithRetry(ctx context.Context, payload map[string]any) error {
 	var lastErr error
 	delay := o.retryDelay
 
@@ -166,7 +166,7 @@ func (o *HTTPCallbackObserver) sendWithRetry(ctx context.Context, payload map[st
 }
 
 // send sends a single HTTP request
-func (o *HTTPCallbackObserver) send(ctx context.Context, payload map[string]interface{}) error {
+func (o *HTTPCallbackObserver) send(ctx context.Context, payload map[string]any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)

@@ -24,20 +24,20 @@ const (
 
 // Transaction represents a financial operation on an account
 type Transaction struct {
-	ID             string                 `json:"id"`
-	AccountID      string                 `json:"account_id"`
-	Type           TransactionType        `json:"type"`
-	Amount         float64                `json:"amount"`
-	Currency       string                 `json:"currency"`
-	Status         TransactionStatus      `json:"status"`
-	Description    string                 `json:"description,omitempty"`
-	ReferenceType  string                 `json:"reference_type,omitempty"`
-	ReferenceID    string                 `json:"reference_id,omitempty"`
-	IdempotencyKey string                 `json:"idempotency_key"`
-	BalanceBefore  float64                `json:"balance_before"`
-	BalanceAfter   float64                `json:"balance_after"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
+	ID             string            `json:"id"`
+	AccountID      string            `json:"account_id"`
+	Type           TransactionType   `json:"type"`
+	Amount         float64           `json:"amount"`
+	Currency       string            `json:"currency"`
+	Status         TransactionStatus `json:"status"`
+	Description    string            `json:"description,omitempty"`
+	ReferenceType  string            `json:"reference_type,omitempty"`
+	ReferenceID    string            `json:"reference_id,omitempty"`
+	IdempotencyKey string            `json:"idempotency_key"`
+	BalanceBefore  float64           `json:"balance_before"`
+	BalanceAfter   float64           `json:"balance_after"`
+	Metadata       map[string]any    `json:"metadata,omitempty"`
+	CreatedAt      time.Time         `json:"created_at"`
 }
 
 // Validate validates the transaction structure

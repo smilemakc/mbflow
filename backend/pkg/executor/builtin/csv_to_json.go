@@ -24,7 +24,7 @@ func NewCSVToJSONExecutor() *CSVToJSONExecutor {
 }
 
 // Execute converts CSV input to JSON array of objects.
-func (e *CSVToJSONExecutor) Execute(_ context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *CSVToJSONExecutor) Execute(_ context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get config options with defaults
@@ -62,7 +62,7 @@ func (e *CSVToJSONExecutor) Execute(_ context.Context, config map[string]interfa
 	}
 
 	if len(records) == 0 {
-		return e.buildOutput([]map[string]interface{}{}, []string{}, 0, 0, startTime), nil
+		return e.buildOutput([]map[string]any{}, []string{}, 0, 0, startTime), nil
 	}
 
 	// Determine headers
@@ -96,7 +96,7 @@ func (e *CSVToJSONExecutor) Execute(_ context.Context, config map[string]interfa
 	}
 
 	// Convert records to JSON objects
-	var result []map[string]interface{}
+	var result []map[string]any
 	for i := dataStartIndex; i < len(records); i++ {
 		row := records[i]
 
@@ -105,7 +105,7 @@ func (e *CSVToJSONExecutor) Execute(_ context.Context, config map[string]interfa
 			continue
 		}
 
-		obj := make(map[string]interface{})
+		obj := make(map[string]any)
 		for j, value := range row {
 			if j < len(headers) {
 				if trimSpaces {
@@ -119,14 +119,14 @@ func (e *CSVToJSONExecutor) Execute(_ context.Context, config map[string]interfa
 
 	// Ensure result is never nil
 	if result == nil {
-		result = []map[string]interface{}{}
+		result = []map[string]any{}
 	}
 
 	return e.buildOutput(result, headers, len(result), len(headers), startTime), nil
 }
 
 // Validate validates the CSV to JSON executor configuration.
-func (e *CSVToJSONExecutor) Validate(config map[string]interface{}) error {
+func (e *CSVToJSONExecutor) Validate(config map[string]any) error {
 	// Validate delimiter
 	delimiter := e.GetStringDefault(config, "delimiter", ",")
 	if len(delimiter) == 0 {
@@ -141,13 +141,13 @@ func (e *CSVToJSONExecutor) Validate(config map[string]interface{}) error {
 }
 
 // extractContentFromInput extracts CSV string from input.
-func (e *CSVToJSONExecutor) extractContentFromInput(input interface{}, inputKey string) (string, error) {
+func (e *CSVToJSONExecutor) extractContentFromInput(input any, inputKey string) (string, error) {
 	switch v := input.(type) {
 	case string:
 		return v, nil
 	case []byte:
 		return string(v), nil
-	case map[string]interface{}:
+	case map[string]any:
 		// If specific key is provided, use it
 		if inputKey != "" {
 			if val, ok := v[inputKey]; ok {
@@ -193,7 +193,7 @@ func (e *CSVToJSONExecutor) parseDelimiter(delimiter string) rune {
 }
 
 // getStringSlice extracts a string slice from config.
-func (e *CSVToJSONExecutor) getStringSlice(config map[string]interface{}, key string) []string {
+func (e *CSVToJSONExecutor) getStringSlice(config map[string]any, key string) []string {
 	val, ok := config[key]
 	if !ok {
 		return nil
@@ -202,7 +202,7 @@ func (e *CSVToJSONExecutor) getStringSlice(config map[string]interface{}, key st
 	switch v := val.(type) {
 	case []string:
 		return v
-	case []interface{}:
+	case []any:
 		result := make([]string, 0, len(v))
 		for _, item := range v {
 			if str, ok := item.(string); ok {
@@ -226,8 +226,8 @@ func (e *CSVToJSONExecutor) isEmptyRow(row []string) bool {
 }
 
 // buildOutput creates the output map.
-func (e *CSVToJSONExecutor) buildOutput(result []map[string]interface{}, headers []string, rowCount, columnCount int, startTime time.Time) map[string]interface{} {
-	return map[string]interface{}{
+func (e *CSVToJSONExecutor) buildOutput(result []map[string]any, headers []string, rowCount, columnCount int, startTime time.Time) map[string]any {
+	return map[string]any{
 		"success":      true,
 		"result":       result,
 		"row_count":    rowCount,

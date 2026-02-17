@@ -62,7 +62,7 @@ type getFileResponse struct {
 //   - file_id: Original file_id
 //   - file_unique_id: Unique file identifier
 //   - duration_ms: Execution time
-func (e *TelegramDownloadExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *TelegramDownloadExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get required fields
@@ -88,7 +88,7 @@ func (e *TelegramDownloadExecutor) Execute(ctx context.Context, config map[strin
 	// Build file URL
 	fileURL := fmt.Sprintf("%s/file/bot%s/%s", e.baseURL, botToken, fileInfo.FilePath)
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		"success":        true,
 		"file_id":        fileInfo.FileID,
 		"file_unique_id": fileInfo.FileUniqueID,
@@ -194,7 +194,7 @@ func (e *TelegramDownloadExecutor) downloadFile(ctx context.Context, url string,
 }
 
 // Validate validates the Telegram download executor configuration.
-func (e *TelegramDownloadExecutor) Validate(config map[string]interface{}) error {
+func (e *TelegramDownloadExecutor) Validate(config map[string]any) error {
 	// Validate required fields
 	if err := e.ValidateRequired(config, "bot_token", "file_id"); err != nil {
 		return err

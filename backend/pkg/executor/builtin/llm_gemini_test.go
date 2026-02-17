@@ -69,21 +69,21 @@ func TestGeminiProvider_BuildRequestBody(t *testing.T) {
 	tests := []struct {
 		name     string
 		req      *models.LLMRequest
-		validate func(t *testing.T, body map[string]interface{})
+		validate func(t *testing.T, body map[string]any)
 	}{
 		{
 			name: "basic text prompt",
 			req: &models.LLMRequest{
 				Prompt: "Hello, how are you?",
 			},
-			validate: func(t *testing.T, body map[string]interface{}) {
-				contents, ok := body["contents"].([]map[string]interface{})
+			validate: func(t *testing.T, body map[string]any) {
+				contents, ok := body["contents"].([]map[string]any)
 				require.True(t, ok)
 				require.Len(t, contents, 1)
 
 				assert.Equal(t, "user", contents[0]["role"])
 
-				parts, ok := contents[0]["parts"].([]map[string]interface{})
+				parts, ok := contents[0]["parts"].([]map[string]any)
 				require.True(t, ok)
 				require.Len(t, parts, 1)
 				assert.Equal(t, "Hello, how are you?", parts[0]["text"])
@@ -95,11 +95,11 @@ func TestGeminiProvider_BuildRequestBody(t *testing.T) {
 				Instruction: "You are a helpful assistant",
 				Prompt:      "Hello",
 			},
-			validate: func(t *testing.T, body map[string]interface{}) {
-				systemInstruction, ok := body["systemInstruction"].(map[string]interface{})
+			validate: func(t *testing.T, body map[string]any) {
+				systemInstruction, ok := body["systemInstruction"].(map[string]any)
 				require.True(t, ok)
 
-				parts, ok := systemInstruction["parts"].([]map[string]interface{})
+				parts, ok := systemInstruction["parts"].([]map[string]any)
 				require.True(t, ok)
 				require.Len(t, parts, 1)
 				assert.Equal(t, "You are a helpful assistant", parts[0]["text"])
@@ -114,8 +114,8 @@ func TestGeminiProvider_BuildRequestBody(t *testing.T) {
 				MaxTokens:     1000,
 				StopSequences: []string{"END", "STOP"},
 			},
-			validate: func(t *testing.T, body map[string]interface{}) {
-				generationConfig, ok := body["generationConfig"].(map[string]interface{})
+			validate: func(t *testing.T, body map[string]any) {
+				generationConfig, ok := body["generationConfig"].(map[string]any)
 				require.True(t, ok)
 
 				assert.Equal(t, 0.7, generationConfig["temperature"])
@@ -135,8 +135,8 @@ func TestGeminiProvider_BuildRequestBody(t *testing.T) {
 					Type: "json_object",
 				},
 			},
-			validate: func(t *testing.T, body map[string]interface{}) {
-				generationConfig, ok := body["generationConfig"].(map[string]interface{})
+			validate: func(t *testing.T, body map[string]any) {
+				generationConfig, ok := body["generationConfig"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "application/json", generationConfig["responseMimeType"])
 			},
@@ -149,26 +149,26 @@ func TestGeminiProvider_BuildRequestBody(t *testing.T) {
 					Type: "json_schema",
 					JSONSchema: &models.LLMJSONSchema{
 						Name: "user_schema",
-						Schema: map[string]interface{}{
+						Schema: map[string]any{
 							"type": "object",
-							"properties": map[string]interface{}{
-								"name": map[string]interface{}{"type": "string"},
-								"age":  map[string]interface{}{"type": "integer"},
+							"properties": map[string]any{
+								"name": map[string]any{"type": "string"},
+								"age":  map[string]any{"type": "integer"},
 							},
 						},
 					},
 				},
 			},
-			validate: func(t *testing.T, body map[string]interface{}) {
-				generationConfig, ok := body["generationConfig"].(map[string]interface{})
+			validate: func(t *testing.T, body map[string]any) {
+				generationConfig, ok := body["generationConfig"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "application/json", generationConfig["responseMimeType"])
 
-				responseSchema, ok := generationConfig["responseSchema"].(map[string]interface{})
+				responseSchema, ok := generationConfig["responseSchema"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "object", responseSchema["type"])
 
-				properties, ok := responseSchema["properties"].(map[string]interface{})
+				properties, ok := responseSchema["properties"].(map[string]any)
 				require.True(t, ok)
 				assert.Contains(t, properties, "name")
 				assert.Contains(t, properties, "age")
@@ -184,10 +184,10 @@ func TestGeminiProvider_BuildRequestBody(t *testing.T) {
 						Function: models.LLMFunctionTool{
 							Name:        "get_weather",
 							Description: "Get weather for a location",
-							Parameters: map[string]interface{}{
+							Parameters: map[string]any{
 								"type": "object",
-								"properties": map[string]interface{}{
-									"location": map[string]interface{}{"type": "string"},
+								"properties": map[string]any{
+									"location": map[string]any{"type": "string"},
 								},
 							},
 						},
@@ -197,19 +197,19 @@ func TestGeminiProvider_BuildRequestBody(t *testing.T) {
 						Function: models.LLMFunctionTool{
 							Name:        "get_time",
 							Description: "Get current time",
-							Parameters: map[string]interface{}{
+							Parameters: map[string]any{
 								"type": "object",
 							},
 						},
 					},
 				},
 			},
-			validate: func(t *testing.T, body map[string]interface{}) {
-				tools, ok := body["tools"].([]map[string]interface{})
+			validate: func(t *testing.T, body map[string]any) {
+				tools, ok := body["tools"].([]map[string]any)
 				require.True(t, ok)
 				require.Len(t, tools, 1)
 
-				functionDeclarations, ok := tools[0]["functionDeclarations"].([]map[string]interface{})
+				functionDeclarations, ok := tools[0]["functionDeclarations"].([]map[string]any)
 				require.True(t, ok)
 				require.Len(t, functionDeclarations, 2)
 
@@ -240,14 +240,14 @@ func TestGeminiProvider_BuildUserContent(t *testing.T) {
 	tests := []struct {
 		name     string
 		req      *models.LLMRequest
-		validate func(t *testing.T, parts []map[string]interface{})
+		validate func(t *testing.T, parts []map[string]any)
 	}{
 		{
 			name: "text only",
 			req: &models.LLMRequest{
 				Prompt: "Describe this",
 			},
-			validate: func(t *testing.T, parts []map[string]interface{}) {
+			validate: func(t *testing.T, parts []map[string]any) {
 				require.Len(t, parts, 1)
 				assert.Equal(t, "Describe this", parts[0]["text"])
 			},
@@ -263,14 +263,14 @@ func TestGeminiProvider_BuildUserContent(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, parts []map[string]interface{}) {
+			validate: func(t *testing.T, parts []map[string]any) {
 				require.Len(t, parts, 2)
 
 				// First part is text
 				assert.Equal(t, "What's in this image?", parts[0]["text"])
 
 				// Second part is inline_data
-				inlineData, ok := parts[1]["inline_data"].(map[string]interface{})
+				inlineData, ok := parts[1]["inline_data"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "image/png", inlineData["mime_type"])
 				assert.Equal(t, "base64encodeddata==", inlineData["data"])
@@ -282,20 +282,20 @@ func TestGeminiProvider_BuildUserContent(t *testing.T) {
 				Prompt:    "Analyze these images",
 				ImageURLs: []string{"https://example.com/image.jpg", "https://example.com/photo.png"},
 			},
-			validate: func(t *testing.T, parts []map[string]interface{}) {
+			validate: func(t *testing.T, parts []map[string]any) {
 				require.Len(t, parts, 3)
 
 				// First part is text
 				assert.Equal(t, "Analyze these images", parts[0]["text"])
 
 				// Second part is JPEG file_data
-				fileData1, ok := parts[1]["file_data"].(map[string]interface{})
+				fileData1, ok := parts[1]["file_data"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "image/jpeg", fileData1["mime_type"])
 				assert.Equal(t, "https://example.com/image.jpg", fileData1["file_uri"])
 
 				// Third part is PNG file_data
-				fileData2, ok := parts[2]["file_data"].(map[string]interface{})
+				fileData2, ok := parts[2]["file_data"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "image/png", fileData2["mime_type"])
 				assert.Equal(t, "https://example.com/photo.png", fileData2["file_uri"])
@@ -311,21 +311,21 @@ func TestGeminiProvider_BuildUserContent(t *testing.T) {
 					"https://example.com/unknown.xyz",
 				},
 			},
-			validate: func(t *testing.T, parts []map[string]interface{}) {
+			validate: func(t *testing.T, parts []map[string]any) {
 				require.Len(t, parts, 4)
 
 				// Check GIF
-				fileData1, ok := parts[1]["file_data"].(map[string]interface{})
+				fileData1, ok := parts[1]["file_data"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "image/gif", fileData1["mime_type"])
 
 				// Check WEBP
-				fileData2, ok := parts[2]["file_data"].(map[string]interface{})
+				fileData2, ok := parts[2]["file_data"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "image/webp", fileData2["mime_type"])
 
 				// Check unknown (defaults to JPEG)
-				fileData3, ok := parts[3]["file_data"].(map[string]interface{})
+				fileData3, ok := parts[3]["file_data"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "image/jpeg", fileData3["mime_type"])
 			},
@@ -342,19 +342,19 @@ func TestGeminiProvider_BuildUserContent(t *testing.T) {
 				},
 				ImageURLs: []string{"https://example.com/remote.png"},
 			},
-			validate: func(t *testing.T, parts []map[string]interface{}) {
+			validate: func(t *testing.T, parts []map[string]any) {
 				require.Len(t, parts, 3)
 
 				// Text
 				assert.Equal(t, "Compare all these images", parts[0]["text"])
 
 				// Inline data
-				inlineData, ok := parts[1]["inline_data"].(map[string]interface{})
+				inlineData, ok := parts[1]["inline_data"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "image/jpeg", inlineData["mime_type"])
 
 				// File data
-				fileData, ok := parts[2]["file_data"].(map[string]interface{})
+				fileData, ok := parts[2]["file_data"].(map[string]any)
 				require.True(t, ok)
 				assert.Equal(t, "image/png", fileData["mime_type"])
 			},
@@ -370,7 +370,7 @@ func TestGeminiProvider_BuildUserContent(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, parts []map[string]interface{}) {
+			validate: func(t *testing.T, parts []map[string]any) {
 				// Only text part, PDF is not supported as image
 				require.Len(t, parts, 1)
 				assert.Equal(t, "Process file", parts[0]["text"])
@@ -443,7 +443,7 @@ func TestGeminiProvider_ConvertResponse(t *testing.T) {
 								{
 									FunctionCall: &geminiFunctionCall{
 										Name: "get_weather",
-										Args: map[string]interface{}{
+										Args: map[string]any{
 											"location": "London",
 											"units":    "celsius",
 										},
@@ -488,13 +488,13 @@ func TestGeminiProvider_ConvertResponse(t *testing.T) {
 								{
 									FunctionCall: &geminiFunctionCall{
 										Name: "get_weather",
-										Args: map[string]interface{}{"location": "London"},
+										Args: map[string]any{"location": "London"},
 									},
 								},
 								{
 									FunctionCall: &geminiFunctionCall{
 										Name: "get_time",
-										Args: map[string]interface{}{"timezone": "UTC"},
+										Args: map[string]any{"timezone": "UTC"},
 									},
 								},
 							},
@@ -528,7 +528,7 @@ func TestGeminiProvider_ConvertResponse(t *testing.T) {
 								{
 									FunctionCall: &geminiFunctionCall{
 										Name: "get_weather",
-										Args: map[string]interface{}{"location": "Paris"},
+										Args: map[string]any{"location": "Paris"},
 									},
 								},
 							},
@@ -677,14 +677,14 @@ func TestGeminiProvider_Execute_WithMockProvider(t *testing.T) {
 	// Register as gemini provider
 	executor.RegisterProvider("gemini", mockProvider)
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"provider":    "gemini",
 		"model":       "gemini-2.5-flash",
 		"instruction": "You are helpful",
 		"prompt":      "Hello, Gemini!",
 		"temperature": 0.8,
 		"max_tokens":  500,
-		"response_format": map[string]interface{}{
+		"response_format": map[string]any{
 			"type": "json_object",
 		},
 	}
@@ -693,7 +693,7 @@ func TestGeminiProvider_Execute_WithMockProvider(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 
 	assert.Equal(t, `{"response": "Hello from Gemini"}`, resultMap["content"])
@@ -701,7 +701,7 @@ func TestGeminiProvider_Execute_WithMockProvider(t *testing.T) {
 	assert.Equal(t, "gemini-2.5-flash", resultMap["model"])
 	assert.Equal(t, "stop", resultMap["finish_reason"])
 
-	usage, ok := resultMap["usage"].(map[string]interface{})
+	usage, ok := resultMap["usage"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 15, usage["prompt_tokens"])
 	assert.Equal(t, 10, usage["completion_tokens"])
@@ -726,11 +726,11 @@ func TestGeminiProvider_BuildRequestBody_EmptyPrompt(t *testing.T) {
 	body := provider.buildRequestBody(req)
 	require.NotNil(t, body)
 
-	contents, ok := body["contents"].([]map[string]interface{})
+	contents, ok := body["contents"].([]map[string]any)
 	require.True(t, ok)
 	require.Len(t, contents, 1)
 
-	parts, ok := contents[0]["parts"].([]map[string]interface{})
+	parts, ok := contents[0]["parts"].([]map[string]any)
 	require.True(t, ok)
 
 	// Should only have the image part, no text part
@@ -768,10 +768,10 @@ func TestGeminiProvider_BuildTools(t *testing.T) {
 			Function: models.LLMFunctionTool{
 				Name:        "search_web",
 				Description: "Search the web for information",
-				Parameters: map[string]interface{}{
+				Parameters: map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"query": map[string]interface{}{"type": "string"},
+					"properties": map[string]any{
+						"query": map[string]any{"type": "string"},
 					},
 					"required": []string{"query"},
 				},
@@ -782,10 +782,10 @@ func TestGeminiProvider_BuildTools(t *testing.T) {
 			Function: models.LLMFunctionTool{
 				Name:        "calculate",
 				Description: "Perform a calculation",
-				Parameters: map[string]interface{}{
+				Parameters: map[string]any{
 					"type": "object",
-					"properties": map[string]interface{}{
-						"expression": map[string]interface{}{"type": "string"},
+					"properties": map[string]any{
+						"expression": map[string]any{"type": "string"},
 					},
 				},
 			},
@@ -795,21 +795,21 @@ func TestGeminiProvider_BuildTools(t *testing.T) {
 	result := provider.buildTools(tools)
 	require.Len(t, result, 1)
 
-	functionDeclarations, ok := result[0]["functionDeclarations"].([]map[string]interface{})
+	functionDeclarations, ok := result[0]["functionDeclarations"].([]map[string]any)
 	require.True(t, ok)
 	require.Len(t, functionDeclarations, 2)
 
 	// First function
 	assert.Equal(t, "search_web", functionDeclarations[0]["name"])
 	assert.Equal(t, "Search the web for information", functionDeclarations[0]["description"])
-	params0, ok := functionDeclarations[0]["parameters"].(map[string]interface{})
+	params0, ok := functionDeclarations[0]["parameters"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "object", params0["type"])
 
 	// Second function
 	assert.Equal(t, "calculate", functionDeclarations[1]["name"])
 	assert.Equal(t, "Perform a calculation", functionDeclarations[1]["description"])
-	params1, ok := functionDeclarations[1]["parameters"].(map[string]interface{})
+	params1, ok := functionDeclarations[1]["parameters"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "object", params1["type"])
 }

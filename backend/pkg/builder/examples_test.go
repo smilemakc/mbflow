@@ -224,7 +224,7 @@ func ExampleNewHTTPPostNode() {
 				"create",
 				"Create User",
 				"https://api.example.com/users",
-				map[string]interface{}{
+				map[string]any{
 					"name":  "{{input.name}}",
 					"email": "{{input.email}}",
 				},
@@ -262,7 +262,7 @@ func ExampleNewWorkflow_complex() {
 			"store",
 			"Store Results",
 			"https://api.example.com/results",
-			map[string]interface{}{"result": "{{input}}"},
+			map[string]any{"result": "{{input}}"},
 		),
 	).Connect("fetch", "parse").
 		Connect("parse", "analyze").

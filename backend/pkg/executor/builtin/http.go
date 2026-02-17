@@ -31,7 +31,7 @@ func NewHTTPExecutor() *HTTPExecutor {
 }
 
 // Execute executes an HTTP request.
-func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Get required fields
 	method, err := e.GetString(config, "method")
 	if err != nil {
@@ -130,7 +130,7 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{
 	responseType := e.GetStringDefault(config, "response_type", "auto")
 	isBinary := responseType == "binary" || isBinaryContentType(contentType)
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		"status":       resp.StatusCode,
 		"headers":      resp.Header,
 		"content_type": contentType,
@@ -144,7 +144,7 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{
 		result["size"] = len(respBody)
 	} else {
 		// Parse response as JSON or string
-		var parsedBody interface{}
+		var parsedBody any
 		if len(respBody) > 0 {
 			if err := json.Unmarshal(respBody, &parsedBody); err != nil {
 				// If not JSON, return as string
@@ -158,7 +158,7 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]interface{
 }
 
 // getIntSlice retrieves a slice of integers from config.
-func (e *HTTPExecutor) getIntSlice(config map[string]interface{}, key string) []int {
+func (e *HTTPExecutor) getIntSlice(config map[string]any, key string) []int {
 	val, ok := config[key]
 	if !ok {
 		return nil
@@ -167,7 +167,7 @@ func (e *HTTPExecutor) getIntSlice(config map[string]interface{}, key string) []
 	switch v := val.(type) {
 	case []int:
 		return v
-	case []interface{}:
+	case []any:
 		result := make([]int, 0, len(v))
 		for _, item := range v {
 			switch n := item.(type) {
@@ -203,7 +203,7 @@ func isBinaryContentType(contentType string) bool {
 }
 
 // Validate validates the HTTP executor configuration.
-func (e *HTTPExecutor) Validate(config map[string]interface{}) error {
+func (e *HTTPExecutor) Validate(config map[string]any) error {
 	// Validate required fields
 	if err := e.ValidateRequired(config, "method", "url"); err != nil {
 		return err

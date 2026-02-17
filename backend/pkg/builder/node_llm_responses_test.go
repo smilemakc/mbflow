@@ -51,7 +51,7 @@ func TestNewOpenAIResponsesNode_WithWebSearch(t *testing.T) {
 
 			require.NoError(t, node.err)
 
-			hostedTools, ok := node.config["hosted_tools"].([]map[string]interface{})
+			hostedTools, ok := node.config["hosted_tools"].([]map[string]any)
 			require.True(t, ok, "hosted_tools should be present")
 			require.Len(t, hostedTools, 1)
 
@@ -107,7 +107,7 @@ func TestWithFileSearch(t *testing.T) {
 
 			require.NoError(t, node.err)
 
-			hostedTools, ok := node.config["hosted_tools"].([]map[string]interface{})
+			hostedTools, ok := node.config["hosted_tools"].([]map[string]any)
 			require.True(t, ok)
 			require.Len(t, hostedTools, 1)
 
@@ -136,7 +136,7 @@ func TestWithCodeInterpreter(t *testing.T) {
 
 	require.NoError(t, node.err)
 
-	hostedTools, ok := node.config["hosted_tools"].([]map[string]interface{})
+	hostedTools, ok := node.config["hosted_tools"].([]map[string]any)
 	require.True(t, ok)
 	require.Len(t, hostedTools, 1)
 
@@ -167,7 +167,7 @@ func TestWithReasoningEffort(t *testing.T) {
 
 			require.NoError(t, node.err)
 
-			reasoning, ok := node.config["reasoning"].(map[string]interface{})
+			reasoning, ok := node.config["reasoning"].(map[string]any)
 			require.True(t, ok, "reasoning should be a map")
 			assert.Equal(t, tt.effort, reasoning["effort"])
 		})
@@ -258,10 +258,10 @@ func TestWithStore(t *testing.T) {
 }
 
 func TestWithStructuredInput(t *testing.T) {
-	input := []map[string]interface{}{
+	input := []map[string]any{
 		{
 			"role": "user",
-			"content": []map[string]interface{}{
+			"content": []map[string]any{
 				{"type": "input_text", "text": "What is in this image?"},
 				{"type": "input_image", "image_url": "https://example.com/image.jpg"},
 			},
@@ -295,7 +295,7 @@ func TestMultipleHostedTools(t *testing.T) {
 
 	require.NoError(t, node.err)
 
-	hostedTools, ok := node.config["hosted_tools"].([]map[string]interface{})
+	hostedTools, ok := node.config["hosted_tools"].([]map[string]any)
 	require.True(t, ok)
 	require.Len(t, hostedTools, 3, "should have 3 hosted tools")
 
@@ -351,7 +351,7 @@ func TestComplexResponsesNode(t *testing.T) {
 	// Verify additional options
 	assert.Equal(t, "You are a PhD-level research assistant.", node.config["instructions"])
 
-	reasoning, ok := node.config["reasoning"].(map[string]interface{})
+	reasoning, ok := node.config["reasoning"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "high", reasoning["effort"])
 
@@ -359,7 +359,7 @@ func TestComplexResponsesNode(t *testing.T) {
 	assert.Equal(t, false, node.config["background"])
 
 	// Verify hosted tools
-	hostedTools, ok := node.config["hosted_tools"].([]map[string]interface{})
+	hostedTools, ok := node.config["hosted_tools"].([]map[string]any)
 	require.True(t, ok)
 	require.Len(t, hostedTools, 1)
 

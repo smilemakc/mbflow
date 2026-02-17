@@ -28,32 +28,32 @@ import (
 //  3. InputVars (parent node output, lowest priority)
 type VariableContext struct {
 	// WorkflowVars contains workflow-level variables from the workflow definition
-	WorkflowVars map[string]interface{}
+	WorkflowVars map[string]any
 
 	// ExecutionVars contains runtime variables that override workflow variables
-	ExecutionVars map[string]interface{}
+	ExecutionVars map[string]any
 
 	// InputVars contains variables from parent node outputs
-	InputVars map[string]interface{}
+	InputVars map[string]any
 
 	// ResourceVars contains workflow resources indexed by alias
 	// Each resource is a map with fields: id, type, name, config, etc.
-	ResourceVars map[string]interface{}
+	ResourceVars map[string]any
 }
 
 // NewVariableContext creates a new variable context with the given variables.
 func NewVariableContext() *VariableContext {
 	return &VariableContext{
-		WorkflowVars:  make(map[string]interface{}),
-		ExecutionVars: make(map[string]interface{}),
-		InputVars:     make(map[string]interface{}),
-		ResourceVars:  make(map[string]interface{}),
+		WorkflowVars:  make(map[string]any),
+		ExecutionVars: make(map[string]any),
+		InputVars:     make(map[string]any),
+		ResourceVars:  make(map[string]any),
 	}
 }
 
 // GetEnvVariable retrieves an environment variable with proper precedence.
 // Execution variables override workflow variables.
-func (c *VariableContext) GetEnvVariable(name string) (interface{}, bool) {
+func (c *VariableContext) GetEnvVariable(name string) (any, bool) {
 	// Check execution vars first (highest priority)
 	if val, ok := c.ExecutionVars[name]; ok {
 		return val, true
@@ -68,13 +68,13 @@ func (c *VariableContext) GetEnvVariable(name string) (interface{}, bool) {
 }
 
 // GetInputVariable retrieves an input variable from parent node output.
-func (c *VariableContext) GetInputVariable(name string) (interface{}, bool) {
+func (c *VariableContext) GetInputVariable(name string) (any, bool) {
 	val, ok := c.InputVars[name]
 	return val, ok
 }
 
 // GetResourceVariable retrieves a resource by alias.
-func (c *VariableContext) GetResourceVariable(alias string) (interface{}, bool) {
+func (c *VariableContext) GetResourceVariable(alias string) (any, bool) {
 	if c.ResourceVars == nil {
 		return nil, false
 	}

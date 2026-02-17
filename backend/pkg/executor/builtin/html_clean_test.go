@@ -11,8 +11,8 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		config      map[string]interface{}
-		input       interface{}
+		config      map[string]any
+		input       any
 		wantTextLen int  // minimum expected text length
 		wantHTMLLen int  // minimum expected HTML length
 		wantTitle   bool // expect title to be extracted
@@ -21,7 +21,7 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 	}{
 		{
 			name:   "basic HTML cleaning",
-			config: map[string]interface{}{},
+			config: map[string]any{},
 			input: `<!DOCTYPE html>
 <html>
 <head>
@@ -48,7 +48,7 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "text only output",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"output_format": "text",
 			},
 			input:       `<html><body><p>Simple text content for testing.</p></body></html>`,
@@ -58,7 +58,7 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "html only output",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"output_format": "html",
 			},
 			input:       `<html><body><p>Simple HTML content for testing.</p></body></html>`,
@@ -68,7 +68,7 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "with max length",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"max_length": 50,
 			},
 			input:       `<html><body><p>This is a very long paragraph that should be truncated because we set a max length limit on the output.</p></body></html>`,
@@ -78,7 +78,7 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "no metadata extraction",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"extract_metadata": false,
 			},
 			input:       `<html><head><title>Should Not Be Extracted</title></head><body><p>Content here.</p></body></html>`,
@@ -88,8 +88,8 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name:   "input as map with html field",
-			config: map[string]interface{}{},
-			input: map[string]interface{}{
+			config: map[string]any{},
+			input: map[string]any{
 				"html": `<html><body><p>Content from map input.</p></body></html>`,
 			},
 			wantTextLen: 1,
@@ -97,8 +97,8 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name:   "input as map with body field",
-			config: map[string]interface{}{},
-			input: map[string]interface{}{
+			config: map[string]any{},
+			input: map[string]any{
 				"body": `<html><body><p>Content from body field.</p></body></html>`,
 			},
 			wantTextLen: 1,
@@ -106,29 +106,29 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name:        "input as bytes",
-			config:      map[string]interface{}{},
+			config:      map[string]any{},
 			input:       []byte(`<html><body><p>Content as bytes.</p></body></html>`),
 			wantTextLen: 1,
 			wantErr:     false,
 		},
 		{
 			name:        "empty input",
-			config:      map[string]interface{}{},
+			config:      map[string]any{},
 			input:       "",
 			wantErr:     true,
 			errContains: "empty",
 		},
 		{
 			name:        "unsupported input type",
-			config:      map[string]interface{}{},
+			config:      map[string]any{},
 			input:       12345,
 			wantErr:     true,
 			errContains: "unsupported input type",
 		},
 		{
 			name:   "map without html fields",
-			config: map[string]interface{}{},
-			input: map[string]interface{}{
+			config: map[string]any{},
+			input: map[string]any{
 				"unknown": "value",
 			},
 			wantErr:     true,
@@ -136,7 +136,7 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name:   "removes script tags",
-			config: map[string]interface{}{},
+			config: map[string]any{},
 			input: `<html><body>
 				<script>alert('xss');</script>
 				<p>Safe content here.</p>
@@ -147,7 +147,7 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name:   "removes style tags",
-			config: map[string]interface{}{},
+			config: map[string]any{},
 			input: `<html><head><style>body { color: red; }</style></head><body>
 				<p>Content without styles.</p>
 				<style>.hidden { display: none; }</style>
@@ -157,7 +157,7 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name:   "removes iframes",
-			config: map[string]interface{}{},
+			config: map[string]any{},
 			input: `<html><body>
 				<iframe src="https://evil.com"></iframe>
 				<p>Safe content.</p>
@@ -167,10 +167,10 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "input_key extracts from specific field",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"input_key": "custom_field",
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"custom_field": `<html><body><p>Content from custom field.</p></body></html>`,
 				"html":         `<html><body><p>Wrong content.</p></body></html>`,
 			},
@@ -179,10 +179,10 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "input_key not found returns error",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"input_key": "missing_key",
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"html": `<html><body><p>Content here.</p></body></html>`,
 			},
 			wantErr:     true,
@@ -210,9 +210,9 @@ func TestHTMLCleanExecutor_Execute(t *testing.T) {
 				return
 			}
 
-			output, ok := result.(map[string]interface{})
+			output, ok := result.(map[string]any)
 			if !ok {
-				t.Errorf("Execute() result type = %T, want map[string]interface{}", result)
+				t.Errorf("Execute() result type = %T, want map[string]any", result)
 				return
 			}
 
@@ -258,39 +258,39 @@ func TestHTMLCleanExecutor_Validate(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		config      map[string]interface{}
+		config      map[string]any
 		wantErr     bool
 		errContains string
 	}{
 		{
 			name:    "empty config is valid",
-			config:  map[string]interface{}{},
+			config:  map[string]any{},
 			wantErr: false,
 		},
 		{
 			name: "valid text output format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"output_format": "text",
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid html output format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"output_format": "html",
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid both output format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"output_format": "both",
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid output format",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"output_format": "invalid",
 			},
 			wantErr:     true,
@@ -298,7 +298,7 @@ func TestHTMLCleanExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "negative max length",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"max_length": -1,
 			},
 			wantErr:     true,
@@ -306,21 +306,21 @@ func TestHTMLCleanExecutor_Validate(t *testing.T) {
 		},
 		{
 			name: "zero max length is valid",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"max_length": 0,
 			},
 			wantErr: false,
 		},
 		{
 			name: "positive max length is valid",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"max_length": 1000,
 			},
 			wantErr: false,
 		},
 		{
 			name: "all valid options",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"output_format":    "both",
 				"extract_metadata": true,
 				"preserve_links":   false,
@@ -358,12 +358,12 @@ func TestHTMLCleanExecutor_WordCount(t *testing.T) {
 	ctx := context.Background()
 
 	input := `<html><body><p>This is a sentence with seven words.</p></body></html>`
-	result, err := executor.Execute(ctx, map[string]interface{}{}, input)
+	result, err := executor.Execute(ctx, map[string]any{}, input)
 	if err != nil {
 		t.Fatalf("Execute() error: %v", err)
 	}
 
-	output := result.(map[string]interface{})
+	output := result.(map[string]any)
 	wordCount, _ := output["word_count"].(int)
 	if wordCount < 5 {
 		t.Errorf("word_count = %d, expected at least 5", wordCount)
@@ -377,7 +377,7 @@ func TestHTMLCleanExecutor_PreserveLinks(t *testing.T) {
 	input := `<html><body><p>Visit <a href="https://example.com">our website</a> for more info.</p></body></html>`
 
 	// Test with preserve_links = true
-	result, err := executor.Execute(ctx, map[string]interface{}{
+	result, err := executor.Execute(ctx, map[string]any{
 		"preserve_links": true,
 		"output_format":  "text",
 	}, input)
@@ -385,7 +385,7 @@ func TestHTMLCleanExecutor_PreserveLinks(t *testing.T) {
 		t.Fatalf("Execute() error: %v", err)
 	}
 
-	output := result.(map[string]interface{})
+	output := result.(map[string]any)
 	textContent, _ := output["text_content"].(string)
 	if !contains(textContent, "example.com") {
 		t.Errorf("text_content with preserve_links=true should contain URL, got: %s", textContent)
@@ -442,12 +442,12 @@ func TestHTMLCleanExecutor_Passthrough(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := executor.Execute(ctx, map[string]interface{}{}, tt.input)
+			result, err := executor.Execute(ctx, map[string]any{}, tt.input)
 			if err != nil {
 				t.Fatalf("Execute() error: %v", err)
 			}
 
-			output := result.(map[string]interface{})
+			output := result.(map[string]any)
 			passthrough, _ := output["passthrough"].(bool)
 			isHTML, _ := output["is_html"].(bool)
 			textContent, _ := output["text_content"].(string)
@@ -474,7 +474,7 @@ func TestHTMLCleanExecutor_MaxLength(t *testing.T) {
 
 	longContent := `<html><body><p>` + string(make([]byte, 1000)) + `</p></body></html>`
 
-	result, err := executor.Execute(ctx, map[string]interface{}{
+	result, err := executor.Execute(ctx, map[string]any{
 		"max_length":    100,
 		"output_format": "text",
 	}, longContent)
@@ -482,7 +482,7 @@ func TestHTMLCleanExecutor_MaxLength(t *testing.T) {
 		t.Fatalf("Execute() error: %v", err)
 	}
 
-	output := result.(map[string]interface{})
+	output := result.(map[string]any)
 	textContent, _ := output["text_content"].(string)
 	if len(textContent) > 110 { // Allow some margin for "..."
 		t.Errorf("text_content length = %d, expected <= 110", len(textContent))

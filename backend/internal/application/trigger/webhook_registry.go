@@ -95,7 +95,7 @@ func (wr *WebhookRegistry) GetWebhook(triggerID string) (*models.Trigger, bool) 
 }
 
 // ExecuteWebhook executes a workflow triggered by a webhook
-func (wr *WebhookRegistry) ExecuteWebhook(ctx context.Context, triggerID string, payload map[string]interface{}, headers map[string]string, sourceIP string) (string, error) {
+func (wr *WebhookRegistry) ExecuteWebhook(ctx context.Context, triggerID string, payload map[string]any, headers map[string]string, sourceIP string) (string, error) {
 	// Get trigger
 	trigger, exists := wr.GetWebhook(triggerID)
 	if !exists {
@@ -122,10 +122,10 @@ func (wr *WebhookRegistry) ExecuteWebhook(ctx context.Context, triggerID string,
 	}
 
 	// Merge trigger input with payload
-	input := make(map[string]interface{})
+	input := make(map[string]any)
 
 	// First add trigger's default input
-	if defaultInput, ok := trigger.Config["input"].(map[string]interface{}); ok {
+	if defaultInput, ok := trigger.Config["input"].(map[string]any); ok {
 		for k, v := range defaultInput {
 			input[k] = v
 		}
@@ -137,7 +137,7 @@ func (wr *WebhookRegistry) ExecuteWebhook(ctx context.Context, triggerID string,
 	}
 
 	// Add webhook metadata
-	input["_webhook"] = map[string]interface{}{
+	input["_webhook"] = map[string]any{
 		"trigger_id": triggerID,
 		"headers":    headers,
 		"source_ip":  sourceIP,
@@ -171,7 +171,7 @@ func (wr *WebhookRegistry) ExecuteWebhook(ctx context.Context, triggerID string,
 }
 
 // validateSignature validates HMAC signature if configured
-func (wr *WebhookRegistry) validateSignature(trigger *models.Trigger, payload map[string]interface{}, headers map[string]string) error {
+func (wr *WebhookRegistry) validateSignature(trigger *models.Trigger, payload map[string]any, headers map[string]string) error {
 	secret, ok := trigger.Config["secret"].(string)
 	if !ok || secret == "" {
 		return nil // No signature validation required
@@ -195,7 +195,7 @@ func (wr *WebhookRegistry) validateSignature(trigger *models.Trigger, payload ma
 }
 
 // computeSignature computes HMAC-SHA256 signature
-func (wr *WebhookRegistry) computeSignature(secret string, payload map[string]interface{}) string {
+func (wr *WebhookRegistry) computeSignature(secret string, payload map[string]any) string {
 	// Convert payload to JSON string (in production, use actual request body)
 	// This is a simplified version
 	payloadStr := fmt.Sprintf("%v", payload)
@@ -207,7 +207,7 @@ func (wr *WebhookRegistry) computeSignature(secret string, payload map[string]in
 
 // checkIPWhitelist checks if source IP is whitelisted
 func (wr *WebhookRegistry) checkIPWhitelist(trigger *models.Trigger, sourceIP string) error {
-	whitelist, ok := trigger.Config["ip_whitelist"].([]interface{})
+	whitelist, ok := trigger.Config["ip_whitelist"].([]any)
 	if !ok || len(whitelist) == 0 {
 		return nil // No whitelist configured
 	}
@@ -275,14 +275,14 @@ func (wr *WebhookRegistry) modelToDomain(tm *storagemodels.TriggerModel) *models
 		ID:         tm.ID.String(),
 		WorkflowID: tm.WorkflowID.String(),
 		Type:       models.TriggerType(tm.Type),
-		Config:     make(map[string]interface{}),
+		Config:     make(map[string]any),
 		Enabled:    tm.Enabled,
 		CreatedAt:  tm.CreatedAt,
 		UpdatedAt:  tm.UpdatedAt,
 	}
 
 	if tm.Config != nil {
-		trigger.Config = map[string]interface{}(tm.Config)
+		trigger.Config = map[string]any(tm.Config)
 	}
 
 	if tm.LastTriggeredAt != nil {

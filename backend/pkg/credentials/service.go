@@ -136,7 +136,7 @@ func (s *Service) GetAllDecryptedValues(ctx context.Context, resourceID string) 
 
 // LogWorkflowUsage logs that a credential was used in a workflow execution
 func (s *Service) LogWorkflowUsage(ctx context.Context, resourceID, workflowID, executionID string) error {
-	metadata := map[string]interface{}{
+	metadata := map[string]any{
 		"workflow_id":  workflowID,
 		"execution_id": executionID,
 	}

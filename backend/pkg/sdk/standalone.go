@@ -20,7 +20,7 @@ import (
 func (c *Client) ExecuteWorkflowStandalone(
 	ctx context.Context,
 	workflow *models.Workflow,
-	input map[string]interface{},
+	input map[string]any,
 	opts *engine.ExecutionOptions,
 ) (*models.Execution, error) {
 	if err := c.checkClosed(); err != nil {

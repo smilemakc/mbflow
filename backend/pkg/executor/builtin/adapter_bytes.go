@@ -41,7 +41,7 @@ func NewBytesToJsonExecutor() *BytesToJsonExecutor {
 //   - encoding_used: actual encoding detected/used
 //   - byte_size: original byte size
 //   - duration_ms: execution time
-func (e *BytesToJsonExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *BytesToJsonExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Get configuration
@@ -98,7 +98,7 @@ func (e *BytesToJsonExecutor) Execute(ctx context.Context, config map[string]int
 	}
 
 	// Parse JSON
-	var result interface{}
+	var result any
 	decoder := json.NewDecoder(strings.NewReader(jsonStr))
 	decoder.UseNumber() // Preserve number precision
 
@@ -111,7 +111,7 @@ func (e *BytesToJsonExecutor) Execute(ctx context.Context, config map[string]int
 		result = nil
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"success":       true,
 		"result":        result,
 		"encoding_used": actualEncoding,
@@ -121,7 +121,7 @@ func (e *BytesToJsonExecutor) Execute(ctx context.Context, config map[string]int
 }
 
 // Validate validates the configuration
-func (e *BytesToJsonExecutor) Validate(config map[string]interface{}) error {
+func (e *BytesToJsonExecutor) Validate(config map[string]any) error {
 	// Encoding validation
 	encoding := e.GetStringDefault(config, "encoding", "utf-8")
 	validEncodings := map[string]bool{
@@ -137,7 +137,7 @@ func (e *BytesToJsonExecutor) Validate(config map[string]interface{}) error {
 }
 
 // extractBytes extracts bytes from various input types
-func (e *BytesToJsonExecutor) extractBytes(input interface{}) ([]byte, error) {
+func (e *BytesToJsonExecutor) extractBytes(input any) ([]byte, error) {
 	switch v := input.(type) {
 	case []byte:
 		return v, nil
@@ -151,7 +151,7 @@ func (e *BytesToJsonExecutor) extractBytes(input interface{}) ([]byte, error) {
 		}
 		// Use string as UTF-8 bytes
 		return []byte(v), nil
-	case map[string]interface{}:
+	case map[string]any:
 		// Try to extract from "data" field
 		if data, ok := v["data"]; ok {
 			return e.extractBytes(data)

@@ -28,7 +28,7 @@ func TestExecuteWorkflowStandalone(t *testing.T) {
 				ID:   "transform-node",
 				Name: "Transform",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -89,14 +89,14 @@ func TestExecuteWorkflowStandalone_WithInput(t *testing.T) {
 				ID:   "transform",
 				Name: "Transform",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
 		},
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"test_field": "test_value",
 	}
 
@@ -126,7 +126,7 @@ func TestExecuteWorkflowStandalone_WithOptions(t *testing.T) {
 
 	workflow := &models.Workflow{
 		Name: "Test Options",
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"workflow_var": "workflow_value",
 		},
 		Nodes: []*models.Node{
@@ -134,7 +134,7 @@ func TestExecuteWorkflowStandalone_WithOptions(t *testing.T) {
 				ID:   "transform",
 				Name: "Transform",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -144,7 +144,7 @@ func TestExecuteWorkflowStandalone_WithOptions(t *testing.T) {
 	opts := &engine.ExecutionOptions{
 		StrictMode:     false,
 		MaxParallelism: 5,
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"execution_var": "execution_value",
 		},
 	}
@@ -184,7 +184,7 @@ func TestExecuteWorkflowStandalone_FailedExecution(t *testing.T) {
 				ID:     "invalid-node",
 				Name:   "Invalid Node",
 				Type:   "nonexistent-executor-type",
-				Config: map[string]interface{}{},
+				Config: map[string]any{},
 			},
 		},
 	}
@@ -227,7 +227,7 @@ func TestExecuteWorkflowStandalone_ClosedClient(t *testing.T) {
 				ID:   "test",
 				Name: "Test",
 				Type: "transform",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"type": "passthrough",
 				},
 			},
@@ -261,7 +261,7 @@ func TestExecuteWorkflowStandalone_Duration(t *testing.T) {
 				ID:   "http-node",
 				Name: "HTTP Request",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"method": "GET",
 					"url":    "https://jsonplaceholder.typicode.com/users/1",
 				},

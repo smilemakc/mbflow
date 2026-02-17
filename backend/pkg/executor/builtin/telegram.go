@@ -61,7 +61,7 @@ func NewTelegramExecutor() *TelegramExecutor {
 //	  "text": "Workflow data-processing completed with status: success",
 //	  "parse_mode": "Markdown"
 //	}
-func (e *TelegramExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *TelegramExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	startTime := time.Now()
 
 	// Parse and validate config
@@ -99,7 +99,7 @@ func (e *TelegramExecutor) Execute(ctx context.Context, config map[string]interf
 }
 
 // Validate validates the Telegram executor configuration.
-func (e *TelegramExecutor) Validate(config map[string]interface{}) error {
+func (e *TelegramExecutor) Validate(config map[string]any) error {
 	// Validate required fields
 	if err := e.ValidateRequired(config, "bot_token", "chat_id", "message_type"); err != nil {
 		return err
@@ -170,7 +170,7 @@ func (e *TelegramExecutor) Validate(config map[string]interface{}) error {
 }
 
 // parseConfig parses executor config into TelegramRequest.
-func (e *TelegramExecutor) parseConfig(config map[string]interface{}) (*TelegramRequest, error) {
+func (e *TelegramExecutor) parseConfig(config map[string]any) (*TelegramRequest, error) {
 	req := &TelegramRequest{}
 
 	// Required fields
@@ -214,7 +214,7 @@ func (e *TelegramExecutor) sendTextMessage(ctx context.Context, req *TelegramReq
 	apiURL := fmt.Sprintf("%s/bot%s/sendMessage", e.baseURL, req.BotToken)
 
 	// Build request body
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"chat_id": req.ChatID,
 		"text":    req.Text,
 	}
@@ -310,7 +310,7 @@ func (e *TelegramExecutor) sendVideo(ctx context.Context, req *TelegramRequest) 
 
 // sendMediaByFileID sends media using existing file_id.
 func (e *TelegramExecutor) sendMediaByFileID(ctx context.Context, apiURL string, req *TelegramRequest, mediaField string) (*TelegramResponse, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"chat_id":  req.ChatID,
 		mediaField: req.FileData,
 	}
@@ -320,7 +320,7 @@ func (e *TelegramExecutor) sendMediaByFileID(ctx context.Context, apiURL string,
 
 // sendMediaByURL sends media from URL.
 func (e *TelegramExecutor) sendMediaByURL(ctx context.Context, apiURL string, req *TelegramRequest, mediaField string) (*TelegramResponse, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"chat_id":  req.ChatID,
 		mediaField: req.FileData,
 	}
@@ -386,7 +386,7 @@ func (e *TelegramExecutor) sendMediaMultipart(ctx context.Context, apiURL string
 }
 
 // addMediaOptions adds common media options to payload.
-func (e *TelegramExecutor) addMediaOptions(payload map[string]interface{}, req *TelegramRequest) {
+func (e *TelegramExecutor) addMediaOptions(payload map[string]any, req *TelegramRequest) {
 	if req.Text != "" {
 		payload["caption"] = req.Text
 	}
@@ -424,7 +424,7 @@ func (e *TelegramExecutor) getDefaultFileName(mediaField string) string {
 }
 
 // executeAPIRequest executes a JSON API request.
-func (e *TelegramExecutor) executeAPIRequest(ctx context.Context, url string, payload map[string]interface{}, timeout time.Duration) (*TelegramResponse, error) {
+func (e *TelegramExecutor) executeAPIRequest(ctx context.Context, url string, payload map[string]any, timeout time.Duration) (*TelegramResponse, error) {
 	// Marshal payload
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
@@ -550,8 +550,8 @@ func (e *TelegramExecutor) buildSuccessResponse(msg *telegramMessage) *TelegramR
 }
 
 // responseToMap converts TelegramResponse to output map.
-func (e *TelegramExecutor) responseToMap(response *TelegramResponse) map[string]interface{} {
-	result := map[string]interface{}{
+func (e *TelegramExecutor) responseToMap(response *TelegramResponse) map[string]any {
+	result := map[string]any{
 		"success":      response.Success,
 		"message_type": response.MessageType,
 		"duration_ms":  response.DurationMS,

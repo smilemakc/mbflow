@@ -37,17 +37,17 @@ type Event struct {
 	Error  error  // Error if any
 
 	// Data payload (for detailed event data)
-	Input     map[string]interface{} // Input data (for node.started)
-	Output    map[string]interface{} // Output data (for node.completed)
-	Variables map[string]interface{} // Execution variables
+	Input     map[string]any // Input data (for node.started)
+	Output    map[string]any // Output data (for node.completed)
+	Variables map[string]any // Execution variables
 
 	// Performance metrics
 	DurationMs *int64 // Duration in milliseconds (for completed/failed events)
 	RetryCount *int   // Retry count (future)
 
 	// Additional metadata
-	Metadata map[string]interface{} // Additional context
-	Message  *string                // Optional message (for skipped nodes, etc)
+	Metadata map[string]any // Additional context
+	Message  *string        // Optional message (for skipped nodes, etc)
 }
 
 // EventType represents the type of execution event (dot notation)

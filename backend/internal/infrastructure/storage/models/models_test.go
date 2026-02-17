@@ -113,7 +113,7 @@ func TestJSONBMap_GetBool(t *testing.T) {
 
 func TestJSONBMap_GetMap(t *testing.T) {
 	data := JSONBMap{
-		"user": map[string]interface{}{
+		"user": map[string]any{
 			"name": "John",
 			"age":  float64(30),
 		},
@@ -156,7 +156,7 @@ func TestJSONBMap_Delete(t *testing.T) {
 func TestJSONBMap_Clone(t *testing.T) {
 	original := JSONBMap{
 		"name": "test",
-		"nested": map[string]interface{}{
+		"nested": map[string]any{
 			"value": float64(42),
 		},
 	}
@@ -261,10 +261,10 @@ func TestWorkflowToStorage_BasicConversion(t *testing.T) {
 		Description: "Test Description",
 		Version:     1,
 		Status:      models.WorkflowStatusActive,
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"key": "value",
 		},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"author": "test",
 		},
 		Tags: []string{"tag1", "tag2"},
@@ -295,7 +295,7 @@ func TestWorkflowToStorage_WithNodes(t *testing.T) {
 				ID:   "node1",
 				Name: "HTTP Node",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"url": "https://api.example.com",
 				},
 				Position: &models.Position{X: 100, Y: 200},
@@ -353,7 +353,7 @@ func TestWorkflowFromStorage_BasicConversion(t *testing.T) {
 		},
 		Metadata: JSONBMap{
 			"author": "test",
-			"tags":   []interface{}{"tag1", "tag2"},
+			"tags":   []any{"tag1", "tag2"},
 		},
 	}
 
@@ -414,11 +414,11 @@ func TestWorkflowRoundTrip_PreservesData(t *testing.T) {
 		Version:     2,
 		Status:      models.WorkflowStatusDraft,
 		Tags:        []string{"test", "roundtrip"},
-		Variables: map[string]interface{}{
+		Variables: map[string]any{
 			"var1": "value1",
 			"var2": float64(42),
 		},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"key": "value",
 		},
 		Nodes: []*models.Node{
@@ -426,7 +426,7 @@ func TestWorkflowRoundTrip_PreservesData(t *testing.T) {
 				ID:   "node1",
 				Name: "Test Node",
 				Type: "http",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"url": "https://example.com",
 				},
 			},

@@ -5,7 +5,7 @@ import (
 )
 
 // ValidateHTTPConfig validates HTTP node configuration.
-func ValidateHTTPConfig(config map[string]interface{}) error {
+func ValidateHTTPConfig(config map[string]any) error {
 	// Check required fields
 	if _, ok := config["method"]; !ok {
 		return fmt.Errorf("HTTP node requires 'method' field")
@@ -19,7 +19,7 @@ func ValidateHTTPConfig(config map[string]interface{}) error {
 }
 
 // ValidateLLMConfig validates LLM node configuration.
-func ValidateLLMConfig(config map[string]interface{}) error {
+func ValidateLLMConfig(config map[string]any) error {
 	// Check required fields
 	requiredFields := []string{"provider", "model", "prompt", "api_key"}
 	for _, field := range requiredFields {
@@ -53,7 +53,7 @@ func ValidateLLMConfig(config map[string]interface{}) error {
 }
 
 // ValidateTransformConfig validates Transform node configuration.
-func ValidateTransformConfig(config map[string]interface{}) error {
+func ValidateTransformConfig(config map[string]any) error {
 	// Check required field
 	transformType, ok := config["type"]
 	if !ok {
@@ -90,7 +90,7 @@ func ValidateTransformConfig(config map[string]interface{}) error {
 
 // ValidateNodeConfig validates node configuration based on node type.
 // This is optional and only used in strict validation mode.
-func ValidateNodeConfig(nodeType string, config map[string]interface{}) error {
+func ValidateNodeConfig(nodeType string, config map[string]any) error {
 	switch nodeType {
 	case "http":
 		return ValidateHTTPConfig(config)

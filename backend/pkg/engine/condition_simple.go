@@ -11,7 +11,7 @@ func NewSimpleConditionEvaluator() *SimpleConditionEvaluator {
 
 // Evaluate evaluates a simple condition expression.
 // Supports "true", "false", and presence check (output != nil).
-func (e *SimpleConditionEvaluator) Evaluate(condition string, nodeOutput interface{}) (bool, error) {
+func (e *SimpleConditionEvaluator) Evaluate(condition string, nodeOutput any) (bool, error) {
 	if condition == "" || condition == "true" {
 		return true, nil
 	}

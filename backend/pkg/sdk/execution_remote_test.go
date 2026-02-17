@@ -56,7 +56,7 @@ func TestExecutionAPI_RunRemote_Success(t *testing.T) {
 	defer client.Close()
 
 	ctx := context.Background()
-	exec, err := client.Executions().Run(ctx, "wf-456", map[string]interface{}{"key": "value"})
+	exec, err := client.Executions().Run(ctx, "wf-456", map[string]any{"key": "value"})
 
 	require.NoError(t, err)
 	assert.Equal(t, "exec-123", exec.ID)
@@ -162,7 +162,7 @@ func TestExecutionAPI_ListRemote_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"executions": executions,
 			"total":      2,
 		})
@@ -206,7 +206,7 @@ func TestExecutionAPI_ListRemote_WithFilters(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"executions": executions,
 			"total":      1,
 		})
@@ -374,7 +374,7 @@ func TestExecutionAPI_GetLogsRemote_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"logs": logs,
 		})
 	}))
@@ -464,7 +464,7 @@ func TestExecutionAPI_GetNodeResultRemote_Success(t *testing.T) {
 			NodeID:      "node-456",
 			ExecutionID: "exec-123",
 			Status:      models.NodeExecutionStatusCompleted,
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"result": "success",
 				"data":   []int{1, 2, 3},
 			},
@@ -626,7 +626,7 @@ func TestExecutionAPI_RunRemote_WithInput(t *testing.T) {
 
 	ctx := context.Background()
 
-	exec, err := client.Executions().Run(ctx, "wf-456", map[string]interface{}{"testKey": "test-value"})
+	exec, err := client.Executions().Run(ctx, "wf-456", map[string]any{"testKey": "test-value"})
 
 	require.NoError(t, err)
 	assert.Equal(t, "exec-123", exec.ID)

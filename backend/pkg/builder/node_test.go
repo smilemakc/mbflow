@@ -118,7 +118,7 @@ func TestNodeBuilder_WithNodeMetadata_EmptyKey(t *testing.T) {
 }
 
 func TestNodeBuilder_WithConfig(t *testing.T) {
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "https://api.example.com",
 	}
@@ -212,7 +212,7 @@ func TestHTTPURL_EmptyURL(t *testing.T) {
 }
 
 func TestHTTPBody_Success(t *testing.T) {
-	body := map[string]interface{}{
+	body := map[string]any{
 		"name":  "John Doe",
 		"email": "john@example.com",
 	}
@@ -224,7 +224,7 @@ func TestHTTPBody_Success(t *testing.T) {
 	).Build()
 
 	require.NoError(t, err)
-	bodyConfig, ok := node.Config["body"].(map[string]interface{})
+	bodyConfig, ok := node.Config["body"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "John Doe", bodyConfig["name"])
 	assert.Equal(t, "john@example.com", bodyConfig["email"])
@@ -380,7 +380,7 @@ func TestNewHTTPGetNode_Success(t *testing.T) {
 }
 
 func TestNewHTTPPostNode_Success(t *testing.T) {
-	body := map[string]interface{}{"name": "test"}
+	body := map[string]any{"name": "test"}
 	node, err := NewHTTPPostNode("post-node", "POST Request", "https://api.example.com", body).Build()
 
 	require.NoError(t, err)
@@ -389,7 +389,7 @@ func TestNewHTTPPostNode_Success(t *testing.T) {
 }
 
 func TestNewHTTPPutNode_Success(t *testing.T) {
-	body := map[string]interface{}{"id": 1, "name": "updated"}
+	body := map[string]any{"id": 1, "name": "updated"}
 	node, err := NewHTTPPutNode("put-node", "PUT Request", "https://api.example.com/1", body).Build()
 
 	require.NoError(t, err)
@@ -405,7 +405,7 @@ func TestNewHTTPDeleteNode_Success(t *testing.T) {
 }
 
 func TestNewHTTPPatchNode_Success(t *testing.T) {
-	body := map[string]interface{}{"status": "active"}
+	body := map[string]any{"status": "active"}
 	node, err := NewHTTPPatchNode("patch-node", "PATCH Request", "https://api.example.com/1", body).Build()
 
 	require.NoError(t, err)
@@ -802,7 +802,7 @@ func TestLLMSystemPrompt_Success(t *testing.T) {
 }
 
 func TestLLMTools_Success(t *testing.T) {
-	tools := []map[string]interface{}{
+	tools := []map[string]any{
 		{
 			"name":        "get_weather",
 			"description": "Get weather information",
@@ -822,7 +822,7 @@ func TestLLMTools_Success(t *testing.T) {
 	).Build()
 
 	require.NoError(t, err)
-	toolsConfig, ok := node.Config["tools"].([]map[string]interface{})
+	toolsConfig, ok := node.Config["tools"].([]map[string]any)
 	require.True(t, ok)
 	assert.Len(t, toolsConfig, 2)
 	assert.Equal(t, "get_weather", toolsConfig[0]["name"])
@@ -830,7 +830,7 @@ func TestLLMTools_Success(t *testing.T) {
 }
 
 func TestLLMResponseFormat_Success(t *testing.T) {
-	format := map[string]interface{}{
+	format := map[string]any{
 		"type": "json_object",
 	}
 
@@ -843,7 +843,7 @@ func TestLLMResponseFormat_Success(t *testing.T) {
 	).Build()
 
 	require.NoError(t, err)
-	formatConfig, ok := node.Config["response_format"].(map[string]interface{})
+	formatConfig, ok := node.Config["response_format"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "json_object", formatConfig["type"])
 }
@@ -858,7 +858,7 @@ func TestLLMJSONMode_Success(t *testing.T) {
 	).Build()
 
 	require.NoError(t, err)
-	formatConfig, ok := node.Config["response_format"].(map[string]interface{})
+	formatConfig, ok := node.Config["response_format"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "json_object", formatConfig["type"])
 }
@@ -924,7 +924,7 @@ func TestNewLLMNode_Generic(t *testing.T) {
 // ==================== Complex Integration Tests ====================
 
 func TestNodeBuilder_HTTPWithAllOptions(t *testing.T) {
-	body := map[string]interface{}{"name": "test"}
+	body := map[string]any{"name": "test"}
 
 	node, err := NewHTTPPostNode("complex-http", "Complex HTTP", "https://api.example.com", body,
 		HTTPHeader("Content-Type", "application/json"),
@@ -947,7 +947,7 @@ func TestNodeBuilder_HTTPWithAllOptions(t *testing.T) {
 }
 
 func TestNodeBuilder_LLMWithAllOptions(t *testing.T) {
-	tools := []map[string]interface{}{
+	tools := []map[string]any{
 		{"name": "get_weather", "description": "Get weather"},
 	}
 

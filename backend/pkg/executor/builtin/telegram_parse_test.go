@@ -11,38 +11,38 @@ import (
 func TestTelegramParseExecutor_Execute_TextMessage(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(42),
 			"text":       "Hello, bot!",
-			"from": map[string]interface{}{
+			"from": map[string]any{
 				"id":            float64(123456),
 				"username":      "john_doe",
 				"first_name":    "John",
 				"language_code": "en",
 			},
-			"chat": map[string]interface{}{
+			"chat": map[string]any{
 				"id":   float64(123456),
 				"type": "private",
 			},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, input)
+	result, err := executor.Execute(context.Background(), map[string]any{}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "message", resultMap["update_type"])
 	assert.Equal(t, "text", resultMap["message_type"])
 	assert.Equal(t, "Hello, bot!", resultMap["text"])
 	assert.Equal(t, 42, resultMap["message_id"])
 
-	user := resultMap["user"].(map[string]interface{})
+	user := resultMap["user"].(map[string]any)
 	assert.Equal(t, int64(123456), user["id"])
 	assert.Equal(t, "john_doe", user["username"])
 
-	chat := resultMap["chat"].(map[string]interface{})
+	chat := resultMap["chat"].(map[string]any)
 	assert.Equal(t, int64(123456), chat["id"])
 	assert.Equal(t, "private", chat["type"])
 }
@@ -50,27 +50,27 @@ func TestTelegramParseExecutor_Execute_TextMessage(t *testing.T) {
 func TestTelegramParseExecutor_Execute_Command(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(43),
 			"text":       "/start arg1 arg2",
-			"from": map[string]interface{}{
+			"from": map[string]any{
 				"id": float64(123456),
 			},
-			"chat": map[string]interface{}{
+			"chat": map[string]any{
 				"id":   float64(123456),
 				"type": "private",
 			},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"extract_commands": true,
 	}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "/start", resultMap["command"])
 	assert.Equal(t, []string{"arg1", "arg2"}, resultMap["command_args"])
 }
@@ -78,45 +78,45 @@ func TestTelegramParseExecutor_Execute_Command(t *testing.T) {
 func TestTelegramParseExecutor_Execute_CommandWithBotName(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(44),
 			"text":       "/help@mybot",
-			"from": map[string]interface{}{
+			"from": map[string]any{
 				"id": float64(123456),
 			},
-			"chat": map[string]interface{}{
+			"chat": map[string]any{
 				"id":   float64(-100123456),
 				"type": "group",
 			},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, input)
+	result, err := executor.Execute(context.Background(), map[string]any{}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "/help", resultMap["command"])
 }
 
 func TestTelegramParseExecutor_Execute_PhotoMessage(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(50),
 			"caption":    "Check this out!",
-			"photo": []interface{}{
-				map[string]interface{}{
+			"photo": []any{
+				map[string]any{
 					"file_id":        "small-photo-id",
 					"file_unique_id": "small-unique",
 					"width":          float64(320),
 					"height":         float64(240),
 					"file_size":      float64(1024),
 				},
-				map[string]interface{}{
+				map[string]any{
 					"file_id":        "large-photo-id",
 					"file_unique_id": "large-unique",
 					"width":          float64(1280),
@@ -124,24 +124,24 @@ func TestTelegramParseExecutor_Execute_PhotoMessage(t *testing.T) {
 					"file_size":      float64(12345),
 				},
 			},
-			"from": map[string]interface{}{
+			"from": map[string]any{
 				"id": float64(123456),
 			},
-			"chat": map[string]interface{}{
+			"chat": map[string]any{
 				"id":   float64(123456),
 				"type": "private",
 			},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, input)
+	result, err := executor.Execute(context.Background(), map[string]any{}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "photo", resultMap["message_type"])
 	assert.Equal(t, "Check this out!", resultMap["text"])
 
-	files := resultMap["files"].([]map[string]interface{})
+	files := resultMap["files"].([]map[string]any)
 	require.Len(t, files, 1) // Only largest photo
 
 	assert.Equal(t, "photo", files[0]["type"])
@@ -153,34 +153,34 @@ func TestTelegramParseExecutor_Execute_PhotoMessage(t *testing.T) {
 func TestTelegramParseExecutor_Execute_DocumentMessage(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(51),
-			"document": map[string]interface{}{
+			"document": map[string]any{
 				"file_id":        "doc-file-id",
 				"file_unique_id": "doc-unique",
 				"file_name":      "report.pdf",
 				"mime_type":      "application/pdf",
 				"file_size":      float64(654321),
 			},
-			"from": map[string]interface{}{
+			"from": map[string]any{
 				"id": float64(123456),
 			},
-			"chat": map[string]interface{}{
+			"chat": map[string]any{
 				"id":   float64(123456),
 				"type": "private",
 			},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, input)
+	result, err := executor.Execute(context.Background(), map[string]any{}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "document", resultMap["message_type"])
 
-	files := resultMap["files"].([]map[string]interface{})
+	files := resultMap["files"].([]map[string]any)
 	require.Len(t, files, 1)
 
 	assert.Equal(t, "document", files[0]["type"])
@@ -192,19 +192,19 @@ func TestTelegramParseExecutor_Execute_DocumentMessage(t *testing.T) {
 func TestTelegramParseExecutor_Execute_CallbackQuery(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "callback_query",
-		"callback_query": map[string]interface{}{
+		"callback_query": map[string]any{
 			"id":   "callback-id-123",
 			"data": "action:like:item_456",
-			"from": map[string]interface{}{
+			"from": map[string]any{
 				"id":         float64(123456),
 				"username":   "john_doe",
 				"first_name": "John",
 			},
-			"message": map[string]interface{}{
+			"message": map[string]any{
 				"message_id": float64(100),
-				"chat": map[string]interface{}{
+				"chat": map[string]any{
 					"id":   float64(123456),
 					"type": "private",
 				},
@@ -212,18 +212,18 @@ func TestTelegramParseExecutor_Execute_CallbackQuery(t *testing.T) {
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, input)
+	result, err := executor.Execute(context.Background(), map[string]any{}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "callback_query", resultMap["update_type"])
 	assert.Equal(t, "action:like:item_456", resultMap["callback_data"])
 	assert.Equal(t, "callback-id-123", resultMap["callback_query_id"])
 
-	user := resultMap["user"].(map[string]interface{})
+	user := resultMap["user"].(map[string]any)
 	assert.Equal(t, int64(123456), user["id"])
 
-	chat := resultMap["chat"].(map[string]interface{})
+	chat := resultMap["chat"].(map[string]any)
 	assert.Equal(t, int64(123456), chat["id"])
 }
 
@@ -231,35 +231,35 @@ func TestTelegramParseExecutor_Execute_MultipleFiles(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
 	// Message with photo and document (hypothetical, but tests multiple file extraction)
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(60),
-			"photo": []interface{}{
-				map[string]interface{}{
+			"photo": []any{
+				map[string]any{
 					"file_id":        "photo-id",
 					"file_unique_id": "photo-unique",
 					"width":          float64(800),
 					"height":         float64(600),
 				},
 			},
-			"video": map[string]interface{}{
+			"video": map[string]any{
 				"file_id":        "video-id",
 				"file_unique_id": "video-unique",
 				"duration":       float64(30),
 				"width":          float64(1920),
 				"height":         float64(1080),
 			},
-			"from": map[string]interface{}{"id": float64(123456)},
-			"chat": map[string]interface{}{"id": float64(123456), "type": "private"},
+			"from": map[string]any{"id": float64(123456)},
+			"chat": map[string]any{"id": float64(123456), "type": "private"},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, input)
+	result, err := executor.Execute(context.Background(), map[string]any{}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
-	files := resultMap["files"].([]map[string]interface{})
+	resultMap := result.(map[string]any)
+	files := resultMap["files"].([]map[string]any)
 
 	// Should extract both photo and video
 	assert.Len(t, files, 2)
@@ -275,83 +275,83 @@ func TestTelegramParseExecutor_Execute_MultipleFiles(t *testing.T) {
 func TestTelegramParseExecutor_Execute_ExtractFilesDisabled(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(70),
-			"document": map[string]interface{}{
+			"document": map[string]any{
 				"file_id": "doc-id",
 			},
-			"from": map[string]interface{}{"id": float64(123456)},
-			"chat": map[string]interface{}{"id": float64(123456), "type": "private"},
+			"from": map[string]any{"id": float64(123456)},
+			"chat": map[string]any{"id": float64(123456), "type": "private"},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"extract_files": false,
 	}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.NotContains(t, resultMap, "files")
 }
 
 func TestTelegramParseExecutor_Execute_ReplyToMessage(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(80),
 			"text":       "This is a reply",
-			"reply_to_message": map[string]interface{}{
+			"reply_to_message": map[string]any{
 				"message_id": float64(75),
 				"text":       "Original message",
 			},
-			"from": map[string]interface{}{"id": float64(123456)},
-			"chat": map[string]interface{}{"id": float64(123456), "type": "private"},
+			"from": map[string]any{"id": float64(123456)},
+			"chat": map[string]any{"id": float64(123456), "type": "private"},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, input)
+	result, err := executor.Execute(context.Background(), map[string]any{}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 75, resultMap["reply_to_message_id"])
 }
 
 func TestTelegramParseExecutor_Execute_ExtractEntities(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"update_type": "message",
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"message_id": float64(90),
 			"text":       "Check https://example.com and email@test.com",
-			"entities": []interface{}{
-				map[string]interface{}{
+			"entities": []any{
+				map[string]any{
 					"type":   "url",
 					"offset": float64(6),
 					"length": float64(19),
 				},
-				map[string]interface{}{
+				map[string]any{
 					"type":   "email",
 					"offset": float64(30),
 					"length": float64(14),
 				},
 			},
-			"from": map[string]interface{}{"id": float64(123456)},
-			"chat": map[string]interface{}{"id": float64(123456), "type": "private"},
+			"from": map[string]any{"id": float64(123456)},
+			"chat": map[string]any{"id": float64(123456), "type": "private"},
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{
+	result, err := executor.Execute(context.Background(), map[string]any{
 		"extract_entities": true,
 	}, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
-	entities := resultMap["entities"].(map[string]interface{})
+	resultMap := result.(map[string]any)
+	entities := resultMap["entities"].(map[string]any)
 
 	urls := entities["urls"].([]string)
 	assert.Contains(t, urls, "https://example.com")
@@ -363,10 +363,10 @@ func TestTelegramParseExecutor_Execute_ExtractEntities(t *testing.T) {
 func TestTelegramParseExecutor_Execute_NilInput(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
-	result, err := executor.Execute(context.Background(), map[string]interface{}{}, nil)
+	result, err := executor.Execute(context.Background(), map[string]any{}, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "unknown", resultMap["update_type"])
 }
 
@@ -374,10 +374,10 @@ func TestTelegramParseExecutor_Validate(t *testing.T) {
 	executor := NewTelegramParseExecutor()
 
 	// All configs should be valid (all options are optional)
-	err := executor.Validate(map[string]interface{}{})
+	err := executor.Validate(map[string]any{})
 	assert.NoError(t, err)
 
-	err = executor.Validate(map[string]interface{}{
+	err = executor.Validate(map[string]any{
 		"extract_files":    true,
 		"extract_commands": false,
 		"extract_entities": true,

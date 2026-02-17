@@ -15,31 +15,31 @@ func TestStringToJsonExecutor_Execute(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		config     map[string]interface{}
-		input      interface{}
-		wantResult interface{}
+		config     map[string]any
+		input      any
+		wantResult any
 		wantErr    bool
 	}{
 		{
 			name: "simple JSON object",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     true,
 				"trim_whitespace": true,
 			},
 			input: `{"name": "John", "age": 30}`,
-			wantResult: map[string]interface{}{
+			wantResult: map[string]any{
 				"name": "John",
 				"age":  json.Number("30"),
 			},
 		},
 		{
 			name: "JSON array",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     true,
 				"trim_whitespace": true,
 			},
 			input: `[1, 2, 3, "four"]`,
-			wantResult: []interface{}{
+			wantResult: []any{
 				json.Number("1"),
 				json.Number("2"),
 				json.Number("3"),
@@ -48,14 +48,14 @@ func TestStringToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "nested JSON",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     true,
 				"trim_whitespace": true,
 			},
 			input: `{"user": {"profile": {"name": "Jane"}}}`,
-			wantResult: map[string]interface{}{
-				"user": map[string]interface{}{
-					"profile": map[string]interface{}{
+			wantResult: map[string]any{
+				"user": map[string]any{
+					"profile": map[string]any{
 						"name": "Jane",
 					},
 				},
@@ -63,42 +63,42 @@ func TestStringToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "with leading/trailing whitespace",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     true,
 				"trim_whitespace": true,
 			},
 			input: `   {"test": true}   `,
-			wantResult: map[string]interface{}{
+			wantResult: map[string]any{
 				"test": true,
 			},
 		},
 		{
 			name: "bytes input",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     true,
 				"trim_whitespace": true,
 			},
 			input: []byte(`{"key": "value"}`),
-			wantResult: map[string]interface{}{
+			wantResult: map[string]any{
 				"key": "value",
 			},
 		},
 		{
 			name: "map input with data field",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     true,
 				"trim_whitespace": true,
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"data": `{"status": "ok"}`,
 			},
-			wantResult: map[string]interface{}{
+			wantResult: map[string]any{
 				"status": "ok",
 			},
 		},
 		{
 			name: "invalid JSON - strict mode",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     true,
 				"trim_whitespace": true,
 			},
@@ -107,7 +107,7 @@ func TestStringToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "invalid JSON - non-strict mode",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     false,
 				"trim_whitespace": true,
 			},
@@ -117,7 +117,7 @@ func TestStringToJsonExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "empty string",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"strict_mode":     false,
 				"trim_whitespace": true,
 			},
@@ -139,7 +139,7 @@ func TestStringToJsonExecutor_Execute(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
-			resultMap, ok := result.(map[string]interface{})
+			resultMap, ok := result.(map[string]any)
 			require.True(t, ok, "result should be a map")
 
 			assert.True(t, resultMap["success"].(bool))
@@ -154,19 +154,19 @@ func TestJsonToStringExecutor_Execute(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		config     map[string]interface{}
-		input      interface{}
+		config     map[string]any
+		input      any
 		wantResult string
 		wantErr    bool
 	}{
 		{
 			name: "simple object - compact",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"pretty":      false,
 				"escape_html": true,
 				"sort_keys":   false,
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"name": "John",
 				"age":  30,
 			},
@@ -174,36 +174,36 @@ func TestJsonToStringExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "simple object - pretty",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"pretty":      true,
 				"indent":      "  ",
 				"escape_html": true,
 				"sort_keys":   false,
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"name": "John",
 			},
 			wantErr: false, // Will check formatting separately
 		},
 		{
 			name: "array",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"pretty":      false,
 				"escape_html": true,
 				"sort_keys":   false,
 			},
-			input:      []interface{}{1, 2, "three"},
+			input:      []any{1, 2, "three"},
 			wantResult: `[1,2,"three"]`,
 		},
 		{
 			name: "nested object",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"pretty":      false,
 				"escape_html": true,
 				"sort_keys":   false,
 			},
-			input: map[string]interface{}{
-				"user": map[string]interface{}{
+			input: map[string]any{
+				"user": map[string]any{
 					"name": "Jane",
 				},
 			},
@@ -211,24 +211,24 @@ func TestJsonToStringExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "HTML escaping enabled",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"pretty":      false,
 				"escape_html": true,
 				"sort_keys":   false,
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"html": "<script>alert('xss')</script>",
 			},
 			wantErr: false, // Will check escaping separately
 		},
 		{
 			name: "sort keys enabled",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"pretty":      false,
 				"escape_html": true,
 				"sort_keys":   true,
 			},
-			input: map[string]interface{}{
+			input: map[string]any{
 				"zebra": 1,
 				"apple": 2,
 				"mango": 3,
@@ -237,13 +237,13 @@ func TestJsonToStringExecutor_Execute(t *testing.T) {
 		},
 		{
 			name: "nested sorting",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"pretty":      false,
 				"escape_html": true,
 				"sort_keys":   true,
 			},
-			input: map[string]interface{}{
-				"z_field": map[string]interface{}{
+			input: map[string]any{
+				"z_field": map[string]any{
 					"nested_z": 1,
 					"nested_a": 2,
 				},
@@ -265,7 +265,7 @@ func TestJsonToStringExecutor_Execute(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
-			resultMap, ok := result.(map[string]interface{})
+			resultMap, ok := result.(map[string]any)
 			require.True(t, ok, "result should be a map")
 
 			assert.True(t, resultMap["success"].(bool))
@@ -287,14 +287,14 @@ func TestJsonToStringExecutor_PrettyPrint(t *testing.T) {
 	executor := NewJsonToStringExecutor()
 	ctx := context.Background()
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"pretty":      true,
 		"indent":      "  ",
 		"escape_html": true,
 		"sort_keys":   false,
 	}
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"name": "John",
 		"age":  30,
 	}
@@ -302,7 +302,7 @@ func TestJsonToStringExecutor_PrettyPrint(t *testing.T) {
 	result, err := executor.Execute(ctx, config, input)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	jsonStr := resultMap["result"].(string)
 
 	// Check that output contains indentation
@@ -310,7 +310,7 @@ func TestJsonToStringExecutor_PrettyPrint(t *testing.T) {
 	assert.Contains(t, jsonStr, "  ", "pretty output should contain indentation")
 
 	// Verify it's still valid JSON
-	var parsed interface{}
+	var parsed any
 	err = json.Unmarshal([]byte(jsonStr), &parsed)
 	assert.NoError(t, err, "pretty output should be valid JSON")
 }
@@ -319,14 +319,14 @@ func TestJsonToStringExecutor_HTMLEscaping(t *testing.T) {
 	executor := NewJsonToStringExecutor()
 	ctx := context.Background()
 
-	input := map[string]interface{}{
+	input := map[string]any{
 		"script": "<script>alert('xss')</script>",
 		"link":   "<a href='http://example.com'>click</a>",
 	}
 
 	// Test with escaping enabled
 	t.Run("escaping enabled", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"pretty":      false,
 			"escape_html": true,
 			"sort_keys":   false,
@@ -335,7 +335,7 @@ func TestJsonToStringExecutor_HTMLEscaping(t *testing.T) {
 		result, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		resultMap := result.(map[string]interface{})
+		resultMap := result.(map[string]any)
 		jsonStr := resultMap["result"].(string)
 
 		// HTML characters should be escaped
@@ -345,7 +345,7 @@ func TestJsonToStringExecutor_HTMLEscaping(t *testing.T) {
 
 	// Test with escaping disabled
 	t.Run("escaping disabled", func(t *testing.T) {
-		config := map[string]interface{}{
+		config := map[string]any{
 			"pretty":      false,
 			"escape_html": false,
 			"sort_keys":   false,
@@ -354,7 +354,7 @@ func TestJsonToStringExecutor_HTMLEscaping(t *testing.T) {
 		result, err := executor.Execute(ctx, config, input)
 		require.NoError(t, err)
 
-		resultMap := result.(map[string]interface{})
+		resultMap := result.(map[string]any)
 		jsonStr := resultMap["result"].(string)
 
 		// HTML characters should NOT be escaped
@@ -370,13 +370,13 @@ func TestJsonToStringExecutor_KeySorting(t *testing.T) {
 	tests := []struct {
 		name       string
 		sortKeys   bool
-		input      map[string]interface{}
+		input      map[string]any
 		wantResult string
 	}{
 		{
 			name:     "sorted keys",
 			sortKeys: true,
-			input: map[string]interface{}{
+			input: map[string]any{
 				"zebra": 1,
 				"apple": 2,
 				"mango": 3,
@@ -386,7 +386,7 @@ func TestJsonToStringExecutor_KeySorting(t *testing.T) {
 		{
 			name:     "unsorted keys (order may vary)",
 			sortKeys: false,
-			input: map[string]interface{}{
+			input: map[string]any{
 				"a": 1,
 				"b": 2,
 			},
@@ -396,7 +396,7 @@ func TestJsonToStringExecutor_KeySorting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := map[string]interface{}{
+			config := map[string]any{
 				"pretty":      false,
 				"escape_html": true,
 				"sort_keys":   tt.sortKeys,
@@ -405,7 +405,7 @@ func TestJsonToStringExecutor_KeySorting(t *testing.T) {
 			result, err := executor.Execute(ctx, config, tt.input)
 			require.NoError(t, err)
 
-			resultMap := result.(map[string]interface{})
+			resultMap := result.(map[string]any)
 			jsonStr := resultMap["result"].(string)
 
 			if tt.wantResult != "" {
@@ -419,7 +419,7 @@ func TestStringToJsonExecutor_Validate(t *testing.T) {
 	executor := NewStringToJsonExecutor()
 
 	// All configs should be valid since we have defaults
-	config := map[string]interface{}{}
+	config := map[string]any{}
 	err := executor.Validate(config)
 	assert.NoError(t, err)
 }
@@ -428,7 +428,7 @@ func TestJsonToStringExecutor_Validate(t *testing.T) {
 	executor := NewJsonToStringExecutor()
 
 	// All configs should be valid since we have defaults
-	config := map[string]interface{}{}
+	config := map[string]any{}
 	err := executor.Validate(config)
 	assert.NoError(t, err)
 }

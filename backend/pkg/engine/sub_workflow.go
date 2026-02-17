@@ -31,12 +31,12 @@ type subWorkflowConfig struct {
 
 // subWorkflowItemResult holds the result of a single child execution.
 type subWorkflowItemResult struct {
-	Index       int         `json:"index"`
-	Status      string      `json:"status"`
-	ExecutionID string      `json:"execution_id"`
-	Output      interface{} `json:"output,omitempty"`
-	Error       string      `json:"error,omitempty"`
-	DurationMs  int64       `json:"duration_ms,omitempty"`
+	Index       int    `json:"index"`
+	Status      string `json:"status"`
+	ExecutionID string `json:"execution_id"`
+	Output      any    `json:"output,omitempty"`
+	Error       string `json:"error,omitempty"`
+	DurationMs  int64  `json:"duration_ms,omitempty"`
 }
 
 // executeSubWorkflow handles fan-out execution of sub-workflow nodes.
@@ -67,9 +67,9 @@ func (de *DAGExecutor) executeSubWorkflow(
 
 	// 3. Handle empty array
 	if len(items) == 0 {
-		output := map[string]interface{}{
-			"items":   []interface{}{},
-			"summary": map[string]interface{}{"total": 0, "completed": 0, "failed": 0},
+		output := map[string]any{
+			"items":   []any{},
+			"summary": map[string]any{"total": 0, "completed": 0, "failed": 0},
 		}
 		execState.SetNodeOutput(node.ID, output)
 		execState.SetNodeStatus(node.ID, models.NodeExecutionStatusCompleted)
@@ -94,7 +94,7 @@ func (de *DAGExecutor) executeSubWorkflow(
 
 	for i, item := range items {
 		wg.Add(1)
-		go func(idx int, itm interface{}) {
+		go func(idx int, itm any) {
 			defer wg.Done()
 
 			select {
@@ -168,9 +168,9 @@ func (de *DAGExecutor) executeSubWorkflow(
 	wg.Wait()
 
 	// 5. Build output
-	itemOutputs := make([]interface{}, len(results))
+	itemOutputs := make([]any, len(results))
 	for i, r := range results {
-		itemOutputs[i] = map[string]interface{}{
+		itemOutputs[i] = map[string]any{
 			"index":        r.Index,
 			"status":       r.Status,
 			"execution_id": r.ExecutionID,
@@ -183,9 +183,9 @@ func (de *DAGExecutor) executeSubWorkflow(
 	finalCompleted := int(atomic.LoadInt64(&completed))
 	finalFailed := int(atomic.LoadInt64(&failed))
 
-	output := map[string]interface{}{
+	output := map[string]any{
 		"items": itemOutputs,
-		"summary": map[string]interface{}{
+		"summary": map[string]any{
 			"total":     len(items),
 			"completed": finalCompleted,
 			"failed":    finalFailed,
@@ -215,7 +215,7 @@ func (de *DAGExecutor) executeSubWorkflowItem(
 	cfg *subWorkflowConfig,
 	index int,
 	totalItems int,
-	item interface{},
+	item any,
 	opts *ExecutionOptions,
 ) subWorkflowItemResult {
 	startTime := time.Now()
@@ -235,7 +235,7 @@ func (de *DAGExecutor) executeSubWorkflowItem(
 	}
 
 	// Build child input
-	childInput := map[string]interface{}{
+	childInput := map[string]any{
 		cfg.ItemVar: item,
 		"index":     index,
 		"total":     totalItems,
@@ -281,7 +281,7 @@ func (de *DAGExecutor) executeSubWorkflowItem(
 }
 
 // collectChildOutput gathers output from completed nodes of a child execution.
-func collectChildOutput(state *ExecutionState) interface{} {
+func collectChildOutput(state *ExecutionState) any {
 	// Find terminal nodes (nodes with no outgoing edges)
 	outgoing := make(map[string]bool)
 	for _, edge := range state.Workflow.Edges {
@@ -290,7 +290,7 @@ func collectChildOutput(state *ExecutionState) interface{} {
 		}
 	}
 
-	outputs := make(map[string]interface{})
+	outputs := make(map[string]any)
 	for _, node := range state.Workflow.Nodes {
 		if !outgoing[node.ID] {
 			if output, ok := state.GetNodeOutput(node.ID); ok {
@@ -357,16 +357,16 @@ func parseSubWorkflowConfig(node *models.Node) (*subWorkflowConfig, error) {
 }
 
 // evaluateForEach evaluates the for_each expression and returns items as a slice.
-func evaluateForEach(expression string, input map[string]interface{}) ([]interface{}, error) {
+func evaluateForEach(expression string, input map[string]any) ([]any, error) {
 	// Navigate dot-separated path: "input.cells" -> input["cells"]
 	parts := splitDotPath(expression)
 
-	var current interface{} = input
+	var current any = input
 	for _, part := range parts {
 		if part == "input" {
 			continue // "input" prefix refers to the input map itself
 		}
-		m, ok := current.(map[string]interface{})
+		m, ok := current.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("cannot navigate path %q: not a map at %q", expression, part)
 		}
@@ -376,7 +376,7 @@ func evaluateForEach(expression string, input map[string]interface{}) ([]interfa
 		}
 	}
 
-	// Convert to []interface{}
+	// Convert to []any
 	return toSlice(current)
 }
 
@@ -400,21 +400,21 @@ func splitDotPath(path string) []string {
 	return parts
 }
 
-// toSlice converts various array types to []interface{}.
-func toSlice(val interface{}) ([]interface{}, error) {
+// toSlice converts various array types to []any.
+func toSlice(val any) ([]any, error) {
 	if val == nil {
 		return nil, fmt.Errorf("for_each value is nil")
 	}
 
-	// Direct []interface{}
-	if s, ok := val.([]interface{}); ok {
+	// Direct []any
+	if s, ok := val.([]any); ok {
 		return s, nil
 	}
 
 	// Use reflection for typed slices
 	rv := reflect.ValueOf(val)
 	if rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
-		result := make([]interface{}, rv.Len())
+		result := make([]any, rv.Len())
 		for i := 0; i < rv.Len(); i++ {
 			result[i] = rv.Index(i).Interface()
 		}

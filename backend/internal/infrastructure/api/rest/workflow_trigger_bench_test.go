@@ -35,7 +35,7 @@ func BenchmarkEventProcessingLatency(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		eventData := map[string]interface{}{
+		eventData := map[string]any{
 			"user_id":    fmt.Sprintf("usr_bench_%d", i),
 			"email":      fmt.Sprintf("bench%d@example.com", i),
 			"name":       fmt.Sprintf("Bench User %d", i),
@@ -104,7 +104,7 @@ func BenchmarkWorkflowExecutionDuration(b *testing.B) {
 		env.Mocks.SendGridAPI.Reset()
 		env.Mocks.SegmentAPI.Reset()
 
-		eventData := map[string]interface{}{
+		eventData := map[string]any{
 			"user_id":    fmt.Sprintf("usr_duration_%d", i),
 			"email":      fmt.Sprintf("duration%d@example.com", i),
 			"name":       fmt.Sprintf("Duration User %d", i),
@@ -176,7 +176,7 @@ func BenchmarkConcurrentThroughput(b *testing.B) {
 					go func(idx int) {
 						defer wg.Done()
 
-						eventData := map[string]interface{}{
+						eventData := map[string]any{
 							"user_id":    fmt.Sprintf("usr_throughput_%d_%d", i, idx),
 							"email":      fmt.Sprintf("throughput%d_%d@example.com", i, idx),
 							"name":       fmt.Sprintf("Throughput User %d-%d", i, idx),
@@ -301,7 +301,7 @@ func BenchmarkTemplateResolution(b *testing.B) {
 	// Create workflow
 	workflowModel := env.createWorkflowFromFixture(&testing.T{}, ctx)
 
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"user_id":    "usr_template_bench",
 		"email":      "template@example.com",
 		"name":       "Template User",
@@ -372,7 +372,7 @@ func BenchmarkNodeExecutionRetry(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		eventData := map[string]interface{}{
+		eventData := map[string]any{
 			"user_id":    fmt.Sprintf("usr_retry_%d", i),
 			"email":      fmt.Sprintf("retry%d@example.com", i),
 			"name":       fmt.Sprintf("Retry User %d", i),
@@ -424,7 +424,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 		env.Mocks.SendGridAPI.Reset()
 		env.Mocks.SegmentAPI.Reset()
 
-		eventData := map[string]interface{}{
+		eventData := map[string]any{
 			"user_id":    fmt.Sprintf("usr_mem_%d", i),
 			"email":      fmt.Sprintf("mem%d@example.com", i),
 			"name":       fmt.Sprintf("Memory User %d", i),

@@ -7,8 +7,9 @@
 // - collect_partial error handling mode
 //
 // The pattern:
-//   parent: [source] --> [fanout (sub_workflow)] --> [aggregate]
-//   child:  [process] (runs N times in parallel, once per array item)
+//
+//	parent: [source] --> [fanout (sub_workflow)] --> [aggregate]
+//	child:  [process] (runs N times in parallel, once per array item)
 package main
 
 import (
@@ -51,12 +52,12 @@ func main() {
 
 	// 3. Set up engine with mock executor
 	mockExec := &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			inputMap, _ := input.(map[string]interface{})
-			cell, _ := inputMap["cell"].(map[string]interface{})
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			inputMap, _ := input.(map[string]any)
+			cell, _ := inputMap["cell"].(map[string]any)
 			topic, _ := cell["topic"].(string)
 			channel, _ := cell["channel"].(string)
-			return map[string]interface{}{
+			return map[string]any{
 				"text":    fmt.Sprintf("Generated post about '%s' for %s", topic, channel),
 				"channel": channel,
 				"topic":   topic,
@@ -80,17 +81,17 @@ func main() {
 	)
 
 	// 4. Execute with sample content cells
-	input := map[string]interface{}{
-		"cells": []interface{}{
-			map[string]interface{}{"topic": "AI trends 2026", "channel": "telegram"},
-			map[string]interface{}{"topic": "Go 1.24 release", "channel": "blog"},
-			map[string]interface{}{"topic": "Remote work tips", "channel": "instagram"},
-			map[string]interface{}{"topic": "Cloud cost optimization", "channel": "telegram"},
-			map[string]interface{}{"topic": "Rust vs Go", "channel": "blog"},
+	input := map[string]any{
+		"cells": []any{
+			map[string]any{"topic": "AI trends 2026", "channel": "telegram"},
+			map[string]any{"topic": "Go 1.24 release", "channel": "blog"},
+			map[string]any{"topic": "Remote work tips", "channel": "instagram"},
+			map[string]any{"topic": "Cloud cost optimization", "channel": "telegram"},
+			map[string]any{"topic": "Rust vs Go", "channel": "blog"},
 		},
 	}
 
-	fmt.Printf("Input: %d cells to process (max_parallelism=3)\n", len(input["cells"].([]interface{})))
+	fmt.Printf("Input: %d cells to process (max_parallelism=3)\n", len(input["cells"].([]any)))
 	fmt.Println()
 
 	execState := engine.NewExecutionState("demo-exec", parentWF.ID, parentWF, input, nil)
@@ -102,10 +103,10 @@ func main() {
 
 	// 5. Print results
 	output, _ := execState.GetNodeOutput("fanout")
-	outputMap, _ := output.(map[string]interface{})
+	outputMap, _ := output.(map[string]any)
 
 	// Print summary
-	summary, _ := outputMap["summary"].(map[string]interface{})
+	summary, _ := outputMap["summary"].(map[string]any)
 	fmt.Println("=== Fan-Out Results ===")
 	fmt.Printf("Total:     %v\n", summary["total"])
 	fmt.Printf("Completed: %v\n", summary["completed"])
@@ -113,11 +114,11 @@ func main() {
 	fmt.Println()
 
 	// Print each item
-	items, _ := outputMap["items"].([]interface{})
+	items, _ := outputMap["items"].([]any)
 	for _, item := range items {
-		itemMap, _ := item.(map[string]interface{})
+		itemMap, _ := item.(map[string]any)
 		fmt.Printf("  [%v] %s", itemMap["index"], itemMap["status"])
-		if itemOutput, ok := itemMap["output"].(map[string]interface{}); ok {
+		if itemOutput, ok := itemMap["output"].(map[string]any); ok {
 			fmt.Printf(" → %s", itemOutput["text"])
 		}
 		fmt.Println()

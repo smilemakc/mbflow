@@ -43,27 +43,27 @@ type WebSocketHub struct {
 
 // WebSocketMessage represents a message sent to WebSocket clients
 type WebSocketMessage struct {
-	Type      string                 `json:"type"` // "event" or "control"
-	Event     *EventPayload          `json:"event,omitempty"`
-	Control   map[string]interface{} `json:"control,omitempty"`
-	Timestamp time.Time              `json:"timestamp"`
+	Type      string         `json:"type"` // "event" or "control"
+	Event     *EventPayload  `json:"event,omitempty"`
+	Control   map[string]any `json:"control,omitempty"`
+	Timestamp time.Time      `json:"timestamp"`
 }
 
 // EventPayload is the WebSocket-friendly event payload
 type EventPayload struct {
-	EventType   string                 `json:"event_type"`
-	ExecutionID string                 `json:"execution_id"`
-	WorkflowID  string                 `json:"workflow_id"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Status      string                 `json:"status"`
-	NodeID      *string                `json:"node_id,omitempty"`
-	NodeName    *string                `json:"node_name,omitempty"`
-	NodeType    *string                `json:"node_type,omitempty"`
-	WaveIndex   *int                   `json:"wave_index,omitempty"`
-	NodeCount   *int                   `json:"node_count,omitempty"`
-	DurationMs  *int64                 `json:"duration_ms,omitempty"`
-	Error       *string                `json:"error,omitempty"`
-	Output      map[string]interface{} `json:"output,omitempty"`
+	EventType   string         `json:"event_type"`
+	ExecutionID string         `json:"execution_id"`
+	WorkflowID  string         `json:"workflow_id"`
+	Timestamp   time.Time      `json:"timestamp"`
+	Status      string         `json:"status"`
+	NodeID      *string        `json:"node_id,omitempty"`
+	NodeName    *string        `json:"node_name,omitempty"`
+	NodeType    *string        `json:"node_type,omitempty"`
+	WaveIndex   *int           `json:"wave_index,omitempty"`
+	NodeCount   *int           `json:"node_count,omitempty"`
+	DurationMs  *int64         `json:"duration_ms,omitempty"`
+	Error       *string        `json:"error,omitempty"`
+	Output      map[string]any `json:"output,omitempty"`
 }
 
 // WebSocketObserverOption configures WebSocketObserver
@@ -371,7 +371,7 @@ func (c *WebSocketClient) WritePump() {
 
 // handleMessage handles messages from the client (e.g., subscription updates)
 func (c *WebSocketClient) handleMessage(message []byte) {
-	var msg map[string]interface{}
+	var msg map[string]any
 	if err := json.Unmarshal(message, &msg); err != nil {
 		return
 	}
@@ -381,7 +381,7 @@ func (c *WebSocketClient) handleMessage(message []byte) {
 		switch cmd {
 		case "subscribe":
 			// Subscribe to specific event types
-			if eventTypes, ok := msg["event_types"].([]interface{}); ok {
+			if eventTypes, ok := msg["event_types"].([]any); ok {
 				c.mu.Lock()
 				for _, et := range eventTypes {
 					if eventType, ok := et.(string); ok {
@@ -393,7 +393,7 @@ func (c *WebSocketClient) handleMessage(message []byte) {
 
 		case "unsubscribe":
 			// Unsubscribe from specific event types
-			if eventTypes, ok := msg["event_types"].([]interface{}); ok {
+			if eventTypes, ok := msg["event_types"].([]any); ok {
 				c.mu.Lock()
 				for _, et := range eventTypes {
 					if eventType, ok := et.(string); ok {

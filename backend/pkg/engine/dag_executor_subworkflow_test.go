@@ -17,19 +17,19 @@ func TestSubWorkflow_SingleItem(t *testing.T) {
 		ID:   "child-wf",
 		Name: "Child",
 		Nodes: []*models.Node{
-			{ID: "double", Name: "Double", Type: "transform", Config: map[string]interface{}{}},
+			{ID: "double", Name: "Double", Type: "transform", Config: map[string]any{}},
 		},
 	}
 
 	mockExec := &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			inputMap, _ := input.(map[string]interface{})
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			inputMap, _ := input.(map[string]any)
 			if item, ok := inputMap["item"]; ok {
 				if num, ok := item.(float64); ok {
-					return map[string]interface{}{"result": num * 2}, nil
+					return map[string]any{"result": num * 2}, nil
 				}
 			}
-			return map[string]interface{}{"result": 0}, nil
+			return map[string]any{"result": 0}, nil
 		},
 	}
 
@@ -51,7 +51,7 @@ func TestSubWorkflow_SingleItem(t *testing.T) {
 				ID:   "fanout",
 				Name: "Fan Out",
 				Type: "sub_workflow",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"workflow_id": "child-wf",
 					"for_each":    "input.items",
 				},
@@ -59,8 +59,8 @@ func TestSubWorkflow_SingleItem(t *testing.T) {
 		},
 	}
 
-	input := map[string]interface{}{
-		"items": []interface{}{float64(5)},
+	input := map[string]any{
+		"items": []any{float64(5)},
 	}
 	execState := NewExecutionState("exec-1", "parent-wf", parentWF, input, nil)
 
@@ -74,12 +74,12 @@ func TestSubWorkflow_SingleItem(t *testing.T) {
 		t.Fatal("expected fanout output")
 	}
 
-	outputMap, ok := output.(map[string]interface{})
+	outputMap, ok := output.(map[string]any)
 	if !ok {
 		t.Fatalf("expected map output, got: %T", output)
 	}
 
-	summary, ok := outputMap["summary"].(map[string]interface{})
+	summary, ok := outputMap["summary"].(map[string]any)
 	if !ok {
 		t.Fatal("expected summary in output")
 	}
@@ -99,15 +99,15 @@ func TestSubWorkflow_MultipleItems(t *testing.T) {
 		ID:   "child-wf",
 		Name: "Child",
 		Nodes: []*models.Node{
-			{ID: "process", Name: "Process", Type: "transform", Config: map[string]interface{}{}},
+			{ID: "process", Name: "Process", Type: "transform", Config: map[string]any{}},
 		},
 	}
 
 	mockExec := &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			inputMap, _ := input.(map[string]interface{})
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			inputMap, _ := input.(map[string]any)
 			item := inputMap["item"]
-			return map[string]interface{}{"processed": item}, nil
+			return map[string]any{"processed": item}, nil
 		},
 	}
 
@@ -126,7 +126,7 @@ func TestSubWorkflow_MultipleItems(t *testing.T) {
 				ID:   "fanout",
 				Name: "Fan Out",
 				Type: "sub_workflow",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"workflow_id":     "child-wf",
 					"for_each":        "input.items",
 					"max_parallelism": 2,
@@ -135,8 +135,8 @@ func TestSubWorkflow_MultipleItems(t *testing.T) {
 		},
 	}
 
-	input := map[string]interface{}{
-		"items": []interface{}{"a", "b", "c", "d", "e"},
+	input := map[string]any{
+		"items": []any{"a", "b", "c", "d", "e"},
 	}
 	execState := NewExecutionState("exec-1", "parent-wf", parentWF, input, nil)
 
@@ -150,8 +150,8 @@ func TestSubWorkflow_MultipleItems(t *testing.T) {
 		t.Fatal("expected fanout output")
 	}
 
-	outputMap := output.(map[string]interface{})
-	summary := outputMap["summary"].(map[string]interface{})
+	outputMap := output.(map[string]any)
+	summary := outputMap["summary"].(map[string]any)
 
 	if summary["total"] != 5 {
 		t.Fatalf("expected total=5, got: %v", summary["total"])
@@ -168,19 +168,19 @@ func TestSubWorkflow_CollectPartial(t *testing.T) {
 		ID:   "child-wf",
 		Name: "Child",
 		Nodes: []*models.Node{
-			{ID: "process", Name: "Process", Type: "transform", Config: map[string]interface{}{}},
+			{ID: "process", Name: "Process", Type: "transform", Config: map[string]any{}},
 		},
 	}
 
 	var callCount int64
 	mockExec := &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			n := atomic.AddInt64(&callCount, 1)
 			if n == 3 {
 				return nil, fmt.Errorf("simulated failure")
 			}
-			inputMap, _ := input.(map[string]interface{})
-			return map[string]interface{}{"processed": inputMap["item"]}, nil
+			inputMap, _ := input.(map[string]any)
+			return map[string]any{"processed": inputMap["item"]}, nil
 		},
 	}
 
@@ -199,7 +199,7 @@ func TestSubWorkflow_CollectPartial(t *testing.T) {
 				ID:   "fanout",
 				Name: "Fan Out",
 				Type: "sub_workflow",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"workflow_id":     "child-wf",
 					"for_each":        "input.items",
 					"on_error":        "collect_partial",
@@ -209,8 +209,8 @@ func TestSubWorkflow_CollectPartial(t *testing.T) {
 		},
 	}
 
-	input := map[string]interface{}{
-		"items": []interface{}{"a", "b", "c", "d", "e"},
+	input := map[string]any{
+		"items": []any{"a", "b", "c", "d", "e"},
 	}
 	execState := NewExecutionState("exec-1", "parent-wf", parentWF, input, nil)
 
@@ -220,8 +220,8 @@ func TestSubWorkflow_CollectPartial(t *testing.T) {
 	}
 
 	output, _ := execState.GetNodeOutput("fanout")
-	outputMap := output.(map[string]interface{})
-	summary := outputMap["summary"].(map[string]interface{})
+	outputMap := output.(map[string]any)
+	summary := outputMap["summary"].(map[string]any)
 
 	if summary["failed"] != 1 {
 		t.Fatalf("expected failed=1, got: %v", summary["failed"])
@@ -238,12 +238,12 @@ func TestSubWorkflow_FailFast(t *testing.T) {
 		ID:   "child-wf",
 		Name: "Child",
 		Nodes: []*models.Node{
-			{ID: "process", Name: "Process", Type: "transform", Config: map[string]interface{}{}},
+			{ID: "process", Name: "Process", Type: "transform", Config: map[string]any{}},
 		},
 	}
 
 	mockExec := &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			return nil, fmt.Errorf("always fails")
 		},
 	}
@@ -263,7 +263,7 @@ func TestSubWorkflow_FailFast(t *testing.T) {
 				ID:   "fanout",
 				Name: "Fan Out",
 				Type: "sub_workflow",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"workflow_id": "child-wf",
 					"for_each":    "input.items",
 					"on_error":    "fail_fast",
@@ -272,8 +272,8 @@ func TestSubWorkflow_FailFast(t *testing.T) {
 		},
 	}
 
-	input := map[string]interface{}{
-		"items": []interface{}{"a", "b", "c"},
+	input := map[string]any{
+		"items": []any{"a", "b", "c"},
 	}
 	execState := NewExecutionState("exec-1", "parent-wf", parentWF, input, nil)
 
@@ -292,13 +292,13 @@ func TestSubWorkflow_EmptyArray(t *testing.T) {
 	t.Parallel()
 
 	loader := NewMockWorkflowLoader(map[string]*models.Workflow{
-		"child-wf": {ID: "child-wf", Name: "Child", Nodes: []*models.Node{{ID: "n1", Name: "N1", Type: "transform", Config: map[string]interface{}{}}}},
+		"child-wf": {ID: "child-wf", Name: "Child", Nodes: []*models.Node{{ID: "n1", Name: "N1", Type: "transform", Config: map[string]any{}}}},
 	})
 
 	registry := executor.NewManager()
 	registry.Register("transform", &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{}, nil
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{}, nil
 		},
 	})
 
@@ -311,7 +311,7 @@ func TestSubWorkflow_EmptyArray(t *testing.T) {
 		Nodes: []*models.Node{
 			{
 				ID: "fanout", Name: "Fan Out", Type: "sub_workflow",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"workflow_id": "child-wf",
 					"for_each":    "input.items",
 				},
@@ -319,8 +319,8 @@ func TestSubWorkflow_EmptyArray(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "parent-wf", parentWF, map[string]interface{}{
-		"items": []interface{}{},
+	execState := NewExecutionState("exec-1", "parent-wf", parentWF, map[string]any{
+		"items": []any{},
 	}, nil)
 
 	err := dagExec.Execute(context.Background(), execState, DefaultExecutionOptions())
@@ -329,8 +329,8 @@ func TestSubWorkflow_EmptyArray(t *testing.T) {
 	}
 
 	output, _ := execState.GetNodeOutput("fanout")
-	outputMap := output.(map[string]interface{})
-	summary := outputMap["summary"].(map[string]interface{})
+	outputMap := output.(map[string]any)
+	summary := outputMap["summary"].(map[string]any)
 	if summary["total"] != 0 {
 		t.Fatalf("expected total=0, got: %v", summary["total"])
 	}
@@ -344,8 +344,8 @@ func TestSubWorkflow_WorkflowNotFound(t *testing.T) {
 
 	registry := executor.NewManager()
 	registry.Register("transform", &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{}, nil
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{}, nil
 		},
 	})
 
@@ -358,7 +358,7 @@ func TestSubWorkflow_WorkflowNotFound(t *testing.T) {
 		Nodes: []*models.Node{
 			{
 				ID: "fanout", Name: "Fan Out", Type: "sub_workflow",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"workflow_id": "nonexistent-wf",
 					"for_each":    "input.items",
 				},
@@ -366,8 +366,8 @@ func TestSubWorkflow_WorkflowNotFound(t *testing.T) {
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "parent-wf", parentWF, map[string]interface{}{
-		"items": []interface{}{"a"},
+	execState := NewExecutionState("exec-1", "parent-wf", parentWF, map[string]any{
+		"items": []any{"a"},
 	}, nil)
 
 	err := dagExec.Execute(context.Background(), execState, DefaultExecutionOptions())
@@ -382,7 +382,7 @@ func TestSubWorkflow_InvalidConfig(t *testing.T) {
 	loader := NewMockWorkflowLoader(map[string]*models.Workflow{})
 	registry := executor.NewManager()
 	registry.Register("transform", &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			return nil, nil
 		},
 	})
@@ -397,15 +397,15 @@ func TestSubWorkflow_InvalidConfig(t *testing.T) {
 		Nodes: []*models.Node{
 			{
 				ID: "fanout", Name: "Fan Out", Type: "sub_workflow",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"for_each": "input.items",
 				},
 			},
 		},
 	}
 
-	execState := NewExecutionState("exec-1", "parent-wf", parentWF, map[string]interface{}{
-		"items": []interface{}{"a"},
+	execState := NewExecutionState("exec-1", "parent-wf", parentWF, map[string]any{
+		"items": []any{"a"},
 	}, nil)
 
 	err := dagExec.Execute(context.Background(), execState, DefaultExecutionOptions())

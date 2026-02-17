@@ -94,7 +94,7 @@ type AtomCategory struct {
 }
 
 // Execute fetches and parses RSS/Atom feed.
-func (e *RSSParserExecutor) Execute(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+func (e *RSSParserExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
 	// Get required URL
 	url, err := e.GetString(config, "url")
 	if err != nil {
@@ -147,8 +147,8 @@ func (e *RSSParserExecutor) Execute(ctx context.Context, config map[string]inter
 }
 
 // buildRSSOutput converts RSS structure to output format
-func (e *RSSParserExecutor) buildRSSOutput(rss RSS, maxItems int, includeContent bool) map[string]interface{} {
-	items := make([]map[string]interface{}, 0, len(rss.Channel.Items))
+func (e *RSSParserExecutor) buildRSSOutput(rss RSS, maxItems int, includeContent bool) map[string]any {
+	items := make([]map[string]any, 0, len(rss.Channel.Items))
 
 	limit := len(rss.Channel.Items)
 	if maxItems > 0 && maxItems < limit {
@@ -164,7 +164,7 @@ func (e *RSSParserExecutor) buildRSSOutput(rss RSS, maxItems int, includeContent
 			categories[j] = cat.Value
 		}
 
-		itemData := map[string]interface{}{
+		itemData := map[string]any{
 			"title":       item.Title,
 			"link":        item.Link,
 			"description": item.Description,
@@ -186,7 +186,7 @@ func (e *RSSParserExecutor) buildRSSOutput(rss RSS, maxItems int, includeContent
 		items = append(items, itemData)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"title":       rss.Channel.Title,
 		"description": rss.Channel.Description,
 		"link":        rss.Channel.Link,
@@ -197,8 +197,8 @@ func (e *RSSParserExecutor) buildRSSOutput(rss RSS, maxItems int, includeContent
 }
 
 // buildAtomOutput converts Atom structure to output format
-func (e *RSSParserExecutor) buildAtomOutput(atom Atom, maxItems int, includeContent bool) map[string]interface{} {
-	items := make([]map[string]interface{}, 0, len(atom.Entries))
+func (e *RSSParserExecutor) buildAtomOutput(atom Atom, maxItems int, includeContent bool) map[string]any {
+	items := make([]map[string]any, 0, len(atom.Entries))
 
 	limit := len(atom.Entries)
 	if maxItems > 0 && maxItems < limit {
@@ -232,7 +232,7 @@ func (e *RSSParserExecutor) buildAtomOutput(atom Atom, maxItems int, includeCont
 			categories[j] = cat.Term
 		}
 
-		itemData := map[string]interface{}{
+		itemData := map[string]any{
 			"title":       entry.Title,
 			"link":        entryLink,
 			"description": entry.Summary,
@@ -254,7 +254,7 @@ func (e *RSSParserExecutor) buildAtomOutput(atom Atom, maxItems int, includeCont
 		items = append(items, itemData)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"title":       atom.Title,
 		"description": "",
 		"link":        feedLink,
@@ -265,7 +265,7 @@ func (e *RSSParserExecutor) buildAtomOutput(atom Atom, maxItems int, includeCont
 }
 
 // Validate validates the RSS parser executor configuration.
-func (e *RSSParserExecutor) Validate(config map[string]interface{}) error {
+func (e *RSSParserExecutor) Validate(config map[string]any) error {
 	// Validate required URL field
 	if err := e.ValidateRequired(config, "url"); err != nil {
 		return err

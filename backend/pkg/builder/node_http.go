@@ -34,7 +34,7 @@ func HTTPURL(url string) NodeOption {
 }
 
 // HTTPBody sets the request body for an HTTP node.
-func HTTPBody(body map[string]interface{}) NodeOption {
+func HTTPBody(body map[string]any) NodeOption {
 	return func(nb *NodeBuilder) error {
 		nb.config["body"] = body
 		return nil
@@ -105,7 +105,7 @@ func NewHTTPGetNode(id, name, url string, opts ...NodeOption) *NodeBuilder {
 }
 
 // NewHTTPPostNode creates a new HTTP POST node builder.
-func NewHTTPPostNode(id, name, url string, body map[string]interface{}, opts ...NodeOption) *NodeBuilder {
+func NewHTTPPostNode(id, name, url string, body map[string]any, opts ...NodeOption) *NodeBuilder {
 	allOpts := []NodeOption{
 		HTTPMethod("POST"),
 		HTTPURL(url),
@@ -118,7 +118,7 @@ func NewHTTPPostNode(id, name, url string, body map[string]interface{}, opts ...
 }
 
 // NewHTTPPutNode creates a new HTTP PUT node builder.
-func NewHTTPPutNode(id, name, url string, body map[string]interface{}, opts ...NodeOption) *NodeBuilder {
+func NewHTTPPutNode(id, name, url string, body map[string]any, opts ...NodeOption) *NodeBuilder {
 	allOpts := []NodeOption{
 		HTTPMethod("PUT"),
 		HTTPURL(url),
@@ -141,7 +141,7 @@ func NewHTTPDeleteNode(id, name, url string, opts ...NodeOption) *NodeBuilder {
 }
 
 // NewHTTPPatchNode creates a new HTTP PATCH node builder.
-func NewHTTPPatchNode(id, name, url string, body map[string]interface{}, opts ...NodeOption) *NodeBuilder {
+func NewHTTPPatchNode(id, name, url string, body map[string]any, opts ...NodeOption) *NodeBuilder {
 	allOpts := []NodeOption{
 		HTTPMethod("PATCH"),
 		HTTPURL(url),

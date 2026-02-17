@@ -23,9 +23,9 @@ func RelativePosition(refNodeID string, offsetX, offsetY float64) NodeOption {
 
 		// Store reference info in metadata for potential future use
 		if nb.metadata == nil {
-			nb.metadata = make(map[string]interface{})
+			nb.metadata = make(map[string]any)
 		}
-		nb.metadata["_position_ref"] = map[string]interface{}{
+		nb.metadata["_position_ref"] = map[string]any{
 			"ref_node": refNodeID,
 			"offset_x": offsetX,
 			"offset_y": offsetY,

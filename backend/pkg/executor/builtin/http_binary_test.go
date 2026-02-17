@@ -25,7 +25,7 @@ func TestHTTPExecutor_BinaryResponse_Image(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    server.URL,
 	}
@@ -33,7 +33,7 @@ func TestHTTPExecutor_BinaryResponse_Image(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 200, resultMap["status"])
 	assert.Equal(t, "image/png", resultMap["content_type"])
 	assert.Nil(t, resultMap["body"])
@@ -56,7 +56,7 @@ func TestHTTPExecutor_BinaryResponse_PDF(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    server.URL,
 	}
@@ -64,7 +64,7 @@ func TestHTTPExecutor_BinaryResponse_PDF(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "application/pdf", resultMap["content_type"])
 	assert.NotEmpty(t, resultMap["body_base64"])
 
@@ -84,7 +84,7 @@ func TestHTTPExecutor_BinaryResponse_ForceBinary(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method":        "GET",
 		"url":           server.URL,
 		"response_type": "binary",
@@ -93,7 +93,7 @@ func TestHTTPExecutor_BinaryResponse_ForceBinary(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.NotEmpty(t, resultMap["body_base64"])
 
 	decoded, err := base64.StdEncoding.DecodeString(resultMap["body_base64"].(string))
@@ -111,7 +111,7 @@ func TestHTTPExecutor_JSONResponse(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    server.URL,
 	}
@@ -119,7 +119,7 @@ func TestHTTPExecutor_JSONResponse(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 200, resultMap["status"])
 	assert.Contains(t, resultMap["content_type"], "application/json")
 	assert.NotNil(t, resultMap["body"])
@@ -127,7 +127,7 @@ func TestHTTPExecutor_JSONResponse(t *testing.T) {
 	_, hasBase64 := resultMap["body_base64"]
 	assert.False(t, hasBase64)
 
-	body := resultMap["body"].(map[string]interface{})
+	body := resultMap["body"].(map[string]any)
 	assert.Equal(t, "test", body["name"])
 }
 
@@ -172,7 +172,7 @@ func TestHTTPExecutor_BinaryResponse_JPEG(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    server.URL,
 	}
@@ -180,7 +180,7 @@ func TestHTTPExecutor_BinaryResponse_JPEG(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, "image/jpeg", resultMap["content_type"])
 	assert.NotEmpty(t, resultMap["body_base64"])
 }
@@ -194,7 +194,7 @@ func TestHTTPExecutor_Integration_PlaceholderImage(t *testing.T) {
 	}
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "https://httpbin.org/image/webp", // WebP image from httpbin
 	}
@@ -202,7 +202,7 @@ func TestHTTPExecutor_Integration_PlaceholderImage(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 200, resultMap["status"])
 	assert.True(t, strings.HasPrefix(resultMap["content_type"].(string), "image/"))
 	assert.NotEmpty(t, resultMap["body_base64"])
@@ -219,7 +219,7 @@ func TestHTTPExecutor_Integration_HTTPBinImage(t *testing.T) {
 	}
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "https://httpbin.org/image/png",
 	}
@@ -227,7 +227,7 @@ func TestHTTPExecutor_Integration_HTTPBinImage(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 200, resultMap["status"])
 	assert.Equal(t, "image/png", resultMap["content_type"])
 	assert.NotEmpty(t, resultMap["body_base64"])
@@ -249,7 +249,7 @@ func TestHTTPExecutor_Integration_HTTPBinJPEG(t *testing.T) {
 	}
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    "https://httpbin.org/image/jpeg",
 	}
@@ -257,7 +257,7 @@ func TestHTTPExecutor_Integration_HTTPBinJPEG(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 200, resultMap["status"])
 	assert.Equal(t, "image/jpeg", resultMap["content_type"])
 	assert.NotEmpty(t, resultMap["body_base64"])
@@ -289,7 +289,7 @@ func TestHTTPExecutor_PipelineSimulation_ImageToLLM(t *testing.T) {
 
 	// Step 1: HTTP node fetches image
 	httpExec := NewHTTPExecutor()
-	httpConfig := map[string]interface{}{
+	httpConfig := map[string]any{
 		"method": "GET",
 		"url":    server.URL,
 	}
@@ -297,18 +297,18 @@ func TestHTTPExecutor_PipelineSimulation_ImageToLLM(t *testing.T) {
 	httpResult, err := httpExec.Execute(context.Background(), httpConfig, nil)
 	require.NoError(t, err)
 
-	httpOutput := httpResult.(map[string]interface{})
+	httpOutput := httpResult.(map[string]any)
 
 	// Verify HTTP output has required fields for LLM
 	assert.NotEmpty(t, httpOutput["body_base64"], "HTTP should return base64 encoded data")
 	assert.NotEmpty(t, httpOutput["content_type"], "HTTP should return content type")
 
 	// Step 2: Prepare LLM config (simulated - would use template resolution in real workflow)
-	llmConfig := map[string]interface{}{
+	llmConfig := map[string]any{
 		"provider": "openai",
 		"model":    "gpt-4o",
 		"prompt":   "What's in this image?",
-		"files": []map[string]interface{}{
+		"files": []map[string]any{
 			{
 				"data":      httpOutput["body_base64"],
 				"mime_type": httpOutput["content_type"],
@@ -318,7 +318,7 @@ func TestHTTPExecutor_PipelineSimulation_ImageToLLM(t *testing.T) {
 	}
 
 	// Verify the LLM config structure is correct
-	files := llmConfig["files"].([]map[string]interface{})
+	files := llmConfig["files"].([]map[string]any)
 	assert.Len(t, files, 1)
 	assert.NotEmpty(t, files[0]["data"])
 	assert.Equal(t, "image/png", files[0]["mime_type"])
@@ -335,7 +335,7 @@ func TestHTTPExecutor_ErrorStatus_Default(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    server.URL,
 	}
@@ -355,7 +355,7 @@ func TestHTTPExecutor_ErrorStatus_IgnoreStatusErrors(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method":               "GET",
 		"url":                  server.URL,
 		"ignore_status_errors": true,
@@ -364,12 +364,12 @@ func TestHTTPExecutor_ErrorStatus_IgnoreStatusErrors(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 404, resultMap["status"])
 	assert.Equal(t, true, resultMap["is_error"])
 	assert.NotNil(t, resultMap["body"])
 
-	body := resultMap["body"].(map[string]interface{})
+	body := resultMap["body"].(map[string]any)
 	assert.Equal(t, "not found", body["error"])
 	assert.Equal(t, "RESOURCE_NOT_FOUND", body["code"])
 }
@@ -384,7 +384,7 @@ func TestHTTPExecutor_ErrorStatus_IgnoreStatusErrors_500(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method":               "POST",
 		"url":                  server.URL,
 		"ignore_status_errors": true,
@@ -393,7 +393,7 @@ func TestHTTPExecutor_ErrorStatus_IgnoreStatusErrors_500(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 500, resultMap["status"])
 	assert.Equal(t, true, resultMap["is_error"])
 }
@@ -408,20 +408,20 @@ func TestHTTPExecutor_SuccessStatusCodes_Allowed(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method":               "GET",
 		"url":                  server.URL,
-		"success_status_codes": []interface{}{200, 201, 404},
+		"success_status_codes": []any{200, 201, 404},
 	}
 
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 404, resultMap["status"])
 	assert.Equal(t, true, resultMap["is_error"])
 
-	body := resultMap["body"].(map[string]interface{})
+	body := resultMap["body"].(map[string]any)
 	assert.Equal(t, false, body["exists"])
 }
 
@@ -434,10 +434,10 @@ func TestHTTPExecutor_SuccessStatusCodes_NotAllowed(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method":               "GET",
 		"url":                  server.URL,
-		"success_status_codes": []interface{}{200, 201, 404}, // 500 not included
+		"success_status_codes": []any{200, 201, 404}, // 500 not included
 	}
 
 	_, err := exec.Execute(context.Background(), config, nil)
@@ -454,11 +454,11 @@ func TestHTTPExecutor_SuccessStatusCodes_PriorityOverIgnore(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method":               "GET",
 		"url":                  server.URL,
-		"ignore_status_errors": true,                         // Would allow all errors
-		"success_status_codes": []interface{}{200, 201, 404}, // But this restricts to specific codes
+		"ignore_status_errors": true,                 // Would allow all errors
+		"success_status_codes": []any{200, 201, 404}, // But this restricts to specific codes
 	}
 
 	// 502 is not in success_status_codes, so it should still error
@@ -477,7 +477,7 @@ func TestHTTPExecutor_IsError_FalseOnSuccess(t *testing.T) {
 	defer server.Close()
 
 	exec := NewHTTPExecutor()
-	config := map[string]interface{}{
+	config := map[string]any{
 		"method": "GET",
 		"url":    server.URL,
 	}
@@ -485,7 +485,7 @@ func TestHTTPExecutor_IsError_FalseOnSuccess(t *testing.T) {
 	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 
-	resultMap := result.(map[string]interface{})
+	resultMap := result.(map[string]any)
 	assert.Equal(t, 200, resultMap["status"])
 	assert.Equal(t, false, resultMap["is_error"])
 }
@@ -495,43 +495,43 @@ func TestHTTPExecutor_getIntSlice(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		config   map[string]interface{}
+		config   map[string]any
 		key      string
 		expected []int
 	}{
 		{
 			name:     "empty config",
-			config:   map[string]interface{}{},
+			config:   map[string]any{},
 			key:      "codes",
 			expected: nil,
 		},
 		{
 			name: "[]int type",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"codes": []int{200, 201, 404},
 			},
 			key:      "codes",
 			expected: []int{200, 201, 404},
 		},
 		{
-			name: "[]interface{} with float64 (from JSON)",
-			config: map[string]interface{}{
-				"codes": []interface{}{float64(200), float64(201), float64(404)},
+			name: "[]any with float64 (from JSON)",
+			config: map[string]any{
+				"codes": []any{float64(200), float64(201), float64(404)},
 			},
 			key:      "codes",
 			expected: []int{200, 201, 404},
 		},
 		{
-			name: "[]interface{} mixed types",
-			config: map[string]interface{}{
-				"codes": []interface{}{float64(200), 201, float64(404)},
+			name: "[]any mixed types",
+			config: map[string]any{
+				"codes": []any{float64(200), 201, float64(404)},
 			},
 			key:      "codes",
 			expected: []int{200, 201, 404},
 		},
 		{
 			name: "wrong type",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"codes": "not an array",
 			},
 			key:      "codes",

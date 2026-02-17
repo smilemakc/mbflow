@@ -84,6 +84,6 @@ var errMigrationsNotAvailable = fmt.Errorf("migrations not available in SDK stan
 
 // getMigrator returns an error since migrations are not supported in SDK standalone mode.
 // For migration support, use pkg/server.Server directly.
-func (m *MigrationAPI) getMigrator() (interface{}, error) {
+func (m *MigrationAPI) getMigrator() (any, error) {
 	return nil, errMigrationsNotAvailable
 }

@@ -11,8 +11,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/builder"
+	"github.com/smilemakc/mbflow/pkg/engine"
 	"github.com/smilemakc/mbflow/pkg/models"
 	"github.com/smilemakc/mbflow/pkg/sdk"
 	"github.com/smilemakc/mbflow/pkg/visualization"
@@ -181,7 +181,7 @@ Provide a clear explanation suitable for junior developers.`,
 	fmt.Println()
 
 	// Prepare execution input
-	input := map[string]interface{}{
+	input := map[string]any{
 		"code": sampleCode,
 	}
 
@@ -189,7 +189,7 @@ Provide a clear explanation suitable for junior developers.`,
 	opts := &engine.ExecutionOptions{
 		StrictMode:     false,
 		MaxParallelism: 1, // Execute nodes sequentially for clarity
-		Variables:      make(map[string]interface{}),
+		Variables:      make(map[string]any),
 	}
 
 	execution, err := client.ExecuteWorkflowStandalone(ctx, workflow, input, opts)

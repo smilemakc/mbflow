@@ -24,10 +24,10 @@ func TestSubWorkflow_Integration_ChildWithLoop(t *testing.T) {
 		ID:   "child-with-loop",
 		Name: "Child With Loop",
 		Nodes: []*models.Node{
-			{ID: "generate", Name: "Generate", Type: "llm", Config: map[string]interface{}{}},
-			{ID: "check", Name: "Check", Type: "conditional", Config: map[string]interface{}{}},
-			{ID: "fix", Name: "Fix", Type: "transform", Config: map[string]interface{}{}},
-			{ID: "finalize", Name: "Finalize", Type: "transform", Config: map[string]interface{}{}},
+			{ID: "generate", Name: "Generate", Type: "llm", Config: map[string]any{}},
+			{ID: "check", Name: "Check", Type: "conditional", Config: map[string]any{}},
+			{ID: "fix", Name: "Fix", Type: "transform", Config: map[string]any{}},
+			{ID: "finalize", Name: "Finalize", Type: "transform", Config: map[string]any{}},
 		},
 		Edges: []*models.Edge{
 			{ID: "e1", From: "generate", To: "check"},
@@ -39,24 +39,24 @@ func TestSubWorkflow_Integration_ChildWithLoop(t *testing.T) {
 
 	var genCount int64
 	mockLLM := &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			n := atomic.AddInt64(&genCount, 1)
-			return map[string]interface{}{"text": "generated", "attempt": n}, nil
+			return map[string]any{"text": "generated", "attempt": n}, nil
 		},
 	}
 
 	// Check passes on every 2nd call (odd=false, even=true)
 	var checkCount int64
 	mockCheck := &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
 			n := atomic.AddInt64(&checkCount, 1)
 			return n%2 == 0, nil
 		},
 	}
 
 	mockTransform := &executor.ExecutorFunc{
-		ExecuteFn: func(ctx context.Context, config map[string]interface{}, input interface{}) (interface{}, error) {
-			return map[string]interface{}{"result": "ok"}, nil
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{"result": "ok"}, nil
 		},
 	}
 
@@ -81,7 +81,7 @@ func TestSubWorkflow_Integration_ChildWithLoop(t *testing.T) {
 				ID:   "fanout",
 				Name: "Fan Out",
 				Type: "sub_workflow",
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"workflow_id":     "child-with-loop",
 					"for_each":        "input.cells",
 					"item_var":        "cell",
@@ -91,10 +91,10 @@ func TestSubWorkflow_Integration_ChildWithLoop(t *testing.T) {
 		},
 	}
 
-	input := map[string]interface{}{
-		"cells": []interface{}{
-			map[string]interface{}{"topic": "AI"},
-			map[string]interface{}{"topic": "Go"},
+	input := map[string]any{
+		"cells": []any{
+			map[string]any{"topic": "AI"},
+			map[string]any{"topic": "Go"},
 		},
 	}
 
@@ -109,12 +109,12 @@ func TestSubWorkflow_Integration_ChildWithLoop(t *testing.T) {
 		t.Fatal("expected fanout output")
 	}
 
-	outputMap, ok := output.(map[string]interface{})
+	outputMap, ok := output.(map[string]any)
 	if !ok {
 		t.Fatalf("expected map output, got: %T", output)
 	}
 
-	summary, ok := outputMap["summary"].(map[string]interface{})
+	summary, ok := outputMap["summary"].(map[string]any)
 	if !ok {
 		t.Fatal("expected summary in output")
 	}

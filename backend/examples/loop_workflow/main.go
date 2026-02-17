@@ -108,7 +108,7 @@ func main() {
 	}
 
 	// Execute
-	input := map[string]interface{}{
+	input := map[string]any{
 		"topic":         "How Microservices Architecture Improves Scalability",
 		"style":         "technical blog post",
 		"target_length": 800,
