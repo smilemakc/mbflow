@@ -3,6 +3,7 @@ package mbflow
 import (
 	"errors"
 
+	"github.com/smilemakc/mbflow/sdk/go/internal/grpcclient"
 	"github.com/smilemakc/mbflow/sdk/go/internal/httpclient"
 )
 
@@ -32,7 +33,19 @@ func NewClient(opts ...Option) (*Client, error) {
 
 	switch {
 	case options.grpcAddress != "":
-		return nil, errors.New("gRPC transport not yet implemented")
+		grpcTr, err := grpcclient.New(options.grpcAddress, &grpcclient.Config{
+			SystemKey:  options.systemKey,
+			OnBehalfOf: options.onBehalfOf,
+			Insecure:   options.grpcInsecure,
+		})
+		if err != nil {
+			return nil, err
+		}
+		c.transport = grpcTr
+		c.workflows = newGRPCWorkflowClient(grpcTr)
+		c.executions = newGRPCExecutionClient(grpcTr)
+		c.triggers = newGRPCTriggerClient(grpcTr)
+		c.credentials = newGRPCCredentialClient(grpcTr)
 	case options.httpEndpoint != "":
 		tr := httpclient.New(options.httpEndpoint, &httpclient.Config{
 			APIKey:     options.apiKey,
