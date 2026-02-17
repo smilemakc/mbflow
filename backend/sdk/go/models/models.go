@@ -1,2 +1,2 @@
-// Package models contains the public domain types for the MBFlow SDK.
+// Package models contains the public domain types for the MBFlow Go SDK.
 package models
