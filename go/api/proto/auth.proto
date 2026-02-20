@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "github.com/smilemakc/mbflow/go/api/proto/authpb";
+
+// AuthService provides authentication and authorization operations for microservices
+service AuthService {
+  // ValidateToken validates a JWT access token and returns user information
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+
+  // GetUser retrieves user information by ID
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  // CheckPermission checks if a user has specific permission
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+
+  // IntrospectToken provides detailed information about a token
+  rpc IntrospectToken(IntrospectTokenRequest) returns (IntrospectTokenResponse);
+
+  // Login authenticates a user with email/phone and password
+  rpc Login(LoginRequest) returns (LoginResponse);
+
+  // CreateUser creates a new user account
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+}
+
+// ValidateTokenRequest contains the token to validate
+message ValidateTokenRequest {
+  string access_token = 1;
+}
+
+// ValidateTokenResponse contains validation result and user info
+message ValidateTokenResponse {
+  bool valid = 1;
+  string user_id = 2;
+  string email = 3;
+  string username = 4;
+  repeated string roles = 5;
+  string error_message = 6;
+  int64 expires_at = 7; // Unix timestamp
+  bool is_active = 8;
+}
+
+// GetUserRequest contains the user ID to retrieve
+message GetUserRequest {
+  string user_id = 1;
+}
+
+// User represents user information
+message User {
+  string id = 1;
+  string email = 2;
+  string username = 3;
+  string full_name = 4;
+  string profile_picture_url = 5;
+  repeated string roles = 6;
+  bool email_verified = 7;
+  bool is_active = 8;
+  int64 created_at = 9;
+  int64 updated_at = 10;
+}
+
+// GetUserResponse contains user information
+message GetUserResponse {
+  User user = 1;
+  string error_message = 2;
+}
+
+// CheckPermissionRequest contains permission check data
+message CheckPermissionRequest {
+  string user_id = 1;
+  string resource = 2; // e.g., "users", "products", "orders"
+  string action = 3;   // e.g., "read", "write", "delete"
+}
+
+// CheckPermissionResponse contains permission check result
+message CheckPermissionResponse {
+  bool allowed = 1;
+  string role = 2;
+  string error_message = 3;
+}
+
+// IntrospectTokenRequest contains the token to introspect
+message IntrospectTokenRequest {
+  string access_token = 1;
+}
+
+// IntrospectTokenResponse contains detailed token information
+message IntrospectTokenResponse {
+  bool active = 1;
+  string user_id = 2;
+  string email = 3;
+  string username = 4;
+  string role = 5;
+  int64 issued_at = 6;
+  int64 expires_at = 7;
+  int64 not_before = 8;
+  string subject = 9;
+  bool blacklisted = 10;
+  string error_message = 11;
+}
+
+// LoginRequest contains credentials for authentication
+message LoginRequest {
+  string email = 1;    // Email for login (optional if phone provided)
+  string phone = 2;    // Phone for login (optional if email provided)
+  string password = 3; // User password
+}
+
+// LoginResponse contains the result of login
+message LoginResponse {
+  User user = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  int64 expires_in = 4;
+  string error_message = 5;
+}
+
+// CreateUserRequest contains data for creating a new user
+message CreateUserRequest {
+  string email = 1;
+  string phone = 2;
+  string username = 3;
+  string password = 4;
+  string full_name = 5;
+  string account_type = 6; // "human" or "service"
+}
+
+// CreateUserResponse contains the result of user creation
+message CreateUserResponse {
+  User user = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  int64 expires_in = 4;
+  string error_message = 5;
+}
