@@ -62,10 +62,24 @@ func (s *ServiceAPIServer) GetExecution(ctx context.Context, req *pb.GetExecutio
 }
 
 func (s *ServiceAPIServer) StartExecution(ctx context.Context, req *pb.StartExecutionRequest) (*pb.ExecutionResponse, error) {
-	execution, err := s.ops.StartExecution(ctx, serviceapi.StartExecutionParams{
+	params := serviceapi.StartExecutionParams{
 		WorkflowID: req.WorkflowId,
 		Input:      structToMap(req.Input),
-	})
+	}
+
+	if len(req.Webhooks) > 0 {
+		params.Webhooks = make([]serviceapi.WebhookSubscription, len(req.Webhooks))
+		for i, wh := range req.Webhooks {
+			params.Webhooks[i] = serviceapi.WebhookSubscription{
+				URL:     wh.Url,
+				Events:  wh.Events,
+				Headers: wh.Headers,
+				NodeIDs: wh.NodeIds,
+			}
+		}
+	}
+
+	execution, err := s.ops.StartExecution(ctx, params)
 	if err != nil {
 		return nil, mapError(err)
 	}

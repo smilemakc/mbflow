@@ -99,3 +99,79 @@ func (f *EventTypeFilter) ShouldNotify(event Event) bool {
 	}
 	return f.allowedTypes[event.Type]
 }
+
+// ExecutionIDFilter filters events by execution ID
+type ExecutionIDFilter struct {
+	executionID string
+}
+
+// NewExecutionIDFilter creates a filter that only passes events for a specific execution
+func NewExecutionIDFilter(executionID string) EventFilter {
+	return &ExecutionIDFilter{executionID: executionID}
+}
+
+// ShouldNotify returns true if the event belongs to the target execution
+func (f *ExecutionIDFilter) ShouldNotify(event Event) bool {
+	return event.ExecutionID == f.executionID
+}
+
+// NodeIDFilter filters events by node IDs.
+// Non-node events (execution.*, wave.*) always pass through.
+type NodeIDFilter struct {
+	allowedNodeIDs map[string]bool
+}
+
+// NewNodeIDFilter creates a filter for specific node IDs.
+// Returns nil if no IDs provided (nil filter = all events).
+func NewNodeIDFilter(nodeIDs ...string) EventFilter {
+	if len(nodeIDs) == 0 {
+		return nil
+	}
+	m := make(map[string]bool, len(nodeIDs))
+	for _, id := range nodeIDs {
+		m[id] = true
+	}
+	return &NodeIDFilter{allowedNodeIDs: m}
+}
+
+// ShouldNotify returns true for non-node events or events matching allowed node IDs
+func (f *NodeIDFilter) ShouldNotify(event Event) bool {
+	if event.NodeID == nil {
+		return true // Non-node events always pass
+	}
+	return f.allowedNodeIDs[*event.NodeID]
+}
+
+// CompoundEventFilter combines multiple filters with AND logic.
+// All sub-filters must pass for the event to be notified.
+type CompoundEventFilter struct {
+	filters []EventFilter
+}
+
+// NewCompoundEventFilter creates a filter that requires all sub-filters to pass.
+// Nil filters are ignored. Returns nil if no valid filters remain.
+func NewCompoundEventFilter(filters ...EventFilter) EventFilter {
+	nonNil := make([]EventFilter, 0, len(filters))
+	for _, f := range filters {
+		if f != nil {
+			nonNil = append(nonNil, f)
+		}
+	}
+	if len(nonNil) == 0 {
+		return nil
+	}
+	if len(nonNil) == 1 {
+		return nonNil[0]
+	}
+	return &CompoundEventFilter{filters: nonNil}
+}
+
+// ShouldNotify returns true only if all sub-filters pass
+func (f *CompoundEventFilter) ShouldNotify(event Event) bool {
+	for _, filter := range f.filters {
+		if !filter.ShouldNotify(event) {
+			return false
+		}
+	}
+	return true
+}

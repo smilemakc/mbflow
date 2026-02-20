@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEventTypeFilter_ShouldNotify(t *testing.T) {
@@ -254,4 +255,256 @@ func TestEventTypeFilter_ThreadSafety(t *testing.T) {
 	}
 
 	// No assertion needed - test passes if no race condition detected
+}
+
+// --- ExecutionIDFilter tests ---
+
+func TestExecutionIDFilter_Matches(t *testing.T) {
+	// Arrange
+	filter := NewExecutionIDFilter("exec-abc-123")
+	event := Event{
+		Type:        EventTypeExecutionStarted,
+		ExecutionID: "exec-abc-123",
+	}
+
+	// Act
+	result := filter.ShouldNotify(event)
+
+	// Assert
+	assert.True(t, result, "Event with matching execution ID should pass the filter")
+}
+
+func TestExecutionIDFilter_Rejects(t *testing.T) {
+	// Arrange
+	filter := NewExecutionIDFilter("exec-abc-123")
+	event := Event{
+		Type:        EventTypeExecutionStarted,
+		ExecutionID: "exec-other-999",
+	}
+
+	// Act
+	result := filter.ShouldNotify(event)
+
+	// Assert
+	assert.False(t, result, "Event with different execution ID should be blocked by the filter")
+}
+
+// --- NodeIDFilter tests ---
+
+func TestNodeIDFilter_MatchesNodeEvent(t *testing.T) {
+	// Arrange
+	nodeID := "node-42"
+	filter := NewNodeIDFilter("node-42", "node-99")
+	event := Event{
+		Type:   EventTypeNodeCompleted,
+		NodeID: &nodeID,
+	}
+
+	// Act
+	result := filter.ShouldNotify(event)
+
+	// Assert
+	assert.True(t, result, "Node event with an allowed node ID should pass the filter")
+}
+
+func TestNodeIDFilter_RejectsNodeEvent(t *testing.T) {
+	// Arrange
+	nodeID := "node-disallowed"
+	filter := NewNodeIDFilter("node-42", "node-99")
+	event := Event{
+		Type:   EventTypeNodeCompleted,
+		NodeID: &nodeID,
+	}
+
+	// Act
+	result := filter.ShouldNotify(event)
+
+	// Assert
+	assert.False(t, result, "Node event with a disallowed node ID should be blocked")
+}
+
+func TestNodeIDFilter_PassesNonNodeEvent(t *testing.T) {
+	// Arrange – filter is scoped to specific nodes, but execution and wave events have no NodeID
+	filter := NewNodeIDFilter("node-42")
+
+	nonNodeEvents := []Event{
+		{Type: EventTypeExecutionStarted, ExecutionID: "exec-1"},
+		{Type: EventTypeExecutionCompleted, ExecutionID: "exec-1"},
+		{Type: EventTypeExecutionFailed, ExecutionID: "exec-1"},
+		{Type: EventTypeWaveStarted, ExecutionID: "exec-1"},
+		{Type: EventTypeWaveCompleted, ExecutionID: "exec-1"},
+	}
+
+	for _, event := range nonNodeEvents {
+		t.Run(string(event.Type), func(t *testing.T) {
+			// Act
+			result := filter.ShouldNotify(event)
+
+			// Assert
+			assert.True(t, result, "Non-node event (NodeID == nil) should always pass the NodeIDFilter")
+		})
+	}
+}
+
+func TestNodeIDFilter_EmptyReturnsNil(t *testing.T) {
+	// Act
+	filter := NewNodeIDFilter()
+
+	// Assert
+	assert.Nil(t, filter, "NewNodeIDFilter with no arguments should return nil")
+}
+
+// --- CompoundEventFilter tests ---
+
+func TestCompoundEventFilter_AllPass(t *testing.T) {
+	// Arrange
+	nodeID := "node-1"
+	execFilter := NewExecutionIDFilter("exec-x")
+	typeFilter := NewEventTypeFilter(EventTypeNodeCompleted)
+	nodeFilter := NewNodeIDFilter("node-1")
+
+	compound := NewCompoundEventFilter(execFilter, typeFilter, nodeFilter)
+
+	event := Event{
+		Type:        EventTypeNodeCompleted,
+		ExecutionID: "exec-x",
+		NodeID:      &nodeID,
+	}
+
+	// Act
+	result := compound.ShouldNotify(event)
+
+	// Assert
+	assert.True(t, result, "Compound filter should pass when all sub-filters pass")
+}
+
+func TestCompoundEventFilter_OneFails(t *testing.T) {
+	// Arrange – typeFilter will reject the event
+	nodeID := "node-1"
+	execFilter := NewExecutionIDFilter("exec-x")
+	typeFilter := NewEventTypeFilter(EventTypeNodeCompleted) // NodeFailed will not match
+	nodeFilter := NewNodeIDFilter("node-1")
+
+	compound := NewCompoundEventFilter(execFilter, typeFilter, nodeFilter)
+
+	event := Event{
+		Type:        EventTypeNodeFailed, // does not match typeFilter
+		ExecutionID: "exec-x",
+		NodeID:      &nodeID,
+	}
+
+	// Act
+	result := compound.ShouldNotify(event)
+
+	// Assert
+	assert.False(t, result, "Compound filter should block when any sub-filter fails")
+}
+
+func TestCompoundEventFilter_Empty(t *testing.T) {
+	// Act
+	filter := NewCompoundEventFilter()
+
+	// Assert
+	assert.Nil(t, filter, "NewCompoundEventFilter with no arguments should return nil")
+}
+
+func TestCompoundEventFilter_SingleFilter(t *testing.T) {
+	// Arrange
+	inner := NewEventTypeFilter(EventTypeExecutionStarted)
+
+	// Act
+	result := NewCompoundEventFilter(inner)
+
+	// Assert – must be the same object, not wrapped in CompoundEventFilter
+	assert.Equal(t, inner, result, "Single-filter compound should return the filter directly without wrapping")
+	_, isCompound := result.(*CompoundEventFilter)
+	assert.False(t, isCompound, "Single-filter compound must not be a CompoundEventFilter wrapper")
+}
+
+func TestCompoundEventFilter_NilFiltersIgnored(t *testing.T) {
+	// Arrange – two nils around one real filter
+	real := NewEventTypeFilter(EventTypeExecutionStarted)
+
+	// Act
+	result := NewCompoundEventFilter(nil, real, nil)
+
+	// Assert – nils stripped; single surviving filter returned directly
+	assert.NotNil(t, result, "Nil filters should be ignored; result must not be nil")
+	assert.Equal(t, real, result, "Only the non-nil filter should survive stripping")
+}
+
+func TestCompoundEventFilter_RealWorldScenario(t *testing.T) {
+	// Combine ExecutionIDFilter + EventTypeFilter + NodeIDFilter to watch one specific
+	// node in one specific execution for completed events only.
+	nodeID := "node-transform-7"
+	otherNodeID := "node-other"
+
+	execFilter := NewExecutionIDFilter("exec-run-42")
+	typeFilter := NewEventTypeFilter(EventTypeNodeCompleted, EventTypeNodeFailed)
+	nodeFilter := NewNodeIDFilter("node-transform-7")
+
+	compound := NewCompoundEventFilter(execFilter, typeFilter, nodeFilter)
+	require.NotNil(t, compound)
+
+	tests := []struct {
+		name         string
+		event        Event
+		shouldNotify bool
+	}{
+		{
+			name: "matching execution, type and node – passes",
+			event: Event{
+				Type:        EventTypeNodeCompleted,
+				ExecutionID: "exec-run-42",
+				NodeID:      &nodeID,
+			},
+			shouldNotify: true,
+		},
+		{
+			name: "wrong execution ID – blocked",
+			event: Event{
+				Type:        EventTypeNodeCompleted,
+				ExecutionID: "exec-different",
+				NodeID:      &nodeID,
+			},
+			shouldNotify: false,
+		},
+		{
+			name: "wrong event type – blocked",
+			event: Event{
+				Type:        EventTypeNodeStarted, // not in typeFilter
+				ExecutionID: "exec-run-42",
+				NodeID:      &nodeID,
+			},
+			shouldNotify: false,
+		},
+		{
+			name: "wrong node ID – blocked",
+			event: Event{
+				Type:        EventTypeNodeCompleted,
+				ExecutionID: "exec-run-42",
+				NodeID:      &otherNodeID,
+			},
+			shouldNotify: false,
+		},
+		{
+			name: "node.failed for target node – passes",
+			event: Event{
+				Type:        EventTypeNodeFailed,
+				ExecutionID: "exec-run-42",
+				NodeID:      &nodeID,
+			},
+			shouldNotify: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Act
+			result := compound.ShouldNotify(tt.event)
+
+			// Assert
+			assert.Equal(t, tt.shouldNotify, result)
+		})
+	}
 }

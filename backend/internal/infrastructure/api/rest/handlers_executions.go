@@ -36,9 +36,15 @@ func NewExecutionHandlers(ops *serviceapi.Operations, log *logger.Logger) *Execu
 //	@Router			/workflows/{workflow_id}/execute [post]
 func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	var req struct {
-		WorkflowID string         `json:"workflow_id"`
+		WorkflowID string `json:"workflow_id"`
 		Input      map[string]any `json:"input"`
-		Async      bool           `json:"async"`
+		Async      bool   `json:"async"`
+		Webhooks   []struct {
+			URL     string            `json:"url"`
+			Events  []string          `json:"events,omitempty"`
+			Headers map[string]string `json:"headers,omitempty"`
+			NodeIDs []string          `json:"node_ids,omitempty"`
+		} `json:"webhooks,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
@@ -54,10 +60,24 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 		return
 	}
 
-	execution, err := h.ops.StartExecution(c.Request.Context(), serviceapi.StartExecutionParams{
+	params := serviceapi.StartExecutionParams{
 		WorkflowID: req.WorkflowID,
 		Input:      req.Input,
-	})
+	}
+
+	if len(req.Webhooks) > 0 {
+		params.Webhooks = make([]serviceapi.WebhookSubscription, len(req.Webhooks))
+		for i, wh := range req.Webhooks {
+			params.Webhooks[i] = serviceapi.WebhookSubscription{
+				URL:     wh.URL,
+				Events:  wh.Events,
+				Headers: wh.Headers,
+				NodeIDs: wh.NodeIDs,
+			}
+		}
+	}
+
+	execution, err := h.ops.StartExecution(c.Request.Context(), params)
 	if err != nil {
 		h.logger.Error("Failed to start workflow execution", "error", err, "workflow_id", req.WorkflowID, "request_id", GetRequestID(c))
 		respondAPIErrorWithRequestID(c, TranslateError(err))

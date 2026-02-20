@@ -539,6 +539,20 @@ func TestHTTPCallbackObserver_buildPayload(t *testing.T) {
 	})
 }
 
+func TestHTTPCallbackObserver_WithHTTPName(t *testing.T) {
+	// Arrange
+	customName := "my-custom-webhook-observer"
+
+	// Act
+	obs := NewHTTPCallbackObserver(
+		"http://example.com/webhook",
+		WithHTTPName(customName),
+	)
+
+	// Assert
+	assert.Equal(t, customName, obs.Name(), "WithHTTPName should override the default observer name")
+}
+
 func TestHTTPCallbackObserver_ContextCancellation(t *testing.T) {
 	// Server that delays response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

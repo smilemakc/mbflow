@@ -39,6 +39,13 @@ func WithHTTPHeaders(headers map[string]string) HTTPObserverOption {
 	}
 }
 
+// WithHTTPName sets a custom observer name (required for per-execution observers to ensure uniqueness)
+func WithHTTPName(name string) HTTPObserverOption {
+	return func(o *HTTPCallbackObserver) {
+		o.name = name
+	}
+}
+
 // WithHTTPFilter sets event filter
 func WithHTTPFilter(filter EventFilter) HTTPObserverOption {
 	return func(o *HTTPCallbackObserver) {

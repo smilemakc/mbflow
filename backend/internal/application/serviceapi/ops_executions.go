@@ -3,6 +3,7 @@ package serviceapi
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -103,14 +104,42 @@ func (o *Operations) GetExecution(ctx context.Context, params GetExecutionParams
 	return execution, nil
 }
 
+// WebhookSubscription defines a per-execution webhook callback configuration.
+type WebhookSubscription struct {
+	URL     string            `json:"url"`
+	Events  []string          `json:"events,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+	NodeIDs []string          `json:"node_ids,omitempty"`
+}
+
 // StartExecutionParams contains parameters for starting an execution.
 type StartExecutionParams struct {
 	WorkflowID string
 	Input      map[string]any
+	Webhooks   []WebhookSubscription
 }
 
 func (o *Operations) StartExecution(ctx context.Context, params StartExecutionParams) (*models.Execution, error) {
+	// Validate webhook subscriptions
+	if err := validateWebhooks(params.Webhooks); err != nil {
+		return nil, err
+	}
+
 	opts := engine.DefaultExecutionOptions()
+
+	// Convert serviceapi webhooks to engine webhooks
+	if len(params.Webhooks) > 0 {
+		opts.Webhooks = make([]engine.WebhookSubscription, len(params.Webhooks))
+		for i, wh := range params.Webhooks {
+			opts.Webhooks[i] = engine.WebhookSubscription{
+				URL:     wh.URL,
+				Events:  wh.Events,
+				Headers: wh.Headers,
+				NodeIDs: wh.NodeIDs,
+			}
+		}
+	}
+
 	execution, err := o.ExecutionMgr.ExecuteAsync(ctx, params.WorkflowID, params.Input, opts)
 	if err != nil {
 		o.Logger.Error("Failed to start workflow execution", "error", err, "workflow_id", params.WorkflowID)
@@ -119,6 +148,41 @@ func (o *Operations) StartExecution(ctx context.Context, params StartExecutionPa
 
 	o.Logger.Info("Workflow execution started via service API", "execution_id", execution.ID, "workflow_id", params.WorkflowID)
 	return execution, nil
+}
+
+// validateWebhooks validates webhook subscription configurations.
+func validateWebhooks(webhooks []WebhookSubscription) error {
+	for i, wh := range webhooks {
+		if wh.URL == "" {
+			return NewValidationError("INVALID_WEBHOOK", fmt.Sprintf("webhook[%d]: url is required", i))
+		}
+		if _, err := url.Parse(wh.URL); err != nil {
+			return NewValidationError("INVALID_WEBHOOK", fmt.Sprintf("webhook[%d]: invalid url: %s", i, err))
+		}
+		for _, evt := range wh.Events {
+			if !isValidEventType(evt) {
+				return NewValidationError("INVALID_WEBHOOK", fmt.Sprintf("webhook[%d]: unknown event type %q", i, evt))
+			}
+		}
+	}
+	return nil
+}
+
+var validEventTypes = map[string]bool{
+	"execution.started":   true,
+	"execution.completed": true,
+	"execution.failed":    true,
+	"wave.started":        true,
+	"wave.completed":      true,
+	"node.started":        true,
+	"node.completed":      true,
+	"node.failed":         true,
+	"node.skipped":        true,
+	"node.retrying":       true,
+}
+
+func isValidEventType(s string) bool {
+	return validEventTypes[s]
 }
 
 // CancelExecutionParams contains parameters for cancelling an execution.

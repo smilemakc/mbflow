@@ -6,6 +6,14 @@ import (
 	"github.com/smilemakc/mbflow/internal/application/observer"
 )
 
+// WebhookSubscription defines a per-execution webhook callback configuration.
+type WebhookSubscription struct {
+	URL     string            // Endpoint URL to send events to
+	Events  []string          // Event type filter (empty = all events)
+	Headers map[string]string // Custom HTTP headers (e.g. Authorization)
+	NodeIDs []string          // Optional node ID filter (empty = all nodes)
+}
+
 // ExecutionOptions configures execution behavior for the internal engine.
 type ExecutionOptions struct {
 	StrictMode       bool
@@ -14,6 +22,7 @@ type ExecutionOptions struct {
 	NodeTimeout      time.Duration
 	Variables        map[string]any
 	ObserverManager  *observer.ObserverManager
+	Webhooks         []WebhookSubscription // Per-execution webhook subscriptions
 	RetryPolicy      *RetryPolicy
 	ContinueOnError  bool
 	MaxOutputSize    int64
