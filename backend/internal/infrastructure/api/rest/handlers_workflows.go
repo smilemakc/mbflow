@@ -192,10 +192,14 @@ type NodeRequest struct {
 }
 
 type EdgeRequest struct {
-	ID        string         `json:"id" binding:"required,max=100"`
-	From      string         `json:"from" binding:"required,max=100"`
-	To        string         `json:"to" binding:"required,max=100"`
-	Condition map[string]any `json:"condition,omitempty"`
+	ID           string         `json:"id" binding:"required,max=100"`
+	From         string         `json:"from" binding:"required,max=100"`
+	To           string         `json:"to" binding:"required,max=100"`
+	SourceHandle string         `json:"source_handle,omitempty"`
+	Condition    map[string]any `json:"condition,omitempty"`
+	Loop         *struct {
+		MaxIterations int `json:"max_iterations"`
+	} `json:"loop,omitempty"`
 }
 
 // HandleUpdateWorkflow updates an existing workflow
@@ -256,12 +260,17 @@ func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 	if req.Edges != nil {
 		params.Edges = make([]serviceapi.EdgeInput, len(req.Edges))
 		for i, e := range req.Edges {
-			params.Edges[i] = serviceapi.EdgeInput{
-				ID:        e.ID,
-				From:      e.From,
-				To:        e.To,
-				Condition: e.Condition,
+			ei := serviceapi.EdgeInput{
+				ID:           e.ID,
+				From:         e.From,
+				To:           e.To,
+				SourceHandle: e.SourceHandle,
+				Condition:    e.Condition,
 			}
+			if e.Loop != nil {
+				ei.Loop = &serviceapi.LoopInput{MaxIterations: e.Loop.MaxIterations}
+			}
+			params.Edges[i] = ei
 		}
 	}
 

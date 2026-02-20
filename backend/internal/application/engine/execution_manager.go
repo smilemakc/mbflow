@@ -37,7 +37,8 @@ func NewExecutionManager(
 	nodeExecutor := pkgengine.NewNodeExecutor(executorManager)
 	notifier := NewObserverNotifier(observerManager)
 	condEvaluator := pkgengine.NewExprConditionEvaluator()
-	dagExecutor := pkgengine.NewDAGExecutor(nodeExecutor, condEvaluator, notifier, pkgengine.NewNilWorkflowLoader())
+	workflowLoader := NewRepositoryWorkflowLoader(workflowRepo)
+	dagExecutor := pkgengine.NewDAGExecutor(nodeExecutor, condEvaluator, notifier, workflowLoader)
 
 	return &ExecutionManager{
 		executorManager: executorManager,
@@ -61,6 +62,10 @@ func (em *ExecutionManager) Execute(
 	if err != nil {
 		return nil, err
 	}
+
+	// Register per-execution webhook observers
+	webhookNames := em.registerWebhookObservers(execution.ID, opts)
+	defer em.unregisterWebhookObservers(webhookNames)
 
 	em.notifyExecutionStarted(ctx, execution)
 
@@ -86,6 +91,10 @@ func (em *ExecutionManager) ExecuteAsync(
 	}
 
 	go func() {
+		// Register per-execution webhook observers
+		webhookNames := em.registerWebhookObservers(execution.ID, opts)
+		defer em.unregisterWebhookObservers(webhookNames)
+
 		bgCtx := context.Background()
 
 		execution.Status = models.ExecutionStatusRunning
@@ -393,6 +402,63 @@ func (em *ExecutionManager) loadAndValidateResources(
 	}
 
 	return resourceMap, nil
+}
+
+// registerWebhookObservers creates and registers per-execution webhook observers.
+// Returns observer names for cleanup via unregisterWebhookObservers.
+func (em *ExecutionManager) registerWebhookObservers(executionID string, opts *ExecutionOptions) []string {
+	if em.observerManager == nil || opts == nil || len(opts.Webhooks) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(opts.Webhooks))
+	for i, wh := range opts.Webhooks {
+		name := fmt.Sprintf("webhook_%s_%d", executionID, i)
+
+		// Build compound filter: execution ID + event types + node IDs
+		filters := []observer.EventFilter{
+			observer.NewExecutionIDFilter(executionID),
+		}
+
+		if len(wh.Events) > 0 {
+			eventTypes := make([]observer.EventType, len(wh.Events))
+			for j, e := range wh.Events {
+				eventTypes[j] = observer.EventType(e)
+			}
+			filters = append(filters, observer.NewEventTypeFilter(eventTypes...))
+		}
+
+		if len(wh.NodeIDs) > 0 {
+			filters = append(filters, observer.NewNodeIDFilter(wh.NodeIDs...))
+		}
+
+		compoundFilter := observer.NewCompoundEventFilter(filters...)
+
+		obs := observer.NewHTTPCallbackObserver(
+			wh.URL,
+			observer.WithHTTPName(name),
+			observer.WithHTTPHeaders(wh.Headers),
+			observer.WithHTTPFilter(compoundFilter),
+		)
+
+		if err := em.observerManager.Register(obs); err != nil {
+			// Log but don't fail the execution for a bad webhook
+			continue
+		}
+		names = append(names, name)
+	}
+
+	return names
+}
+
+// unregisterWebhookObservers removes per-execution observers from the global ObserverManager.
+func (em *ExecutionManager) unregisterWebhookObservers(names []string) {
+	if em.observerManager == nil || len(names) == 0 {
+		return
+	}
+	for _, name := range names {
+		_ = em.observerManager.Unregister(name)
+	}
 }
 
 // convertToPkgOptions converts internal ExecutionOptions to pkg ExecutionOptions.

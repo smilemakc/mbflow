@@ -79,11 +79,17 @@ func toProtoEdge(e *models.Edge) *pb.Edge {
 		return nil
 	}
 	pe := &pb.Edge{
-		Id:   e.ID,
-		From: e.From,
-		To:   e.To,
+		Id:           e.ID,
+		From:         e.From,
+		To:           e.To,
+		SourceHandle: e.SourceHandle,
 	}
-	pe.Condition = mapToStruct(e.Metadata)
+	if e.Condition != "" {
+		pe.Condition, _ = structpb.NewStruct(map[string]any{"expression": e.Condition})
+	}
+	if e.Loop != nil {
+		pe.Loop = &pb.EdgeLoopConfig{MaxIterations: int32(e.Loop.MaxIterations)}
+	}
 	return pe
 }
 

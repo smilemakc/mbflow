@@ -54,10 +54,11 @@ func TestToProtoWorkflow_ShouldConvertFullWorkflow_WhenAllFieldsPopulated(t *tes
 		},
 		Edges: []*models.Edge{
 			{
-				ID:       "edge-1",
-				From:     "node-1",
-				To:       "node-2",
-				Metadata: map[string]any{"label": "next"},
+				ID:        "edge-1",
+				From:      "node-1",
+				To:        "node-2",
+				Condition: "next",
+				Metadata:  map[string]any{"label": "next"},
 			},
 		},
 	}
@@ -107,7 +108,7 @@ func TestToProtoWorkflow_ShouldConvertFullWorkflow_WhenAllFieldsPopulated(t *tes
 	assert.Equal(t, "node-1", result.Edges[0].From)
 	assert.Equal(t, "node-2", result.Edges[0].To)
 	require.NotNil(t, result.Edges[0].Condition)
-	assert.Equal(t, "next", result.Edges[0].Condition.AsMap()["label"])
+	assert.Equal(t, "next", result.Edges[0].Condition.AsMap()["expression"])
 }
 
 func TestToProtoWorkflow_ShouldHandleNilFields_WhenOptionalFieldsAreNil(t *testing.T) {

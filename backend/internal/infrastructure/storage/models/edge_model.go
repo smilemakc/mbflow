@@ -14,9 +14,11 @@ type EdgeModel struct {
 	ID         uuid.UUID `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"-"`
 	EdgeID     string    `bun:"edge_id,notnull" json:"id" validate:"required,max=100"`
 	WorkflowID uuid.UUID `bun:"workflow_id,notnull,type:uuid" json:"workflow_id" validate:"required"`
-	FromNodeID string    `bun:"from_node_id,notnull" json:"from" validate:"required,max=100"`
-	ToNodeID   string    `bun:"to_node_id,notnull" json:"to" validate:"required,max=100"`
-	Condition  JSONBMap  `bun:"condition,type:jsonb" json:"condition,omitempty"`
+	FromNodeID   string    `bun:"from_node_id,notnull" json:"from" validate:"required,max=100"`
+	ToNodeID     string    `bun:"to_node_id,notnull" json:"to" validate:"required,max=100"`
+	SourceHandle string    `bun:"source_handle" json:"source_handle,omitempty"`
+	Condition    JSONBMap  `bun:"condition,type:jsonb" json:"condition,omitempty"`
+	Loop         JSONBMap  `bun:"loop,type:jsonb" json:"loop,omitempty"`
 	CreatedAt  time.Time `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
 	UpdatedAt  time.Time `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 

@@ -110,12 +110,17 @@ func (s *ServiceAPIServer) UpdateWorkflow(ctx context.Context, req *pb.UpdateWor
 	if req.Edges != nil {
 		edges = make([]serviceapi.EdgeInput, len(req.Edges))
 		for i, e := range req.Edges {
-			edges[i] = serviceapi.EdgeInput{
-				ID:        e.Id,
-				From:      e.From,
-				To:        e.To,
-				Condition: structToMap(e.Condition),
+			ei := serviceapi.EdgeInput{
+				ID:           e.Id,
+				From:         e.From,
+				To:           e.To,
+				SourceHandle: e.SourceHandle,
+				Condition:    structToMap(e.Condition),
 			}
+			if e.Loop != nil {
+				ei.Loop = &serviceapi.LoopInput{MaxIterations: int(e.Loop.MaxIterations)}
+			}
+			edges[i] = ei
 		}
 	}
 

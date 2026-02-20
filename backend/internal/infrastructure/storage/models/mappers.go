@@ -235,6 +235,21 @@ func AuditLogModelsToDomain(models []*AuditLogModel) []*pkgmodels.AuditLog {
 	return result
 }
 
+// parseJSONInt converts a JSON numeric value to int.
+// Handles float64 (the standard JSON unmarshal type) and int (in-memory map values).
+// Returns 0 if the value is nil or not a recognized numeric type.
+func parseJSONInt(v any) int {
+	switch n := v.(type) {
+	case float64:
+		return int(n)
+	case int:
+		return n
+	case int64:
+		return int(n)
+	}
+	return 0
+}
+
 // WorkflowToStorage converts a domain workflow to a storage workflow model
 // This is used for both Create and Update operations
 func WorkflowToStorage(w *pkgmodels.Workflow, workflowID uuid.UUID) *WorkflowModel {
@@ -293,17 +308,23 @@ func NodeToStorage(n *pkgmodels.Node, workflowID uuid.UUID) *NodeModel {
 func EdgeToStorage(e *pkgmodels.Edge, workflowID uuid.UUID) *EdgeModel {
 	var condition JSONBMap
 	if e.Condition != "" {
-		// Store condition as a simple map for now
 		condition = JSONBMap{"expression": e.Condition}
+	}
+
+	var loop JSONBMap
+	if e.Loop != nil {
+		loop = JSONBMap{"max_iterations": e.Loop.MaxIterations}
 	}
 
 	return &EdgeModel{
 		// ID will be set by Repository (preserved on update, new on create)
-		EdgeID:     e.ID,
-		WorkflowID: workflowID,
-		FromNodeID: e.From,
-		ToNodeID:   e.To,
-		Condition:  condition,
+		EdgeID:       e.ID,
+		WorkflowID:   workflowID,
+		FromNodeID:   e.From,
+		ToNodeID:     e.To,
+		SourceHandle: e.SourceHandle,
+		Condition:    condition,
+		Loop:         loop,
 	}
 }
 
@@ -399,15 +420,20 @@ func EdgeFromStorage(se *EdgeModel) *pkgmodels.Edge {
 		}
 	}
 
-	var metadata map[string]any
-	// EdgeModel doesn't have metadata yet, but we're ready for it
+	var loop *pkgmodels.LoopConfig
+	if se.Loop != nil {
+		if maxIter := parseJSONInt(se.Loop["max_iterations"]); maxIter > 0 {
+			loop = &pkgmodels.LoopConfig{MaxIterations: maxIter}
+		}
+	}
 
 	return &pkgmodels.Edge{
-		ID:        se.EdgeID,     // Use logical ID
-		From:      se.FromNodeID, // Use logical ID
-		To:        se.ToNodeID,   // Use logical ID
-		Condition: condition,
-		Metadata:  metadata,
+		ID:           se.EdgeID,
+		From:         se.FromNodeID,
+		To:           se.ToNodeID,
+		SourceHandle: se.SourceHandle,
+		Condition:    condition,
+		Loop:         loop,
 	}
 }
 
@@ -542,14 +568,21 @@ func EdgeModelToDomain(em *EdgeModel) *pkgmodels.Edge {
 	}
 
 	edge := &pkgmodels.Edge{
-		ID:   em.EdgeID,
-		From: em.FromNodeID,
-		To:   em.ToNodeID,
+		ID:           em.EdgeID,
+		From:         em.FromNodeID,
+		To:           em.ToNodeID,
+		SourceHandle: em.SourceHandle,
 	}
 
 	if em.Condition != nil {
 		if expr, ok := em.Condition["expression"].(string); ok {
 			edge.Condition = expr
+		}
+	}
+
+	if em.Loop != nil {
+		if maxIter := parseJSONInt(em.Loop["max_iterations"]); maxIter > 0 {
+			edge.Loop = &pkgmodels.LoopConfig{MaxIterations: maxIter}
 		}
 	}
 

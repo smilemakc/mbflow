@@ -81,11 +81,15 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	var req struct {
-		ID        string         `json:"id" binding:"required"`
-		From      string         `json:"from" binding:"required"`
-		To        string         `json:"to" binding:"required"`
-		Condition string         `json:"condition,omitempty"`
-		Metadata  map[string]any `json:"metadata,omitempty"`
+		ID           string `json:"id" binding:"required"`
+		From         string `json:"from" binding:"required"`
+		To           string `json:"to" binding:"required"`
+		SourceHandle string `json:"source_handle,omitempty"`
+		Condition    string `json:"condition,omitempty"`
+		Loop         *struct {
+			MaxIterations int `json:"max_iterations"`
+		} `json:"loop,omitempty"`
+		Metadata map[string]any `json:"metadata,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
@@ -94,6 +98,18 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 
 	if req.From == req.To {
 		respondError(c, http.StatusBadRequest, "self-loop edges are not allowed")
+		return
+	}
+
+	// Validate: loop edges must not have conditions
+	if req.Loop != nil && req.Condition != "" {
+		respondError(c, http.StatusBadRequest, "loop edges must not have conditions")
+		return
+	}
+
+	// Validate loop config
+	if req.Loop != nil && req.Loop.MaxIterations <= 0 {
+		respondError(c, http.StatusBadRequest, "loop max_iterations must be > 0")
 		return
 	}
 
@@ -143,26 +159,37 @@ func (h *EdgeHandlers) HandleAddEdge(c *gin.Context) {
 	}
 
 	// Check if adding this edge would create a cycle
-	if detectCycle(existingEdges, req.From, req.To) {
-		respondError(c, http.StatusBadRequest, "adding this edge creates a cycle in the workflow")
-		return
+	// Skip cycle detection for loop edges — they are intentional back-edges
+	if req.Loop == nil {
+		if detectCycle(existingEdges, req.From, req.To) {
+			respondError(c, http.StatusBadRequest, "adding this edge creates a cycle in the workflow")
+			return
+		}
 	}
 
 	// Create edge model
 	edgeModel := &storagemodels.EdgeModel{
-		ID:         uuid.New(),
-		EdgeID:     req.ID,
-		WorkflowID: workflowUUID,
-		FromNodeID: req.From,
-		ToNodeID:   req.To,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		ID:           uuid.New(),
+		EdgeID:       req.ID,
+		WorkflowID:   workflowUUID,
+		FromNodeID:   req.From,
+		ToNodeID:     req.To,
+		SourceHandle: req.SourceHandle,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
 	// Set condition if provided
 	if req.Condition != "" {
 		edgeModel.Condition = storagemodels.JSONBMap{
 			"expression": req.Condition,
+		}
+	}
+
+	// Set loop config if provided
+	if req.Loop != nil {
+		edgeModel.Loop = storagemodels.JSONBMap{
+			"max_iterations": req.Loop.MaxIterations,
 		}
 	}
 
@@ -306,10 +333,14 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	}
 
 	var req struct {
-		From      string         `json:"from,omitempty"`
-		To        string         `json:"to,omitempty"`
-		Condition string         `json:"condition,omitempty"`
-		Metadata  map[string]any `json:"metadata,omitempty"`
+		From         string  `json:"from,omitempty"`
+		To           string  `json:"to,omitempty"`
+		SourceHandle *string `json:"source_handle,omitempty"`
+		Condition    string  `json:"condition,omitempty"`
+		Loop         *struct {
+			MaxIterations int `json:"max_iterations"`
+		} `json:"loop,omitempty"`
+		Metadata map[string]any `json:"metadata,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
@@ -400,6 +431,22 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	if req.Condition != "" {
 		edgeModel.Condition = storagemodels.JSONBMap{
 			"expression": req.Condition,
+		}
+	}
+
+	// Update source handle
+	if req.SourceHandle != nil {
+		edgeModel.SourceHandle = *req.SourceHandle
+	}
+
+	// Update loop config
+	if req.Loop != nil {
+		if req.Loop.MaxIterations <= 0 {
+			respondError(c, http.StatusBadRequest, "loop max_iterations must be > 0")
+			return
+		}
+		edgeModel.Loop = storagemodels.JSONBMap{
+			"max_iterations": req.Loop.MaxIterations,
 		}
 	}
 

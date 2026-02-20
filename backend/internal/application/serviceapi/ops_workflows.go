@@ -126,10 +126,17 @@ type NodeInput struct {
 
 // EdgeInput represents an edge in an update request.
 type EdgeInput struct {
-	ID        string
-	From      string
-	To        string
-	Condition map[string]any
+	ID           string
+	From         string
+	To           string
+	SourceHandle string
+	Condition    map[string]any
+	Loop         *LoopInput
+}
+
+// LoopInput represents loop configuration for an edge.
+type LoopInput struct {
+	MaxIterations int
 }
 
 // ResourceInput represents a resource attachment in an update request.
@@ -196,13 +203,20 @@ func (o *Operations) UpdateWorkflow(ctx context.Context, params UpdateWorkflowPa
 	if params.Edges != nil {
 		workflowModel.Edges = make([]*storagemodels.EdgeModel, len(params.Edges))
 		for i, edgeReq := range params.Edges {
-			workflowModel.Edges[i] = &storagemodels.EdgeModel{
-				EdgeID:     edgeReq.ID,
-				WorkflowID: params.WorkflowID,
-				FromNodeID: edgeReq.From,
-				ToNodeID:   edgeReq.To,
-				Condition:  storagemodels.JSONBMap(edgeReq.Condition),
+			em := &storagemodels.EdgeModel{
+				EdgeID:       edgeReq.ID,
+				WorkflowID:   params.WorkflowID,
+				FromNodeID:   edgeReq.From,
+				ToNodeID:     edgeReq.To,
+				SourceHandle: edgeReq.SourceHandle,
+				Condition:    storagemodels.JSONBMap(edgeReq.Condition),
 			}
+			if edgeReq.Loop != nil {
+				em.Loop = storagemodels.JSONBMap{
+					"max_iterations": edgeReq.Loop.MaxIterations,
+				}
+			}
+			workflowModel.Edges[i] = em
 		}
 	}
 

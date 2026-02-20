@@ -117,6 +117,12 @@ message Edge {
   string from = 2;
   string to = 3;
   google.protobuf.Struct condition = 4;
+  string source_handle = 5;
+  EdgeLoopConfig loop = 6;
+}
+
+message EdgeLoopConfig {
+  int32 max_iterations = 1;
 }
 
 message ResourceAttachment {
@@ -147,9 +153,17 @@ message GetExecutionRequest {
   string id = 1;
 }
 
+message WebhookSubscription {
+  string url = 1;
+  repeated string events = 2;       // event type filter (empty = all events)
+  map<string, string> headers = 3;   // custom HTTP headers (e.g. Authorization)
+  repeated string node_ids = 4;      // optional node ID filter (empty = all nodes)
+}
+
 message StartExecutionRequest {
   string workflow_id = 1;
   google.protobuf.Struct input = 2;
+  repeated WebhookSubscription webhooks = 3;
 }
 
 message CancelExecutionRequest {

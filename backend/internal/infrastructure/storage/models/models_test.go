@@ -527,6 +527,151 @@ func TestEdgeFromStorage_WithoutCondition(t *testing.T) {
 	assert.Empty(t, domainEdge.Condition, "Condition should be empty when not provided")
 }
 
+func TestEdgeFromStorage_WithSourceHandle(t *testing.T) {
+	storageEdge := &EdgeModel{
+		EdgeID:       "edge1",
+		FromNodeID:   "check",
+		ToNodeID:     "fix",
+		SourceHandle: "false",
+	}
+
+	domainEdge := EdgeFromStorage(storageEdge)
+
+	assert.Equal(t, "false", domainEdge.SourceHandle)
+	assert.Nil(t, domainEdge.Loop)
+}
+
+func TestEdgeFromStorage_WithLoop(t *testing.T) {
+	storageEdge := &EdgeModel{
+		EdgeID:     "loop1",
+		FromNodeID: "fix",
+		ToNodeID:   "check",
+		Loop:       JSONBMap{"max_iterations": float64(3)},
+	}
+
+	domainEdge := EdgeFromStorage(storageEdge)
+
+	require.NotNil(t, domainEdge.Loop, "Loop should not be nil")
+	assert.Equal(t, 3, domainEdge.Loop.MaxIterations)
+	assert.Empty(t, domainEdge.Condition, "Loop edges should not have conditions")
+}
+
+func TestEdgeFromStorage_WithNilLoop(t *testing.T) {
+	storageEdge := &EdgeModel{
+		EdgeID:     "edge1",
+		FromNodeID: "node1",
+		ToNodeID:   "node2",
+	}
+
+	domainEdge := EdgeFromStorage(storageEdge)
+
+	assert.Nil(t, domainEdge.Loop, "Loop should be nil when not provided")
+}
+
+func TestEdgeToStorage_WithLoopAndSourceHandle(t *testing.T) {
+	workflowID := uuid.New()
+	domainEdge := &models.Edge{
+		ID:           "loop1",
+		From:         "fix",
+		To:           "check",
+		SourceHandle: "",
+		Loop:         &models.LoopConfig{MaxIterations: 5},
+	}
+
+	storageEdge := EdgeToStorage(domainEdge, workflowID)
+
+	assert.Equal(t, "loop1", storageEdge.EdgeID)
+	assert.Equal(t, workflowID, storageEdge.WorkflowID)
+	assert.Equal(t, "fix", storageEdge.FromNodeID)
+	assert.Equal(t, "check", storageEdge.ToNodeID)
+	require.NotNil(t, storageEdge.Loop)
+	assert.Equal(t, 5, storageEdge.Loop["max_iterations"])
+}
+
+func TestEdgeToStorage_WithSourceHandle(t *testing.T) {
+	workflowID := uuid.New()
+	domainEdge := &models.Edge{
+		ID:           "cond1",
+		From:         "check",
+		To:           "ok",
+		SourceHandle: "true",
+	}
+
+	storageEdge := EdgeToStorage(domainEdge, workflowID)
+
+	assert.Equal(t, "true", storageEdge.SourceHandle)
+	assert.Nil(t, storageEdge.Loop)
+}
+
+func TestEdgeModelToDomain_WithLoop(t *testing.T) {
+	em := &EdgeModel{
+		EdgeID:     "loop1",
+		FromNodeID: "fix",
+		ToNodeID:   "gen",
+		Loop:       JSONBMap{"max_iterations": float64(2)},
+	}
+
+	edge := EdgeModelToDomain(em)
+
+	require.NotNil(t, edge)
+	require.NotNil(t, edge.Loop)
+	assert.Equal(t, 2, edge.Loop.MaxIterations)
+}
+
+func TestEdgeModelToDomain_WithSourceHandle(t *testing.T) {
+	em := &EdgeModel{
+		EdgeID:       "cond1",
+		FromNodeID:   "check",
+		ToNodeID:     "fix",
+		SourceHandle: "false",
+	}
+
+	edge := EdgeModelToDomain(em)
+
+	require.NotNil(t, edge)
+	assert.Equal(t, "false", edge.SourceHandle)
+}
+
+func TestEdgeRoundTrip_LoopAndSourceHandle(t *testing.T) {
+	workflowID := uuid.New()
+	original := &models.Edge{
+		ID:           "loop1",
+		From:         "regen",
+		To:           "gen",
+		SourceHandle: "",
+		Loop:         &models.LoopConfig{MaxIterations: 3},
+	}
+
+	// Domain → Storage
+	storageEdge := EdgeToStorage(original, workflowID)
+
+	// Storage → Domain (via EdgeFromStorage)
+	restored := EdgeFromStorage(storageEdge)
+
+	assert.Equal(t, original.ID, restored.ID)
+	assert.Equal(t, original.From, restored.From)
+	assert.Equal(t, original.To, restored.To)
+	require.NotNil(t, restored.Loop)
+	assert.Equal(t, original.Loop.MaxIterations, restored.Loop.MaxIterations)
+}
+
+func TestEdgeRoundTrip_SourceHandle(t *testing.T) {
+	workflowID := uuid.New()
+	original := &models.Edge{
+		ID:           "cond1",
+		From:         "check",
+		To:           "ok",
+		SourceHandle: "true",
+		Condition:    "",
+	}
+
+	storageEdge := EdgeToStorage(original, workflowID)
+	restored := EdgeFromStorage(storageEdge)
+
+	assert.Equal(t, "true", restored.SourceHandle)
+	assert.Nil(t, restored.Loop)
+}
+
 // Test ExecutionModel Helper Methods
 
 func TestExecutionModel_StatusCheckers(t *testing.T) {
