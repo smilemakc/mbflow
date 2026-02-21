@@ -259,8 +259,8 @@ func Load() (*Config, error) {
 			SystemUserID:       getEnv("MBFLOW_SERVICE_API_SYSTEM_USER_ID", "00000000-0000-0000-0000-000000000000"),
 		},
 		GRPCServiceAPI: GRPCServiceAPIConfig{
-			Enabled: getEnvAsBool("GRPC_SERVICE_API_ENABLED", false),
-			Address: getEnv("GRPC_SERVICE_API_ADDRESS", ":50051"),
+			Enabled: getEnvAsBool("MBFLOW_GRPC_SERVICE_API_ENABLED", false),
+			Address: getEnv("MBFLOW_GRPC_SERVICE_API_ADDRESS", ":50051"),
 		},
 		Tracing: TracingConfig{
 			Enabled:     getEnvAsBool("OTEL_ENABLED", false),

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/smilemakc/mbflow/go/internal/application/auth"
+	"github.com/smilemakc/mbflow/go/internal/application/systemkey"
 	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
@@ -34,6 +35,7 @@ COMMANDS:
     workflow list         List all workflows
     user create           Create user (local or via auth-gateway)
     admin create          Create admin user (requires DATABASE_URL)
+    system-key create     Generate a new system key (requires DATABASE_URL)
     version               Show version information
     help                  Show this help message
 
@@ -61,6 +63,13 @@ ADMIN CREATE OPTIONS:
     -username <name>      Admin username (required)
     -password <pass>      Admin password (will prompt if not provided)
     -full-name <name>     Admin full name (optional)
+
+SYSTEM-KEY CREATE OPTIONS:
+    -name <name>          Key name (required)
+    -description <desc>   Key description (optional)
+    -service <name>       Service name (default: cli)
+    -created-by <email>   Creator email (default: first admin user)
+    -expires <days>       Expiration in days (optional, 0 = no expiration)
 
 CONNECTION OPTIONS:
     -endpoint <url>       MBFlow server endpoint (default: http://localhost:8585)
@@ -94,6 +103,12 @@ EXAMPLES:
 
     # Create admin user with password
     mbflow-cli admin create -email admin@example.com -username admin -password SecurePass123!
+
+    # Generate a system key for Service API
+    mbflow-cli system-key create -name "my-service-key" -service "backend"
+
+    # Generate a system key with 90-day expiration
+    mbflow-cli system-key create -name "temp-key" -expires 90
 
 ENVIRONMENT VARIABLES:
     MBFLOW_ENDPOINT       Server endpoint (overridden by -endpoint)
@@ -158,6 +173,21 @@ func main() {
 			handleAdminCreate(os.Args[3:])
 		default:
 			fmt.Fprintf(os.Stderr, "Error: unknown admin subcommand: %s\n", subcommand)
+			os.Exit(1)
+		}
+
+	case "system-key":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "Error: system-key command requires a subcommand (create)")
+			fmt.Fprint(os.Stderr, usage)
+			os.Exit(1)
+		}
+		subcommand := os.Args[2]
+		switch subcommand {
+		case "create":
+			handleSystemKeyCreate(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "Error: unknown system-key subcommand: %s\n", subcommand)
 			os.Exit(1)
 		}
 
@@ -453,6 +483,100 @@ func handleAdminCreate(args []string) {
 		fmt.Printf("  Name:     %s\n", user.FullName)
 	}
 	fmt.Printf("  Admin:    true\n")
+}
+
+func handleSystemKeyCreate(args []string) {
+	fs := flag.NewFlagSet("system-key create", flag.ExitOnError)
+	name := fs.String("name", "", "Key name (required)")
+	description := fs.String("description", "", "Key description")
+	serviceName := fs.String("service", "cli", "Service name")
+	createdByEmail := fs.String("created-by", "", "Creator email (default: first admin user)")
+	expires := fs.Int("expires", 0, "Expiration in days (0 = no expiration)")
+
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
+		os.Exit(1)
+	}
+
+	if *name == "" {
+		fmt.Fprintln(os.Stderr, "Error: -name is required")
+		os.Exit(1)
+	}
+
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		fmt.Fprintln(os.Stderr, "Error: DATABASE_URL environment variable is required")
+		fmt.Fprintln(os.Stderr, "Example: DATABASE_URL=\"postgres://user:pass@localhost:5432/mbflow?sslmode=disable\"")
+		os.Exit(1)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dbConfig := storage.DefaultConfig()
+	dbConfig.DSN = databaseURL
+
+	db, err := storage.NewDB(dbConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer storage.Close(db)
+
+	// Resolve creator user ID
+	userRepo := storage.NewUserRepository(db)
+	creatorID, err := resolveCreatorID(ctx, userRepo, *createdByEmail)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	repo := storage.NewSystemKeyRepo(db)
+	svc := systemkey.NewService(repo, systemkey.Config{})
+
+	var expiresInDays *int
+	if *expires > 0 {
+		expiresInDays = expires
+	}
+
+	result, err := svc.CreateKey(ctx, *name, *description, *serviceName, creatorID, expiresInDays)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create system key: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("System key created successfully!")
+	fmt.Printf("  ID:      %s\n", result.Key.ID)
+	fmt.Printf("  Name:    %s\n", result.Key.Name)
+	fmt.Printf("  Service: %s\n", result.Key.ServiceName)
+	if result.Key.ExpiresAt != nil {
+		fmt.Printf("  Expires: %s\n", result.Key.ExpiresAt.Format(time.RFC3339))
+	}
+	fmt.Println()
+	fmt.Println("  Plain key (save it now, it will not be shown again):")
+	fmt.Printf("  %s\n", result.PlainKey)
+}
+
+func resolveCreatorID(ctx context.Context, userRepo *storage.UserRepository, email string) (uuid.UUID, error) {
+	if email != "" {
+		user, err := userRepo.FindByEmail(ctx, email)
+		if err != nil || user == nil {
+			return uuid.Nil, fmt.Errorf("user with email '%s' not found", email)
+		}
+		return user.ID, nil
+	}
+
+	// Fallback: find first admin user
+	users, err := userRepo.FindAll(ctx, 100, 0)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to query users: %w", err)
+	}
+	for _, u := range users {
+		if u.IsAdmin {
+			return u.ID, nil
+		}
+	}
+	return uuid.Nil, fmt.Errorf("no admin user found; create one first with 'admin create' or specify -created-by")
 }
 
 func handleUserCreate(args []string) {
