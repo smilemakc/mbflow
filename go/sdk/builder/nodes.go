@@ -44,7 +44,8 @@ func Prompt(p string) LLMOption        { return func(n *models.Node) { n.Config[
 func APIKey(k string) LLMOption        { return func(n *models.Node) { n.Config["api_key"] = k } }
 func Temperature(t float64) LLMOption  { return func(n *models.Node) { n.Config["temperature"] = t } }
 func MaxTokens(m int) LLMOption        { return func(n *models.Node) { n.Config["max_tokens"] = m } }
-func SystemPrompt(s string) LLMOption  { return func(n *models.Node) { n.Config["system_prompt"] = s } }
+func SystemPrompt(s string) LLMOption    { return func(n *models.Node) { n.Config["system_prompt"] = s } }
+func ResponseSchema(s string) LLMOption  { return func(n *models.Node) { n.Config["response_schema"] = s } }
 
 func (b *WorkflowBuilder) AddLLMNode(id, name string, opts ...LLMOption) *WorkflowBuilder {
 	nodeOpts := []NodeOption{func(n *models.Node) {
