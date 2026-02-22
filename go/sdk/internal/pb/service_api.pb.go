@@ -209,6 +209,9 @@ type CreateWorkflowRequest struct {
 	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	Variables     *structpb.Struct       `protobuf:"bytes,3,opt,name=variables,proto3" json:"variables,omitempty"`
 	Metadata      *structpb.Struct       `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Nodes         []*Node                `protobuf:"bytes,5,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Edges         []*Edge                `protobuf:"bytes,6,rep,name=edges,proto3" json:"edges,omitempty"`
+	Resources     []*ResourceAttachment  `protobuf:"bytes,7,rep,name=resources,proto3" json:"resources,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -267,6 +270,27 @@ func (x *CreateWorkflowRequest) GetVariables() *structpb.Struct {
 func (x *CreateWorkflowRequest) GetMetadata() *structpb.Struct {
 	if x != nil {
 		return x.Metadata
+	}
+	return nil
+}
+
+func (x *CreateWorkflowRequest) GetNodes() []*Node {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+func (x *CreateWorkflowRequest) GetEdges() []*Edge {
+	if x != nil {
+		return x.Edges
+	}
+	return nil
+}
+
+func (x *CreateWorkflowRequest) GetResources() []*ResourceAttachment {
+	if x != nil {
+		return x.Resources
 	}
 	return nil
 }
@@ -2960,12 +2984,15 @@ const file_service_api_proto_rawDesc = "" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\x04 \x01(\x05R\x06offset\"$\n" +
 	"\x12GetWorkflowRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xb9\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xc7\x02\n" +
 	"\x15CreateWorkflowRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x125\n" +
 	"\tvariables\x18\x03 \x01(\v2\x17.google.protobuf.StructR\tvariables\x123\n" +
-	"\bmetadata\x18\x04 \x01(\v2\x17.google.protobuf.StructR\bmetadata\"\xd7\x02\n" +
+	"\bmetadata\x18\x04 \x01(\v2\x17.google.protobuf.StructR\bmetadata\x12&\n" +
+	"\x05nodes\x18\x05 \x03(\v2\x10.serviceapi.NodeR\x05nodes\x12&\n" +
+	"\x05edges\x18\x06 \x03(\v2\x10.serviceapi.EdgeR\x05edges\x12<\n" +
+	"\tresources\x18\a \x03(\v2\x1e.serviceapi.ResourceAttachmentR\tresources\"\xd7\x02\n" +
 	"\x15UpdateWorkflowRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -3301,103 +3328,106 @@ var file_service_api_proto_depIdxs = []int32{
 	7,  // 0: serviceapi.ListWorkflowsResponse.workflows:type_name -> serviceapi.Workflow
 	44, // 1: serviceapi.CreateWorkflowRequest.variables:type_name -> google.protobuf.Struct
 	44, // 2: serviceapi.CreateWorkflowRequest.metadata:type_name -> google.protobuf.Struct
-	44, // 3: serviceapi.UpdateWorkflowRequest.variables:type_name -> google.protobuf.Struct
-	44, // 4: serviceapi.UpdateWorkflowRequest.metadata:type_name -> google.protobuf.Struct
-	8,  // 5: serviceapi.UpdateWorkflowRequest.nodes:type_name -> serviceapi.Node
-	9,  // 6: serviceapi.UpdateWorkflowRequest.edges:type_name -> serviceapi.Edge
-	11, // 7: serviceapi.UpdateWorkflowRequest.resources:type_name -> serviceapi.ResourceAttachment
-	7,  // 8: serviceapi.WorkflowResponse.workflow:type_name -> serviceapi.Workflow
-	44, // 9: serviceapi.Workflow.variables:type_name -> google.protobuf.Struct
-	44, // 10: serviceapi.Workflow.metadata:type_name -> google.protobuf.Struct
-	8,  // 11: serviceapi.Workflow.nodes:type_name -> serviceapi.Node
-	9,  // 12: serviceapi.Workflow.edges:type_name -> serviceapi.Edge
-	45, // 13: serviceapi.Workflow.created_at:type_name -> google.protobuf.Timestamp
-	45, // 14: serviceapi.Workflow.updated_at:type_name -> google.protobuf.Timestamp
-	44, // 15: serviceapi.Node.config:type_name -> google.protobuf.Struct
-	44, // 16: serviceapi.Node.position:type_name -> google.protobuf.Struct
-	44, // 17: serviceapi.Edge.condition:type_name -> google.protobuf.Struct
-	10, // 18: serviceapi.Edge.loop:type_name -> serviceapi.EdgeLoopConfig
-	20, // 19: serviceapi.ListExecutionsResponse.executions:type_name -> serviceapi.Execution
-	42, // 20: serviceapi.WebhookSubscription.headers:type_name -> serviceapi.WebhookSubscription.HeadersEntry
-	44, // 21: serviceapi.StartExecutionRequest.input:type_name -> google.protobuf.Struct
-	15, // 22: serviceapi.StartExecutionRequest.webhooks:type_name -> serviceapi.WebhookSubscription
-	20, // 23: serviceapi.ExecutionResponse.execution:type_name -> serviceapi.Execution
-	44, // 24: serviceapi.Execution.input:type_name -> google.protobuf.Struct
-	44, // 25: serviceapi.Execution.output:type_name -> google.protobuf.Struct
-	21, // 26: serviceapi.Execution.node_executions:type_name -> serviceapi.NodeExecution
-	45, // 27: serviceapi.Execution.started_at:type_name -> google.protobuf.Timestamp
-	45, // 28: serviceapi.Execution.completed_at:type_name -> google.protobuf.Timestamp
-	45, // 29: serviceapi.Execution.created_at:type_name -> google.protobuf.Timestamp
-	44, // 30: serviceapi.NodeExecution.input:type_name -> google.protobuf.Struct
-	44, // 31: serviceapi.NodeExecution.output:type_name -> google.protobuf.Struct
-	45, // 32: serviceapi.NodeExecution.started_at:type_name -> google.protobuf.Timestamp
-	45, // 33: serviceapi.NodeExecution.completed_at:type_name -> google.protobuf.Timestamp
-	29, // 34: serviceapi.ListTriggersResponse.triggers:type_name -> serviceapi.Trigger
-	44, // 35: serviceapi.CreateTriggerRequest.config:type_name -> google.protobuf.Struct
-	44, // 36: serviceapi.UpdateTriggerRequest.config:type_name -> google.protobuf.Struct
-	29, // 37: serviceapi.TriggerResponse.trigger:type_name -> serviceapi.Trigger
-	44, // 38: serviceapi.Trigger.config:type_name -> google.protobuf.Struct
-	45, // 39: serviceapi.Trigger.last_run:type_name -> google.protobuf.Timestamp
-	45, // 40: serviceapi.Trigger.created_at:type_name -> google.protobuf.Timestamp
-	45, // 41: serviceapi.Trigger.updated_at:type_name -> google.protobuf.Timestamp
-	37, // 42: serviceapi.ListCredentialsResponse.credentials:type_name -> serviceapi.Credential
-	43, // 43: serviceapi.CreateCredentialRequest.data:type_name -> serviceapi.CreateCredentialRequest.DataEntry
-	37, // 44: serviceapi.CredentialResponse.credential:type_name -> serviceapi.Credential
-	45, // 45: serviceapi.Credential.expires_at:type_name -> google.protobuf.Timestamp
-	45, // 46: serviceapi.Credential.last_used_at:type_name -> google.protobuf.Timestamp
-	45, // 47: serviceapi.Credential.created_at:type_name -> google.protobuf.Timestamp
-	45, // 48: serviceapi.Credential.updated_at:type_name -> google.protobuf.Timestamp
-	45, // 49: serviceapi.ListAuditLogRequest.date_from:type_name -> google.protobuf.Timestamp
-	45, // 50: serviceapi.ListAuditLogRequest.date_to:type_name -> google.protobuf.Timestamp
-	40, // 51: serviceapi.ListAuditLogResponse.audit_logs:type_name -> serviceapi.AuditLogEntry
-	45, // 52: serviceapi.AuditLogEntry.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 53: serviceapi.MBFlowServiceAPI.ListWorkflows:input_type -> serviceapi.ListWorkflowsRequest
-	2,  // 54: serviceapi.MBFlowServiceAPI.GetWorkflow:input_type -> serviceapi.GetWorkflowRequest
-	3,  // 55: serviceapi.MBFlowServiceAPI.CreateWorkflow:input_type -> serviceapi.CreateWorkflowRequest
-	4,  // 56: serviceapi.MBFlowServiceAPI.UpdateWorkflow:input_type -> serviceapi.UpdateWorkflowRequest
-	5,  // 57: serviceapi.MBFlowServiceAPI.DeleteWorkflow:input_type -> serviceapi.DeleteWorkflowRequest
-	12, // 58: serviceapi.MBFlowServiceAPI.ListExecutions:input_type -> serviceapi.ListExecutionsRequest
-	14, // 59: serviceapi.MBFlowServiceAPI.GetExecution:input_type -> serviceapi.GetExecutionRequest
-	16, // 60: serviceapi.MBFlowServiceAPI.StartExecution:input_type -> serviceapi.StartExecutionRequest
-	17, // 61: serviceapi.MBFlowServiceAPI.CancelExecution:input_type -> serviceapi.CancelExecutionRequest
-	18, // 62: serviceapi.MBFlowServiceAPI.RetryExecution:input_type -> serviceapi.RetryExecutionRequest
-	22, // 63: serviceapi.MBFlowServiceAPI.ListTriggers:input_type -> serviceapi.ListTriggersRequest
-	24, // 64: serviceapi.MBFlowServiceAPI.CreateTrigger:input_type -> serviceapi.CreateTriggerRequest
-	25, // 65: serviceapi.MBFlowServiceAPI.UpdateTrigger:input_type -> serviceapi.UpdateTriggerRequest
-	26, // 66: serviceapi.MBFlowServiceAPI.DeleteTrigger:input_type -> serviceapi.DeleteTriggerRequest
-	27, // 67: serviceapi.MBFlowServiceAPI.GetTrigger:input_type -> serviceapi.GetTriggerRequest
-	30, // 68: serviceapi.MBFlowServiceAPI.ListCredentials:input_type -> serviceapi.ListCredentialsRequest
-	32, // 69: serviceapi.MBFlowServiceAPI.CreateCredential:input_type -> serviceapi.CreateCredentialRequest
-	33, // 70: serviceapi.MBFlowServiceAPI.UpdateCredential:input_type -> serviceapi.UpdateCredentialRequest
-	34, // 71: serviceapi.MBFlowServiceAPI.DeleteCredential:input_type -> serviceapi.DeleteCredentialRequest
-	35, // 72: serviceapi.MBFlowServiceAPI.GetCredential:input_type -> serviceapi.GetCredentialRequest
-	38, // 73: serviceapi.MBFlowServiceAPI.ListAuditLog:input_type -> serviceapi.ListAuditLogRequest
-	1,  // 74: serviceapi.MBFlowServiceAPI.ListWorkflows:output_type -> serviceapi.ListWorkflowsResponse
-	6,  // 75: serviceapi.MBFlowServiceAPI.GetWorkflow:output_type -> serviceapi.WorkflowResponse
-	6,  // 76: serviceapi.MBFlowServiceAPI.CreateWorkflow:output_type -> serviceapi.WorkflowResponse
-	6,  // 77: serviceapi.MBFlowServiceAPI.UpdateWorkflow:output_type -> serviceapi.WorkflowResponse
-	41, // 78: serviceapi.MBFlowServiceAPI.DeleteWorkflow:output_type -> serviceapi.DeleteResponse
-	13, // 79: serviceapi.MBFlowServiceAPI.ListExecutions:output_type -> serviceapi.ListExecutionsResponse
-	19, // 80: serviceapi.MBFlowServiceAPI.GetExecution:output_type -> serviceapi.ExecutionResponse
-	19, // 81: serviceapi.MBFlowServiceAPI.StartExecution:output_type -> serviceapi.ExecutionResponse
-	19, // 82: serviceapi.MBFlowServiceAPI.CancelExecution:output_type -> serviceapi.ExecutionResponse
-	19, // 83: serviceapi.MBFlowServiceAPI.RetryExecution:output_type -> serviceapi.ExecutionResponse
-	23, // 84: serviceapi.MBFlowServiceAPI.ListTriggers:output_type -> serviceapi.ListTriggersResponse
-	28, // 85: serviceapi.MBFlowServiceAPI.CreateTrigger:output_type -> serviceapi.TriggerResponse
-	28, // 86: serviceapi.MBFlowServiceAPI.UpdateTrigger:output_type -> serviceapi.TriggerResponse
-	41, // 87: serviceapi.MBFlowServiceAPI.DeleteTrigger:output_type -> serviceapi.DeleteResponse
-	28, // 88: serviceapi.MBFlowServiceAPI.GetTrigger:output_type -> serviceapi.TriggerResponse
-	31, // 89: serviceapi.MBFlowServiceAPI.ListCredentials:output_type -> serviceapi.ListCredentialsResponse
-	36, // 90: serviceapi.MBFlowServiceAPI.CreateCredential:output_type -> serviceapi.CredentialResponse
-	36, // 91: serviceapi.MBFlowServiceAPI.UpdateCredential:output_type -> serviceapi.CredentialResponse
-	41, // 92: serviceapi.MBFlowServiceAPI.DeleteCredential:output_type -> serviceapi.DeleteResponse
-	36, // 93: serviceapi.MBFlowServiceAPI.GetCredential:output_type -> serviceapi.CredentialResponse
-	39, // 94: serviceapi.MBFlowServiceAPI.ListAuditLog:output_type -> serviceapi.ListAuditLogResponse
-	74, // [74:95] is the sub-list for method output_type
-	53, // [53:74] is the sub-list for method input_type
-	53, // [53:53] is the sub-list for extension type_name
-	53, // [53:53] is the sub-list for extension extendee
-	0,  // [0:53] is the sub-list for field type_name
+	8,  // 3: serviceapi.CreateWorkflowRequest.nodes:type_name -> serviceapi.Node
+	9,  // 4: serviceapi.CreateWorkflowRequest.edges:type_name -> serviceapi.Edge
+	11, // 5: serviceapi.CreateWorkflowRequest.resources:type_name -> serviceapi.ResourceAttachment
+	44, // 6: serviceapi.UpdateWorkflowRequest.variables:type_name -> google.protobuf.Struct
+	44, // 7: serviceapi.UpdateWorkflowRequest.metadata:type_name -> google.protobuf.Struct
+	8,  // 8: serviceapi.UpdateWorkflowRequest.nodes:type_name -> serviceapi.Node
+	9,  // 9: serviceapi.UpdateWorkflowRequest.edges:type_name -> serviceapi.Edge
+	11, // 10: serviceapi.UpdateWorkflowRequest.resources:type_name -> serviceapi.ResourceAttachment
+	7,  // 11: serviceapi.WorkflowResponse.workflow:type_name -> serviceapi.Workflow
+	44, // 12: serviceapi.Workflow.variables:type_name -> google.protobuf.Struct
+	44, // 13: serviceapi.Workflow.metadata:type_name -> google.protobuf.Struct
+	8,  // 14: serviceapi.Workflow.nodes:type_name -> serviceapi.Node
+	9,  // 15: serviceapi.Workflow.edges:type_name -> serviceapi.Edge
+	45, // 16: serviceapi.Workflow.created_at:type_name -> google.protobuf.Timestamp
+	45, // 17: serviceapi.Workflow.updated_at:type_name -> google.protobuf.Timestamp
+	44, // 18: serviceapi.Node.config:type_name -> google.protobuf.Struct
+	44, // 19: serviceapi.Node.position:type_name -> google.protobuf.Struct
+	44, // 20: serviceapi.Edge.condition:type_name -> google.protobuf.Struct
+	10, // 21: serviceapi.Edge.loop:type_name -> serviceapi.EdgeLoopConfig
+	20, // 22: serviceapi.ListExecutionsResponse.executions:type_name -> serviceapi.Execution
+	42, // 23: serviceapi.WebhookSubscription.headers:type_name -> serviceapi.WebhookSubscription.HeadersEntry
+	44, // 24: serviceapi.StartExecutionRequest.input:type_name -> google.protobuf.Struct
+	15, // 25: serviceapi.StartExecutionRequest.webhooks:type_name -> serviceapi.WebhookSubscription
+	20, // 26: serviceapi.ExecutionResponse.execution:type_name -> serviceapi.Execution
+	44, // 27: serviceapi.Execution.input:type_name -> google.protobuf.Struct
+	44, // 28: serviceapi.Execution.output:type_name -> google.protobuf.Struct
+	21, // 29: serviceapi.Execution.node_executions:type_name -> serviceapi.NodeExecution
+	45, // 30: serviceapi.Execution.started_at:type_name -> google.protobuf.Timestamp
+	45, // 31: serviceapi.Execution.completed_at:type_name -> google.protobuf.Timestamp
+	45, // 32: serviceapi.Execution.created_at:type_name -> google.protobuf.Timestamp
+	44, // 33: serviceapi.NodeExecution.input:type_name -> google.protobuf.Struct
+	44, // 34: serviceapi.NodeExecution.output:type_name -> google.protobuf.Struct
+	45, // 35: serviceapi.NodeExecution.started_at:type_name -> google.protobuf.Timestamp
+	45, // 36: serviceapi.NodeExecution.completed_at:type_name -> google.protobuf.Timestamp
+	29, // 37: serviceapi.ListTriggersResponse.triggers:type_name -> serviceapi.Trigger
+	44, // 38: serviceapi.CreateTriggerRequest.config:type_name -> google.protobuf.Struct
+	44, // 39: serviceapi.UpdateTriggerRequest.config:type_name -> google.protobuf.Struct
+	29, // 40: serviceapi.TriggerResponse.trigger:type_name -> serviceapi.Trigger
+	44, // 41: serviceapi.Trigger.config:type_name -> google.protobuf.Struct
+	45, // 42: serviceapi.Trigger.last_run:type_name -> google.protobuf.Timestamp
+	45, // 43: serviceapi.Trigger.created_at:type_name -> google.protobuf.Timestamp
+	45, // 44: serviceapi.Trigger.updated_at:type_name -> google.protobuf.Timestamp
+	37, // 45: serviceapi.ListCredentialsResponse.credentials:type_name -> serviceapi.Credential
+	43, // 46: serviceapi.CreateCredentialRequest.data:type_name -> serviceapi.CreateCredentialRequest.DataEntry
+	37, // 47: serviceapi.CredentialResponse.credential:type_name -> serviceapi.Credential
+	45, // 48: serviceapi.Credential.expires_at:type_name -> google.protobuf.Timestamp
+	45, // 49: serviceapi.Credential.last_used_at:type_name -> google.protobuf.Timestamp
+	45, // 50: serviceapi.Credential.created_at:type_name -> google.protobuf.Timestamp
+	45, // 51: serviceapi.Credential.updated_at:type_name -> google.protobuf.Timestamp
+	45, // 52: serviceapi.ListAuditLogRequest.date_from:type_name -> google.protobuf.Timestamp
+	45, // 53: serviceapi.ListAuditLogRequest.date_to:type_name -> google.protobuf.Timestamp
+	40, // 54: serviceapi.ListAuditLogResponse.audit_logs:type_name -> serviceapi.AuditLogEntry
+	45, // 55: serviceapi.AuditLogEntry.created_at:type_name -> google.protobuf.Timestamp
+	0,  // 56: serviceapi.MBFlowServiceAPI.ListWorkflows:input_type -> serviceapi.ListWorkflowsRequest
+	2,  // 57: serviceapi.MBFlowServiceAPI.GetWorkflow:input_type -> serviceapi.GetWorkflowRequest
+	3,  // 58: serviceapi.MBFlowServiceAPI.CreateWorkflow:input_type -> serviceapi.CreateWorkflowRequest
+	4,  // 59: serviceapi.MBFlowServiceAPI.UpdateWorkflow:input_type -> serviceapi.UpdateWorkflowRequest
+	5,  // 60: serviceapi.MBFlowServiceAPI.DeleteWorkflow:input_type -> serviceapi.DeleteWorkflowRequest
+	12, // 61: serviceapi.MBFlowServiceAPI.ListExecutions:input_type -> serviceapi.ListExecutionsRequest
+	14, // 62: serviceapi.MBFlowServiceAPI.GetExecution:input_type -> serviceapi.GetExecutionRequest
+	16, // 63: serviceapi.MBFlowServiceAPI.StartExecution:input_type -> serviceapi.StartExecutionRequest
+	17, // 64: serviceapi.MBFlowServiceAPI.CancelExecution:input_type -> serviceapi.CancelExecutionRequest
+	18, // 65: serviceapi.MBFlowServiceAPI.RetryExecution:input_type -> serviceapi.RetryExecutionRequest
+	22, // 66: serviceapi.MBFlowServiceAPI.ListTriggers:input_type -> serviceapi.ListTriggersRequest
+	24, // 67: serviceapi.MBFlowServiceAPI.CreateTrigger:input_type -> serviceapi.CreateTriggerRequest
+	25, // 68: serviceapi.MBFlowServiceAPI.UpdateTrigger:input_type -> serviceapi.UpdateTriggerRequest
+	26, // 69: serviceapi.MBFlowServiceAPI.DeleteTrigger:input_type -> serviceapi.DeleteTriggerRequest
+	27, // 70: serviceapi.MBFlowServiceAPI.GetTrigger:input_type -> serviceapi.GetTriggerRequest
+	30, // 71: serviceapi.MBFlowServiceAPI.ListCredentials:input_type -> serviceapi.ListCredentialsRequest
+	32, // 72: serviceapi.MBFlowServiceAPI.CreateCredential:input_type -> serviceapi.CreateCredentialRequest
+	33, // 73: serviceapi.MBFlowServiceAPI.UpdateCredential:input_type -> serviceapi.UpdateCredentialRequest
+	34, // 74: serviceapi.MBFlowServiceAPI.DeleteCredential:input_type -> serviceapi.DeleteCredentialRequest
+	35, // 75: serviceapi.MBFlowServiceAPI.GetCredential:input_type -> serviceapi.GetCredentialRequest
+	38, // 76: serviceapi.MBFlowServiceAPI.ListAuditLog:input_type -> serviceapi.ListAuditLogRequest
+	1,  // 77: serviceapi.MBFlowServiceAPI.ListWorkflows:output_type -> serviceapi.ListWorkflowsResponse
+	6,  // 78: serviceapi.MBFlowServiceAPI.GetWorkflow:output_type -> serviceapi.WorkflowResponse
+	6,  // 79: serviceapi.MBFlowServiceAPI.CreateWorkflow:output_type -> serviceapi.WorkflowResponse
+	6,  // 80: serviceapi.MBFlowServiceAPI.UpdateWorkflow:output_type -> serviceapi.WorkflowResponse
+	41, // 81: serviceapi.MBFlowServiceAPI.DeleteWorkflow:output_type -> serviceapi.DeleteResponse
+	13, // 82: serviceapi.MBFlowServiceAPI.ListExecutions:output_type -> serviceapi.ListExecutionsResponse
+	19, // 83: serviceapi.MBFlowServiceAPI.GetExecution:output_type -> serviceapi.ExecutionResponse
+	19, // 84: serviceapi.MBFlowServiceAPI.StartExecution:output_type -> serviceapi.ExecutionResponse
+	19, // 85: serviceapi.MBFlowServiceAPI.CancelExecution:output_type -> serviceapi.ExecutionResponse
+	19, // 86: serviceapi.MBFlowServiceAPI.RetryExecution:output_type -> serviceapi.ExecutionResponse
+	23, // 87: serviceapi.MBFlowServiceAPI.ListTriggers:output_type -> serviceapi.ListTriggersResponse
+	28, // 88: serviceapi.MBFlowServiceAPI.CreateTrigger:output_type -> serviceapi.TriggerResponse
+	28, // 89: serviceapi.MBFlowServiceAPI.UpdateTrigger:output_type -> serviceapi.TriggerResponse
+	41, // 90: serviceapi.MBFlowServiceAPI.DeleteTrigger:output_type -> serviceapi.DeleteResponse
+	28, // 91: serviceapi.MBFlowServiceAPI.GetTrigger:output_type -> serviceapi.TriggerResponse
+	31, // 92: serviceapi.MBFlowServiceAPI.ListCredentials:output_type -> serviceapi.ListCredentialsResponse
+	36, // 93: serviceapi.MBFlowServiceAPI.CreateCredential:output_type -> serviceapi.CredentialResponse
+	36, // 94: serviceapi.MBFlowServiceAPI.UpdateCredential:output_type -> serviceapi.CredentialResponse
+	41, // 95: serviceapi.MBFlowServiceAPI.DeleteCredential:output_type -> serviceapi.DeleteResponse
+	36, // 96: serviceapi.MBFlowServiceAPI.GetCredential:output_type -> serviceapi.CredentialResponse
+	39, // 97: serviceapi.MBFlowServiceAPI.ListAuditLog:output_type -> serviceapi.ListAuditLogResponse
+	77, // [77:98] is the sub-list for method output_type
+	56, // [56:77] is the sub-list for method input_type
+	56, // [56:56] is the sub-list for extension type_name
+	56, // [56:56] is the sub-list for extension extendee
+	0,  // [0:56] is the sub-list for field type_name
 }
 
 func init() { file_service_api_proto_init() }
