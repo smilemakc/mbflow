@@ -59,12 +59,19 @@ func newGRPCWorkflowClient(tr *grpcclient.Transport) WorkflowService {
 
 func (w *grpcWorkflowService) Create(ctx context.Context, wf *models.Workflow, opts ...RequestOption) (*models.Workflow, error) {
 	ctx = w.tr.AuthContext(ctx, resolveOnBehalfOf(opts))
-	resp, err := w.tr.Client().CreateWorkflow(ctx, &pb.CreateWorkflowRequest{
+	req := &pb.CreateWorkflowRequest{
 		Name:        wf.Name,
 		Description: wf.Description,
 		Variables:   grpcclient.MapToStruct(wf.Variables),
 		Metadata:    grpcclient.MapToStruct(wf.Metadata),
-	})
+	}
+	for _, n := range wf.Nodes {
+		req.Nodes = append(req.Nodes, grpcclient.NodeToProto(n))
+	}
+	for _, e := range wf.Edges {
+		req.Edges = append(req.Edges, grpcclient.EdgeToProto(e))
+	}
+	resp, err := w.tr.Client().CreateWorkflow(ctx, req)
 	if err != nil {
 		return nil, convertGRPCError(err)
 	}
