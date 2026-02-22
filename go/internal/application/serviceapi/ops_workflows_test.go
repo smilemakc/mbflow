@@ -267,6 +267,105 @@ func TestCreateWorkflow_ShouldNotSetCreatedBy_WhenNil(t *testing.T) {
 	assert.Nil(t, savedModel.CreatedBy)
 }
 
+func TestCreateWorkflow_ShouldPersistNodesAndEdges_WhenProvided(t *testing.T) {
+	wfRepo := new(mockWorkflowRepo)
+	ops := newTestOperations(wfRepo, nil, nil, nil, nil, nil, newMockExecutorManager("transform", "llm"))
+
+	var savedModel *storagemodels.WorkflowModel
+	wfRepo.On("Create", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			savedModel = args.Get(1).(*storagemodels.WorkflowModel)
+		}).
+		Return(nil)
+
+	result, err := ops.CreateWorkflow(context.Background(), CreateWorkflowParams{
+		Name: "Pipeline",
+		Nodes: []NodeInput{
+			{ID: "n1", Name: "Validate", Type: "transform", Config: map[string]any{"key": "val"}},
+			{ID: "n2", Name: "Generate", Type: "llm"},
+		},
+		Edges: []EdgeInput{
+			{ID: "e1", From: "n1", To: "n2"},
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, savedModel)
+	assert.Len(t, savedModel.Nodes, 2)
+	assert.Equal(t, "n1", savedModel.Nodes[0].NodeID)
+	assert.Equal(t, "n2", savedModel.Nodes[1].NodeID)
+	assert.Len(t, savedModel.Edges, 1)
+	assert.Equal(t, "e1", savedModel.Edges[0].EdgeID)
+	assert.Equal(t, "n1", savedModel.Edges[0].FromNodeID)
+	assert.Equal(t, "n2", savedModel.Edges[0].ToNodeID)
+}
+
+func TestCreateWorkflow_ShouldRejectInvalidNodes_WhenProvided(t *testing.T) {
+	ops := newTestOperations(nil, nil, nil, nil, nil, nil, newMockExecutorManager("http"))
+
+	result, err := ops.CreateWorkflow(context.Background(), CreateWorkflowParams{
+		Name: "Bad Pipeline",
+		Nodes: []NodeInput{
+			{ID: "", Name: "Missing ID", Type: "http"},
+		},
+	})
+
+	assert.Nil(t, result)
+	var opErr *OperationError
+	require.ErrorAs(t, err, &opErr)
+	assert.Equal(t, "NODE_VALIDATION_FAILED", opErr.Code)
+}
+
+func TestCreateWorkflow_ShouldRejectInvalidEdges_WhenProvided(t *testing.T) {
+	ops := newTestOperations(nil, nil, nil, nil, nil, nil, newMockExecutorManager("http"))
+
+	result, err := ops.CreateWorkflow(context.Background(), CreateWorkflowParams{
+		Name: "Bad Edges",
+		Nodes: []NodeInput{
+			{ID: "a", Name: "A", Type: "http"},
+		},
+		Edges: []EdgeInput{
+			{ID: "e1", From: "a", To: "a"},
+		},
+	})
+
+	assert.Nil(t, result)
+	var opErr *OperationError
+	require.ErrorAs(t, err, &opErr)
+	assert.Equal(t, "EDGE_VALIDATION_FAILED", opErr.Code)
+}
+
+func TestCreateWorkflow_ShouldPersistLoopConfig_WhenEdgeHasLoop(t *testing.T) {
+	wfRepo := new(mockWorkflowRepo)
+	ops := newTestOperations(wfRepo, nil, nil, nil, nil, nil, newMockExecutorManager("transform"))
+
+	var savedModel *storagemodels.WorkflowModel
+	wfRepo.On("Create", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			savedModel = args.Get(1).(*storagemodels.WorkflowModel)
+		}).
+		Return(nil)
+
+	_, err := ops.CreateWorkflow(context.Background(), CreateWorkflowParams{
+		Name: "Loop Pipeline",
+		Nodes: []NodeInput{
+			{ID: "n1", Name: "Step1", Type: "transform"},
+			{ID: "n2", Name: "Step2", Type: "transform"},
+		},
+		Edges: []EdgeInput{
+			{ID: "e1", From: "n1", To: "n2", SourceHandle: "error", Loop: &LoopInput{MaxIterations: 3}},
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, savedModel)
+	require.Len(t, savedModel.Edges, 1)
+	assert.Equal(t, "error", savedModel.Edges[0].SourceHandle)
+	assert.NotNil(t, savedModel.Edges[0].Loop)
+	assert.Equal(t, 3, savedModel.Edges[0].Loop["max_iterations"])
+}
+
 // --- UpdateWorkflow ---
 
 func TestUpdateWorkflow_ShouldReturnError_WhenWorkflowNotFound(t *testing.T) {
