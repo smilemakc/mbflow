@@ -482,8 +482,12 @@ func (o *Operations) validateNodes(nodes []NodeInput) error {
 		return nil
 	}
 
+	// Types that bypass executor validation:
+	// - "comment": UI-only annotation node, not executed
+	// - "sub_workflow": handled directly by the DAG engine (see dag_executor.go)
 	uiOnlyTypes := map[string]bool{
-		"comment": true,
+		"comment":      true,
+		"sub_workflow": true,
 	}
 
 	nodeIDs := make(map[string]bool)

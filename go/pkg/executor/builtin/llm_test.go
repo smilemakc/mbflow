@@ -386,7 +386,7 @@ func TestLLMExecutor_Execute_WithToolCalls(t *testing.T) {
 }
 
 func TestLLMExecutor_Execute_WithResponseFormat(t *testing.T) {
-	executor := NewLLMExecutor()
+	exec := NewLLMExecutor()
 
 	mockProvider := &MockLLMProvider{
 		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
@@ -410,7 +410,7 @@ func TestLLMExecutor_Execute_WithResponseFormat(t *testing.T) {
 		},
 	}
 
-	executor.RegisterProvider("mock", mockProvider)
+	exec.RegisterProvider("mock", mockProvider)
 
 	config := map[string]any{
 		"provider": "mock",
@@ -432,13 +432,142 @@ func TestLLMExecutor_Execute_WithResponseFormat(t *testing.T) {
 		},
 	}
 
-	result, err := executor.Execute(context.Background(), config, nil)
+	result, err := exec.Execute(context.Background(), config, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
 	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
-	assert.Equal(t, `{"name":"John","age":30}`, resultMap["content"])
+
+	// content should be a parsed object, not a string
+	contentMap, ok := resultMap["content"].(map[string]any)
+	require.True(t, ok, "content should be a parsed map when response_format is json_schema")
+	assert.Equal(t, "John", contentMap["name"])
+	assert.Equal(t, float64(30), contentMap["age"])
+
+	// content_raw should contain the original JSON string
+	assert.Equal(t, `{"name":"John","age":30}`, resultMap["content_raw"])
+}
+
+func TestLLMExecutor_Execute_WithResponseFormat_JsonObject(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			return &models.LLMResponse{
+				Content:      `{"digest":[{"theme":"Sustainable Practices","count":10}]}`,
+				ResponseID:   "resp-json-obj",
+				Model:        "gpt-4o",
+				FinishReason: "stop",
+				Usage:        models.LLMUsage{TotalTokens: 100},
+				CreatedAt:    time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	config := map[string]any{
+		"provider": "mock",
+		"model":    "gpt-4o",
+		"prompt":   "Summarize",
+		"response_format": map[string]any{
+			"type": "json_object",
+		},
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]any)
+	require.True(t, ok)
+
+	contentMap, ok := resultMap["content"].(map[string]any)
+	require.True(t, ok, "content should be parsed when response_format is json_object")
+
+	digest, ok := contentMap["digest"].([]any)
+	require.True(t, ok, "digest should be an array")
+	require.Len(t, digest, 1)
+
+	entry, ok := digest[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Sustainable Practices", entry["theme"])
+	assert.Equal(t, float64(10), entry["count"])
+}
+
+func TestLLMExecutor_Execute_WithoutResponseFormat_ContentStaysString(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			return &models.LLMResponse{
+				Content:      `{"looks":"like json but no format set"}`,
+				ResponseID:   "resp-text",
+				Model:        "gpt-4",
+				FinishReason: "stop",
+				Usage:        models.LLMUsage{TotalTokens: 20},
+				CreatedAt:    time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	config := map[string]any{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "Just chat",
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]any)
+	require.True(t, ok)
+
+	// Without response_format, content stays as a string even if it looks like JSON
+	_, isString := resultMap["content"].(string)
+	assert.True(t, isString, "content should remain a string when no response_format is set")
+
+	// content_raw should also be the same string
+	assert.Equal(t, resultMap["content"], resultMap["content_raw"])
+}
+
+func TestLLMExecutor_Execute_WithResponseFormat_TextType_ContentStaysString(t *testing.T) {
+	exec := NewLLMExecutor()
+
+	mockProvider := &MockLLMProvider{
+		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
+			return &models.LLMResponse{
+				Content:      "Plain text response",
+				ResponseID:   "resp-plain",
+				Model:        "gpt-4",
+				FinishReason: "stop",
+				Usage:        models.LLMUsage{TotalTokens: 10},
+				CreatedAt:    time.Now(),
+			}, nil
+		},
+	}
+
+	exec.RegisterProvider("mock", mockProvider)
+
+	config := map[string]any{
+		"provider": "mock",
+		"model":    "gpt-4",
+		"prompt":   "Say hello",
+		"response_format": map[string]any{
+			"type": "text",
+		},
+	}
+
+	result, err := exec.Execute(context.Background(), config, nil)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]any)
+	require.True(t, ok)
+
+	_, isString := resultMap["content"].(string)
+	assert.True(t, isString, "content should be string when response_format is text")
 }
 
 func TestLLMExecutor_Execute_WithMultimodal(t *testing.T) {

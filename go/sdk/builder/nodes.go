@@ -13,9 +13,9 @@ func HTTPTimeout(ms int) HTTPOption { return func(n *models.Node) { n.Config["ti
 
 func Header(key, value string) HTTPOption {
 	return func(n *models.Node) {
-		headers, ok := n.Config["headers"].(map[string]string)
+		headers, ok := n.Config["headers"].(map[string]any)
 		if !ok {
-			headers = make(map[string]string)
+			headers = make(map[string]any)
 		}
 		headers[key] = value
 		n.Config["headers"] = headers
@@ -38,14 +38,22 @@ func (b *WorkflowBuilder) AddHTTPNode(id, name string, opts ...HTTPOption) *Work
 
 type LLMOption func(*models.Node)
 
-func Provider(p string) LLMOption      { return func(n *models.Node) { n.Config["provider"] = p } }
-func Model(m string) LLMOption         { return func(n *models.Node) { n.Config["model"] = m } }
-func Prompt(p string) LLMOption        { return func(n *models.Node) { n.Config["prompt"] = p } }
-func APIKey(k string) LLMOption        { return func(n *models.Node) { n.Config["api_key"] = k } }
-func Temperature(t float64) LLMOption  { return func(n *models.Node) { n.Config["temperature"] = t } }
-func MaxTokens(m int) LLMOption        { return func(n *models.Node) { n.Config["max_tokens"] = m } }
-func SystemPrompt(s string) LLMOption    { return func(n *models.Node) { n.Config["system_prompt"] = s } }
-func ResponseSchema(s string) LLMOption  { return func(n *models.Node) { n.Config["response_schema"] = s } }
+func Provider(p string) LLMOption     { return func(n *models.Node) { n.Config["provider"] = p } }
+func Model(m string) LLMOption        { return func(n *models.Node) { n.Config["model"] = m } }
+func Prompt(p string) LLMOption       { return func(n *models.Node) { n.Config["prompt"] = p } }
+func APIKey(k string) LLMOption       { return func(n *models.Node) { n.Config["api_key"] = k } }
+func Temperature(t float64) LLMOption { return func(n *models.Node) { n.Config["temperature"] = t } }
+func MaxTokens(m int) LLMOption       { return func(n *models.Node) { n.Config["max_tokens"] = m } }
+func SystemPrompt(s string) LLMOption { return func(n *models.Node) { n.Config["system_prompt"] = s } }
+func ResponseSchema(s string) LLMOption {
+	return func(n *models.Node) { n.Config["response_schema"] = s }
+}
+
+func LLMJSONMode() LLMOption {
+	return func(n *models.Node) {
+		n.Config["response_format"] = map[string]any{"type": "json_object"}
+	}
+}
 
 func (b *WorkflowBuilder) AddLLMNode(id, name string, opts ...LLMOption) *WorkflowBuilder {
 	nodeOpts := []NodeOption{func(n *models.Node) {

@@ -119,7 +119,7 @@ func (e *LLMExecutor) Execute(ctx context.Context, config map[string]any, input 
 		if err != nil {
 			return nil, fmt.Errorf("auto mode tool calling failed: %w", err)
 		}
-		return e.responseToMap(response), nil
+		return e.responseToMap(response, req.ResponseFormat), nil
 	}
 
 	// Execute request (manual mode or no tool calling)
@@ -129,7 +129,7 @@ func (e *LLMExecutor) Execute(ctx context.Context, config map[string]any, input 
 	}
 
 	// Convert response to map for output
-	return e.responseToMap(response), nil
+	return e.responseToMap(response, req.ResponseFormat), nil
 }
 
 // Validate validates the LLM executor configuration.
@@ -530,9 +530,23 @@ func (e *LLMExecutor) getOrCreateProvider(req *models.LLMRequest) (LLMProvider, 
 }
 
 // responseToMap converts LLMResponse to a map for output.
-func (e *LLMExecutor) responseToMap(response *models.LLMResponse) map[string]any {
+// When responseFormat indicates JSON (json_object or json_schema), the content
+// string is parsed into a native Go object so downstream nodes can access fields
+// directly (e.g. {{input.content.field}}) instead of receiving JSON-as-string.
+func (e *LLMExecutor) responseToMap(response *models.LLMResponse, responseFormat *models.LLMResponseFormat) map[string]any {
+	var content any = response.Content
+
+	if responseFormat != nil && response.Content != "" &&
+		(responseFormat.Type == "json_object" || responseFormat.Type == "json_schema") {
+		var parsed any
+		if err := json.Unmarshal([]byte(response.Content), &parsed); err == nil {
+			content = parsed
+		}
+	}
+
 	result := map[string]any{
-		"content":       response.Content,
+		"content":       content,
+		"content_raw":   response.Content,
 		"response_id":   response.ResponseID,
 		"model":         response.Model,
 		"finish_reason": response.FinishReason,

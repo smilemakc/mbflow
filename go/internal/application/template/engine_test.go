@@ -1499,6 +1499,178 @@ func TestEngine_ResourceWithArrays(t *testing.T) {
 	}
 }
 
+func TestEngine_ResolveConfig_HTTPNodeWithCallbackTemplate(t *testing.T) {
+	ctx := NewVariableContext()
+
+	// Workflow variables ({{env.*}})
+	ctx.WorkflowVars["callback_base_url"] = "https://app.example.com"
+	ctx.WorkflowVars["callback_secret"] = "secret-token-xyz"
+	ctx.WorkflowVars["analytics"] = "analytics-config-id"
+	ctx.WorkflowVars["period_start"] = "2026-01-01"
+	ctx.WorkflowVars["period_end"] = "2026-01-31"
+	ctx.WorkflowVars["channel_ids"] = "ch1,ch2,ch3"
+	ctx.WorkflowVars["items_count"] = "50"
+	ctx.WorkflowVars["environment_id"] = "env-prod-001"
+	ctx.WorkflowVars["user_instructions"] = "Generate weekly digest"
+
+	// Input from parent node ({{input.*}}) — simulates output of d5_build_context node
+	ctx.InputVars["output"] = "Summarized knowledge context from previous node"
+
+	engine := NewEngineWithDefaults(ctx)
+
+	// Real HTTP node config matching the user's scenario
+	config := map[string]any{
+		"url": "{{env.callback_base_url}}/api/v1/mbflow/callbacks/prompt_builder",
+		"body": map[string]any{
+			"input": map[string]any{
+				"analytics":         "{{env.analytics}}",
+				"period_end":        "{{env.period_end}}",
+				"channel_ids":       "{{env.channel_ids}}",
+				"items_count":       "{{env.items_count}}",
+				"period_start":      "{{env.period_start}}",
+				"environment_id":    "{{env.environment_id}}",
+				"knowledge_digest":  "{{input.output}}",
+				"user_instructions": "{{env.user_instructions}}",
+			},
+			"config": map[string]any{
+				"builder": "grid_generator",
+			},
+		},
+		"method": "POST",
+		"headers": map[string]any{
+			"X-MBFlow-Secret": "{{env.callback_secret}}",
+		},
+	}
+
+	result, err := engine.ResolveConfig(config)
+	if err != nil {
+		t.Fatalf("ResolveConfig() error = %v", err)
+	}
+
+	// Verify URL
+	wantURL := "https://app.example.com/api/v1/mbflow/callbacks/prompt_builder"
+	if result["url"] != wantURL {
+		t.Errorf("url = %v, want %v", result["url"], wantURL)
+	}
+
+	// Verify method unchanged
+	if result["method"] != "POST" {
+		t.Errorf("method = %v, want POST", result["method"])
+	}
+
+	// Verify headers
+	headers, ok := result["headers"].(map[string]any)
+	if !ok {
+		t.Fatal("headers is not map[string]any")
+	}
+	if headers["X-MBFlow-Secret"] != "secret-token-xyz" {
+		t.Errorf("X-MBFlow-Secret = %v, want secret-token-xyz", headers["X-MBFlow-Secret"])
+	}
+
+	// Verify body
+	body, ok := result["body"].(map[string]any)
+	if !ok {
+		t.Fatal("body is not map[string]any")
+	}
+
+	bodyInput, ok := body["input"].(map[string]any)
+	if !ok {
+		t.Fatal("body.input is not map[string]any")
+	}
+
+	expectedInputFields := map[string]string{
+		"analytics":         "analytics-config-id",
+		"period_end":        "2026-01-31",
+		"channel_ids":       "ch1,ch2,ch3",
+		"items_count":       "50",
+		"period_start":      "2026-01-01",
+		"environment_id":    "env-prod-001",
+		"knowledge_digest":  "Summarized knowledge context from previous node",
+		"user_instructions": "Generate weekly digest",
+	}
+	for key, want := range expectedInputFields {
+		got, exists := bodyInput[key]
+		if !exists {
+			t.Errorf("body.input.%s missing", key)
+			continue
+		}
+		if got != want {
+			t.Errorf("body.input.%s = %v, want %v", key, got, want)
+		}
+	}
+
+	// Verify config section left unchanged (no templates)
+	bodyConfig, ok := body["config"].(map[string]any)
+	if !ok {
+		t.Fatal("body.config is not map[string]any")
+	}
+	if bodyConfig["builder"] != "grid_generator" {
+		t.Errorf("body.config.builder = %v, want grid_generator", bodyConfig["builder"])
+	}
+}
+
+// TestEngine_ResolveConfig_HTTPNodeWithNodesPrefix verifies that {{nodes.*}} prefix
+// is NOT supported — it resolves to empty string in non-strict mode.
+func TestEngine_ResolveConfig_HTTPNodeWithNodesPrefix(t *testing.T) {
+	ctx := NewVariableContext()
+	ctx.WorkflowVars["callback_base_url"] = "https://app.example.com"
+	ctx.WorkflowVars["callback_secret"] = "secret-token-xyz"
+
+	// Note: {{nodes.d5_build_context.output}} uses "nodes" prefix which is NOT supported.
+	// Only env, input, resource are valid prefixes.
+
+	t.Run("non-strict mode replaces unknown prefix with empty string", func(t *testing.T) {
+		engine := NewEngineWithDefaults(ctx) // non-strict by default
+
+		config := map[string]any{
+			"url":    "{{env.callback_base_url}}/api/v1/mbflow/callbacks/prompt_builder",
+			"method": "POST",
+			"body": map[string]any{
+				"input": map[string]any{
+					"knowledge_digest": "{{nodes.d5_build_context.output}}",
+				},
+			},
+			"headers": map[string]any{
+				"X-MBFlow-Secret": "{{env.callback_secret}}",
+			},
+		}
+
+		result, err := engine.ResolveConfig(config)
+		if err != nil {
+			t.Fatalf("ResolveConfig() error = %v", err)
+		}
+
+		body := result["body"].(map[string]any)
+		bodyInput := body["input"].(map[string]any)
+
+		// {{nodes.*}} resolves to empty string in non-strict mode
+		if bodyInput["knowledge_digest"] != "" {
+			t.Errorf("knowledge_digest = %v, want empty string (nodes prefix not supported)", bodyInput["knowledge_digest"])
+		}
+
+		// Other fields still resolve correctly
+		if result["url"] != "https://app.example.com/api/v1/mbflow/callbacks/prompt_builder" {
+			t.Errorf("url = %v, want resolved URL", result["url"])
+		}
+	})
+
+	t.Run("strict mode errors on unknown prefix", func(t *testing.T) {
+		engine := NewEngine(ctx, TemplateOptions{StrictMode: true})
+
+		config := map[string]any{
+			"url": "{{env.callback_base_url}}/test",
+			"body": map[string]any{
+				"knowledge_digest": "{{nodes.d5_build_context.output}}",
+			},
+		}
+
+		_, err := engine.ResolveConfig(config)
+		if err == nil {
+			t.Error("expected error for unknown 'nodes' prefix in strict mode, got nil")
+		}
+	})
+}
+
 func TestEngine_ComplexScenario_WithResources(t *testing.T) {
 	// This test simulates a real workflow scenario with resources
 	ctx := NewVariableContext()
