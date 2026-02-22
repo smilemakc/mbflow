@@ -84,11 +84,22 @@ type CreateWorkflowParams struct {
 	Variables   map[string]any
 	Metadata    map[string]any
 	CreatedBy   *uuid.UUID
+	Nodes       []NodeInput
+	Edges       []EdgeInput
+	Resources   []ResourceInput
 }
 
 func (o *Operations) CreateWorkflow(ctx context.Context, params CreateWorkflowParams) (*models.Workflow, error) {
 	if params.Name == "" {
 		return nil, NewValidationError("NAME_REQUIRED", "Workflow name is required")
+	}
+
+	if err := o.validateNodes(params.Nodes); err != nil {
+		return nil, NewValidationError("NODE_VALIDATION_FAILED", err.Error())
+	}
+
+	if err := o.validateEdges(params.Edges, params.Nodes); err != nil {
+		return nil, NewValidationError("EDGE_VALIDATION_FAILED", err.Error())
 	}
 
 	workflowModel := &storagemodels.WorkflowModel{
@@ -105,6 +116,60 @@ func (o *Operations) CreateWorkflow(ctx context.Context, params CreateWorkflowPa
 
 	if params.CreatedBy != nil {
 		workflowModel.CreatedBy = params.CreatedBy
+	}
+
+	if params.Nodes != nil {
+		workflowModel.Nodes = make([]*storagemodels.NodeModel, len(params.Nodes))
+		for i, nodeReq := range params.Nodes {
+			workflowModel.Nodes[i] = &storagemodels.NodeModel{
+				NodeID:     nodeReq.ID,
+				WorkflowID: workflowModel.ID,
+				Name:       nodeReq.Name,
+				Type:       nodeReq.Type,
+				Config:     storagemodels.JSONBMap(nodeReq.Config),
+				Position:   storagemodels.JSONBMap(nodeReq.Position),
+			}
+		}
+	}
+
+	if params.Edges != nil {
+		workflowModel.Edges = make([]*storagemodels.EdgeModel, len(params.Edges))
+		for i, edgeReq := range params.Edges {
+			em := &storagemodels.EdgeModel{
+				EdgeID:       edgeReq.ID,
+				WorkflowID:   workflowModel.ID,
+				FromNodeID:   edgeReq.From,
+				ToNodeID:     edgeReq.To,
+				SourceHandle: edgeReq.SourceHandle,
+				Condition:    storagemodels.JSONBMap(edgeReq.Condition),
+			}
+			if edgeReq.Loop != nil {
+				em.Loop = storagemodels.JSONBMap{
+					"max_iterations": edgeReq.Loop.MaxIterations,
+				}
+			}
+			workflowModel.Edges[i] = em
+		}
+	}
+
+	if params.Resources != nil {
+		workflowModel.Resources = make([]*storagemodels.WorkflowResourceModel, len(params.Resources))
+		for i, resReq := range params.Resources {
+			resourceUUID, parseErr := uuid.Parse(resReq.ResourceID)
+			if parseErr != nil {
+				return nil, NewValidationError("INVALID_RESOURCE_ID", fmt.Sprintf("invalid resource_id: %s", resReq.ResourceID))
+			}
+			accessType := resReq.AccessType
+			if accessType == "" {
+				accessType = "read"
+			}
+			workflowModel.Resources[i] = &storagemodels.WorkflowResourceModel{
+				WorkflowID: workflowModel.ID,
+				ResourceID: resourceUUID,
+				Alias:      resReq.Alias,
+				AccessType: accessType,
+			}
+		}
 	}
 
 	if err := o.WorkflowRepo.Create(ctx, workflowModel); err != nil {
