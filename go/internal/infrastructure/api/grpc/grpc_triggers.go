@@ -103,3 +103,21 @@ func (s *ServiceAPIServer) DeleteTrigger(ctx context.Context, req *pb.DeleteTrig
 
 	return &pb.DeleteResponse{Message: "trigger deleted successfully"}, nil
 }
+
+func (s *ServiceAPIServer) GetTrigger(ctx context.Context, req *pb.GetTriggerRequest) (*pb.TriggerResponse, error) {
+	triggerUUID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid trigger ID")
+	}
+
+	trigger, err := s.ops.GetTrigger(ctx, serviceapi.GetTriggerParams{
+		TriggerID: triggerUUID,
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &pb.TriggerResponse{
+		Trigger: toProtoTrigger(trigger),
+	}, nil
+}

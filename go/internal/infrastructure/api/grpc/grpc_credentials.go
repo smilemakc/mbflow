@@ -71,3 +71,16 @@ func (s *ServiceAPIServer) DeleteCredential(ctx context.Context, req *pb.DeleteC
 
 	return &pb.DeleteResponse{Message: "credential deleted successfully"}, nil
 }
+
+func (s *ServiceAPIServer) GetCredential(ctx context.Context, req *pb.GetCredentialRequest) (*pb.CredentialResponse, error) {
+	cred, err := s.ops.GetCredential(ctx, serviceapi.GetCredentialParams{
+		CredentialID: req.Id,
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &pb.CredentialResponse{
+		Credential: toProtoCredential(cred),
+	}, nil
+}

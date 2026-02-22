@@ -207,3 +207,21 @@ func (o *Operations) DeleteCredential(ctx context.Context, params DeleteCredenti
 
 	return nil
 }
+
+// GetCredentialParams contains parameters for getting a credential by ID.
+type GetCredentialParams struct {
+	CredentialID string
+}
+
+func (o *Operations) GetCredential(ctx context.Context, params GetCredentialParams) (*CredentialInfo, error) {
+	cred, err := o.CredentialsRepo.GetCredentials(ctx, params.CredentialID)
+	if err != nil {
+		if errors.Is(err, models.ErrResourceNotFound) {
+			return nil, models.ErrResourceNotFound
+		}
+		o.Logger.Error("Failed to get credential", "error", err, "credential_id", params.CredentialID)
+		return nil, err
+	}
+
+	return toCredentialInfo(cred), nil
+}

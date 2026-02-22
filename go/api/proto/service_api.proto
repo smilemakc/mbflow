@@ -30,12 +30,14 @@ service MBFlowServiceAPI {
   rpc CreateTrigger(CreateTriggerRequest) returns (TriggerResponse);
   rpc UpdateTrigger(UpdateTriggerRequest) returns (TriggerResponse);
   rpc DeleteTrigger(DeleteTriggerRequest) returns (DeleteResponse);
+  rpc GetTrigger(GetTriggerRequest) returns (TriggerResponse);
 
   // Credentials
   rpc ListCredentials(ListCredentialsRequest) returns (ListCredentialsResponse);
   rpc CreateCredential(CreateCredentialRequest) returns (CredentialResponse);
   rpc UpdateCredential(UpdateCredentialRequest) returns (CredentialResponse);
   rpc DeleteCredential(DeleteCredentialRequest) returns (DeleteResponse);
+  rpc GetCredential(GetCredentialRequest) returns (CredentialResponse);
 
   // Audit
   rpc ListAuditLog(ListAuditLogRequest) returns (ListAuditLogResponse);
@@ -246,6 +248,10 @@ message DeleteTriggerRequest {
   string id = 1;
 }
 
+message GetTriggerRequest {
+  string id = 1;
+}
+
 message TriggerResponse {
   Trigger trigger = 1;
 }
@@ -291,6 +297,10 @@ message UpdateCredentialRequest {
 }
 
 message DeleteCredentialRequest {
+  string id = 1;
+}
+
+message GetCredentialRequest {
   string id = 1;
 }
 

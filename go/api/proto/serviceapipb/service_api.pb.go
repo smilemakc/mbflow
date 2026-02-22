@@ -1891,6 +1891,50 @@ func (x *DeleteTriggerRequest) GetId() string {
 	return ""
 }
 
+type GetTriggerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTriggerRequest) Reset() {
+	*x = GetTriggerRequest{}
+	mi := &file_service_api_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTriggerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTriggerRequest) ProtoMessage() {}
+
+func (x *GetTriggerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_service_api_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTriggerRequest.ProtoReflect.Descriptor instead.
+func (*GetTriggerRequest) Descriptor() ([]byte, []int) {
+	return file_service_api_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *GetTriggerRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 type TriggerResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Trigger       *Trigger               `protobuf:"bytes,1,opt,name=trigger,proto3" json:"trigger,omitempty"`
@@ -1900,7 +1944,7 @@ type TriggerResponse struct {
 
 func (x *TriggerResponse) Reset() {
 	*x = TriggerResponse{}
-	mi := &file_service_api_proto_msgTypes[27]
+	mi := &file_service_api_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1912,7 +1956,7 @@ func (x *TriggerResponse) String() string {
 func (*TriggerResponse) ProtoMessage() {}
 
 func (x *TriggerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[27]
+	mi := &file_service_api_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1925,7 +1969,7 @@ func (x *TriggerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerResponse.ProtoReflect.Descriptor instead.
 func (*TriggerResponse) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{27}
+	return file_service_api_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *TriggerResponse) GetTrigger() *Trigger {
@@ -1953,7 +1997,7 @@ type Trigger struct {
 
 func (x *Trigger) Reset() {
 	*x = Trigger{}
-	mi := &file_service_api_proto_msgTypes[28]
+	mi := &file_service_api_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1965,7 +2009,7 @@ func (x *Trigger) String() string {
 func (*Trigger) ProtoMessage() {}
 
 func (x *Trigger) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[28]
+	mi := &file_service_api_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1978,7 +2022,7 @@ func (x *Trigger) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Trigger.ProtoReflect.Descriptor instead.
 func (*Trigger) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{28}
+	return file_service_api_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Trigger) GetId() string {
@@ -2061,7 +2105,7 @@ type ListCredentialsRequest struct {
 
 func (x *ListCredentialsRequest) Reset() {
 	*x = ListCredentialsRequest{}
-	mi := &file_service_api_proto_msgTypes[29]
+	mi := &file_service_api_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2073,7 +2117,7 @@ func (x *ListCredentialsRequest) String() string {
 func (*ListCredentialsRequest) ProtoMessage() {}
 
 func (x *ListCredentialsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[29]
+	mi := &file_service_api_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2086,7 +2130,7 @@ func (x *ListCredentialsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCredentialsRequest.ProtoReflect.Descriptor instead.
 func (*ListCredentialsRequest) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{29}
+	return file_service_api_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListCredentialsRequest) GetUserId() string {
@@ -2112,7 +2156,7 @@ type ListCredentialsResponse struct {
 
 func (x *ListCredentialsResponse) Reset() {
 	*x = ListCredentialsResponse{}
-	mi := &file_service_api_proto_msgTypes[30]
+	mi := &file_service_api_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2124,7 +2168,7 @@ func (x *ListCredentialsResponse) String() string {
 func (*ListCredentialsResponse) ProtoMessage() {}
 
 func (x *ListCredentialsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[30]
+	mi := &file_service_api_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2137,7 +2181,7 @@ func (x *ListCredentialsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCredentialsResponse.ProtoReflect.Descriptor instead.
 func (*ListCredentialsResponse) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{30}
+	return file_service_api_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListCredentialsResponse) GetCredentials() []*Credential {
@@ -2160,7 +2204,7 @@ type CreateCredentialRequest struct {
 
 func (x *CreateCredentialRequest) Reset() {
 	*x = CreateCredentialRequest{}
-	mi := &file_service_api_proto_msgTypes[31]
+	mi := &file_service_api_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2172,7 +2216,7 @@ func (x *CreateCredentialRequest) String() string {
 func (*CreateCredentialRequest) ProtoMessage() {}
 
 func (x *CreateCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[31]
+	mi := &file_service_api_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2185,7 +2229,7 @@ func (x *CreateCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCredentialRequest.ProtoReflect.Descriptor instead.
 func (*CreateCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{31}
+	return file_service_api_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CreateCredentialRequest) GetName() string {
@@ -2234,7 +2278,7 @@ type UpdateCredentialRequest struct {
 
 func (x *UpdateCredentialRequest) Reset() {
 	*x = UpdateCredentialRequest{}
-	mi := &file_service_api_proto_msgTypes[32]
+	mi := &file_service_api_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2246,7 +2290,7 @@ func (x *UpdateCredentialRequest) String() string {
 func (*UpdateCredentialRequest) ProtoMessage() {}
 
 func (x *UpdateCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[32]
+	mi := &file_service_api_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2259,7 +2303,7 @@ func (x *UpdateCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCredentialRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{32}
+	return file_service_api_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *UpdateCredentialRequest) GetId() string {
@@ -2292,7 +2336,7 @@ type DeleteCredentialRequest struct {
 
 func (x *DeleteCredentialRequest) Reset() {
 	*x = DeleteCredentialRequest{}
-	mi := &file_service_api_proto_msgTypes[33]
+	mi := &file_service_api_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2304,7 +2348,7 @@ func (x *DeleteCredentialRequest) String() string {
 func (*DeleteCredentialRequest) ProtoMessage() {}
 
 func (x *DeleteCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[33]
+	mi := &file_service_api_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2317,10 +2361,54 @@ func (x *DeleteCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCredentialRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{33}
+	return file_service_api_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *DeleteCredentialRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetCredentialRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCredentialRequest) Reset() {
+	*x = GetCredentialRequest{}
+	mi := &file_service_api_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCredentialRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCredentialRequest) ProtoMessage() {}
+
+func (x *GetCredentialRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_service_api_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCredentialRequest.ProtoReflect.Descriptor instead.
+func (*GetCredentialRequest) Descriptor() ([]byte, []int) {
+	return file_service_api_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *GetCredentialRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
@@ -2336,7 +2424,7 @@ type CredentialResponse struct {
 
 func (x *CredentialResponse) Reset() {
 	*x = CredentialResponse{}
-	mi := &file_service_api_proto_msgTypes[34]
+	mi := &file_service_api_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2348,7 +2436,7 @@ func (x *CredentialResponse) String() string {
 func (*CredentialResponse) ProtoMessage() {}
 
 func (x *CredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[34]
+	mi := &file_service_api_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2361,7 +2449,7 @@ func (x *CredentialResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CredentialResponse.ProtoReflect.Descriptor instead.
 func (*CredentialResponse) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{34}
+	return file_service_api_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CredentialResponse) GetCredential() *Credential {
@@ -2391,7 +2479,7 @@ type Credential struct {
 
 func (x *Credential) Reset() {
 	*x = Credential{}
-	mi := &file_service_api_proto_msgTypes[35]
+	mi := &file_service_api_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2403,7 +2491,7 @@ func (x *Credential) String() string {
 func (*Credential) ProtoMessage() {}
 
 func (x *Credential) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[35]
+	mi := &file_service_api_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2416,7 +2504,7 @@ func (x *Credential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credential.ProtoReflect.Descriptor instead.
 func (*Credential) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{35}
+	return file_service_api_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *Credential) GetId() string {
@@ -2519,7 +2607,7 @@ type ListAuditLogRequest struct {
 
 func (x *ListAuditLogRequest) Reset() {
 	*x = ListAuditLogRequest{}
-	mi := &file_service_api_proto_msgTypes[36]
+	mi := &file_service_api_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2531,7 +2619,7 @@ func (x *ListAuditLogRequest) String() string {
 func (*ListAuditLogRequest) ProtoMessage() {}
 
 func (x *ListAuditLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[36]
+	mi := &file_service_api_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2544,7 +2632,7 @@ func (x *ListAuditLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAuditLogRequest.ProtoReflect.Descriptor instead.
 func (*ListAuditLogRequest) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{36}
+	return file_service_api_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListAuditLogRequest) GetLimit() int32 {
@@ -2615,7 +2703,7 @@ type ListAuditLogResponse struct {
 
 func (x *ListAuditLogResponse) Reset() {
 	*x = ListAuditLogResponse{}
-	mi := &file_service_api_proto_msgTypes[37]
+	mi := &file_service_api_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2627,7 +2715,7 @@ func (x *ListAuditLogResponse) String() string {
 func (*ListAuditLogResponse) ProtoMessage() {}
 
 func (x *ListAuditLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[37]
+	mi := &file_service_api_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2640,7 +2728,7 @@ func (x *ListAuditLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAuditLogResponse.ProtoReflect.Descriptor instead.
 func (*ListAuditLogResponse) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{37}
+	return file_service_api_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListAuditLogResponse) GetAuditLogs() []*AuditLogEntry {
@@ -2692,7 +2780,7 @@ type AuditLogEntry struct {
 
 func (x *AuditLogEntry) Reset() {
 	*x = AuditLogEntry{}
-	mi := &file_service_api_proto_msgTypes[38]
+	mi := &file_service_api_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2704,7 +2792,7 @@ func (x *AuditLogEntry) String() string {
 func (*AuditLogEntry) ProtoMessage() {}
 
 func (x *AuditLogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[38]
+	mi := &file_service_api_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2717,7 +2805,7 @@ func (x *AuditLogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuditLogEntry.ProtoReflect.Descriptor instead.
 func (*AuditLogEntry) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{38}
+	return file_service_api_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *AuditLogEntry) GetId() string {
@@ -2820,7 +2908,7 @@ type DeleteResponse struct {
 
 func (x *DeleteResponse) Reset() {
 	*x = DeleteResponse{}
-	mi := &file_service_api_proto_msgTypes[39]
+	mi := &file_service_api_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2832,7 +2920,7 @@ func (x *DeleteResponse) String() string {
 func (*DeleteResponse) ProtoMessage() {}
 
 func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_api_proto_msgTypes[39]
+	mi := &file_service_api_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2845,7 +2933,7 @@ func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return file_service_api_proto_rawDescGZIP(), []int{39}
+	return file_service_api_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *DeleteResponse) GetMessage() string {
@@ -3024,6 +3112,8 @@ const file_service_api_proto_rawDesc = "" +
 	"\n" +
 	"\b_enabled\"&\n" +
 	"\x14DeleteTriggerRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"#\n" +
+	"\x11GetTriggerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"@\n" +
 	"\x0fTriggerResponse\x12-\n" +
 	"\atrigger\x18\x01 \x01(\v2\x13.serviceapi.TriggerR\atrigger\"\xfc\x02\n" +
@@ -3061,6 +3151,8 @@ const file_service_api_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\")\n" +
 	"\x17DeleteCredentialRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"&\n" +
+	"\x14GetCredentialRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"L\n" +
 	"\x12CredentialResponse\x126\n" +
 	"\n" +
@@ -3119,7 +3211,7 @@ const file_service_api_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"*\n" +
 	"\x0eDeleteResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\xcb\f\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\xe8\r\n" +
 	"\x10MBFlowServiceAPI\x12T\n" +
 	"\rListWorkflows\x12 .serviceapi.ListWorkflowsRequest\x1a!.serviceapi.ListWorkflowsResponse\x12K\n" +
 	"\vGetWorkflow\x12\x1e.serviceapi.GetWorkflowRequest\x1a\x1c.serviceapi.WorkflowResponse\x12Q\n" +
@@ -3134,11 +3226,14 @@ const file_service_api_proto_rawDesc = "" +
 	"\fListTriggers\x12\x1f.serviceapi.ListTriggersRequest\x1a .serviceapi.ListTriggersResponse\x12N\n" +
 	"\rCreateTrigger\x12 .serviceapi.CreateTriggerRequest\x1a\x1b.serviceapi.TriggerResponse\x12N\n" +
 	"\rUpdateTrigger\x12 .serviceapi.UpdateTriggerRequest\x1a\x1b.serviceapi.TriggerResponse\x12M\n" +
-	"\rDeleteTrigger\x12 .serviceapi.DeleteTriggerRequest\x1a\x1a.serviceapi.DeleteResponse\x12Z\n" +
+	"\rDeleteTrigger\x12 .serviceapi.DeleteTriggerRequest\x1a\x1a.serviceapi.DeleteResponse\x12H\n" +
+	"\n" +
+	"GetTrigger\x12\x1d.serviceapi.GetTriggerRequest\x1a\x1b.serviceapi.TriggerResponse\x12Z\n" +
 	"\x0fListCredentials\x12\".serviceapi.ListCredentialsRequest\x1a#.serviceapi.ListCredentialsResponse\x12W\n" +
 	"\x10CreateCredential\x12#.serviceapi.CreateCredentialRequest\x1a\x1e.serviceapi.CredentialResponse\x12W\n" +
 	"\x10UpdateCredential\x12#.serviceapi.UpdateCredentialRequest\x1a\x1e.serviceapi.CredentialResponse\x12S\n" +
 	"\x10DeleteCredential\x12#.serviceapi.DeleteCredentialRequest\x1a\x1a.serviceapi.DeleteResponse\x12Q\n" +
+	"\rGetCredential\x12 .serviceapi.GetCredentialRequest\x1a\x1e.serviceapi.CredentialResponse\x12Q\n" +
 	"\fListAuditLog\x12\x1f.serviceapi.ListAuditLogRequest\x1a .serviceapi.ListAuditLogResponseB7Z5github.com/smilemakc/mbflow/go/api/proto/serviceapipbb\x06proto3"
 
 var (
@@ -3153,7 +3248,7 @@ func file_service_api_proto_rawDescGZIP() []byte {
 	return file_service_api_proto_rawDescData
 }
 
-var file_service_api_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_service_api_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_service_api_proto_goTypes = []any{
 	(*ListWorkflowsRequest)(nil),    // 0: serviceapi.ListWorkflowsRequest
 	(*ListWorkflowsResponse)(nil),   // 1: serviceapi.ListWorkflowsResponse
@@ -3182,78 +3277,80 @@ var file_service_api_proto_goTypes = []any{
 	(*CreateTriggerRequest)(nil),    // 24: serviceapi.CreateTriggerRequest
 	(*UpdateTriggerRequest)(nil),    // 25: serviceapi.UpdateTriggerRequest
 	(*DeleteTriggerRequest)(nil),    // 26: serviceapi.DeleteTriggerRequest
-	(*TriggerResponse)(nil),         // 27: serviceapi.TriggerResponse
-	(*Trigger)(nil),                 // 28: serviceapi.Trigger
-	(*ListCredentialsRequest)(nil),  // 29: serviceapi.ListCredentialsRequest
-	(*ListCredentialsResponse)(nil), // 30: serviceapi.ListCredentialsResponse
-	(*CreateCredentialRequest)(nil), // 31: serviceapi.CreateCredentialRequest
-	(*UpdateCredentialRequest)(nil), // 32: serviceapi.UpdateCredentialRequest
-	(*DeleteCredentialRequest)(nil), // 33: serviceapi.DeleteCredentialRequest
-	(*CredentialResponse)(nil),      // 34: serviceapi.CredentialResponse
-	(*Credential)(nil),              // 35: serviceapi.Credential
-	(*ListAuditLogRequest)(nil),     // 36: serviceapi.ListAuditLogRequest
-	(*ListAuditLogResponse)(nil),    // 37: serviceapi.ListAuditLogResponse
-	(*AuditLogEntry)(nil),           // 38: serviceapi.AuditLogEntry
-	(*DeleteResponse)(nil),          // 39: serviceapi.DeleteResponse
-	nil,                             // 40: serviceapi.WebhookSubscription.HeadersEntry
-	nil,                             // 41: serviceapi.CreateCredentialRequest.DataEntry
-	(*structpb.Struct)(nil),         // 42: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),   // 43: google.protobuf.Timestamp
+	(*GetTriggerRequest)(nil),       // 27: serviceapi.GetTriggerRequest
+	(*TriggerResponse)(nil),         // 28: serviceapi.TriggerResponse
+	(*Trigger)(nil),                 // 29: serviceapi.Trigger
+	(*ListCredentialsRequest)(nil),  // 30: serviceapi.ListCredentialsRequest
+	(*ListCredentialsResponse)(nil), // 31: serviceapi.ListCredentialsResponse
+	(*CreateCredentialRequest)(nil), // 32: serviceapi.CreateCredentialRequest
+	(*UpdateCredentialRequest)(nil), // 33: serviceapi.UpdateCredentialRequest
+	(*DeleteCredentialRequest)(nil), // 34: serviceapi.DeleteCredentialRequest
+	(*GetCredentialRequest)(nil),    // 35: serviceapi.GetCredentialRequest
+	(*CredentialResponse)(nil),      // 36: serviceapi.CredentialResponse
+	(*Credential)(nil),              // 37: serviceapi.Credential
+	(*ListAuditLogRequest)(nil),     // 38: serviceapi.ListAuditLogRequest
+	(*ListAuditLogResponse)(nil),    // 39: serviceapi.ListAuditLogResponse
+	(*AuditLogEntry)(nil),           // 40: serviceapi.AuditLogEntry
+	(*DeleteResponse)(nil),          // 41: serviceapi.DeleteResponse
+	nil,                             // 42: serviceapi.WebhookSubscription.HeadersEntry
+	nil,                             // 43: serviceapi.CreateCredentialRequest.DataEntry
+	(*structpb.Struct)(nil),         // 44: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),   // 45: google.protobuf.Timestamp
 }
 var file_service_api_proto_depIdxs = []int32{
 	7,  // 0: serviceapi.ListWorkflowsResponse.workflows:type_name -> serviceapi.Workflow
-	42, // 1: serviceapi.CreateWorkflowRequest.variables:type_name -> google.protobuf.Struct
-	42, // 2: serviceapi.CreateWorkflowRequest.metadata:type_name -> google.protobuf.Struct
-	42, // 3: serviceapi.UpdateWorkflowRequest.variables:type_name -> google.protobuf.Struct
-	42, // 4: serviceapi.UpdateWorkflowRequest.metadata:type_name -> google.protobuf.Struct
+	44, // 1: serviceapi.CreateWorkflowRequest.variables:type_name -> google.protobuf.Struct
+	44, // 2: serviceapi.CreateWorkflowRequest.metadata:type_name -> google.protobuf.Struct
+	44, // 3: serviceapi.UpdateWorkflowRequest.variables:type_name -> google.protobuf.Struct
+	44, // 4: serviceapi.UpdateWorkflowRequest.metadata:type_name -> google.protobuf.Struct
 	8,  // 5: serviceapi.UpdateWorkflowRequest.nodes:type_name -> serviceapi.Node
 	9,  // 6: serviceapi.UpdateWorkflowRequest.edges:type_name -> serviceapi.Edge
 	11, // 7: serviceapi.UpdateWorkflowRequest.resources:type_name -> serviceapi.ResourceAttachment
 	7,  // 8: serviceapi.WorkflowResponse.workflow:type_name -> serviceapi.Workflow
-	42, // 9: serviceapi.Workflow.variables:type_name -> google.protobuf.Struct
-	42, // 10: serviceapi.Workflow.metadata:type_name -> google.protobuf.Struct
+	44, // 9: serviceapi.Workflow.variables:type_name -> google.protobuf.Struct
+	44, // 10: serviceapi.Workflow.metadata:type_name -> google.protobuf.Struct
 	8,  // 11: serviceapi.Workflow.nodes:type_name -> serviceapi.Node
 	9,  // 12: serviceapi.Workflow.edges:type_name -> serviceapi.Edge
-	43, // 13: serviceapi.Workflow.created_at:type_name -> google.protobuf.Timestamp
-	43, // 14: serviceapi.Workflow.updated_at:type_name -> google.protobuf.Timestamp
-	42, // 15: serviceapi.Node.config:type_name -> google.protobuf.Struct
-	42, // 16: serviceapi.Node.position:type_name -> google.protobuf.Struct
-	42, // 17: serviceapi.Edge.condition:type_name -> google.protobuf.Struct
+	45, // 13: serviceapi.Workflow.created_at:type_name -> google.protobuf.Timestamp
+	45, // 14: serviceapi.Workflow.updated_at:type_name -> google.protobuf.Timestamp
+	44, // 15: serviceapi.Node.config:type_name -> google.protobuf.Struct
+	44, // 16: serviceapi.Node.position:type_name -> google.protobuf.Struct
+	44, // 17: serviceapi.Edge.condition:type_name -> google.protobuf.Struct
 	10, // 18: serviceapi.Edge.loop:type_name -> serviceapi.EdgeLoopConfig
 	20, // 19: serviceapi.ListExecutionsResponse.executions:type_name -> serviceapi.Execution
-	40, // 20: serviceapi.WebhookSubscription.headers:type_name -> serviceapi.WebhookSubscription.HeadersEntry
-	42, // 21: serviceapi.StartExecutionRequest.input:type_name -> google.protobuf.Struct
+	42, // 20: serviceapi.WebhookSubscription.headers:type_name -> serviceapi.WebhookSubscription.HeadersEntry
+	44, // 21: serviceapi.StartExecutionRequest.input:type_name -> google.protobuf.Struct
 	15, // 22: serviceapi.StartExecutionRequest.webhooks:type_name -> serviceapi.WebhookSubscription
 	20, // 23: serviceapi.ExecutionResponse.execution:type_name -> serviceapi.Execution
-	42, // 24: serviceapi.Execution.input:type_name -> google.protobuf.Struct
-	42, // 25: serviceapi.Execution.output:type_name -> google.protobuf.Struct
+	44, // 24: serviceapi.Execution.input:type_name -> google.protobuf.Struct
+	44, // 25: serviceapi.Execution.output:type_name -> google.protobuf.Struct
 	21, // 26: serviceapi.Execution.node_executions:type_name -> serviceapi.NodeExecution
-	43, // 27: serviceapi.Execution.started_at:type_name -> google.protobuf.Timestamp
-	43, // 28: serviceapi.Execution.completed_at:type_name -> google.protobuf.Timestamp
-	43, // 29: serviceapi.Execution.created_at:type_name -> google.protobuf.Timestamp
-	42, // 30: serviceapi.NodeExecution.input:type_name -> google.protobuf.Struct
-	42, // 31: serviceapi.NodeExecution.output:type_name -> google.protobuf.Struct
-	43, // 32: serviceapi.NodeExecution.started_at:type_name -> google.protobuf.Timestamp
-	43, // 33: serviceapi.NodeExecution.completed_at:type_name -> google.protobuf.Timestamp
-	28, // 34: serviceapi.ListTriggersResponse.triggers:type_name -> serviceapi.Trigger
-	42, // 35: serviceapi.CreateTriggerRequest.config:type_name -> google.protobuf.Struct
-	42, // 36: serviceapi.UpdateTriggerRequest.config:type_name -> google.protobuf.Struct
-	28, // 37: serviceapi.TriggerResponse.trigger:type_name -> serviceapi.Trigger
-	42, // 38: serviceapi.Trigger.config:type_name -> google.protobuf.Struct
-	43, // 39: serviceapi.Trigger.last_run:type_name -> google.protobuf.Timestamp
-	43, // 40: serviceapi.Trigger.created_at:type_name -> google.protobuf.Timestamp
-	43, // 41: serviceapi.Trigger.updated_at:type_name -> google.protobuf.Timestamp
-	35, // 42: serviceapi.ListCredentialsResponse.credentials:type_name -> serviceapi.Credential
-	41, // 43: serviceapi.CreateCredentialRequest.data:type_name -> serviceapi.CreateCredentialRequest.DataEntry
-	35, // 44: serviceapi.CredentialResponse.credential:type_name -> serviceapi.Credential
-	43, // 45: serviceapi.Credential.expires_at:type_name -> google.protobuf.Timestamp
-	43, // 46: serviceapi.Credential.last_used_at:type_name -> google.protobuf.Timestamp
-	43, // 47: serviceapi.Credential.created_at:type_name -> google.protobuf.Timestamp
-	43, // 48: serviceapi.Credential.updated_at:type_name -> google.protobuf.Timestamp
-	43, // 49: serviceapi.ListAuditLogRequest.date_from:type_name -> google.protobuf.Timestamp
-	43, // 50: serviceapi.ListAuditLogRequest.date_to:type_name -> google.protobuf.Timestamp
-	38, // 51: serviceapi.ListAuditLogResponse.audit_logs:type_name -> serviceapi.AuditLogEntry
-	43, // 52: serviceapi.AuditLogEntry.created_at:type_name -> google.protobuf.Timestamp
+	45, // 27: serviceapi.Execution.started_at:type_name -> google.protobuf.Timestamp
+	45, // 28: serviceapi.Execution.completed_at:type_name -> google.protobuf.Timestamp
+	45, // 29: serviceapi.Execution.created_at:type_name -> google.protobuf.Timestamp
+	44, // 30: serviceapi.NodeExecution.input:type_name -> google.protobuf.Struct
+	44, // 31: serviceapi.NodeExecution.output:type_name -> google.protobuf.Struct
+	45, // 32: serviceapi.NodeExecution.started_at:type_name -> google.protobuf.Timestamp
+	45, // 33: serviceapi.NodeExecution.completed_at:type_name -> google.protobuf.Timestamp
+	29, // 34: serviceapi.ListTriggersResponse.triggers:type_name -> serviceapi.Trigger
+	44, // 35: serviceapi.CreateTriggerRequest.config:type_name -> google.protobuf.Struct
+	44, // 36: serviceapi.UpdateTriggerRequest.config:type_name -> google.protobuf.Struct
+	29, // 37: serviceapi.TriggerResponse.trigger:type_name -> serviceapi.Trigger
+	44, // 38: serviceapi.Trigger.config:type_name -> google.protobuf.Struct
+	45, // 39: serviceapi.Trigger.last_run:type_name -> google.protobuf.Timestamp
+	45, // 40: serviceapi.Trigger.created_at:type_name -> google.protobuf.Timestamp
+	45, // 41: serviceapi.Trigger.updated_at:type_name -> google.protobuf.Timestamp
+	37, // 42: serviceapi.ListCredentialsResponse.credentials:type_name -> serviceapi.Credential
+	43, // 43: serviceapi.CreateCredentialRequest.data:type_name -> serviceapi.CreateCredentialRequest.DataEntry
+	37, // 44: serviceapi.CredentialResponse.credential:type_name -> serviceapi.Credential
+	45, // 45: serviceapi.Credential.expires_at:type_name -> google.protobuf.Timestamp
+	45, // 46: serviceapi.Credential.last_used_at:type_name -> google.protobuf.Timestamp
+	45, // 47: serviceapi.Credential.created_at:type_name -> google.protobuf.Timestamp
+	45, // 48: serviceapi.Credential.updated_at:type_name -> google.protobuf.Timestamp
+	45, // 49: serviceapi.ListAuditLogRequest.date_from:type_name -> google.protobuf.Timestamp
+	45, // 50: serviceapi.ListAuditLogRequest.date_to:type_name -> google.protobuf.Timestamp
+	40, // 51: serviceapi.ListAuditLogResponse.audit_logs:type_name -> serviceapi.AuditLogEntry
+	45, // 52: serviceapi.AuditLogEntry.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 53: serviceapi.MBFlowServiceAPI.ListWorkflows:input_type -> serviceapi.ListWorkflowsRequest
 	2,  // 54: serviceapi.MBFlowServiceAPI.GetWorkflow:input_type -> serviceapi.GetWorkflowRequest
 	3,  // 55: serviceapi.MBFlowServiceAPI.CreateWorkflow:input_type -> serviceapi.CreateWorkflowRequest
@@ -3268,32 +3365,36 @@ var file_service_api_proto_depIdxs = []int32{
 	24, // 64: serviceapi.MBFlowServiceAPI.CreateTrigger:input_type -> serviceapi.CreateTriggerRequest
 	25, // 65: serviceapi.MBFlowServiceAPI.UpdateTrigger:input_type -> serviceapi.UpdateTriggerRequest
 	26, // 66: serviceapi.MBFlowServiceAPI.DeleteTrigger:input_type -> serviceapi.DeleteTriggerRequest
-	29, // 67: serviceapi.MBFlowServiceAPI.ListCredentials:input_type -> serviceapi.ListCredentialsRequest
-	31, // 68: serviceapi.MBFlowServiceAPI.CreateCredential:input_type -> serviceapi.CreateCredentialRequest
-	32, // 69: serviceapi.MBFlowServiceAPI.UpdateCredential:input_type -> serviceapi.UpdateCredentialRequest
-	33, // 70: serviceapi.MBFlowServiceAPI.DeleteCredential:input_type -> serviceapi.DeleteCredentialRequest
-	36, // 71: serviceapi.MBFlowServiceAPI.ListAuditLog:input_type -> serviceapi.ListAuditLogRequest
-	1,  // 72: serviceapi.MBFlowServiceAPI.ListWorkflows:output_type -> serviceapi.ListWorkflowsResponse
-	6,  // 73: serviceapi.MBFlowServiceAPI.GetWorkflow:output_type -> serviceapi.WorkflowResponse
-	6,  // 74: serviceapi.MBFlowServiceAPI.CreateWorkflow:output_type -> serviceapi.WorkflowResponse
-	6,  // 75: serviceapi.MBFlowServiceAPI.UpdateWorkflow:output_type -> serviceapi.WorkflowResponse
-	39, // 76: serviceapi.MBFlowServiceAPI.DeleteWorkflow:output_type -> serviceapi.DeleteResponse
-	13, // 77: serviceapi.MBFlowServiceAPI.ListExecutions:output_type -> serviceapi.ListExecutionsResponse
-	19, // 78: serviceapi.MBFlowServiceAPI.GetExecution:output_type -> serviceapi.ExecutionResponse
-	19, // 79: serviceapi.MBFlowServiceAPI.StartExecution:output_type -> serviceapi.ExecutionResponse
-	19, // 80: serviceapi.MBFlowServiceAPI.CancelExecution:output_type -> serviceapi.ExecutionResponse
-	19, // 81: serviceapi.MBFlowServiceAPI.RetryExecution:output_type -> serviceapi.ExecutionResponse
-	23, // 82: serviceapi.MBFlowServiceAPI.ListTriggers:output_type -> serviceapi.ListTriggersResponse
-	27, // 83: serviceapi.MBFlowServiceAPI.CreateTrigger:output_type -> serviceapi.TriggerResponse
-	27, // 84: serviceapi.MBFlowServiceAPI.UpdateTrigger:output_type -> serviceapi.TriggerResponse
-	39, // 85: serviceapi.MBFlowServiceAPI.DeleteTrigger:output_type -> serviceapi.DeleteResponse
-	30, // 86: serviceapi.MBFlowServiceAPI.ListCredentials:output_type -> serviceapi.ListCredentialsResponse
-	34, // 87: serviceapi.MBFlowServiceAPI.CreateCredential:output_type -> serviceapi.CredentialResponse
-	34, // 88: serviceapi.MBFlowServiceAPI.UpdateCredential:output_type -> serviceapi.CredentialResponse
-	39, // 89: serviceapi.MBFlowServiceAPI.DeleteCredential:output_type -> serviceapi.DeleteResponse
-	37, // 90: serviceapi.MBFlowServiceAPI.ListAuditLog:output_type -> serviceapi.ListAuditLogResponse
-	72, // [72:91] is the sub-list for method output_type
-	53, // [53:72] is the sub-list for method input_type
+	27, // 67: serviceapi.MBFlowServiceAPI.GetTrigger:input_type -> serviceapi.GetTriggerRequest
+	30, // 68: serviceapi.MBFlowServiceAPI.ListCredentials:input_type -> serviceapi.ListCredentialsRequest
+	32, // 69: serviceapi.MBFlowServiceAPI.CreateCredential:input_type -> serviceapi.CreateCredentialRequest
+	33, // 70: serviceapi.MBFlowServiceAPI.UpdateCredential:input_type -> serviceapi.UpdateCredentialRequest
+	34, // 71: serviceapi.MBFlowServiceAPI.DeleteCredential:input_type -> serviceapi.DeleteCredentialRequest
+	35, // 72: serviceapi.MBFlowServiceAPI.GetCredential:input_type -> serviceapi.GetCredentialRequest
+	38, // 73: serviceapi.MBFlowServiceAPI.ListAuditLog:input_type -> serviceapi.ListAuditLogRequest
+	1,  // 74: serviceapi.MBFlowServiceAPI.ListWorkflows:output_type -> serviceapi.ListWorkflowsResponse
+	6,  // 75: serviceapi.MBFlowServiceAPI.GetWorkflow:output_type -> serviceapi.WorkflowResponse
+	6,  // 76: serviceapi.MBFlowServiceAPI.CreateWorkflow:output_type -> serviceapi.WorkflowResponse
+	6,  // 77: serviceapi.MBFlowServiceAPI.UpdateWorkflow:output_type -> serviceapi.WorkflowResponse
+	41, // 78: serviceapi.MBFlowServiceAPI.DeleteWorkflow:output_type -> serviceapi.DeleteResponse
+	13, // 79: serviceapi.MBFlowServiceAPI.ListExecutions:output_type -> serviceapi.ListExecutionsResponse
+	19, // 80: serviceapi.MBFlowServiceAPI.GetExecution:output_type -> serviceapi.ExecutionResponse
+	19, // 81: serviceapi.MBFlowServiceAPI.StartExecution:output_type -> serviceapi.ExecutionResponse
+	19, // 82: serviceapi.MBFlowServiceAPI.CancelExecution:output_type -> serviceapi.ExecutionResponse
+	19, // 83: serviceapi.MBFlowServiceAPI.RetryExecution:output_type -> serviceapi.ExecutionResponse
+	23, // 84: serviceapi.MBFlowServiceAPI.ListTriggers:output_type -> serviceapi.ListTriggersResponse
+	28, // 85: serviceapi.MBFlowServiceAPI.CreateTrigger:output_type -> serviceapi.TriggerResponse
+	28, // 86: serviceapi.MBFlowServiceAPI.UpdateTrigger:output_type -> serviceapi.TriggerResponse
+	41, // 87: serviceapi.MBFlowServiceAPI.DeleteTrigger:output_type -> serviceapi.DeleteResponse
+	28, // 88: serviceapi.MBFlowServiceAPI.GetTrigger:output_type -> serviceapi.TriggerResponse
+	31, // 89: serviceapi.MBFlowServiceAPI.ListCredentials:output_type -> serviceapi.ListCredentialsResponse
+	36, // 90: serviceapi.MBFlowServiceAPI.CreateCredential:output_type -> serviceapi.CredentialResponse
+	36, // 91: serviceapi.MBFlowServiceAPI.UpdateCredential:output_type -> serviceapi.CredentialResponse
+	41, // 92: serviceapi.MBFlowServiceAPI.DeleteCredential:output_type -> serviceapi.DeleteResponse
+	36, // 93: serviceapi.MBFlowServiceAPI.GetCredential:output_type -> serviceapi.CredentialResponse
+	39, // 94: serviceapi.MBFlowServiceAPI.ListAuditLog:output_type -> serviceapi.ListAuditLogResponse
+	74, // [74:95] is the sub-list for method output_type
+	53, // [53:74] is the sub-list for method input_type
 	53, // [53:53] is the sub-list for extension type_name
 	53, // [53:53] is the sub-list for extension extendee
 	0,  // [0:53] is the sub-list for field type_name
@@ -3311,7 +3412,7 @@ func file_service_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_service_api_proto_rawDesc), len(file_service_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   42,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

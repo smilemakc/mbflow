@@ -33,10 +33,12 @@ const (
 	MBFlowServiceAPI_CreateTrigger_FullMethodName    = "/serviceapi.MBFlowServiceAPI/CreateTrigger"
 	MBFlowServiceAPI_UpdateTrigger_FullMethodName    = "/serviceapi.MBFlowServiceAPI/UpdateTrigger"
 	MBFlowServiceAPI_DeleteTrigger_FullMethodName    = "/serviceapi.MBFlowServiceAPI/DeleteTrigger"
+	MBFlowServiceAPI_GetTrigger_FullMethodName       = "/serviceapi.MBFlowServiceAPI/GetTrigger"
 	MBFlowServiceAPI_ListCredentials_FullMethodName  = "/serviceapi.MBFlowServiceAPI/ListCredentials"
 	MBFlowServiceAPI_CreateCredential_FullMethodName = "/serviceapi.MBFlowServiceAPI/CreateCredential"
 	MBFlowServiceAPI_UpdateCredential_FullMethodName = "/serviceapi.MBFlowServiceAPI/UpdateCredential"
 	MBFlowServiceAPI_DeleteCredential_FullMethodName = "/serviceapi.MBFlowServiceAPI/DeleteCredential"
+	MBFlowServiceAPI_GetCredential_FullMethodName    = "/serviceapi.MBFlowServiceAPI/GetCredential"
 	MBFlowServiceAPI_ListAuditLog_FullMethodName     = "/serviceapi.MBFlowServiceAPI/ListAuditLog"
 )
 
@@ -65,11 +67,13 @@ type MBFlowServiceAPIClient interface {
 	CreateTrigger(ctx context.Context, in *CreateTriggerRequest, opts ...grpc.CallOption) (*TriggerResponse, error)
 	UpdateTrigger(ctx context.Context, in *UpdateTriggerRequest, opts ...grpc.CallOption) (*TriggerResponse, error)
 	DeleteTrigger(ctx context.Context, in *DeleteTriggerRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	GetTrigger(ctx context.Context, in *GetTriggerRequest, opts ...grpc.CallOption) (*TriggerResponse, error)
 	// Credentials
 	ListCredentials(ctx context.Context, in *ListCredentialsRequest, opts ...grpc.CallOption) (*ListCredentialsResponse, error)
 	CreateCredential(ctx context.Context, in *CreateCredentialRequest, opts ...grpc.CallOption) (*CredentialResponse, error)
 	UpdateCredential(ctx context.Context, in *UpdateCredentialRequest, opts ...grpc.CallOption) (*CredentialResponse, error)
 	DeleteCredential(ctx context.Context, in *DeleteCredentialRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	GetCredential(ctx context.Context, in *GetCredentialRequest, opts ...grpc.CallOption) (*CredentialResponse, error)
 	// Audit
 	ListAuditLog(ctx context.Context, in *ListAuditLogRequest, opts ...grpc.CallOption) (*ListAuditLogResponse, error)
 }
@@ -222,6 +226,16 @@ func (c *mBFlowServiceAPIClient) DeleteTrigger(ctx context.Context, in *DeleteTr
 	return out, nil
 }
 
+func (c *mBFlowServiceAPIClient) GetTrigger(ctx context.Context, in *GetTriggerRequest, opts ...grpc.CallOption) (*TriggerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TriggerResponse)
+	err := c.cc.Invoke(ctx, MBFlowServiceAPI_GetTrigger_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *mBFlowServiceAPIClient) ListCredentials(ctx context.Context, in *ListCredentialsRequest, opts ...grpc.CallOption) (*ListCredentialsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListCredentialsResponse)
@@ -256,6 +270,16 @@ func (c *mBFlowServiceAPIClient) DeleteCredential(ctx context.Context, in *Delet
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteResponse)
 	err := c.cc.Invoke(ctx, MBFlowServiceAPI_DeleteCredential_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mBFlowServiceAPIClient) GetCredential(ctx context.Context, in *GetCredentialRequest, opts ...grpc.CallOption) (*CredentialResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CredentialResponse)
+	err := c.cc.Invoke(ctx, MBFlowServiceAPI_GetCredential_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -297,11 +321,13 @@ type MBFlowServiceAPIServer interface {
 	CreateTrigger(context.Context, *CreateTriggerRequest) (*TriggerResponse, error)
 	UpdateTrigger(context.Context, *UpdateTriggerRequest) (*TriggerResponse, error)
 	DeleteTrigger(context.Context, *DeleteTriggerRequest) (*DeleteResponse, error)
+	GetTrigger(context.Context, *GetTriggerRequest) (*TriggerResponse, error)
 	// Credentials
 	ListCredentials(context.Context, *ListCredentialsRequest) (*ListCredentialsResponse, error)
 	CreateCredential(context.Context, *CreateCredentialRequest) (*CredentialResponse, error)
 	UpdateCredential(context.Context, *UpdateCredentialRequest) (*CredentialResponse, error)
 	DeleteCredential(context.Context, *DeleteCredentialRequest) (*DeleteResponse, error)
+	GetCredential(context.Context, *GetCredentialRequest) (*CredentialResponse, error)
 	// Audit
 	ListAuditLog(context.Context, *ListAuditLogRequest) (*ListAuditLogResponse, error)
 	mustEmbedUnimplementedMBFlowServiceAPIServer()
@@ -356,6 +382,9 @@ func (UnimplementedMBFlowServiceAPIServer) UpdateTrigger(context.Context, *Updat
 func (UnimplementedMBFlowServiceAPIServer) DeleteTrigger(context.Context, *DeleteTriggerRequest) (*DeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteTrigger not implemented")
 }
+func (UnimplementedMBFlowServiceAPIServer) GetTrigger(context.Context, *GetTriggerRequest) (*TriggerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTrigger not implemented")
+}
 func (UnimplementedMBFlowServiceAPIServer) ListCredentials(context.Context, *ListCredentialsRequest) (*ListCredentialsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListCredentials not implemented")
 }
@@ -367,6 +396,9 @@ func (UnimplementedMBFlowServiceAPIServer) UpdateCredential(context.Context, *Up
 }
 func (UnimplementedMBFlowServiceAPIServer) DeleteCredential(context.Context, *DeleteCredentialRequest) (*DeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteCredential not implemented")
+}
+func (UnimplementedMBFlowServiceAPIServer) GetCredential(context.Context, *GetCredentialRequest) (*CredentialResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCredential not implemented")
 }
 func (UnimplementedMBFlowServiceAPIServer) ListAuditLog(context.Context, *ListAuditLogRequest) (*ListAuditLogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAuditLog not implemented")
@@ -644,6 +676,24 @@ func _MBFlowServiceAPI_DeleteTrigger_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MBFlowServiceAPI_GetTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTriggerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MBFlowServiceAPIServer).GetTrigger(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MBFlowServiceAPI_GetTrigger_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MBFlowServiceAPIServer).GetTrigger(ctx, req.(*GetTriggerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MBFlowServiceAPI_ListCredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListCredentialsRequest)
 	if err := dec(in); err != nil {
@@ -712,6 +762,24 @@ func _MBFlowServiceAPI_DeleteCredential_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MBFlowServiceAPIServer).DeleteCredential(ctx, req.(*DeleteCredentialRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MBFlowServiceAPI_GetCredential_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCredentialRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MBFlowServiceAPIServer).GetCredential(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MBFlowServiceAPI_GetCredential_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MBFlowServiceAPIServer).GetCredential(ctx, req.(*GetCredentialRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -798,6 +866,10 @@ var MBFlowServiceAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MBFlowServiceAPI_DeleteTrigger_Handler,
 		},
 		{
+			MethodName: "GetTrigger",
+			Handler:    _MBFlowServiceAPI_GetTrigger_Handler,
+		},
+		{
 			MethodName: "ListCredentials",
 			Handler:    _MBFlowServiceAPI_ListCredentials_Handler,
 		},
@@ -812,6 +884,10 @@ var MBFlowServiceAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteCredential",
 			Handler:    _MBFlowServiceAPI_DeleteCredential_Handler,
+		},
+		{
+			MethodName: "GetCredential",
+			Handler:    _MBFlowServiceAPI_GetCredential_Handler,
 		},
 		{
 			MethodName: "ListAuditLog",

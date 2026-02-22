@@ -2,7 +2,6 @@ package mbflow
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -221,7 +220,12 @@ func (t *grpcTriggerService) Create(ctx context.Context, trigger *models.Trigger
 }
 
 func (t *grpcTriggerService) Get(ctx context.Context, id string, opts ...RequestOption) (*models.Trigger, error) {
-	return nil, fmt.Errorf("mbflow: GetTrigger is not supported by the gRPC API; use List with a workflow ID filter")
+	ctx = t.tr.AuthContext(ctx, resolveOnBehalfOf(opts))
+	resp, err := t.tr.Client().GetTrigger(ctx, &pb.GetTriggerRequest{Id: id})
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return grpcclient.TriggerFromProto(resp.Trigger), nil
 }
 
 func (t *grpcTriggerService) Update(ctx context.Context, id string, trigger *models.Trigger, opts ...RequestOption) (*models.Trigger, error) {
@@ -292,7 +296,12 @@ func (c *grpcCredentialService) Create(ctx context.Context, cred *models.Credent
 }
 
 func (c *grpcCredentialService) Get(ctx context.Context, id string, opts ...RequestOption) (*models.Credential, error) {
-	return nil, fmt.Errorf("mbflow: GetCredential is not supported by the gRPC API; use List to retrieve credentials")
+	ctx = c.tr.AuthContext(ctx, resolveOnBehalfOf(opts))
+	resp, err := c.tr.Client().GetCredential(ctx, &pb.GetCredentialRequest{Id: id})
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return grpcclient.CredentialFromProto(resp.Credential), nil
 }
 
 func (c *grpcCredentialService) Update(ctx context.Context, id string, cred *models.Credential, opts ...RequestOption) (*models.Credential, error) {
