@@ -70,12 +70,59 @@ func (s *ServiceAPIServer) CreateWorkflow(ctx context.Context, req *pb.CreateWor
 		}
 	}
 
+	var nodes []serviceapi.NodeInput
+	if req.Nodes != nil {
+		nodes = make([]serviceapi.NodeInput, len(req.Nodes))
+		for i, n := range req.Nodes {
+			nodes[i] = serviceapi.NodeInput{
+				ID:       n.Id,
+				Name:     n.Name,
+				Type:     n.Type,
+				Config:   structToMap(n.Config),
+				Position: structToMap(n.Position),
+			}
+		}
+	}
+
+	var edges []serviceapi.EdgeInput
+	if req.Edges != nil {
+		edges = make([]serviceapi.EdgeInput, len(req.Edges))
+		for i, e := range req.Edges {
+			ei := serviceapi.EdgeInput{
+				ID:           e.Id,
+				From:         e.From,
+				To:           e.To,
+				SourceHandle: e.SourceHandle,
+				Condition:    structToMap(e.Condition),
+			}
+			if e.Loop != nil {
+				ei.Loop = &serviceapi.LoopInput{MaxIterations: int(e.Loop.MaxIterations)}
+			}
+			edges[i] = ei
+		}
+	}
+
+	var resources []serviceapi.ResourceInput
+	if req.Resources != nil {
+		resources = make([]serviceapi.ResourceInput, len(req.Resources))
+		for i, r := range req.Resources {
+			resources[i] = serviceapi.ResourceInput{
+				ResourceID: r.ResourceId,
+				Alias:      r.Alias,
+				AccessType: r.AccessType,
+			}
+		}
+	}
+
 	workflow, err := s.ops.CreateWorkflow(ctx, serviceapi.CreateWorkflowParams{
 		Name:        req.Name,
 		Description: req.Description,
 		Variables:   structToMap(req.Variables),
 		Metadata:    structToMap(req.Metadata),
 		CreatedBy:   createdBy,
+		Nodes:       nodes,
+		Edges:       edges,
+		Resources:   resources,
 	})
 	if err != nil {
 		return nil, mapError(err)
