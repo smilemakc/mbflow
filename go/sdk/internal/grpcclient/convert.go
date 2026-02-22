@@ -64,15 +64,19 @@ func EdgeFromProto(pe *pb.Edge) *models.Edge {
 		return nil
 	}
 	e := &models.Edge{
-		ID:   pe.Id,
-		From: pe.From,
-		To:   pe.To,
+		ID:           pe.Id,
+		From:         pe.From,
+		To:           pe.To,
+		SourceHandle: pe.SourceHandle,
 	}
 	if pe.Condition != nil {
 		condMap := StructToMap(pe.Condition)
 		if expr, ok := condMap["expression"].(string); ok {
 			e.Condition = expr
 		}
+	}
+	if pe.Loop != nil {
+		e.Loop = &models.LoopConfig{MaxIterations: int(pe.Loop.MaxIterations)}
 	}
 	return e
 }
@@ -222,14 +226,18 @@ func NodeToProto(n *models.Node) *pb.Node {
 
 func EdgeToProto(e *models.Edge) *pb.Edge {
 	pe := &pb.Edge{
-		Id:   e.ID,
-		From: e.From,
-		To:   e.To,
+		Id:           e.ID,
+		From:         e.From,
+		To:           e.To,
+		SourceHandle: e.SourceHandle,
 	}
 	if e.Condition != "" {
 		pe.Condition = MapToStruct(map[string]any{
 			"expression": e.Condition,
 		})
+	}
+	if e.Loop != nil {
+		pe.Loop = &pb.EdgeLoopConfig{MaxIterations: int32(e.Loop.MaxIterations)}
 	}
 	return pe
 }
