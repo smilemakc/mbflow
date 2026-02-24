@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -61,8 +62,22 @@ func (r *EphemeralStreamRegistry) MarkTerminal(executionID string) {
 	}
 }
 
+// StartCleanup runs a background goroutine that periodically removes expired entries.
+// It blocks until ctx is cancelled.
+func (r *EphemeralStreamRegistry) StartCleanup(ctx context.Context) {
+	ticker := time.NewTicker(r.ttl)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			r.Cleanup()
+		}
+	}
+}
+
 // Cleanup removes entries that have been terminal for longer than TTL.
-// Should be called periodically (e.g., via a background ticker).
 func (r *EphemeralStreamRegistry) Cleanup() {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -180,6 +180,7 @@ var validEventTypes = map[string]bool{
 	"execution.started":   true,
 	"execution.completed": true,
 	"execution.failed":    true,
+	"execution.cancelled": true,
 	"execution.timeout":   true,
 	"wave.started":        true,
 	"wave.completed":      true,

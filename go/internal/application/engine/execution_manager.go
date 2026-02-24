@@ -150,13 +150,14 @@ func (em *ExecutionManager) prepareExecution(
 	workflow := storagemodels.WorkflowModelToDomain(workflowModel)
 
 	execution := &models.Execution{
-		ID:           uuid.New().String(),
-		WorkflowID:   workflow.ID,
-		WorkflowName: workflow.Name,
-		Status:       initialStatus,
-		Input:        input,
-		Variables:    pkgengine.MergeVariables(workflow.Variables, opts.Variables),
-		StartedAt:    time.Now(),
+		ID:             uuid.New().String(),
+		WorkflowID:     workflow.ID,
+		WorkflowName:   workflow.Name,
+		WorkflowSource: "stored",
+		Status:         initialStatus,
+		Input:          input,
+		Variables:      pkgengine.MergeVariables(workflow.Variables, opts.Variables),
+		StartedAt:      time.Now(),
 	}
 
 	executionModel := storagemodels.ExecutionDomainToModel(execution)
