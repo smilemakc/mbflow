@@ -22,7 +22,11 @@ func (n *ObserverNotifier) Notify(ctx context.Context, event pkgengine.Execution
 	if n.manager == nil {
 		return
 	}
+	n.manager.Notify(ctx, convertToObserverEvent(event))
+}
 
+// convertToObserverEvent converts a pkgengine.ExecutionEvent to an observer.Event.
+func convertToObserverEvent(event pkgengine.ExecutionEvent) observer.Event {
 	obsEvent := observer.Event{
 		Type:        observer.EventType(event.Type),
 		ExecutionID: event.ExecutionID,
@@ -61,5 +65,5 @@ func (n *ObserverNotifier) Notify(ctx context.Context, event pkgengine.Execution
 		obsEvent.Variables = event.Variables
 	}
 
-	n.manager.Notify(ctx, obsEvent)
+	return obsEvent
 }

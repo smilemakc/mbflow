@@ -259,15 +259,16 @@ func TestExecutionModelToDomain_Complete(t *testing.T) {
 	completedAt := time.Now()
 
 	storageExec := &storagemodels.ExecutionModel{
-		ID:          execID,
-		WorkflowID:  &wfID,
-		Status:      "completed",
-		StartedAt:   &startedAt,
-		CompletedAt: &completedAt,
-		InputData:   storagemodels.JSONBMap{"user_id": 123},
-		OutputData:  storagemodels.JSONBMap{"result": "success"},
-		Variables:   storagemodels.JSONBMap{"env": "production"},
-		Error:       "",
+		ID:             execID,
+		WorkflowID:     &wfID,
+		WorkflowSource: "stored",
+		Status:         "completed",
+		StartedAt:      &startedAt,
+		CompletedAt:    &completedAt,
+		InputData:      storagemodels.JSONBMap{"user_id": 123},
+		OutputData:     storagemodels.JSONBMap{"result": "success"},
+		Variables:      storagemodels.JSONBMap{"env": "production"},
+		Error:          "",
 		NodeExecutions: []*storagemodels.NodeExecutionModel{
 			{
 				ID:          nodeExecID,
