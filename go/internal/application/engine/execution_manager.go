@@ -59,6 +59,28 @@ func NewExecutionManager(
 	return em
 }
 
+// ObserverManager returns the observer manager used for execution events.
+func (em *ExecutionManager) ObserverManager() *observer.ObserverManager {
+	return em.observerManager
+}
+
+// HasEphemeralExecution reports whether an ephemeral execution is currently tracked in memory.
+func (em *ExecutionManager) HasEphemeralExecution(executionID string) bool {
+	if em.ephemeralRegistry == nil {
+		return false
+	}
+	_, ok := em.ephemeralRegistry.Get(executionID)
+	return ok
+}
+
+// IsEphemeralExecutionTerminal reports whether an in-memory ephemeral execution reached a terminal state.
+func (em *ExecutionManager) IsEphemeralExecutionTerminal(executionID string) bool {
+	if em.ephemeralRegistry == nil {
+		return false
+	}
+	return em.ephemeralRegistry.IsTerminal(executionID)
+}
+
 // Execute executes a workflow synchronously (blocks until completion).
 func (em *ExecutionManager) Execute(
 	ctx context.Context,

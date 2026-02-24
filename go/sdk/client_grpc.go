@@ -225,7 +225,7 @@ func (e *grpcExecutionService) RunEphemeral(ctx context.Context, req *models.Eph
 		})
 	}
 
-	resp, err := e.tr.EphemeralClient().RunEphemeralExecution(authCtx, pbReq)
+	resp, err := e.tr.Client().RunEphemeralExecution(authCtx, pbReq)
 	if err != nil {
 		return nil, convertGRPCError(err)
 	}
@@ -236,7 +236,7 @@ func (e *grpcExecutionService) StreamEvents(ctx context.Context, executionID str
 	onBehalfOf := resolveOnBehalfOf(opts)
 	authCtx := e.tr.AuthContext(ctx, onBehalfOf)
 
-	stream, err := e.tr.EphemeralClient().StreamExecutionEvents(authCtx, &pb.StreamExecutionEventsRequest{
+	stream, err := e.tr.Client().StreamExecutionEvents(authCtx, &pb.StreamExecutionEventsRequest{
 		ExecutionId: executionID,
 	})
 	if err != nil {

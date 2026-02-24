@@ -422,6 +422,10 @@ func TestHttpStatusToGRPCCode_ShouldReturnAlreadyExists_WhenHTTP409(t *testing.T
 	assert.Equal(t, codes.AlreadyExists, httpStatusToGRPCCode(http.StatusConflict))
 }
 
+func TestHttpStatusToGRPCCode_ShouldReturnResourceExhausted_WhenHTTP413(t *testing.T) {
+	assert.Equal(t, codes.ResourceExhausted, httpStatusToGRPCCode(http.StatusRequestEntityTooLarge))
+}
+
 func TestHttpStatusToGRPCCode_ShouldReturnResourceExhausted_WhenHTTP429(t *testing.T) {
 	assert.Equal(t, codes.ResourceExhausted, httpStatusToGRPCCode(http.StatusTooManyRequests))
 }
@@ -454,8 +458,8 @@ func TestHttpStatusToGRPCCode_ShouldReturnInternal_WhenHTTP300(t *testing.T) {
 	assert.Equal(t, codes.Internal, httpStatusToGRPCCode(http.StatusMultipleChoices))
 }
 
-func TestHttpStatusToGRPCCode_ShouldReturnInternal_WhenHTTP422(t *testing.T) {
-	assert.Equal(t, codes.Internal, httpStatusToGRPCCode(http.StatusUnprocessableEntity))
+func TestHttpStatusToGRPCCode_ShouldReturnInvalidArgument_WhenHTTP422(t *testing.T) {
+	assert.Equal(t, codes.InvalidArgument, httpStatusToGRPCCode(http.StatusUnprocessableEntity))
 }
 
 func TestHttpStatusToGRPCCode_ShouldReturnInternal_WhenHTTP0(t *testing.T) {
@@ -512,10 +516,11 @@ func TestHttpStatusToGRPCCode_ShouldMapAllStatuses_TableDriven(t *testing.T) {
 		{"400 BadRequest", 400, codes.InvalidArgument},
 		{"401 Unauthorized", 401, codes.Unauthenticated},
 		{"403 Forbidden", 403, codes.PermissionDenied},
-		{"404 NotFound", 404, codes.NotFound},
-		{"409 Conflict", 409, codes.AlreadyExists},
-		{"429 TooManyRequests", 429, codes.ResourceExhausted},
-		{"501 NotImplemented", 501, codes.Unimplemented},
+			{"404 NotFound", 404, codes.NotFound},
+			{"409 Conflict", 409, codes.AlreadyExists},
+			{"413 RequestEntityTooLarge", 413, codes.ResourceExhausted},
+			{"429 TooManyRequests", 429, codes.ResourceExhausted},
+			{"501 NotImplemented", 501, codes.Unimplemented},
 		{"500 InternalServerError", 500, codes.Internal},
 		{"502 BadGateway", 502, codes.Internal},
 		{"503 ServiceUnavailable", 503, codes.Internal},
@@ -524,7 +529,7 @@ func TestHttpStatusToGRPCCode_ShouldMapAllStatuses_TableDriven(t *testing.T) {
 		{"0 zero", 0, codes.Internal},
 		{"-1 negative", -1, codes.Internal},
 		{"999 unknown", 999, codes.Internal},
-		{"422 unprocessable", 422, codes.Internal},
+			{"422 unprocessable", 422, codes.InvalidArgument},
 		{"405 method not allowed", 405, codes.Internal},
 		{"408 request timeout", 408, codes.Internal},
 	}

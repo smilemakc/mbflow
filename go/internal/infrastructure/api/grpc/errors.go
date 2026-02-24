@@ -59,6 +59,10 @@ func httpStatusToGRPCCode(httpStatus int) codes.Code {
 		return codes.NotFound
 	case httpStatus == 409:
 		return codes.AlreadyExists
+	case httpStatus == 413:
+		return codes.ResourceExhausted
+	case httpStatus == 422:
+		return codes.InvalidArgument
 	case httpStatus == 429:
 		return codes.ResourceExhausted
 	case httpStatus == 501:

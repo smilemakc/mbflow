@@ -79,8 +79,22 @@ func (em *ExecutionManager) executeEphemeralSync(
 	webhookNames []string,
 ) (*models.Execution, error) {
 	defer em.unregisterWebhookObservers(webhookNames)
+	defer em.markEphemeralTerminal(execution.ID)
+
+	if opts.PersistExecution {
+		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow); err != nil {
+			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
+		}
+	}
 
 	execution.Status = models.ExecutionStatusRunning
+
+	if opts.PersistExecution {
+		if err := em.updateEphemeralExecution(ctx, execution); err != nil {
+			return nil, fmt.Errorf("failed to persist ephemeral execution status: %w", err)
+		}
+	}
+
 	em.notifyExecutionStarted(ctx, execution)
 
 	execState := pkgengine.NewExecutionState(
@@ -96,13 +110,12 @@ func (em *ExecutionManager) executeEphemeralSync(
 	em.finalizeEphemeralExecution(execution, execState, opts.Workflow, execErr)
 
 	if opts.PersistExecution {
-		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow); err != nil {
+		if err := em.updateEphemeralExecution(ctx, execution); err != nil {
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
 	}
 
 	em.notifyExecutionCompletion(ctx, execution, execErr)
-	em.markEphemeralTerminal(execution.ID)
 
 	return execution, execErr
 }
@@ -117,6 +130,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 ) (*models.Execution, error) {
 	if opts.PersistExecution {
 		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow); err != nil {
+			em.markEphemeralTerminal(execution.ID)
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
 	}

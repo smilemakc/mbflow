@@ -3,6 +3,7 @@ package serviceapi
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,77 @@ import (
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
+
+func TestNormalizeEphemeralExecutionParams_ShouldValidateMode(t *testing.T) {
+	params := &EphemeralExecutionParams{
+		Workflow: &models.Workflow{Name: "wf"},
+	}
+
+	err := normalizeEphemeralExecutionParams(params)
+	require.Error(t, err)
+
+	var opErr *OperationError
+	require.ErrorAs(t, err, &opErr)
+	assert.Equal(t, "MODE_REQUIRED", opErr.Code)
+
+	params.Mode = "not-a-mode"
+	err = normalizeEphemeralExecutionParams(params)
+	require.Error(t, err)
+	require.ErrorAs(t, err, &opErr)
+	assert.Equal(t, "INVALID_MODE", opErr.Code)
+}
+
+func TestNormalizeEphemeralExecutionParams_ShouldRejectCredentialIDs(t *testing.T) {
+	params := &EphemeralExecutionParams{
+		Workflow:      &models.Workflow{Name: "wf"},
+		Mode:          "sync",
+		CredentialIDs: []string{"cred-1"},
+	}
+
+	err := normalizeEphemeralExecutionParams(params)
+	require.Error(t, err)
+
+	var opErr *OperationError
+	require.ErrorAs(t, err, &opErr)
+	assert.Equal(t, "UNSUPPORTED_CREDENTIAL_IDS", opErr.Code)
+}
+
+func TestNormalizeEphemeralExecutionParams_ShouldAutoGenerateMissingEdgeIDs(t *testing.T) {
+	params := &EphemeralExecutionParams{
+		Workflow: &models.Workflow{
+			Name: "wf",
+			Edges: []*models.Edge{
+				{From: "n1", To: "n2"},
+			},
+		},
+		Mode: "async",
+	}
+
+	err := normalizeEphemeralExecutionParams(params)
+	require.NoError(t, err)
+	require.Len(t, params.Workflow.Edges, 1)
+	assert.NotEmpty(t, params.Workflow.Edges[0].ID)
+}
+
+func TestNormalizeEphemeralExecutionParams_ShouldRejectWorkflowOverLimit(t *testing.T) {
+	params := &EphemeralExecutionParams{
+		Workflow: &models.Workflow{
+			Name: "wf",
+			Metadata: map[string]any{
+				"blob": strings.Repeat("x", maxEphemeralWorkflowSnapshotSize+1),
+			},
+		},
+		Mode: "sync",
+	}
+
+	err := normalizeEphemeralExecutionParams(params)
+	require.Error(t, err)
+
+	var opErr *OperationError
+	require.ErrorAs(t, err, &opErr)
+	assert.Equal(t, "WORKFLOW_TOO_LARGE", opErr.Code)
+	assert.Equal(t, 413, opErr.HTTPStatus)
+}
 
 // --- ListExecutions ---
 

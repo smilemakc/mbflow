@@ -34,6 +34,8 @@ func TestRegistryMarkTerminal(t *testing.T) {
 	reg.Register("exec-1", notifier)
 	reg.MarkTerminal("exec-1")
 
+	assert.True(t, reg.IsTerminal("exec-1"))
+
 	// Still accessible after marking terminal (within TTL)
 	got, ok := reg.Get("exec-1")
 	assert.True(t, ok)
@@ -76,4 +78,5 @@ func TestRegistryMarkTerminalUnknown(t *testing.T) {
 	reg := NewEphemeralStreamRegistry(5 * time.Minute)
 	// Should not panic
 	reg.MarkTerminal("nonexistent")
+	assert.False(t, reg.IsTerminal("nonexistent"))
 }

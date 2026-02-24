@@ -2,6 +2,7 @@ package serviceapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -207,6 +208,10 @@ type EphemeralExecutionParams struct {
 }
 
 func (o *Operations) StartEphemeralExecution(ctx context.Context, params EphemeralExecutionParams) (*models.Execution, error) {
+	if err := normalizeEphemeralExecutionParams(&params); err != nil {
+		return nil, err
+	}
+
 	if err := validateWebhooks(params.Webhooks); err != nil {
 		return nil, err
 	}
@@ -240,6 +245,48 @@ func (o *Operations) StartEphemeralExecution(ctx context.Context, params Ephemer
 
 	o.Logger.Info("Ephemeral execution started via service API", "execution_id", execution.ID, "mode", params.Mode)
 	return execution, nil
+}
+
+const maxEphemeralWorkflowSnapshotSize = 1_048_576
+
+func normalizeEphemeralExecutionParams(params *EphemeralExecutionParams) error {
+	if params == nil {
+		return NewValidationError("INVALID_REQUEST", "request is required")
+	}
+	if params.Workflow == nil {
+		return NewValidationError("WORKFLOW_REQUIRED", "workflow is required")
+	}
+
+	if params.Mode == "" {
+		return NewValidationError("MODE_REQUIRED", "mode is required (sync or async)")
+	}
+	if params.Mode != "sync" && params.Mode != "async" {
+		return NewValidationError("INVALID_MODE", "mode must be sync or async")
+	}
+
+	if len(params.CredentialIDs) > 0 {
+		return NewValidationError("UNSUPPORTED_CREDENTIAL_IDS", "credential_ids are not supported yet")
+	}
+
+	snapshot, err := json.Marshal(params.Workflow)
+	if err != nil {
+		return NewValidationError("INVALID_WORKFLOW", fmt.Sprintf("failed to marshal workflow: %v", err))
+	}
+	if len(snapshot) > maxEphemeralWorkflowSnapshotSize {
+		return &OperationError{
+			Code:       "WORKFLOW_TOO_LARGE",
+			Message:    "workflow snapshot exceeds 1 MB limit",
+			HTTPStatus: 413,
+		}
+	}
+
+	for i := range params.Workflow.Edges {
+		if params.Workflow.Edges[i].ID == "" {
+			params.Workflow.Edges[i].ID = uuid.New().String()
+		}
+	}
+
+	return nil
 }
 
 // CancelExecutionParams contains parameters for cancelling an execution.

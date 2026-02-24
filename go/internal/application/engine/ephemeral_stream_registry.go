@@ -51,6 +51,17 @@ func (r *EphemeralStreamRegistry) Get(executionID string) (*EphemeralNotifier, b
 	return s.notifier, true
 }
 
+// IsTerminal reports whether the execution is currently marked terminal.
+func (r *EphemeralStreamRegistry) IsTerminal(executionID string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.streams[executionID]
+	if !ok {
+		return false
+	}
+	return s.terminalAt != nil
+}
+
 // MarkTerminal marks an execution as having reached a terminal state.
 // The entry stays in the registry for TTL duration to allow late subscribers.
 func (r *EphemeralStreamRegistry) MarkTerminal(executionID string) {

@@ -60,10 +60,11 @@ type AuthLayer struct {
 
 // ExecutionLayer holds workflow execution components.
 type ExecutionLayer struct {
-	ExecutorManager  executor.Manager
-	ExecutionManager *engine.ExecutionManager
-	ObserverManager  *observer.ObserverManager
-	WSHub            *observer.WebSocketHub
+	ExecutorManager   executor.Manager
+	ExecutionManager  *engine.ExecutionManager
+	ObserverManager   *observer.ObserverManager
+	WSHub             *observer.WebSocketHub
+	EphemeralRegistry *engine.EphemeralStreamRegistry
 }
 
 // ServiceAPILayer holds Service API and gRPC components.

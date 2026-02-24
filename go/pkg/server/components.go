@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -284,6 +285,10 @@ func (s *Server) initAuthSystem() error {
 }
 
 func (s *Server) initExecutionEngine() error {
+	registry := engine.NewEphemeralStreamRegistry(5 * time.Minute)
+	s.execution.EphemeralRegistry = registry
+	go registry.StartCleanup(context.Background())
+
 	s.execution.ExecutionManager = engine.NewExecutionManager(
 		s.execution.ExecutorManager,
 		s.data.WorkflowRepo,
@@ -291,6 +296,7 @@ func (s *Server) initExecutionEngine() error {
 		s.data.EventRepo,
 		s.data.ResourceRepo,
 		s.execution.ObserverManager,
+		registry,
 	)
 
 	s.logger.Info("Execution engine initialized")

@@ -19,27 +19,29 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MBFlowServiceAPI_ListWorkflows_FullMethodName    = "/serviceapi.MBFlowServiceAPI/ListWorkflows"
-	MBFlowServiceAPI_GetWorkflow_FullMethodName      = "/serviceapi.MBFlowServiceAPI/GetWorkflow"
-	MBFlowServiceAPI_CreateWorkflow_FullMethodName   = "/serviceapi.MBFlowServiceAPI/CreateWorkflow"
-	MBFlowServiceAPI_UpdateWorkflow_FullMethodName   = "/serviceapi.MBFlowServiceAPI/UpdateWorkflow"
-	MBFlowServiceAPI_DeleteWorkflow_FullMethodName   = "/serviceapi.MBFlowServiceAPI/DeleteWorkflow"
-	MBFlowServiceAPI_ListExecutions_FullMethodName   = "/serviceapi.MBFlowServiceAPI/ListExecutions"
-	MBFlowServiceAPI_GetExecution_FullMethodName     = "/serviceapi.MBFlowServiceAPI/GetExecution"
-	MBFlowServiceAPI_StartExecution_FullMethodName   = "/serviceapi.MBFlowServiceAPI/StartExecution"
-	MBFlowServiceAPI_CancelExecution_FullMethodName  = "/serviceapi.MBFlowServiceAPI/CancelExecution"
-	MBFlowServiceAPI_RetryExecution_FullMethodName   = "/serviceapi.MBFlowServiceAPI/RetryExecution"
-	MBFlowServiceAPI_ListTriggers_FullMethodName     = "/serviceapi.MBFlowServiceAPI/ListTriggers"
-	MBFlowServiceAPI_CreateTrigger_FullMethodName    = "/serviceapi.MBFlowServiceAPI/CreateTrigger"
-	MBFlowServiceAPI_UpdateTrigger_FullMethodName    = "/serviceapi.MBFlowServiceAPI/UpdateTrigger"
-	MBFlowServiceAPI_DeleteTrigger_FullMethodName    = "/serviceapi.MBFlowServiceAPI/DeleteTrigger"
-	MBFlowServiceAPI_GetTrigger_FullMethodName       = "/serviceapi.MBFlowServiceAPI/GetTrigger"
-	MBFlowServiceAPI_ListCredentials_FullMethodName  = "/serviceapi.MBFlowServiceAPI/ListCredentials"
-	MBFlowServiceAPI_CreateCredential_FullMethodName = "/serviceapi.MBFlowServiceAPI/CreateCredential"
-	MBFlowServiceAPI_UpdateCredential_FullMethodName = "/serviceapi.MBFlowServiceAPI/UpdateCredential"
-	MBFlowServiceAPI_DeleteCredential_FullMethodName = "/serviceapi.MBFlowServiceAPI/DeleteCredential"
-	MBFlowServiceAPI_GetCredential_FullMethodName    = "/serviceapi.MBFlowServiceAPI/GetCredential"
-	MBFlowServiceAPI_ListAuditLog_FullMethodName     = "/serviceapi.MBFlowServiceAPI/ListAuditLog"
+	MBFlowServiceAPI_ListWorkflows_FullMethodName         = "/serviceapi.MBFlowServiceAPI/ListWorkflows"
+	MBFlowServiceAPI_GetWorkflow_FullMethodName           = "/serviceapi.MBFlowServiceAPI/GetWorkflow"
+	MBFlowServiceAPI_CreateWorkflow_FullMethodName        = "/serviceapi.MBFlowServiceAPI/CreateWorkflow"
+	MBFlowServiceAPI_UpdateWorkflow_FullMethodName        = "/serviceapi.MBFlowServiceAPI/UpdateWorkflow"
+	MBFlowServiceAPI_DeleteWorkflow_FullMethodName        = "/serviceapi.MBFlowServiceAPI/DeleteWorkflow"
+	MBFlowServiceAPI_ListExecutions_FullMethodName        = "/serviceapi.MBFlowServiceAPI/ListExecutions"
+	MBFlowServiceAPI_GetExecution_FullMethodName          = "/serviceapi.MBFlowServiceAPI/GetExecution"
+	MBFlowServiceAPI_StartExecution_FullMethodName        = "/serviceapi.MBFlowServiceAPI/StartExecution"
+	MBFlowServiceAPI_RunEphemeralExecution_FullMethodName = "/serviceapi.MBFlowServiceAPI/RunEphemeralExecution"
+	MBFlowServiceAPI_StreamExecutionEvents_FullMethodName = "/serviceapi.MBFlowServiceAPI/StreamExecutionEvents"
+	MBFlowServiceAPI_CancelExecution_FullMethodName       = "/serviceapi.MBFlowServiceAPI/CancelExecution"
+	MBFlowServiceAPI_RetryExecution_FullMethodName        = "/serviceapi.MBFlowServiceAPI/RetryExecution"
+	MBFlowServiceAPI_ListTriggers_FullMethodName          = "/serviceapi.MBFlowServiceAPI/ListTriggers"
+	MBFlowServiceAPI_CreateTrigger_FullMethodName         = "/serviceapi.MBFlowServiceAPI/CreateTrigger"
+	MBFlowServiceAPI_UpdateTrigger_FullMethodName         = "/serviceapi.MBFlowServiceAPI/UpdateTrigger"
+	MBFlowServiceAPI_DeleteTrigger_FullMethodName         = "/serviceapi.MBFlowServiceAPI/DeleteTrigger"
+	MBFlowServiceAPI_GetTrigger_FullMethodName            = "/serviceapi.MBFlowServiceAPI/GetTrigger"
+	MBFlowServiceAPI_ListCredentials_FullMethodName       = "/serviceapi.MBFlowServiceAPI/ListCredentials"
+	MBFlowServiceAPI_CreateCredential_FullMethodName      = "/serviceapi.MBFlowServiceAPI/CreateCredential"
+	MBFlowServiceAPI_UpdateCredential_FullMethodName      = "/serviceapi.MBFlowServiceAPI/UpdateCredential"
+	MBFlowServiceAPI_DeleteCredential_FullMethodName      = "/serviceapi.MBFlowServiceAPI/DeleteCredential"
+	MBFlowServiceAPI_GetCredential_FullMethodName         = "/serviceapi.MBFlowServiceAPI/GetCredential"
+	MBFlowServiceAPI_ListAuditLog_FullMethodName          = "/serviceapi.MBFlowServiceAPI/ListAuditLog"
 )
 
 // MBFlowServiceAPIClient is the client API for MBFlowServiceAPI service.
@@ -60,6 +62,8 @@ type MBFlowServiceAPIClient interface {
 	ListExecutions(ctx context.Context, in *ListExecutionsRequest, opts ...grpc.CallOption) (*ListExecutionsResponse, error)
 	GetExecution(ctx context.Context, in *GetExecutionRequest, opts ...grpc.CallOption) (*ExecutionResponse, error)
 	StartExecution(ctx context.Context, in *StartExecutionRequest, opts ...grpc.CallOption) (*ExecutionResponse, error)
+	RunEphemeralExecution(ctx context.Context, in *RunEphemeralExecutionRequest, opts ...grpc.CallOption) (*ExecutionResponse, error)
+	StreamExecutionEvents(ctx context.Context, in *StreamExecutionEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecutionEvent], error)
 	CancelExecution(ctx context.Context, in *CancelExecutionRequest, opts ...grpc.CallOption) (*ExecutionResponse, error)
 	RetryExecution(ctx context.Context, in *RetryExecutionRequest, opts ...grpc.CallOption) (*ExecutionResponse, error)
 	// Triggers
@@ -165,6 +169,35 @@ func (c *mBFlowServiceAPIClient) StartExecution(ctx context.Context, in *StartEx
 	}
 	return out, nil
 }
+
+func (c *mBFlowServiceAPIClient) RunEphemeralExecution(ctx context.Context, in *RunEphemeralExecutionRequest, opts ...grpc.CallOption) (*ExecutionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExecutionResponse)
+	err := c.cc.Invoke(ctx, MBFlowServiceAPI_RunEphemeralExecution_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mBFlowServiceAPIClient) StreamExecutionEvents(ctx context.Context, in *StreamExecutionEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecutionEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &MBFlowServiceAPI_ServiceDesc.Streams[0], MBFlowServiceAPI_StreamExecutionEvents_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamExecutionEventsRequest, ExecutionEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MBFlowServiceAPI_StreamExecutionEventsClient = grpc.ServerStreamingClient[ExecutionEvent]
 
 func (c *mBFlowServiceAPIClient) CancelExecution(ctx context.Context, in *CancelExecutionRequest, opts ...grpc.CallOption) (*ExecutionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -314,6 +347,8 @@ type MBFlowServiceAPIServer interface {
 	ListExecutions(context.Context, *ListExecutionsRequest) (*ListExecutionsResponse, error)
 	GetExecution(context.Context, *GetExecutionRequest) (*ExecutionResponse, error)
 	StartExecution(context.Context, *StartExecutionRequest) (*ExecutionResponse, error)
+	RunEphemeralExecution(context.Context, *RunEphemeralExecutionRequest) (*ExecutionResponse, error)
+	StreamExecutionEvents(*StreamExecutionEventsRequest, grpc.ServerStreamingServer[ExecutionEvent]) error
 	CancelExecution(context.Context, *CancelExecutionRequest) (*ExecutionResponse, error)
 	RetryExecution(context.Context, *RetryExecutionRequest) (*ExecutionResponse, error)
 	// Triggers
@@ -363,6 +398,12 @@ func (UnimplementedMBFlowServiceAPIServer) GetExecution(context.Context, *GetExe
 }
 func (UnimplementedMBFlowServiceAPIServer) StartExecution(context.Context, *StartExecutionRequest) (*ExecutionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartExecution not implemented")
+}
+func (UnimplementedMBFlowServiceAPIServer) RunEphemeralExecution(context.Context, *RunEphemeralExecutionRequest) (*ExecutionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RunEphemeralExecution not implemented")
+}
+func (UnimplementedMBFlowServiceAPIServer) StreamExecutionEvents(*StreamExecutionEventsRequest, grpc.ServerStreamingServer[ExecutionEvent]) error {
+	return status.Error(codes.Unimplemented, "method StreamExecutionEvents not implemented")
 }
 func (UnimplementedMBFlowServiceAPIServer) CancelExecution(context.Context, *CancelExecutionRequest) (*ExecutionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelExecution not implemented")
@@ -567,6 +608,35 @@ func _MBFlowServiceAPI_StartExecution_Handler(srv interface{}, ctx context.Conte
 	}
 	return interceptor(ctx, in, info, handler)
 }
+
+func _MBFlowServiceAPI_RunEphemeralExecution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunEphemeralExecutionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MBFlowServiceAPIServer).RunEphemeralExecution(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MBFlowServiceAPI_RunEphemeralExecution_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MBFlowServiceAPIServer).RunEphemeralExecution(ctx, req.(*RunEphemeralExecutionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MBFlowServiceAPI_StreamExecutionEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamExecutionEventsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MBFlowServiceAPIServer).StreamExecutionEvents(m, &grpc.GenericServerStream[StreamExecutionEventsRequest, ExecutionEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MBFlowServiceAPI_StreamExecutionEventsServer = grpc.ServerStreamingServer[ExecutionEvent]
 
 func _MBFlowServiceAPI_CancelExecution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CancelExecutionRequest)
@@ -842,6 +912,10 @@ var MBFlowServiceAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MBFlowServiceAPI_StartExecution_Handler,
 		},
 		{
+			MethodName: "RunEphemeralExecution",
+			Handler:    _MBFlowServiceAPI_RunEphemeralExecution_Handler,
+		},
+		{
 			MethodName: "CancelExecution",
 			Handler:    _MBFlowServiceAPI_CancelExecution_Handler,
 		},
@@ -894,6 +968,12 @@ var MBFlowServiceAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MBFlowServiceAPI_ListAuditLog_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamExecutionEvents",
+			Handler:       _MBFlowServiceAPI_StreamExecutionEvents_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "service_api.proto",
 }

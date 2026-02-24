@@ -46,7 +46,6 @@ func (r *ExecutionRepository) Update(ctx context.Context, execution *models.Exec
 			Model(execution).
 			Column("status", "output_data", "error", "completed_at", "variables", "updated_at").
 			Column("workflow_source").
-			Column("workflow_snapshot").
 			Where("id = ?", execution.ID).
 			Exec(ctx)
 		if err != nil {
@@ -419,10 +418,25 @@ func (r *ExecutionRepository) GetEvents(ctx context.Context, executionID uuid.UU
 	err := r.db.NewSelect().
 		Model(&events).
 		Where("execution_id = ?", executionID).
-		Order("created_at ASC").
+		Order("sequence ASC").
 		Scan(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get execution events: %w", err)
+	}
+	return events, nil
+}
+
+// GetEventsSince retrieves execution events with sequence > afterSequence.
+func (r *ExecutionRepository) GetEventsSince(ctx context.Context, executionID uuid.UUID, afterSequence int64) ([]*models.EventModel, error) {
+	var events []*models.EventModel
+	err := r.db.NewSelect().
+		Model(&events).
+		Where("execution_id = ?", executionID).
+		Where("sequence > ?", afterSequence).
+		Order("sequence ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get execution events since sequence: %w", err)
 	}
 	return events, nil
 }
