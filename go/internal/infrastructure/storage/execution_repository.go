@@ -45,6 +45,8 @@ func (r *ExecutionRepository) Update(ctx context.Context, execution *models.Exec
 		_, err := tx.NewUpdate().
 			Model(execution).
 			Column("status", "output_data", "error", "completed_at", "variables", "updated_at").
+			Column("workflow_source").
+			Column("workflow_snapshot").
 			Where("id = ?", execution.ID).
 			Exec(ctx)
 		if err != nil {

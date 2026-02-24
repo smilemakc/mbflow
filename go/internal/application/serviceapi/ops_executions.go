@@ -67,6 +67,10 @@ func (o *Operations) GetExecution(ctx context.Context, params GetExecutionParams
 		return nil, err
 	}
 
+	if execModel.WorkflowSource == "inline" {
+		return storagemodels.ExecutionModelToDomain(execModel), nil
+	}
+
 	execution := storagemodels.ExecutionModelToDomain(execModel)
 
 	if execModel.WorkflowID != nil {
@@ -176,6 +180,7 @@ var validEventTypes = map[string]bool{
 	"execution.started":   true,
 	"execution.completed": true,
 	"execution.failed":    true,
+	"execution.timeout":   true,
 	"wave.started":        true,
 	"wave.completed":      true,
 	"node.started":        true,
@@ -255,6 +260,16 @@ func (o *Operations) GetNodeResult(ctx context.Context, params GetNodeResultPara
 	if err != nil {
 		o.Logger.Error("Failed to find execution in GetNodeResult", "error", err, "execution_id", params.ExecutionID)
 		return nil, err
+	}
+
+	if execModel.WorkflowSource == "inline" {
+		for _, ne := range execModel.NodeExecutions {
+			if ne.NodeKey != nil && *ne.NodeKey == params.NodeID {
+				nodeExec := storagemodels.NodeExecutionModelToDomain(ne)
+				return nodeExec, nil
+			}
+		}
+		return nil, NewValidationError("NODE_EXECUTION_NOT_FOUND", "Node execution not found")
 	}
 
 	if execModel.WorkflowID == nil {
