@@ -22,6 +22,8 @@ service MBFlowServiceAPI {
   rpc ListExecutions(ListExecutionsRequest) returns (ListExecutionsResponse);
   rpc GetExecution(GetExecutionRequest) returns (ExecutionResponse);
   rpc StartExecution(StartExecutionRequest) returns (ExecutionResponse);
+  rpc RunEphemeralExecution(RunEphemeralExecutionRequest) returns (ExecutionResponse);
+  rpc StreamExecutionEvents(StreamExecutionEventsRequest) returns (stream ExecutionEvent);
   rpc CancelExecution(CancelExecutionRequest) returns (ExecutionResponse);
   rpc RetryExecution(RetryExecutionRequest) returns (ExecutionResponse);
 
@@ -196,6 +198,7 @@ message Execution {
   google.protobuf.Timestamp completed_at = 9;
   google.protobuf.Timestamp created_at = 10;
   int64 duration_ms = 11;
+  string workflow_source = 12;
 }
 
 message NodeExecution {
@@ -210,6 +213,31 @@ message NodeExecution {
   google.protobuf.Timestamp started_at = 9;
   google.protobuf.Timestamp completed_at = 10;
   int64 duration_ms = 11;
+}
+
+message RunEphemeralExecutionRequest {
+  Workflow workflow = 1;
+  google.protobuf.Struct input = 2;
+  string mode = 3;
+  repeated string credential_ids = 4;
+  google.protobuf.Struct variables = 5;
+  bool persist_execution = 6;
+  repeated WebhookSubscription webhooks = 7;
+}
+
+message StreamExecutionEventsRequest {
+  string execution_id = 1;
+  int64 after_sequence = 2;
+}
+
+message ExecutionEvent {
+  string event_id = 1;
+  string execution_id = 2;
+  int64 sequence = 3;
+  string event_type = 4;
+  string workflow_source = 5;
+  google.protobuf.Struct payload = 6;
+  google.protobuf.Timestamp sent_at = 7;
 }
 
 // ============================================================================

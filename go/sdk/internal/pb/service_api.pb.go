@@ -1340,6 +1340,7 @@ type Execution struct {
 	CompletedAt    *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
 	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	DurationMs     int64                  `protobuf:"varint,11,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	WorkflowSource string                 `protobuf:"bytes,12,opt,name=workflow_source,json=workflowSource,proto3" json:"workflow_source,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1449,6 +1450,13 @@ func (x *Execution) GetDurationMs() int64 {
 		return x.DurationMs
 	}
 	return 0
+}
+
+func (x *Execution) GetWorkflowSource() string {
+	if x != nil {
+		return x.WorkflowSource
+	}
+	return ""
 }
 
 type NodeExecution struct {

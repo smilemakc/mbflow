@@ -99,12 +99,13 @@ func toProtoExecution(ex *models.Execution) *pb.Execution {
 	}
 
 	pe := &pb.Execution{
-		Id:         ex.ID,
-		WorkflowId: ex.WorkflowID,
-		Status:     string(ex.Status),
-		Error:      ex.Error,
-		StartedAt:  timestamppb.New(ex.StartedAt),
-		DurationMs: ex.Duration,
+		Id:             ex.ID,
+		WorkflowId:     ex.WorkflowID,
+		Status:         string(ex.Status),
+		Error:          ex.Error,
+		StartedAt:      timestamppb.New(ex.StartedAt),
+		DurationMs:     ex.Duration,
+		WorkflowSource: ex.WorkflowSource,
 	}
 
 	pe.Input = mapToStruct(ex.Input)

@@ -86,13 +86,14 @@ func ExecutionFromProto(pe *pb.Execution) *models.Execution {
 		return nil
 	}
 	exec := &models.Execution{
-		ID:         pe.Id,
-		WorkflowID: pe.WorkflowId,
-		Status:     models.ExecutionStatus(pe.Status),
-		Error:      pe.Error,
-		Input:      StructToMap(pe.Input),
-		Output:     StructToMap(pe.Output),
-		Duration:   pe.DurationMs,
+		ID:             pe.Id,
+		WorkflowID:     pe.WorkflowId,
+		WorkflowSource: pe.WorkflowSource,
+		Status:         models.ExecutionStatus(pe.Status),
+		Error:          pe.Error,
+		Input:          StructToMap(pe.Input),
+		Output:         StructToMap(pe.Output),
+		Duration:       pe.DurationMs,
 	}
 	if pe.StartedAt != nil {
 		exec.StartedAt = pe.StartedAt.AsTime()
