@@ -260,7 +260,7 @@ func TestExecutionModelToDomain_Complete(t *testing.T) {
 
 	storageExec := &storagemodels.ExecutionModel{
 		ID:          execID,
-		WorkflowID:  wfID,
+		WorkflowID:  &wfID,
 		Status:      "completed",
 		StartedAt:   &startedAt,
 		CompletedAt: &completedAt,
@@ -272,7 +272,7 @@ func TestExecutionModelToDomain_Complete(t *testing.T) {
 			{
 				ID:          nodeExecID,
 				ExecutionID: execID,
-				NodeID:      nodeID,
+				NodeID:      &nodeID,
 				Status:      "completed",
 				InputData:   storagemodels.JSONBMap{"input": "value"},
 				OutputData:  storagemodels.JSONBMap{"output": "result"},
@@ -286,6 +286,7 @@ func TestExecutionModelToDomain_Complete(t *testing.T) {
 
 	assert.Equal(t, execID.String(), result.ID)
 	assert.Equal(t, wfID.String(), result.WorkflowID)
+	assert.Equal(t, "stored", result.WorkflowSource)
 	assert.Equal(t, models.ExecutionStatus("completed"), result.Status)
 	assert.Equal(t, startedAt, result.StartedAt)
 	assert.NotNil(t, result.CompletedAt)
@@ -308,7 +309,7 @@ func TestExecutionModelToDomain_WithError(t *testing.T) {
 
 	storageExec := &storagemodels.ExecutionModel{
 		ID:         execID,
-		WorkflowID: wfID,
+		WorkflowID: &wfID,
 		Status:     "failed",
 		StartedAt:  &startedAt,
 		Error:      "node execution failed: timeout",
@@ -359,7 +360,7 @@ func TestExecutionDomainToModel_Complete(t *testing.T) {
 	require.NotNil(t, result)
 
 	assert.Equal(t, execID, result.ID)
-	assert.Equal(t, wfID, result.WorkflowID)
+	assert.Equal(t, &wfID, result.WorkflowID)
 	assert.Equal(t, "completed", result.Status)
 	assert.NotNil(t, result.StartedAt)
 	assert.NotNil(t, result.CompletedAt)
@@ -385,7 +386,7 @@ func TestExecutionDomainToModel_InvalidUUIDs(t *testing.T) {
 
 	// Invalid UUIDs should result in zero UUID
 	assert.Equal(t, uuid.Nil, result.ID)
-	assert.Equal(t, uuid.Nil, result.WorkflowID)
+	assert.Nil(t, result.WorkflowID)
 }
 
 // TestNodeExecutionModelToDomain_Nil tests conversion of nil node execution
@@ -405,7 +406,7 @@ func TestNodeExecutionModelToDomain_Complete(t *testing.T) {
 	storageNE := &storagemodels.NodeExecutionModel{
 		ID:             neID,
 		ExecutionID:    execID,
-		NodeID:         nodeID,
+		NodeID:         &nodeID,
 		Status:         "completed",
 		InputData:      storagemodels.JSONBMap{"input": "data"},
 		OutputData:     storagemodels.JSONBMap{"output": "data"},
@@ -469,7 +470,7 @@ func TestNodeExecutionDomainToModel_Complete(t *testing.T) {
 
 	assert.Equal(t, neID, result.ID)
 	assert.Equal(t, execID, result.ExecutionID)
-	assert.Equal(t, nodeID, result.NodeID)
+	assert.Equal(t, &nodeID, result.NodeID)
 	assert.Equal(t, "completed", result.Status)
 
 	assert.Equal(t, "input", result.InputData["test"])

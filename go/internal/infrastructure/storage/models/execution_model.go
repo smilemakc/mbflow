@@ -11,9 +11,11 @@ import (
 type ExecutionModel struct {
 	bun.BaseModel `bun:"table:mbflow_executions,alias:ex"`
 
-	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
-	WorkflowID  uuid.UUID  `bun:"workflow_id,notnull,type:uuid" json:"workflow_id" validate:"required"`
-	TriggerID   *uuid.UUID `bun:"trigger_id,type:uuid" json:"trigger_id,omitempty"`
+	ID               uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
+	WorkflowID       *uuid.UUID `bun:"workflow_id,type:uuid" json:"workflow_id,omitempty"`
+	WorkflowSource   string     `bun:"workflow_source,notnull,default:'stored'" json:"workflow_source"`
+	WorkflowSnapshot JSONBMap   `bun:"workflow_snapshot,type:jsonb" json:"workflow_snapshot,omitempty"`
+	TriggerID        *uuid.UUID `bun:"trigger_id,type:uuid" json:"trigger_id,omitempty"`
 	Status      string     `bun:"status,notnull,default:'pending'" json:"status" validate:"required,oneof=pending running completed failed cancelled paused"`
 	StartedAt   *time.Time `bun:"started_at" json:"started_at,omitempty"`
 	CompletedAt *time.Time `bun:"completed_at" json:"completed_at,omitempty"`

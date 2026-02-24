@@ -596,12 +596,16 @@ func ExecutionModelToDomain(exm *ExecutionModel) *pkgmodels.Execution {
 	}
 
 	exec := &pkgmodels.Execution{
-		ID:         exm.ID.String(),
-		WorkflowID: exm.WorkflowID.String(),
-		Status:     pkgmodels.ExecutionStatus(exm.Status),
-		Input:      make(map[string]any),
-		Output:     make(map[string]any),
-		Variables:  make(map[string]any),
+		ID:             exm.ID.String(),
+		Status:         pkgmodels.ExecutionStatus(exm.Status),
+		WorkflowSource: exm.WorkflowSource,
+		Input:          make(map[string]any),
+		Output:         make(map[string]any),
+		Variables:      make(map[string]any),
+	}
+
+	if exm.WorkflowID != nil {
+		exec.WorkflowID = exm.WorkflowID.String()
 	}
 
 	if exm.StartedAt != nil {
@@ -661,9 +665,10 @@ func ExecutionDomainToModel(exec *pkgmodels.Execution) *ExecutionModel {
 
 	if exec.WorkflowID != "" {
 		if wfID, err := uuid.Parse(exec.WorkflowID); err == nil {
-			exm.WorkflowID = wfID
+			exm.WorkflowID = &wfID
 		}
 	}
+	exm.WorkflowSource = exec.WorkflowSource
 
 	if exec.CompletedAt != nil {
 		exm.CompletedAt = exec.CompletedAt
@@ -691,13 +696,24 @@ func NodeExecutionModelToDomain(nem *NodeExecutionModel) *pkgmodels.NodeExecutio
 	ne := &pkgmodels.NodeExecution{
 		ID:             nem.ID.String(),
 		ExecutionID:    nem.ExecutionID.String(),
-		NodeID:         nem.NodeID.String(),
 		Status:         pkgmodels.NodeExecutionStatus(nem.Status),
 		Input:          make(map[string]any),
 		Output:         make(map[string]any),
 		Config:         make(map[string]any),
 		ResolvedConfig: make(map[string]any),
 		RetryCount:     nem.RetryCount,
+	}
+
+	if nem.NodeID != nil {
+		ne.NodeID = nem.NodeID.String()
+	} else if nem.NodeKey != nil {
+		ne.NodeID = *nem.NodeKey
+	}
+	if nem.NodeName != nil {
+		ne.NodeName = *nem.NodeName
+	}
+	if nem.NodeType != nil {
+		ne.NodeType = *nem.NodeType
 	}
 
 	if nem.InputData != nil {
@@ -765,8 +781,16 @@ func NodeExecutionDomainToModel(ne *pkgmodels.NodeExecution) *NodeExecutionModel
 
 	if ne.NodeID != "" {
 		if nodeID, err := uuid.Parse(ne.NodeID); err == nil {
-			nem.NodeID = nodeID
+			nem.NodeID = &nodeID
+		} else {
+			nem.NodeKey = &ne.NodeID
 		}
+	}
+	if ne.NodeName != "" {
+		nem.NodeName = &ne.NodeName
+	}
+	if ne.NodeType != "" {
+		nem.NodeType = &ne.NodeType
 	}
 
 	if !ne.StartedAt.IsZero() {

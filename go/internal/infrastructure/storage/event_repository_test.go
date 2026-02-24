@@ -36,9 +36,10 @@ func createTestExecution(t *testing.T, db bun.IDB) *models.ExecutionModel {
 	require.NoError(t, err)
 
 	executionRepo := NewExecutionRepository(db)
+	wfID := workflow.ID
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: &wfID,
 		Status:     "running",
 	}
 

@@ -88,7 +88,7 @@ func TestWorkflowRepository_SyncNodesWithExecutionHistory(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:          uuid.New(),
-		WorkflowID:  workflowID,
+		WorkflowID:  &workflowID,
 		Status:      "completed",
 		StartedAt:   &startedAt,
 		CompletedAt: &completedAt,
@@ -112,7 +112,7 @@ func TestWorkflowRepository_SyncNodesWithExecutionHistory(t *testing.T) {
 	nodeExec1 := &models.NodeExecutionModel{
 		ID:          uuid.New(),
 		ExecutionID: execution.ID,
-		NodeID:      node1.ID,
+		NodeID:      &node1.ID,
 		Status:      "completed",
 		StartedAt:   &nodeExec1StartedAt,
 		CompletedAt: &nodeExec1CompletedAt,
@@ -127,7 +127,7 @@ func TestWorkflowRepository_SyncNodesWithExecutionHistory(t *testing.T) {
 	nodeExec2 := &models.NodeExecutionModel{
 		ID:          uuid.New(),
 		ExecutionID: execution.ID,
-		NodeID:      node2.ID,
+		NodeID:      &node2.ID,
 		Status:      "completed",
 		StartedAt:   &nodeExec2StartedAt,
 		CompletedAt: &nodeExec2CompletedAt,

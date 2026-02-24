@@ -23,9 +23,10 @@ func TestListExecutions_ShouldFindAll_WhenNoFilters(t *testing.T) {
 	ops := newTestOperations(nil, execRepo, nil, nil, nil, nil, nil)
 
 	now := time.Now()
+	wfID1, wfID2 := uuid.New(), uuid.New()
 	execModels := []*storagemodels.ExecutionModel{
-		{ID: uuid.New(), WorkflowID: uuid.New(), Status: "completed", StartedAt: &now, CreatedAt: now, UpdatedAt: now},
-		{ID: uuid.New(), WorkflowID: uuid.New(), Status: "running", StartedAt: &now, CreatedAt: now, UpdatedAt: now},
+		{ID: uuid.New(), WorkflowID: &wfID1, Status: "completed", StartedAt: &now, CreatedAt: now, UpdatedAt: now},
+		{ID: uuid.New(), WorkflowID: &wfID2, Status: "running", StartedAt: &now, CreatedAt: now, UpdatedAt: now},
 	}
 	execRepo.On("FindAll", mock.Anything, 10, 0).Return(execModels, nil)
 
@@ -47,7 +48,7 @@ func TestListExecutions_ShouldFilterByWorkflowID_WhenProvided(t *testing.T) {
 	wfID := uuid.New()
 	now := time.Now()
 	execModels := []*storagemodels.ExecutionModel{
-		{ID: uuid.New(), WorkflowID: wfID, Status: "completed", StartedAt: &now, CreatedAt: now, UpdatedAt: now},
+		{ID: uuid.New(), WorkflowID: &wfID, Status: "completed", StartedAt: &now, CreatedAt: now, UpdatedAt: now},
 	}
 	execRepo.On("FindByWorkflowID", mock.Anything, wfID, 10, 0).Return(execModels, nil)
 
@@ -67,8 +68,9 @@ func TestListExecutions_ShouldFilterByStatus_WhenProvided(t *testing.T) {
 
 	status := "failed"
 	now := time.Now()
+	wfIDFailed := uuid.New()
 	execModels := []*storagemodels.ExecutionModel{
-		{ID: uuid.New(), WorkflowID: uuid.New(), Status: "failed", StartedAt: &now, CreatedAt: now, UpdatedAt: now},
+		{ID: uuid.New(), WorkflowID: &wfIDFailed, Status: "failed", StartedAt: &now, CreatedAt: now, UpdatedAt: now},
 	}
 	execRepo.On("FindByStatus", mock.Anything, "failed", 20, 5).Return(execModels, nil)
 
@@ -138,7 +140,7 @@ func TestGetExecution_ShouldReturnExecution_WhenFound(t *testing.T) {
 	now := time.Now()
 
 	execModel := &storagemodels.ExecutionModel{
-		ID: execID, WorkflowID: wfID, Status: "completed", StartedAt: &now,
+		ID: execID, WorkflowID: &wfID, Status: "completed", StartedAt: &now,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	execRepo.On("FindByIDWithRelations", mock.Anything, execID).Return(execModel, nil)
@@ -178,11 +180,11 @@ func TestGetExecution_ShouldEnrichNodeExecutions_WithWorkflowNodeInfo(t *testing
 	now := time.Now()
 
 	execModel := &storagemodels.ExecutionModel{
-		ID: execID, WorkflowID: wfID, Status: "completed", StartedAt: &now,
+		ID: execID, WorkflowID: &wfID, Status: "completed", StartedAt: &now,
 		CreatedAt: now, UpdatedAt: now,
 		NodeExecutions: []*storagemodels.NodeExecutionModel{
 			{
-				ID: uuid.New(), ExecutionID: execID, NodeID: nodeUUID, Status: "completed",
+				ID: uuid.New(), ExecutionID: execID, NodeID: &nodeUUID, Status: "completed",
 				StartedAt: &now, CreatedAt: now, UpdatedAt: now,
 			},
 		},
@@ -216,7 +218,7 @@ func TestGetExecution_ShouldHandleMissingWorkflow_Gracefully(t *testing.T) {
 	now := time.Now()
 
 	execModel := &storagemodels.ExecutionModel{
-		ID: execID, WorkflowID: wfID, Status: "completed", StartedAt: &now,
+		ID: execID, WorkflowID: &wfID, Status: "completed", StartedAt: &now,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	execRepo.On("FindByIDWithRelations", mock.Anything, execID).Return(execModel, nil)
@@ -327,11 +329,11 @@ func TestGetNodeResult_ShouldReturnNodeExecution_WhenFound(t *testing.T) {
 	now := time.Now()
 
 	execModel := &storagemodels.ExecutionModel{
-		ID: execID, WorkflowID: wfID, Status: "completed", StartedAt: &now,
+		ID: execID, WorkflowID: &wfID, Status: "completed", StartedAt: &now,
 		CreatedAt: now, UpdatedAt: now,
 		NodeExecutions: []*storagemodels.NodeExecutionModel{
 			{
-				ID: uuid.New(), ExecutionID: execID, NodeID: nodeUUID, Status: "completed",
+				ID: uuid.New(), ExecutionID: execID, NodeID: &nodeUUID, Status: "completed",
 				StartedAt: &now, OutputData: storagemodels.JSONBMap{"result": "ok"},
 				CreatedAt: now, UpdatedAt: now,
 			},
@@ -369,11 +371,11 @@ func TestGetNodeResult_ShouldReturnError_WhenNodeNotFound(t *testing.T) {
 	now := time.Now()
 
 	execModel := &storagemodels.ExecutionModel{
-		ID: execID, WorkflowID: wfID, Status: "completed", StartedAt: &now,
+		ID: execID, WorkflowID: &wfID, Status: "completed", StartedAt: &now,
 		CreatedAt: now, UpdatedAt: now,
 		NodeExecutions: []*storagemodels.NodeExecutionModel{
 			{
-				ID: uuid.New(), ExecutionID: execID, NodeID: nodeUUID, Status: "completed",
+				ID: uuid.New(), ExecutionID: execID, NodeID: &nodeUUID, Status: "completed",
 				StartedAt: &now, CreatedAt: now, UpdatedAt: now,
 			},
 		},
@@ -425,7 +427,7 @@ func TestGetNodeResult_ShouldReturnError_WhenWorkflowNotFound(t *testing.T) {
 	now := time.Now()
 
 	execModel := &storagemodels.ExecutionModel{
-		ID: execID, WorkflowID: wfID, Status: "completed", StartedAt: &now,
+		ID: execID, WorkflowID: &wfID, Status: "completed", StartedAt: &now,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	execRepo.On("FindByIDWithRelations", mock.Anything, execID).Return(execModel, nil)

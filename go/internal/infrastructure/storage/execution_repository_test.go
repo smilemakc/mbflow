@@ -58,6 +58,10 @@ func createTestWorkflow(t *testing.T, workflowRepo *WorkflowRepository) *models.
 	return workflow
 }
 
+func uuidPtr(u uuid.UUID) *uuid.UUID {
+	return &u
+}
+
 // ========== CREATE TESTS ==========
 
 func TestExecutionRepo_Create_Success(t *testing.T) {
@@ -71,7 +75,7 @@ func TestExecutionRepo_Create_Success(t *testing.T) {
 	now := time.Now()
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "pending",
 		StartedAt:  &now,
 		Variables:  models.JSONBMap{"key": "value"},
@@ -98,7 +102,7 @@ func TestExecutionRepo_Create_GeneratesID(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.Nil, // No ID provided
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "pending",
 	}
 
@@ -121,7 +125,7 @@ func TestExecutionRepo_Update_Success(t *testing.T) {
 	now := time.Now()
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 		StartedAt:  &now,
 	}
@@ -157,7 +161,7 @@ func TestExecutionRepo_Update_WithNodeExecutions(t *testing.T) {
 	// Create execution
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -167,7 +171,7 @@ func TestExecutionRepo_Update_WithNodeExecutions(t *testing.T) {
 	// Create node execution
 	nodeExec := &models.NodeExecutionModel{
 		ExecutionID: execution.ID,
-		NodeID:      workflow.Nodes[0].ID,
+		NodeID:      uuidPtr(workflow.Nodes[0].ID),
 		Status:      "completed",
 		OutputData:  models.JSONBMap{"output": "test"},
 		Wave:        0,
@@ -206,7 +210,7 @@ func TestExecutionRepo_Delete_Success(t *testing.T) {
 	// Create execution
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "pending",
 	}
 
@@ -234,7 +238,7 @@ func TestExecutionRepo_Delete_CascadesNodeExecutions(t *testing.T) {
 	// Create execution with node executions
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -244,7 +248,7 @@ func TestExecutionRepo_Delete_CascadesNodeExecutions(t *testing.T) {
 	// Create node execution
 	nodeExec := &models.NodeExecutionModel{
 		ExecutionID: execution.ID,
-		NodeID:      workflow.Nodes[0].ID,
+		NodeID:      uuidPtr(workflow.Nodes[0].ID),
 		Status:      "completed",
 		Wave:        0,
 	}
@@ -274,7 +278,7 @@ func TestExecutionRepo_FindByID_Success(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "pending",
 		Variables:  models.JSONBMap{"key": "value"},
 	}
@@ -310,7 +314,7 @@ func TestExecutionRepo_FindByID_WithRelations(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -320,7 +324,7 @@ func TestExecutionRepo_FindByID_WithRelations(t *testing.T) {
 	// Create node execution
 	nodeExec := &models.NodeExecutionModel{
 		ExecutionID: execution.ID,
-		NodeID:      workflow.Nodes[0].ID,
+		NodeID:      uuidPtr(workflow.Nodes[0].ID),
 		Status:      "completed",
 		Wave:        0,
 	}
@@ -353,7 +357,7 @@ func TestExecutionRepo_FindByWorkflowID_Success(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     "pending",
 		}
 		err := repo.Create(context.Background(), execution)
@@ -377,7 +381,7 @@ func TestExecutionRepo_FindByWorkflowID_Pagination(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     "pending",
 		}
 		err := repo.Create(context.Background(), execution)
@@ -413,7 +417,7 @@ func TestExecutionRepo_FindByStatus_Success(t *testing.T) {
 	for _, status := range statuses {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     status,
 		}
 		err := repo.Create(context.Background(), execution)
@@ -445,7 +449,7 @@ func TestExecutionRepo_FindAll_Success(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     "pending",
 		}
 		err := repo.Create(context.Background(), execution)
@@ -472,7 +476,7 @@ func TestExecutionRepo_FindRunning_Success(t *testing.T) {
 	for _, status := range statuses {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     status,
 		}
 		err := repo.Create(context.Background(), execution)
@@ -502,7 +506,7 @@ func TestExecutionRepo_Count_Total(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     "pending",
 		}
 		err := repo.Create(context.Background(), execution)
@@ -526,7 +530,7 @@ func TestExecutionRepo_CountByWorkflowID_Success(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     "pending",
 		}
 		err := repo.Create(context.Background(), execution)
@@ -551,7 +555,7 @@ func TestExecutionRepo_CountByStatus_Success(t *testing.T) {
 	for _, status := range statuses {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     status,
 		}
 		err := repo.Create(context.Background(), execution)
@@ -579,7 +583,7 @@ func TestExecutionRepo_CreateNodeExecution_Success(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -588,7 +592,7 @@ func TestExecutionRepo_CreateNodeExecution_Success(t *testing.T) {
 
 	nodeExec := &models.NodeExecutionModel{
 		ExecutionID: execution.ID,
-		NodeID:      workflow.Nodes[0].ID,
+		NodeID:      uuidPtr(workflow.Nodes[0].ID),
 		Status:      "pending",
 		Wave:        0,
 	}
@@ -608,7 +612,7 @@ func TestExecutionRepo_UpdateNodeExecution_Success(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -617,7 +621,7 @@ func TestExecutionRepo_UpdateNodeExecution_Success(t *testing.T) {
 
 	nodeExec := &models.NodeExecutionModel{
 		ExecutionID: execution.ID,
-		NodeID:      workflow.Nodes[0].ID,
+		NodeID:      uuidPtr(workflow.Nodes[0].ID),
 		Status:      "running",
 		Wave:        0,
 	}
@@ -649,7 +653,7 @@ func TestExecutionRepo_DeleteNodeExecution_Success(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -658,7 +662,7 @@ func TestExecutionRepo_DeleteNodeExecution_Success(t *testing.T) {
 
 	nodeExec := &models.NodeExecutionModel{
 		ExecutionID: execution.ID,
-		NodeID:      workflow.Nodes[0].ID,
+		NodeID:      uuidPtr(workflow.Nodes[0].ID),
 		Status:      "pending",
 		Wave:        0,
 	}
@@ -686,7 +690,7 @@ func TestExecutionRepo_FindNodeExecutionByID_Success(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -695,7 +699,7 @@ func TestExecutionRepo_FindNodeExecutionByID_Success(t *testing.T) {
 
 	nodeExec := &models.NodeExecutionModel{
 		ExecutionID: execution.ID,
-		NodeID:      workflow.Nodes[0].ID,
+		NodeID:      uuidPtr(workflow.Nodes[0].ID),
 		Status:      "completed",
 		OutputData:  models.JSONBMap{"output": "test"},
 		Wave:        0,
@@ -720,7 +724,7 @@ func TestExecutionRepo_FindNodeExecutionsByExecutionID_Success(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -731,7 +735,7 @@ func TestExecutionRepo_FindNodeExecutionsByExecutionID_Success(t *testing.T) {
 	for i, node := range workflow.Nodes {
 		nodeExec := &models.NodeExecutionModel{
 			ExecutionID: execution.ID,
-			NodeID:      node.ID,
+			NodeID:      uuidPtr(node.ID),
 			Status:      "completed",
 			Wave:        i,
 		}
@@ -754,7 +758,7 @@ func TestExecutionRepo_FindNodeExecutionsByExecutionID_Empty(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "pending",
 	}
 
@@ -778,7 +782,7 @@ func TestExecutionRepo_FindNodeExecutionsByWave_Success(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -789,7 +793,7 @@ func TestExecutionRepo_FindNodeExecutionsByWave_Success(t *testing.T) {
 	for i, node := range workflow.Nodes {
 		nodeExec := &models.NodeExecutionModel{
 			ExecutionID: execution.ID,
-			NodeID:      node.ID,
+			NodeID:      uuidPtr(node.ID),
 			Status:      "completed",
 			Wave:        i,
 		}
@@ -820,7 +824,7 @@ func TestExecutionRepo_FindNodeExecutionsByStatus_Success(t *testing.T) {
 
 	execution := &models.ExecutionModel{
 		ID:         uuid.New(),
-		WorkflowID: workflow.ID,
+		WorkflowID: uuidPtr(workflow.ID),
 		Status:     "running",
 	}
 
@@ -832,7 +836,7 @@ func TestExecutionRepo_FindNodeExecutionsByStatus_Success(t *testing.T) {
 	for i, status := range statuses {
 		nodeExec := &models.NodeExecutionModel{
 			ExecutionID: execution.ID,
-			NodeID:      workflow.Nodes[i].ID,
+			NodeID:      uuidPtr(workflow.Nodes[i].ID),
 			Status:      status,
 			Wave:        0,
 		}
@@ -866,7 +870,7 @@ func TestExecutionRepo_GetStatistics_Success(t *testing.T) {
 	for _, status := range statuses {
 		execution := &models.ExecutionModel{
 			ID:         uuid.New(),
-			WorkflowID: workflow.ID,
+			WorkflowID: uuidPtr(workflow.ID),
 			Status:     status,
 		}
 
@@ -919,7 +923,7 @@ func TestExecutionRepo_GetStatistics_AllWorkflows(t *testing.T) {
 	for _, wf := range []*models.WorkflowModel{workflow1, workflow2} {
 		execution := &models.ExecutionModel{
 			ID:          uuid.New(),
-			WorkflowID:  wf.ID,
+			WorkflowID:  uuidPtr(wf.ID),
 			Status:      "completed",
 			StartedAt:   &startedAt,
 			CompletedAt: &completedAt,

@@ -69,34 +69,36 @@ func (o *Operations) GetExecution(ctx context.Context, params GetExecutionParams
 
 	execution := storagemodels.ExecutionModelToDomain(execModel)
 
-	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, execModel.WorkflowID)
-	if err == nil && workflowModel != nil {
-		nodeIDMap := make(map[string]string)
-		nodeNameMap := make(map[string]string)
-		nodeTypeMap := make(map[string]string)
-		for _, node := range workflowModel.Nodes {
-			nodeIDMap[node.ID.String()] = node.NodeID
-			nodeNameMap[node.ID.String()] = node.Name
-			nodeTypeMap[node.ID.String()] = node.Type
-		}
-
-		for _, ne := range execution.NodeExecutions {
-			if logicalID, found := nodeIDMap[ne.NodeID]; found {
-				ne.NodeID = logicalID
+	if execModel.WorkflowID != nil {
+		workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, *execModel.WorkflowID)
+		if err == nil && workflowModel != nil {
+			nodeIDMap := make(map[string]string)
+			nodeNameMap := make(map[string]string)
+			nodeTypeMap := make(map[string]string)
+			for _, node := range workflowModel.Nodes {
+				nodeIDMap[node.ID.String()] = node.NodeID
+				nodeNameMap[node.ID.String()] = node.Name
+				nodeTypeMap[node.ID.String()] = node.Type
 			}
-			if nodeName, found := nodeNameMap[ne.NodeID]; found {
-				ne.NodeName = nodeName
-			} else if ne.NodeID != "" {
-				for _, node := range workflowModel.Nodes {
-					if node.NodeID == ne.NodeID {
-						ne.NodeName = node.Name
-						ne.NodeType = node.Type
-						break
+
+			for _, ne := range execution.NodeExecutions {
+				if logicalID, found := nodeIDMap[ne.NodeID]; found {
+					ne.NodeID = logicalID
+				}
+				if nodeName, found := nodeNameMap[ne.NodeID]; found {
+					ne.NodeName = nodeName
+				} else if ne.NodeID != "" {
+					for _, node := range workflowModel.Nodes {
+						if node.NodeID == ne.NodeID {
+							ne.NodeName = node.Name
+							ne.NodeType = node.Type
+							break
+						}
 					}
 				}
-			}
-			if nodeType, found := nodeTypeMap[ne.NodeID]; found {
-				ne.NodeType = nodeType
+				if nodeType, found := nodeTypeMap[ne.NodeID]; found {
+					ne.NodeType = nodeType
+				}
 			}
 		}
 	}
@@ -255,7 +257,11 @@ func (o *Operations) GetNodeResult(ctx context.Context, params GetNodeResultPara
 		return nil, err
 	}
 
-	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, execModel.WorkflowID)
+	if execModel.WorkflowID == nil {
+		return nil, NewValidationError("NODE_EXECUTION_NOT_FOUND", "Node execution not found")
+	}
+
+	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, *execModel.WorkflowID)
 	if err != nil {
 		o.Logger.Error("Failed to find workflow in GetNodeResult", "error", err, "workflow_id", execModel.WorkflowID)
 		return nil, err
@@ -267,7 +273,10 @@ func (o *Operations) GetNodeResult(ctx context.Context, params GetNodeResultPara
 	}
 
 	for _, ne := range execModel.NodeExecutions {
-		if logicalID, ok := nodeIDMap[ne.NodeID]; ok && logicalID == params.NodeID {
+		if ne.NodeID == nil {
+			continue
+		}
+		if logicalID, ok := nodeIDMap[*ne.NodeID]; ok && logicalID == params.NodeID {
 			nodeExec := storagemodels.NodeExecutionModelToDomain(ne)
 			nodeExec.NodeID = params.NodeID
 			return nodeExec, nil

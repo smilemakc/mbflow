@@ -11,10 +11,13 @@ import (
 type NodeExecutionModel struct {
 	bun.BaseModel `bun:"table:mbflow_node_executions,alias:ne"`
 
-	ID             uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
-	ExecutionID    uuid.UUID  `bun:"execution_id,notnull,type:uuid" json:"execution_id" validate:"required"`
-	NodeID         uuid.UUID  `bun:"node_id,notnull,type:uuid" json:"node_id" validate:"required"`
-	Status         string     `bun:"status,notnull,default:'pending'" json:"status" validate:"required,oneof=pending running completed failed skipped retrying"`
+	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
+	ExecutionID uuid.UUID  `bun:"execution_id,notnull,type:uuid" json:"execution_id" validate:"required"`
+	NodeID      *uuid.UUID `bun:"node_id,type:uuid" json:"node_id,omitempty"`
+	NodeKey     *string    `bun:"node_key" json:"node_key,omitempty"`
+	NodeName    *string    `bun:"node_name" json:"node_name,omitempty"`
+	NodeType    *string    `bun:"node_type" json:"node_type,omitempty"`
+	Status      string     `bun:"status,notnull,default:'pending'" json:"status" validate:"required,oneof=pending running completed failed skipped retrying"`
 	StartedAt      *time.Time `bun:"started_at" json:"started_at,omitempty"`
 	CompletedAt    *time.Time `bun:"completed_at" json:"completed_at,omitempty"`
 	InputData      JSONBMap   `bun:"input_data,type:jsonb,default:'{}'" json:"input_data,omitempty"`
