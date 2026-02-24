@@ -22,6 +22,7 @@ const (
 	EventTypeExecutionCompleted = "execution.completed"
 	EventTypeExecutionFailed    = "execution.failed"
 	EventTypeExecutionCancelled = "execution.cancelled"
+	EventTypeExecutionTimeout   = "execution.timeout"
 	EventTypeExecutionPaused    = "execution.paused"
 	EventTypeExecutionResumed   = "execution.resumed"
 	// Node-level events

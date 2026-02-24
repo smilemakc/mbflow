@@ -111,4 +111,5 @@ const (
 	EventTypeSubWorkflowProgress      = "sub_workflow.progress"
 	EventTypeSubWorkflowItemCompleted = "sub_workflow.item_completed"
 	EventTypeSubWorkflowItemFailed    = "sub_workflow.item_failed"
+	EventTypeExecutionTimeout         = "execution.timeout"
 )

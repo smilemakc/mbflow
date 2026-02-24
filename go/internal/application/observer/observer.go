@@ -64,6 +64,7 @@ const (
 	EventTypeNodeFailed         EventType = "node.failed"
 	EventTypeNodeSkipped        EventType = "node.skipped"
 	EventTypeNodeRetrying       EventType = "node.retrying"
+	EventTypeExecutionTimeout   EventType = "execution.timeout"
 )
 
 // EventFilter defines filtering criteria for events
