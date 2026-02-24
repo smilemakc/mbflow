@@ -9,6 +9,7 @@ type Execution struct {
 	ID             string           `json:"id"`
 	WorkflowID     string           `json:"workflow_id"`
 	WorkflowName   string           `json:"workflow_name,omitempty"`
+	WorkflowSource string           `json:"workflow_source,omitempty"` // "stored" or "inline"
 	Status         ExecutionStatus  `json:"status"`
 	Input          map[string]any   `json:"input,omitempty"`
 	Output         map[string]any   `json:"output,omitempty"`
