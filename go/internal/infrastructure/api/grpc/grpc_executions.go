@@ -65,6 +65,7 @@ func (s *ServiceAPIServer) StartExecution(ctx context.Context, req *pb.StartExec
 	params := serviceapi.StartExecutionParams{
 		WorkflowID: req.WorkflowId,
 		Input:      structToMap(req.Input),
+		Variables:  structToMap(req.Variables),
 	}
 
 	if len(req.Webhooks) > 0 {

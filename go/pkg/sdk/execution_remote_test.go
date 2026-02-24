@@ -56,7 +56,7 @@ func TestExecutionAPI_RunRemote_Success(t *testing.T) {
 	defer client.Close()
 
 	ctx := context.Background()
-	exec, err := client.Executions().Run(ctx, "wf-456", map[string]any{"key": "value"})
+	exec, err := client.Executions().Run(ctx, "wf-456", map[string]any{"key": "value"}, nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, "exec-123", exec.ID)
@@ -80,7 +80,7 @@ func TestExecutionAPI_RunRemote_ServerError(t *testing.T) {
 	defer client.Close()
 
 	ctx := context.Background()
-	_, err = client.Executions().Run(ctx, "wf-456", nil)
+	_, err = client.Executions().Run(ctx, "wf-456", nil, nil)
 
 	assert.Error(t, err)
 }
@@ -545,7 +545,7 @@ func TestExecutionAPI_RunSyncRemote_Success(t *testing.T) {
 	defer client.Close()
 
 	ctx := context.Background()
-	exec, err := client.Executions().RunSync(ctx, "wf-456", nil)
+	exec, err := client.Executions().RunSync(ctx, "wf-456", nil, nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, "exec-123", exec.ID)
@@ -568,7 +568,7 @@ func TestExecutionAPI_RunRemote_EmptyWorkflowID(t *testing.T) {
 	defer client.Close()
 
 	ctx := context.Background()
-	_, err = client.Executions().Run(ctx, "", nil)
+	_, err = client.Executions().Run(ctx, "", nil, nil)
 
 	assert.ErrorIs(t, err, models.ErrInvalidWorkflowID)
 }
@@ -626,7 +626,7 @@ func TestExecutionAPI_RunRemote_WithInput(t *testing.T) {
 
 	ctx := context.Background()
 
-	exec, err := client.Executions().Run(ctx, "wf-456", map[string]any{"testKey": "test-value"})
+	exec, err := client.Executions().Run(ctx, "wf-456", map[string]any{"testKey": "test-value"}, nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, "exec-123", exec.ID)

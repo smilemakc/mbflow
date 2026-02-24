@@ -17,7 +17,7 @@ func TestExecutionAPI_Run_EmptyWorkflowID(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = client.Executions().Run(ctx, "", nil)
+	_, err = client.Executions().Run(ctx, "", nil, nil)
 	assert.ErrorIs(t, err, models.ErrInvalidWorkflowID)
 }
 
@@ -29,7 +29,7 @@ func TestExecutionAPI_Run_ClosedClient(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = client.Executions().Run(ctx, "test-workflow-id", nil)
+	_, err = client.Executions().Run(ctx, "test-workflow-id", nil, nil)
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
@@ -41,7 +41,7 @@ func TestExecutionAPI_Run_NotAvailableInStandalone(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = client.Executions().Run(ctx, "test-workflow-id", nil)
+	_, err = client.Executions().Run(ctx, "test-workflow-id", nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not available in standalone mode")
 }
@@ -54,7 +54,7 @@ func TestExecutionAPI_RunSync_EmptyWorkflowID(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = client.Executions().RunSync(ctx, "", nil)
+	_, err = client.Executions().RunSync(ctx, "", nil, nil)
 	assert.ErrorIs(t, err, models.ErrInvalidWorkflowID)
 }
 
@@ -66,7 +66,7 @@ func TestExecutionAPI_RunSync_ClosedClient(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = client.Executions().RunSync(ctx, "test-workflow-id", nil)
+	_, err = client.Executions().RunSync(ctx, "test-workflow-id", nil, nil)
 	assert.ErrorIs(t, err, models.ErrClientClosed)
 }
 
@@ -78,7 +78,7 @@ func TestExecutionAPI_RunSync_NotAvailableInStandalone(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = client.Executions().RunSync(ctx, "test-workflow-id", nil)
+	_, err = client.Executions().RunSync(ctx, "test-workflow-id", nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not available in standalone mode")
 }

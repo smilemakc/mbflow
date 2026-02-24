@@ -120,7 +120,11 @@ type executionClient struct{ tr internal.Transport }
 func newExecutionClient(tr internal.Transport) ExecutionService { return &executionClient{tr: tr} }
 
 func (e *executionClient) Run(ctx context.Context, wfID string, input map[string]any, opts ...RequestOption) (*models.Execution, error) {
+	ro := applyRequestOptions(opts)
 	body := map[string]any{"workflow_id": wfID, "input": input}
+	if ro.variables != nil {
+		body["variables"] = ro.variables
+	}
 	resp, err := e.tr.Do(ctx, &internal.Request{Method: internal.MethodPost, Path: "/executions", Body: body})
 	if err != nil {
 		return nil, err

@@ -117,6 +117,7 @@ type StartExecutionParams struct {
 	WorkflowID string
 	Input      map[string]any
 	Webhooks   []WebhookSubscription
+	Variables  map[string]any
 }
 
 func (o *Operations) StartExecution(ctx context.Context, params StartExecutionParams) (*models.Execution, error) {
@@ -126,6 +127,7 @@ func (o *Operations) StartExecution(ctx context.Context, params StartExecutionPa
 	}
 
 	opts := engine.DefaultExecutionOptions()
+	opts.Variables = params.Variables
 
 	// Convert serviceapi webhooks to engine webhooks
 	if len(params.Webhooks) > 0 {

@@ -79,11 +79,17 @@ type RequestOption func(*requestOptions)
 
 type requestOptions struct {
 	onBehalfOf string
+	variables  map[string]any
 }
 
 // OnBehalfOf sets user impersonation for a single request.
 func OnBehalfOf(userID string) RequestOption {
 	return func(o *requestOptions) { o.onBehalfOf = userID }
+}
+
+// WithVariables sets runtime variables that override workflow environment variables.
+func WithVariables(vars map[string]any) RequestOption {
+	return func(o *requestOptions) { o.variables = vars }
 }
 
 func applyRequestOptions(opts []RequestOption) requestOptions {

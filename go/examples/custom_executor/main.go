@@ -105,7 +105,7 @@ func main() {
 
 	// Execute the workflow
 	fmt.Println("\nExecuting workflow...")
-	execution, err := client.Executions().RunSync(ctx, createdWorkflow.ID, nil)
+	execution, err := client.Executions().RunSync(ctx, createdWorkflow.ID, nil, nil)
 	if err != nil {
 		log.Fatalf("Failed to execute workflow: %v", err)
 	}

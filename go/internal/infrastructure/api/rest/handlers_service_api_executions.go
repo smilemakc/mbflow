@@ -73,7 +73,8 @@ func (h *ServiceAPIExecutionHandlers) StartExecution(c *gin.Context) {
 	}
 
 	var req struct {
-		Input map[string]any `json:"input"`
+		Input     map[string]any `json:"input"`
+		Variables map[string]any `json:"variables,omitempty"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
@@ -83,6 +84,7 @@ func (h *ServiceAPIExecutionHandlers) StartExecution(c *gin.Context) {
 	execution, err := h.ops.StartExecution(c.Request.Context(), serviceapi.StartExecutionParams{
 		WorkflowID: workflowID,
 		Input:      req.Input,
+		Variables:  req.Variables,
 	})
 	if err != nil {
 		respondAPIErrorWithRequestID(c, TranslateError(err))

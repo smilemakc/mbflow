@@ -145,10 +145,12 @@ func newGRPCExecutionClient(tr *grpcclient.Transport) ExecutionService {
 }
 
 func (e *grpcExecutionService) Run(ctx context.Context, wfID string, input map[string]any, opts ...RequestOption) (*models.Execution, error) {
-	ctx = e.tr.AuthContext(ctx, resolveOnBehalfOf(opts))
+	ro := applyRequestOptions(opts)
+	ctx = e.tr.AuthContext(ctx, ro.onBehalfOf)
 	resp, err := e.tr.Client().StartExecution(ctx, &pb.StartExecutionRequest{
 		WorkflowId: wfID,
 		Input:      grpcclient.MapToStruct(input),
+		Variables:  grpcclient.MapToStruct(ro.variables),
 	})
 	if err != nil {
 		return nil, convertGRPCError(err)

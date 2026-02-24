@@ -696,7 +696,9 @@ func TestGeminiProvider_Execute_WithMockProvider(t *testing.T) {
 	resultMap, ok := result.(map[string]any)
 	require.True(t, ok)
 
-	assert.Equal(t, `{"response": "Hello from Gemini"}`, resultMap["content"])
+	contentMap, ok := resultMap["content"].(map[string]any)
+	require.True(t, ok, "content should be a parsed map when response_format is json_object")
+	assert.Equal(t, "Hello from Gemini", contentMap["response"])
 	assert.Equal(t, "gemini-resp-456", resultMap["response_id"])
 	assert.Equal(t, "gemini-2.5-flash", resultMap["model"])
 	assert.Equal(t, "stop", resultMap["finish_reason"])

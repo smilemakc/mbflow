@@ -38,6 +38,7 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	var req struct {
 		WorkflowID string `json:"workflow_id"`
 		Input      map[string]any `json:"input"`
+		Variables  map[string]any `json:"variables,omitempty"`
 		Async      bool   `json:"async"`
 		Webhooks   []struct {
 			URL     string            `json:"url"`
@@ -63,6 +64,7 @@ func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	params := serviceapi.StartExecutionParams{
 		WorkflowID: req.WorkflowID,
 		Input:      req.Input,
+		Variables:  req.Variables,
 	}
 
 	if len(req.Webhooks) > 0 {

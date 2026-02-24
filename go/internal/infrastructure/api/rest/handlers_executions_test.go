@@ -188,6 +188,55 @@ func TestHandlers_RunExecution_WorkflowNotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestHandlers_RunExecution_WithVariables(t *testing.T) {
+	t.Parallel()
+	_, router, workflowRepo, cleanup := setupExecutionHandlersTest(t)
+	defer cleanup()
+
+	// Create a workflow with environment variables
+	workflow := testutil.CreateVariableSubstitutionWorkflow()
+	workflowModel := testutil.WorkflowDomainToModel(workflow)
+	err := workflowRepo.Create(context.Background(), workflowModel)
+	require.NoError(t, err)
+
+	// Start execution with runtime variables
+	req := map[string]any{
+		"workflow_id": workflowModel.ID.String(),
+		"input": map[string]any{
+			"test": "data",
+		},
+		"variables": map[string]any{
+			"api_key":   "runtime-override-key",
+			"extra_var": "extra-value",
+		},
+		"async": true,
+	}
+
+	w := testutil.MakeRequest(t, router, "POST", "/api/v1/executions", req)
+
+	assert.Equal(t, http.StatusAccepted, w.Code)
+
+	var runResult map[string]any
+	testutil.ParseResponse(t, w, &runResult)
+
+	executionID, ok := runResult["id"].(string)
+	require.True(t, ok, "execution id should be a string")
+	require.NotEmpty(t, executionID)
+
+	// Retrieve the execution and verify variables were stored
+	getW := testutil.MakeRequest(t, router, "GET", fmt.Sprintf("/api/v1/executions/%s", executionID), nil)
+
+	assert.Equal(t, http.StatusOK, getW.Code)
+
+	var getResult map[string]any
+	testutil.ParseResponse(t, getW, &getResult)
+
+	variables, ok := getResult["variables"].(map[string]any)
+	require.True(t, ok, "variables field should be a map")
+	assert.Equal(t, "runtime-override-key", variables["api_key"])
+	assert.Equal(t, "extra-value", variables["extra_var"])
+}
+
 // ========== GET EXECUTION TESTS ==========
 
 func TestHandlers_GetExecution_Success(t *testing.T) {

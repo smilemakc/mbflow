@@ -116,7 +116,7 @@ func runSDKMode() {
 
 		fmt.Println("Executing workflow...")
 
-		execution, err := client.Executions().Run(r.Context(), createdWorkflow.ID, nil)
+		execution, err := client.Executions().Run(r.Context(), createdWorkflow.ID, nil, nil)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, `{"error":"%s"}`, err.Error())

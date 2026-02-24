@@ -169,6 +169,7 @@ message StartExecutionRequest {
   string workflow_id = 1;
   google.protobuf.Struct input = 2;
   repeated WebhookSubscription webhooks = 3;
+  google.protobuf.Struct variables = 4;
 }
 
 message CancelExecutionRequest {

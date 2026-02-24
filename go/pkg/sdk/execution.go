@@ -28,7 +28,7 @@ func newExecutionAPI(client *Client) *ExecutionAPI {
 
 // Run starts a new workflow execution with the given input.
 // It returns immediately with an execution ID for asynchronous tracking.
-func (e *ExecutionAPI) Run(ctx context.Context, workflowID string, input map[string]any) (*models.Execution, error) {
+func (e *ExecutionAPI) Run(ctx context.Context, workflowID string, input map[string]any, variables map[string]any) (*models.Execution, error) {
 	if err := e.client.checkClosed(); err != nil {
 		return nil, err
 	}
@@ -40,6 +40,7 @@ func (e *ExecutionAPI) Run(ctx context.Context, workflowID string, input map[str
 	req := &ExecutionRequest{
 		WorkflowID: workflowID,
 		Input:      input,
+		Variables:  variables,
 		Async:      true,
 	}
 
@@ -52,7 +53,7 @@ func (e *ExecutionAPI) Run(ctx context.Context, workflowID string, input map[str
 
 // RunSync starts a workflow execution and waits for it to complete.
 // This is a blocking call that returns the final execution result.
-func (e *ExecutionAPI) RunSync(ctx context.Context, workflowID string, input map[string]any) (*models.Execution, error) {
+func (e *ExecutionAPI) RunSync(ctx context.Context, workflowID string, input map[string]any, variables map[string]any) (*models.Execution, error) {
 	if err := e.client.checkClosed(); err != nil {
 		return nil, err
 	}
@@ -64,6 +65,7 @@ func (e *ExecutionAPI) RunSync(ctx context.Context, workflowID string, input map
 	req := &ExecutionRequest{
 		WorkflowID: workflowID,
 		Input:      input,
+		Variables:  variables,
 		Async:      false,
 	}
 
@@ -216,6 +218,7 @@ func (e *ExecutionAPI) GetNodeResult(ctx context.Context, executionID, nodeID st
 type ExecutionRequest struct {
 	WorkflowID string         `json:"workflow_id"`
 	Input      map[string]any `json:"input"`
+	Variables  map[string]any `json:"variables,omitempty"`
 	Async      bool           `json:"async"`
 }
 
