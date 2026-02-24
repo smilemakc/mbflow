@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/smilemakc/mbflow/go/internal/application/observer"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // WebhookSubscription defines a per-execution webhook callback configuration.
@@ -70,4 +71,19 @@ func NoRetryPolicy() *RetryPolicy {
 	return &RetryPolicy{
 		MaxAttempts: 1,
 	}
+}
+
+// EphemeralExecutionOptions holds parameters for ephemeral workflow execution.
+type EphemeralExecutionOptions struct {
+	Mode             string
+	PersistExecution bool
+	Workflow         *models.Workflow
+	Input            map[string]any
+	Variables        map[string]any
+	CredentialIDs    []string
+	Webhooks         []WebhookSubscription
+	StrictMode       bool
+	Timeout          time.Duration
+	NodeTimeout      time.Duration
+	ContinueOnError  bool
 }

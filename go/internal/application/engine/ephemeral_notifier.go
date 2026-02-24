@@ -26,6 +26,10 @@ func NewEphemeralNotifier(manager *observer.ObserverManager, redactor *EventReda
 
 // Notify converts an ExecutionEvent, redacts sensitive data, stamps a monotonic sequence number, and dispatches.
 func (n *EphemeralNotifier) Notify(ctx context.Context, event pkgengine.ExecutionEvent) {
+	if n.manager == nil {
+		return
+	}
+
 	seq := n.seq.Add(1)
 
 	obsEvent := convertToObserverEvent(event)

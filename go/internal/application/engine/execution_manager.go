@@ -16,13 +16,14 @@ import (
 
 // ExecutionManager manages workflow execution lifecycle.
 type ExecutionManager struct {
-	executorManager executor.Manager
-	workflowRepo    repository.WorkflowRepository
-	executionRepo   repository.ExecutionRepository
-	eventRepo       repository.EventRepository
-	resourceRepo    repository.ResourceRepository
-	dagExecutor     *pkgengine.DAGExecutor
-	observerManager *observer.ObserverManager
+	executorManager   executor.Manager
+	workflowRepo      repository.WorkflowRepository
+	executionRepo     repository.ExecutionRepository
+	eventRepo         repository.EventRepository
+	resourceRepo      repository.ResourceRepository
+	dagExecutor       *pkgengine.DAGExecutor
+	observerManager   *observer.ObserverManager
+	ephemeralRegistry *EphemeralStreamRegistry
 }
 
 // NewExecutionManager creates a new execution manager.
@@ -33,6 +34,7 @@ func NewExecutionManager(
 	eventRepo repository.EventRepository,
 	resourceRepo repository.ResourceRepository,
 	observerManager *observer.ObserverManager,
+	ephemeralRegistry ...*EphemeralStreamRegistry,
 ) *ExecutionManager {
 	nodeExecutor := pkgengine.NewNodeExecutor(executorManager)
 	notifier := NewObserverNotifier(observerManager)
@@ -40,7 +42,7 @@ func NewExecutionManager(
 	workflowLoader := NewRepositoryWorkflowLoader(workflowRepo)
 	dagExecutor := pkgengine.NewDAGExecutor(nodeExecutor, condEvaluator, notifier, workflowLoader)
 
-	return &ExecutionManager{
+	em := &ExecutionManager{
 		executorManager: executorManager,
 		workflowRepo:    workflowRepo,
 		executionRepo:   executionRepo,
@@ -49,6 +51,12 @@ func NewExecutionManager(
 		dagExecutor:     dagExecutor,
 		observerManager: observerManager,
 	}
+
+	if len(ephemeralRegistry) > 0 && ephemeralRegistry[0] != nil {
+		em.ephemeralRegistry = ephemeralRegistry[0]
+	}
+
+	return em
 }
 
 // Execute executes a workflow synchronously (blocks until completion).
