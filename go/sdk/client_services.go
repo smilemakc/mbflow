@@ -2,6 +2,7 @@ package mbflow
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/smilemakc/mbflow/go/sdk/internal"
@@ -181,6 +182,25 @@ func (e *executionClient) Retry(ctx context.Context, id string, opts ...RequestO
 		return nil, err
 	}
 	return internal.DecodeResponse[models.Execution](resp.Body)
+}
+
+func (e *executionClient) RunEphemeral(ctx context.Context, req *models.EphemeralExecutionRequest, opts ...RequestOption) (*models.Execution, error) {
+	resp, err := e.tr.Do(ctx, &internal.Request{
+		Method: internal.MethodPost,
+		Path:   "/executions/ephemeral",
+		Body:   req,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := convertError(resp); err != nil {
+		return nil, err
+	}
+	return internal.DecodeResponse[models.Execution](resp.Body)
+}
+
+func (e *executionClient) StreamEvents(_ context.Context, _ string, _ ...RequestOption) (ExecutionEventStream, error) {
+	return nil, fmt.Errorf("StreamEvents is not supported over HTTP transport; use gRPC transport instead")
 }
 
 // --- TriggerService ---

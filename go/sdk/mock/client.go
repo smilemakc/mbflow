@@ -161,6 +161,14 @@ func (m *ExecutionServiceMock) Retry(_ context.Context, id string, _ ...mbflow.R
 	return nil, fmt.Errorf("mock: unexpected Retry(%q) call", id)
 }
 
+func (m *ExecutionServiceMock) RunEphemeral(_ context.Context, _ *models.EphemeralExecutionRequest, _ ...mbflow.RequestOption) (*models.Execution, error) {
+	return nil, fmt.Errorf("mock: unexpected RunEphemeral call")
+}
+
+func (m *ExecutionServiceMock) StreamEvents(_ context.Context, id string, _ ...mbflow.RequestOption) (mbflow.ExecutionEventStream, error) {
+	return nil, fmt.Errorf("mock: unexpected StreamEvents(%q) call", id)
+}
+
 // --- TriggerServiceMock ---
 
 type TriggerServiceMock struct {

@@ -204,6 +204,69 @@ func (e *grpcExecutionService) Retry(ctx context.Context, id string, opts ...Req
 	return grpcclient.ExecutionFromProto(resp.Execution), nil
 }
 
+func (e *grpcExecutionService) RunEphemeral(ctx context.Context, req *models.EphemeralExecutionRequest, opts ...RequestOption) (*models.Execution, error) {
+	onBehalfOf := resolveOnBehalfOf(opts)
+	authCtx := e.tr.AuthContext(ctx, onBehalfOf)
+
+	pbReq := &pb.RunEphemeralExecutionRequest{
+		Workflow:         grpcclient.WorkflowToProto(req.Workflow),
+		Input:            grpcclient.MapToStruct(req.Input),
+		Mode:             string(req.Mode),
+		CredentialIds:    req.CredentialIDs,
+		Variables:        grpcclient.MapToStruct(req.Variables),
+		PersistExecution: req.PersistExecution,
+	}
+	for _, wh := range req.Webhooks {
+		pbReq.Webhooks = append(pbReq.Webhooks, &pb.WebhookSubscription{
+			Url:     wh.URL,
+			Events:  wh.Events,
+			NodeIds: wh.NodeIDs,
+			Headers: wh.Headers,
+		})
+	}
+
+	resp, err := e.tr.EphemeralClient().RunEphemeralExecution(authCtx, pbReq)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return grpcclient.ExecutionFromProto(resp.Execution), nil
+}
+
+func (e *grpcExecutionService) StreamEvents(ctx context.Context, executionID string, opts ...RequestOption) (ExecutionEventStream, error) {
+	onBehalfOf := resolveOnBehalfOf(opts)
+	authCtx := e.tr.AuthContext(ctx, onBehalfOf)
+
+	stream, err := e.tr.EphemeralClient().StreamExecutionEvents(authCtx, &pb.StreamExecutionEventsRequest{
+		ExecutionId: executionID,
+	})
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return &grpcEventStream{stream: stream}, nil
+}
+
+type grpcEventStream struct {
+	stream pb.MBFlowServiceAPI_StreamExecutionEventsClient
+}
+
+func (s *grpcEventStream) Recv() (*models.Event, error) {
+	ev, err := s.stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+	return &models.Event{
+		ID:          ev.EventId,
+		ExecutionID: ev.ExecutionId,
+		Sequence:    ev.Sequence,
+		EventType:   ev.EventType,
+		Payload:     grpcclient.StructToMap(ev.Payload),
+	}, nil
+}
+
+func (s *grpcEventStream) Close() error {
+	return s.stream.CloseSend()
+}
+
 // --- TriggerService ---
 
 type grpcTriggerService struct{ tr *grpcclient.Transport }

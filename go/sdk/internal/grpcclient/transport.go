@@ -50,6 +50,11 @@ func (t *Transport) Client() pb.MBFlowServiceAPIClient {
 	return t.client
 }
 
+// EphemeralClient returns a client for ephemeral execution RPCs.
+func (t *Transport) EphemeralClient() pb.EphemeralClient {
+	return pb.NewEphemeralClient(t.conn)
+}
+
 // AuthContext adds authentication metadata to the context.
 func (t *Transport) AuthContext(ctx context.Context, onBehalfOf string) context.Context {
 	md := metadata.New(map[string]string{})

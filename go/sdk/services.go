@@ -22,6 +22,14 @@ type ExecutionService interface {
 	List(ctx context.Context, listOpts *models.ListOptions, opts ...RequestOption) (*models.Page[models.Execution], error)
 	Cancel(ctx context.Context, id string, opts ...RequestOption) (*models.Execution, error)
 	Retry(ctx context.Context, id string, opts ...RequestOption) (*models.Execution, error)
+	RunEphemeral(ctx context.Context, req *models.EphemeralExecutionRequest, opts ...RequestOption) (*models.Execution, error)
+	StreamEvents(ctx context.Context, executionID string, opts ...RequestOption) (ExecutionEventStream, error)
+}
+
+// ExecutionEventStream provides a stream of execution events.
+type ExecutionEventStream interface {
+	Recv() (*models.Event, error)
+	Close() error
 }
 
 // TriggerService provides operations on workflow triggers.
