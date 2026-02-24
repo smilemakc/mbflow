@@ -3,6 +3,7 @@ package mbflow_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -95,5 +96,138 @@ func TestExecutions_List(t *testing.T) {
 	}
 	if len(page.Items) != 1 {
 		t.Errorf("Items len = %d", len(page.Items))
+	}
+}
+
+func TestRunEphemeral_HTTP_Sync(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/api/v1/service/executions/ephemeral" {
+			t.Errorf("path = %s, want /api/v1/service/executions/ephemeral", r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		if body["mode"] != "sync" {
+			t.Errorf("mode = %v, want sync", body["mode"])
+		}
+		workflow, ok := body["workflow"].(map[string]any)
+		if !ok {
+			t.Error("workflow field missing or wrong type")
+		} else if workflow["name"] != "inline-wf" {
+			t.Errorf("workflow.name = %v, want inline-wf", workflow["name"])
+		}
+		w.WriteHeader(200)
+		json.NewEncoder(w).Encode(map[string]any{
+			"id":              "exec-ephemeral-1",
+			"status":          "completed",
+			"workflow_source": "inline",
+		})
+	}))
+	defer server.Close()
+
+	client, _ := mbflow.NewClient(mbflow.WithHTTP(server.URL), mbflow.WithSystemKey("key"))
+	defer client.Close()
+
+	req := &models.EphemeralExecutionRequest{
+		Workflow: &models.Workflow{Name: "inline-wf"},
+		Input:    map[string]any{"prompt": "hello"},
+		Mode:     models.ExecutionModeSync,
+	}
+	exec, err := client.Executions().RunEphemeral(context.Background(), req)
+	if err != nil {
+		t.Fatalf("RunEphemeral: %v", err)
+	}
+	if exec.ID != "exec-ephemeral-1" {
+		t.Errorf("ID = %q, want exec-ephemeral-1", exec.ID)
+	}
+	if exec.Status != models.ExecutionStatusCompleted {
+		t.Errorf("Status = %q, want completed", exec.Status)
+	}
+	if exec.WorkflowSource != "inline" {
+		t.Errorf("WorkflowSource = %q, want inline", exec.WorkflowSource)
+	}
+}
+
+func TestRunEphemeral_HTTP_Async(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/api/v1/service/executions/ephemeral" {
+			t.Errorf("path = %s, want /api/v1/service/executions/ephemeral", r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		if body["mode"] != "async" {
+			t.Errorf("mode = %v, want async", body["mode"])
+		}
+		w.WriteHeader(202)
+		json.NewEncoder(w).Encode(map[string]any{
+			"id":              "exec-ephemeral-2",
+			"status":          "pending",
+			"workflow_source": "inline",
+		})
+	}))
+	defer server.Close()
+
+	client, _ := mbflow.NewClient(mbflow.WithHTTP(server.URL), mbflow.WithSystemKey("key"))
+	defer client.Close()
+
+	req := &models.EphemeralExecutionRequest{
+		Workflow: &models.Workflow{Name: "async-wf"},
+		Mode:     models.ExecutionModeAsync,
+	}
+	exec, err := client.Executions().RunEphemeral(context.Background(), req)
+	if err != nil {
+		t.Fatalf("RunEphemeral async: %v", err)
+	}
+	if exec.ID != "exec-ephemeral-2" {
+		t.Errorf("ID = %q, want exec-ephemeral-2", exec.ID)
+	}
+	if exec.Status != models.ExecutionStatusPending {
+		t.Errorf("Status = %q, want pending", exec.Status)
+	}
+	if exec.WorkflowSource != "inline" {
+		t.Errorf("WorkflowSource = %q, want inline", exec.WorkflowSource)
+	}
+}
+
+func TestRunEphemeral_HTTP_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(413)
+		json.NewEncoder(w).Encode(map[string]any{
+			"code":    "payload_too_large",
+			"message": "workflow definition exceeds maximum allowed size",
+		})
+	}))
+	defer server.Close()
+
+	client, _ := mbflow.NewClient(mbflow.WithHTTP(server.URL), mbflow.WithSystemKey("key"))
+	defer client.Close()
+
+	req := &models.EphemeralExecutionRequest{
+		Workflow: &models.Workflow{Name: "oversized-wf"},
+		Mode:     models.ExecutionModeSync,
+	}
+	_, err := client.Executions().RunEphemeral(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected error for 413 response, got nil")
+	}
+
+	var apiErr *mbflow.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected *mbflow.APIError, got %T: %v", err, err)
+	}
+	if apiErr.StatusCode != 413 {
+		t.Errorf("StatusCode = %d, want 413", apiErr.StatusCode)
+	}
+	if apiErr.Code != "payload_too_large" {
+		t.Errorf("Code = %q, want payload_too_large", apiErr.Code)
 	}
 }
