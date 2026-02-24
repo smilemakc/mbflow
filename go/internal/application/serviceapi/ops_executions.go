@@ -194,6 +194,53 @@ func isValidEventType(s string) bool {
 	return validEventTypes[s]
 }
 
+// EphemeralExecutionParams contains parameters for running an inline workflow execution.
+type EphemeralExecutionParams struct {
+	Workflow         *models.Workflow
+	Input            map[string]any
+	Mode             string
+	CredentialIDs    []string
+	Variables        map[string]any
+	PersistExecution bool
+	Webhooks         []WebhookSubscription
+}
+
+func (o *Operations) StartEphemeralExecution(ctx context.Context, params EphemeralExecutionParams) (*models.Execution, error) {
+	if err := validateWebhooks(params.Webhooks); err != nil {
+		return nil, err
+	}
+
+	opts := &engine.EphemeralExecutionOptions{
+		Mode:             params.Mode,
+		PersistExecution: params.PersistExecution,
+		Workflow:         params.Workflow,
+		Input:            params.Input,
+		Variables:        params.Variables,
+		CredentialIDs:    params.CredentialIDs,
+	}
+
+	if len(params.Webhooks) > 0 {
+		opts.Webhooks = make([]engine.WebhookSubscription, len(params.Webhooks))
+		for i, wh := range params.Webhooks {
+			opts.Webhooks[i] = engine.WebhookSubscription{
+				URL:     wh.URL,
+				Events:  wh.Events,
+				Headers: wh.Headers,
+				NodeIDs: wh.NodeIDs,
+			}
+		}
+	}
+
+	execution, err := o.ExecutionMgr.ExecuteEphemeral(ctx, opts)
+	if err != nil {
+		o.Logger.Error("Failed to start ephemeral execution", "error", err)
+		return nil, err
+	}
+
+	o.Logger.Info("Ephemeral execution started via service API", "execution_id", execution.ID, "mode", params.Mode)
+	return execution, nil
+}
+
 // CancelExecutionParams contains parameters for cancelling an execution.
 type CancelExecutionParams struct {
 	ExecutionID uuid.UUID

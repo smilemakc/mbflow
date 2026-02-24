@@ -303,6 +303,7 @@ func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 	executions := apiV1.Group("/executions")
 	{
 		executions.POST("/run/:workflow_id", executionHandlers.HandleRunExecution)
+		executions.POST("/ephemeral", executionHandlers.HandleRunEphemeralExecution)
 		executions.GET("", executionHandlers.HandleListExecutions)
 		executions.GET("/:id", executionHandlers.HandleGetExecution)
 		executions.GET("/:id/logs", executionHandlers.HandleGetLogs)
@@ -543,6 +544,7 @@ func (s *Server) setupServiceAPIRoutes(apiV1 *gin.RouterGroup) {
 		serviceAPI.GET("/executions", exh.ListExecutions)
 		serviceAPI.GET("/executions/:id", exh.GetExecution)
 		serviceAPI.POST("/workflows/:id/execute", exh.StartExecution)
+		serviceAPI.POST("/executions/ephemeral", exh.StartEphemeralExecution)
 		serviceAPI.POST("/executions/:id/cancel", exh.CancelExecution)
 		serviceAPI.POST("/executions/:id/retry", exh.RetryExecution)
 
