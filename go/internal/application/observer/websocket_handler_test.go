@@ -315,17 +315,42 @@ func TestWebSocketHandler_HandleHealthCheck(t *testing.T) {
 }
 
 func TestWebSocketUpgrader(t *testing.T) {
-	t.Run("allows all origins", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/ws", nil)
-		req.Header.Set("Origin", "http://example.com")
+	newReq := func(origin string) *http.Request {
+		req := httptest.NewRequest("GET", "http://api.example.com/ws", nil)
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		return req
+	}
 
-		allowed := upgrader.CheckOrigin(req)
-		assert.True(t, allowed, "Should allow all origins in development")
+	t.Run("rejects foreign origins by default", func(t *testing.T) {
+		handler := NewWebSocketHandler(nil, nil)
+		assert.False(t, handler.upgrader.CheckOrigin(newReq("http://evil.example.org")))
+	})
+
+	t.Run("allows same origin and non-browser clients", func(t *testing.T) {
+		handler := NewWebSocketHandler(nil, nil)
+		assert.True(t, handler.upgrader.CheckOrigin(newReq("http://api.example.com")))
+		assert.True(t, handler.upgrader.CheckOrigin(newReq("")))
+	})
+
+	t.Run("allows configured origins", func(t *testing.T) {
+		handler := NewWebSocketHandler(nil, nil)
+		handler.SetAllowedOrigins([]string{"https://app.example.com/"}, false)
+		assert.True(t, handler.upgrader.CheckOrigin(newReq("https://app.example.com")))
+		assert.False(t, handler.upgrader.CheckOrigin(newReq("https://other.example.com")))
+	})
+
+	t.Run("allow all in development", func(t *testing.T) {
+		handler := NewWebSocketHandler(nil, nil)
+		handler.SetAllowedOrigins(nil, true)
+		assert.True(t, handler.upgrader.CheckOrigin(newReq("http://anything.example")))
 	})
 
 	t.Run("buffer sizes configured", func(t *testing.T) {
-		assert.Equal(t, 1024, upgrader.ReadBufferSize)
-		assert.Equal(t, 1024, upgrader.WriteBufferSize)
+		handler := NewWebSocketHandler(nil, nil)
+		assert.Equal(t, 1024, handler.upgrader.ReadBufferSize)
+		assert.Equal(t, 1024, handler.upgrader.WriteBufferSize)
 	})
 }
 

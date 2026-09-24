@@ -21,7 +21,7 @@ var (
 
 func init() {
 	flag.StringVar(&command, "command", "up", "Migration command: init, up, down, status, reset")
-	flag.StringVar(&databaseURL, "database-url", "", "PostgreSQL database URL (overrides DATABASE_URL env var)")
+	flag.StringVar(&databaseURL, "database-url", "", "PostgreSQL database URL (overrides MBFLOW_DATABASE_URL / DATABASE_URL env vars)")
 }
 
 func main() {
@@ -39,10 +39,13 @@ func main() {
 	// Get database URL
 	dbURL := databaseURL
 	if dbURL == "" {
+		dbURL = os.Getenv("MBFLOW_DATABASE_URL")
+	}
+	if dbURL == "" {
 		dbURL = os.Getenv("DATABASE_URL")
 	}
 	if dbURL == "" {
-		slog.Error("DATABASE_URL is required")
+		slog.Error("MBFLOW_DATABASE_URL (or DATABASE_URL) is required")
 		os.Exit(1)
 	}
 

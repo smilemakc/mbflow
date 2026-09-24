@@ -3,6 +3,8 @@ package observer
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,28 +12,54 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// Allow all origins in development
-		// In production, implement proper origin checking
-		return true
-	},
-}
-
 // WebSocketHandler handles WebSocket connection requests
 type WebSocketHandler struct {
-	hub    *WebSocketHub
-	logger *logger.Logger
+	hub      *WebSocketHub
+	logger   *logger.Logger
+	upgrader websocket.Upgrader
+
+	allowedOrigins map[string]struct{}
+	allowAll       bool
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
 func NewWebSocketHandler(hub *WebSocketHub, logger *logger.Logger) *WebSocketHandler {
-	return &WebSocketHandler{
+	h := &WebSocketHandler{
 		hub:    hub,
 		logger: logger,
 	}
+	h.upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     h.checkOrigin,
+	}
+	return h
+}
+
+// SetAllowedOrigins configures which browser origins may open connections.
+// Same-origin requests and non-browser clients (no Origin header) are always
+// allowed; allowAll disables the check (development only).
+func (h *WebSocketHandler) SetAllowedOrigins(origins []string, allowAll bool) {
+	h.allowedOrigins = make(map[string]struct{}, len(origins))
+	for _, o := range origins {
+		h.allowedOrigins[strings.TrimRight(o, "/")] = struct{}{}
+	}
+	h.allowAll = allowAll
+}
+
+func (h *WebSocketHandler) checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" || h.allowAll {
+		return true
+	}
+	if _, ok := h.allowedOrigins[origin]; ok {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(u.Host, r.Host)
 }
 
 // ServeHTTP handles WebSocket upgrade requests
@@ -41,7 +69,7 @@ func (h *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	executionID := r.URL.Query().Get("execution_id")
 
 	// Upgrade HTTP connection to WebSocket
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		if h.logger != nil {
 			h.logger.Error("Failed to upgrade WebSocket connection", "error", err)

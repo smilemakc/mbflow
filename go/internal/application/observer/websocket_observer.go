@@ -216,7 +216,8 @@ func (h *WebSocketHub) run() {
 			}
 
 		case message := <-h.broadcast:
-			h.mu.RLock()
+			// Write lock: slow clients are removed from the map below.
+			h.mu.Lock()
 			for client := range h.clients {
 				select {
 				case client.send <- message:
@@ -226,7 +227,7 @@ func (h *WebSocketHub) run() {
 					delete(h.clients, client)
 				}
 			}
-			h.mu.RUnlock()
+			h.mu.Unlock()
 		}
 	}
 }
@@ -294,12 +295,17 @@ func NewWebSocketClient(id string, conn *websocket.Conn, hub *WebSocketHub, exec
 }
 
 // ReadPump reads messages from the WebSocket connection
+// maxClientMessageSize bounds messages read from WebSocket clients.
+const maxClientMessageSize = 64 * 1024
+
 func (c *WebSocketClient) ReadPump() {
 	defer func() {
 		c.hub.Unregister(c)
 		c.conn.Close()
 	}()
 
+	// Clients only send small control messages (ping/subscribe).
+	c.conn.SetReadLimit(maxClientMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))

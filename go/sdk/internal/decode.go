@@ -48,8 +48,8 @@ type ErrorInfo struct {
 func ParseErrorResponse(statusCode int, body io.ReadCloser) *ErrorInfo {
 	defer body.Close()
 	var resp struct {
-		Code    string                 `json:"code"`
-		Message string                 `json:"message"`
+		Code    string         `json:"code"`
+		Message string         `json:"message"`
 		Details map[string]any `json:"details"`
 	}
 	json.NewDecoder(body).Decode(&resp)

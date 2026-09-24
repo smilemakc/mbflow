@@ -78,6 +78,7 @@ func NewDB(cfg *Config) (*bun.DB, error) {
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 

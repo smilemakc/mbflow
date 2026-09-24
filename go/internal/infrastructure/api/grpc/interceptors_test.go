@@ -32,9 +32,9 @@ import (
 // ---------------------------------------------------------------------------
 
 type mockSystemKeyRepository struct {
-	findByPrefixFn  func(ctx context.Context, prefix string) ([]*models.SystemKey, error)
+	findByPrefixFn   func(ctx context.Context, prefix string) ([]*models.SystemKey, error)
 	updateLastUsedFn func(ctx context.Context, id uuid.UUID) error
-	countFn         func(ctx context.Context) (int64, error)
+	countFn          func(ctx context.Context) (int64, error)
 }
 
 func (m *mockSystemKeyRepository) Create(_ context.Context, _ *models.SystemKey) error {

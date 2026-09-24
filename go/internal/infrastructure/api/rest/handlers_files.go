@@ -2,10 +2,12 @@ package rest
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,6 +16,7 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/models"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // FileHandlers provides HTTP handlers for file storage endpoints
@@ -194,8 +197,17 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 		}
 	} else {
 		// Download from URL
-		resp, err := http.Get(req.FileURL)
+		dlReq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, req.FileURL, nil)
 		if err != nil {
+			respondError(c, http.StatusBadRequest, "invalid file URL")
+			return
+		}
+		resp, err := netguard.DefaultClient(60 * time.Second).Do(dlReq)
+		if err != nil {
+			if errors.Is(err, netguard.ErrBlocked) {
+				respondError(c, http.StatusBadRequest, "file URL points to a disallowed network address")
+				return
+			}
 			respondError(c, http.StatusBadRequest, "failed to download file from URL")
 			return
 		}
@@ -206,8 +218,12 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 			return
 		}
 
-		data, err := io.ReadAll(resp.Body)
+		data, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 		if err != nil {
+			if errors.Is(err, netguard.ErrResponseTooLarge) {
+				respondError(c, http.StatusRequestEntityTooLarge, "file at URL exceeds maximum download size")
+				return
+			}
 			respondError(c, http.StatusBadRequest, "failed to read file from URL")
 			return
 		}

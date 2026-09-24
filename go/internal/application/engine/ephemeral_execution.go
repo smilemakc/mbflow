@@ -135,10 +135,22 @@ func (em *ExecutionManager) executeEphemeralAsync(
 		}
 	}
 
+	// The goroutine below mutates execution; callers get a snapshot so they
+	// can serialize it without racing.
+	snapshot := *execution
+
+	em.inflight.Add(1)
 	go func() {
+		defer em.inflight.Done()
 		defer em.unregisterWebhookObservers(webhookNames)
 
-		bgCtx := context.Background()
+		// runCtx is cancelled when shutdown times out; bgCtx stays valid so the
+		// final state can still be persisted.
+		runCtx := em.runContext()
+		bgCtx := context.WithoutCancel(runCtx)
+		defer em.recoverExecution(bgCtx, execution, opts.PersistExecution, func() {
+			em.markEphemeralTerminal(execution.ID)
+		})
 
 		execution.Status = models.ExecutionStatusRunning
 
@@ -160,7 +172,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 			execution.Variables,
 		)
 
-		execErr := dagExecutor.Execute(bgCtx, execState, pkgOpts)
+		execErr := dagExecutor.Execute(runCtx, execState, pkgOpts)
 
 		em.finalizeEphemeralExecution(execution, execState, opts.Workflow, execErr)
 
@@ -176,7 +188,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 		em.markEphemeralTerminal(execution.ID)
 	}()
 
-	return execution, nil
+	return &snapshot, nil
 }
 
 func (em *ExecutionManager) finalizeEphemeralExecution(

@@ -474,6 +474,27 @@ func (s *Service) CreateUser(ctx context.Context, req *RegisterRequest, isAdmin 
 	return s.toDomainUser(user), nil
 }
 
+// EnsureAdmin creates an administrator account with the given credentials
+// unless a user with that email already exists. It is used to bootstrap the
+// first admin on a fresh installation. Returns true if a user was created.
+func (s *Service) EnsureAdmin(ctx context.Context, email, password string) (bool, error) {
+	exists, err := s.userRepo.ExistsByEmail(ctx, normalizeEmail(email))
+	if err != nil {
+		return false, fmt.Errorf("failed to check email: %w", err)
+	}
+	if exists {
+		return false, nil
+	}
+	if _, err := s.CreateUser(ctx, &RegisterRequest{Email: email, Password: password, FullName: "Administrator"}, true); err != nil {
+		if errors.Is(err, ErrEmailAlreadyTaken) {
+			// Created concurrently by another replica.
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // GetUser retrieves a user by ID (admin operation)
 func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (*pkgmodels.User, error) {
 	user, err := s.userRepo.FindByIDWithRoles(ctx, userID)

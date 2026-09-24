@@ -82,7 +82,7 @@ func ParseSourceFile(path string, rule FileRule) (*ParsedFile, error) {
 			case token.CONST:
 				pf.extractConsts(fset, d, file, rule)
 			}
-		// *ast.FuncDecl — skip all functions/methods
+			// *ast.FuncDecl — skip all functions/methods
 		}
 	}
 

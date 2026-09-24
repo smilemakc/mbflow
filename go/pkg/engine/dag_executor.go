@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -149,7 +151,7 @@ func (de *DAGExecutor) executeWave(
 				return
 			}
 
-			if err := de.executeNode(ctx, execState, n, opts); err != nil {
+			if err := de.executeNodeRecovering(ctx, execState, n, opts); err != nil {
 				nodeErr := fmt.Errorf("node %s failed: %w", n.ID, err)
 				errChan <- nodeErr
 
@@ -214,6 +216,24 @@ func containsError(errs []error, target error) bool {
 		}
 	}
 	return false
+}
+
+// executeNodeRecovering runs executeNode and converts a panic in node code
+// into a node error so a faulty executor cannot crash the whole process.
+func (de *DAGExecutor) executeNodeRecovering(
+	ctx context.Context,
+	execState *ExecutionState,
+	node *models.Node,
+	opts *ExecutionOptions,
+) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("node panicked: %v", r)
+			slog.Error("recovered panic in node execution",
+				"node_id", node.ID, "node_type", node.Type, "panic", r, "stack", string(debug.Stack()))
+		}
+	}()
+	return de.executeNode(ctx, execState, node, opts)
 }
 
 // executeNode executes a single node with timeout and retry support.

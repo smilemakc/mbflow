@@ -5,12 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // TelegramCallbackExecutor answers callback queries from inline keyboard buttons.
@@ -136,7 +136,7 @@ func (e *TelegramCallbackExecutor) executeRequest(ctx context.Context, url strin
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

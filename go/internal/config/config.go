@@ -11,8 +11,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Environment names accepted by MBFLOW_ENV.
+const (
+	EnvDevelopment = "development"
+	EnvProduction  = "production"
+)
+
 // Config holds the application configuration.
 type Config struct {
+	// Env is the deployment environment ("development" or "production").
+	// Production enables strict validation of security-sensitive settings.
+	Env            string
 	Server         ServerConfig
 	Database       DatabaseConfig
 	Redis          RedisConfig
@@ -38,6 +47,14 @@ type ServerConfig struct {
 	APIKeys            []string
 	MaxBodySize        int64
 	MaxMultipartMemory int64
+	// TrustedProxies lists reverse-proxy IPs/CIDRs whose X-Forwarded-For
+	// headers are trusted for client IP resolution. Empty means trust none.
+	TrustedProxies []string
+	// HTTPAllowPrivateNetworks allows workflow HTTP nodes to reach loopback,
+	// private and link-local addresses (SSRF protection is on when false).
+	HTTPAllowPrivateNetworks bool
+	// HTTPAllowedHosts are hosts/CIDRs exempt from the private-network block.
+	HTTPAllowedHosts []string
 }
 
 // DatabaseConfig holds database-related configuration.
@@ -47,6 +64,8 @@ type DatabaseConfig struct {
 	MinConnections  int
 	MaxIdleTime     time.Duration
 	MaxConnLifetime time.Duration
+	// Debug logs every SQL query with its arguments. Never enable in production.
+	Debug bool
 }
 
 // RedisConfig holds Redis-related configuration.
@@ -110,6 +129,11 @@ type AuthConfig struct {
 
 	AllowRegistration bool
 
+	// BootstrapAdminEmail/Password create the first administrator on startup
+	// if no user with that email exists yet.
+	BootstrapAdminEmail    string
+	BootstrapAdminPassword string
+
 	GatewayURL   string
 	ClientID     string
 	ClientSecret string
@@ -165,28 +189,40 @@ type TracingConfig struct {
 	SampleRate  float64
 }
 
+// defaultDatabaseURL is only suitable for local development.
+const defaultDatabaseURL = "postgres://mbflow:mbflow@localhost:5432/mbflow?sslmode=disable"
+
+// parseErrors collects malformed environment values found during Load.
+var parseErrors []string
+
 // Load loads the configuration from environment variables.
 func Load() (*Config, error) {
-	godotenv.Load()
+	_ = godotenv.Load()
+	parseErrors = nil
 	cfg := &Config{
+		Env: strings.ToLower(getEnv("MBFLOW_ENV", EnvDevelopment)),
 		Server: ServerConfig{
-			Port:               getEnvAsInt("MBFLOW_PORT", 8585),
-			Host:               getEnv("MBFLOW_HOST", "0.0.0.0"),
-			ReadTimeout:        getEnvAsDuration("MBFLOW_READ_TIMEOUT", 15*time.Second),
-			WriteTimeout:       getEnvAsDuration("MBFLOW_WRITE_TIMEOUT", 15*time.Second),
-			ShutdownTimeout:    getEnvAsDuration("MBFLOW_SHUTDOWN_TIMEOUT", 30*time.Second),
-			CORS:               getEnvAsBool("MBFLOW_CORS_ENABLED", true),
-			CORSAllowedOrigins: getEnvAsSlice("MBFLOW_CORS_ALLOWED_ORIGINS", []string{}),
-			APIKeys:            getEnvAsSlice("MBFLOW_API_KEYS", []string{}),
-			MaxBodySize:        getEnvAsInt64("MBFLOW_MAX_BODY_SIZE", 10*1024*1024),
-			MaxMultipartMemory: getEnvAsInt64("MBFLOW_MAX_MULTIPART_MEMORY", 32*1024*1024),
+			Port:                     getEnvAsInt("MBFLOW_PORT", 8585),
+			Host:                     getEnv("MBFLOW_HOST", "0.0.0.0"),
+			ReadTimeout:              getEnvAsDuration("MBFLOW_READ_TIMEOUT", 15*time.Second),
+			WriteTimeout:             getEnvAsDuration("MBFLOW_WRITE_TIMEOUT", 15*time.Second),
+			ShutdownTimeout:          getEnvAsDuration("MBFLOW_SHUTDOWN_TIMEOUT", 30*time.Second),
+			CORS:                     getEnvAsBool("MBFLOW_CORS_ENABLED", true),
+			CORSAllowedOrigins:       getEnvAsSlice("MBFLOW_CORS_ALLOWED_ORIGINS", []string{}),
+			APIKeys:                  getEnvAsSlice("MBFLOW_API_KEYS", []string{}),
+			MaxBodySize:              getEnvAsInt64("MBFLOW_MAX_BODY_SIZE", 10*1024*1024),
+			MaxMultipartMemory:       getEnvAsInt64("MBFLOW_MAX_MULTIPART_MEMORY", 32*1024*1024),
+			TrustedProxies:           getEnvAsSlice("MBFLOW_TRUSTED_PROXIES", []string{}),
+			HTTPAllowPrivateNetworks: getEnvAsBool("MBFLOW_HTTP_ALLOW_PRIVATE_NETWORKS", false),
+			HTTPAllowedHosts:         getEnvAsSlice("MBFLOW_HTTP_ALLOWED_HOSTS", []string{}),
 		},
 		Database: DatabaseConfig{
-			URL:             getEnv("MBFLOW_DATABASE_URL", "postgres://mbflow:mbflow@localhost:5432/mbflow?sslmode=disable"),
+			URL:             getEnv("MBFLOW_DATABASE_URL", defaultDatabaseURL),
 			MaxConnections:  getEnvAsInt("MBFLOW_DB_MAX_CONNECTIONS", 20),
 			MinConnections:  getEnvAsInt("MBFLOW_DB_MIN_CONNECTIONS", 5),
 			MaxIdleTime:     getEnvAsDuration("MBFLOW_DB_MAX_IDLE_TIME", 30*time.Minute),
 			MaxConnLifetime: getEnvAsDuration("MBFLOW_DB_MAX_CONN_LIFETIME", time.Hour),
+			Debug:           getEnvAsBool("MBFLOW_DB_DEBUG", false),
 		},
 		Redis: RedisConfig{
 			URL:      getEnv("MBFLOW_REDIS_URL", "redis://localhost:6379"),
@@ -213,35 +249,37 @@ func Load() (*Config, error) {
 			BufferSize:          getEnvAsInt("MBFLOW_OBSERVER_BUFFER_SIZE", 100),
 		},
 		Auth: AuthConfig{
-			Mode:                getEnv("MBFLOW_AUTH_MODE", "builtin"),
-			JWTSecret:           getEnv("MBFLOW_JWT_SECRET", ""),
-			JWTExpirationHours:  getEnvAsInt("MBFLOW_JWT_EXPIRATION_HOURS", 24),
-			RefreshExpiryDays:   getEnvAsInt("MBFLOW_JWT_REFRESH_DAYS", 30),
-			SessionDuration:     getEnvAsDuration("MBFLOW_SESSION_DURATION", 24*time.Hour),
-			MaxSessionsPerUser:  getEnvAsInt("MBFLOW_MAX_SESSIONS_PER_USER", 5),
-			MinPasswordLength:   getEnvAsInt("MBFLOW_MIN_PASSWORD_LENGTH", 8),
-			RequireSpecialChars: getEnvAsBool("MBFLOW_REQUIRE_SPECIAL_CHARS", false),
-			RequireUppercase:    getEnvAsBool("MBFLOW_REQUIRE_UPPERCASE", false),
-			RequireNumbers:      getEnvAsBool("MBFLOW_REQUIRE_NUMBERS", false),
-			EnableRateLimit:     getEnvAsBool("MBFLOW_ENABLE_RATE_LIMIT", true),
-			MaxLoginAttempts:    getEnvAsInt("MBFLOW_MAX_LOGIN_ATTEMPTS", 5),
-			LockoutDuration:     getEnvAsDuration("MBFLOW_LOCKOUT_DURATION", 15*time.Minute),
-			AllowRegistration:   getEnvAsBool("MBFLOW_ALLOW_REGISTRATION", true),
-			GatewayURL:          getEnv("MBFLOW_AUTH_GATEWAY_URL", ""),
-			ClientID:            getEnv("MBFLOW_AUTH_CLIENT_ID", ""),
-			ClientSecret:        getEnv("MBFLOW_AUTH_CLIENT_SECRET", ""),
-			IssuerURL:           getEnv("MBFLOW_AUTH_ISSUER_URL", ""),
-			JWKSURL:             getEnv("MBFLOW_AUTH_JWKS_URL", ""),
-			RedirectURL:         getEnv("MBFLOW_AUTH_REDIRECT_URL", ""),
-			GRPCAddress:         getEnv("MBFLOW_AUTH_GRPC_ADDRESS", ""),
-			GRPCTimeout:         getEnvAsDuration("MBFLOW_AUTH_GRPC_TIMEOUT", 10*time.Second),
-			GRPCApplicationID:   getEnv("MBFLOW_AUTH_APPLICATION_ID", ""),
-			GRPCClientName:      getEnv("MBFLOW_AUTH_CLIENT_NAME", "mbflow"),
-			GRPCClientVersion:   getEnv("MBFLOW_AUTH_CLIENT_VERSION", ""),
-			GRPCPlatform:        getEnv("MBFLOW_AUTH_PLATFORM", ""),
-			GRPCEnvironment:     getEnv("MBFLOW_AUTH_ENVIRONMENT", ""),
-			EnableFallback:      getEnvAsBool("MBFLOW_AUTH_ENABLE_FALLBACK", false),
-			FallbackMode:        getEnv("MBFLOW_AUTH_FALLBACK_MODE", "builtin"),
+			Mode:                   getEnv("MBFLOW_AUTH_MODE", "builtin"),
+			JWTSecret:              getEnv("MBFLOW_JWT_SECRET", ""),
+			JWTExpirationHours:     getEnvAsInt("MBFLOW_JWT_EXPIRATION_HOURS", 24),
+			RefreshExpiryDays:      getEnvAsInt("MBFLOW_JWT_REFRESH_DAYS", 30),
+			SessionDuration:        getEnvAsDuration("MBFLOW_SESSION_DURATION", 24*time.Hour),
+			MaxSessionsPerUser:     getEnvAsInt("MBFLOW_MAX_SESSIONS_PER_USER", 5),
+			MinPasswordLength:      getEnvAsInt("MBFLOW_MIN_PASSWORD_LENGTH", 8),
+			RequireSpecialChars:    getEnvAsBool("MBFLOW_REQUIRE_SPECIAL_CHARS", false),
+			RequireUppercase:       getEnvAsBool("MBFLOW_REQUIRE_UPPERCASE", false),
+			RequireNumbers:         getEnvAsBool("MBFLOW_REQUIRE_NUMBERS", false),
+			EnableRateLimit:        getEnvAsBool("MBFLOW_ENABLE_RATE_LIMIT", true),
+			MaxLoginAttempts:       getEnvAsInt("MBFLOW_MAX_LOGIN_ATTEMPTS", 5),
+			LockoutDuration:        getEnvAsDuration("MBFLOW_LOCKOUT_DURATION", 15*time.Minute),
+			AllowRegistration:      getEnvAsBool("MBFLOW_ALLOW_REGISTRATION", true),
+			BootstrapAdminEmail:    getEnv("MBFLOW_ADMIN_EMAIL", ""),
+			BootstrapAdminPassword: getEnv("MBFLOW_ADMIN_PASSWORD", ""),
+			GatewayURL:             getEnv("MBFLOW_AUTH_GATEWAY_URL", ""),
+			ClientID:               getEnv("MBFLOW_AUTH_CLIENT_ID", ""),
+			ClientSecret:           getEnv("MBFLOW_AUTH_CLIENT_SECRET", ""),
+			IssuerURL:              getEnv("MBFLOW_AUTH_ISSUER_URL", ""),
+			JWKSURL:                getEnv("MBFLOW_AUTH_JWKS_URL", ""),
+			RedirectURL:            getEnv("MBFLOW_AUTH_REDIRECT_URL", ""),
+			GRPCAddress:            getEnv("MBFLOW_AUTH_GRPC_ADDRESS", ""),
+			GRPCTimeout:            getEnvAsDuration("MBFLOW_AUTH_GRPC_TIMEOUT", 10*time.Second),
+			GRPCApplicationID:      getEnv("MBFLOW_AUTH_APPLICATION_ID", ""),
+			GRPCClientName:         getEnv("MBFLOW_AUTH_CLIENT_NAME", "mbflow"),
+			GRPCClientVersion:      getEnv("MBFLOW_AUTH_CLIENT_VERSION", ""),
+			GRPCPlatform:           getEnv("MBFLOW_AUTH_PLATFORM", ""),
+			GRPCEnvironment:        getEnv("MBFLOW_AUTH_ENVIRONMENT", ""),
+			EnableFallback:         getEnvAsBool("MBFLOW_AUTH_ENABLE_FALLBACK", false),
+			FallbackMode:           getEnv("MBFLOW_AUTH_FALLBACK_MODE", "builtin"),
 		},
 		FileStorage: FileStorageConfig{
 			MaxFileSize: getEnvAsInt64("MBFLOW_FILE_STORAGE_MAX_FILE_SIZE", 10*1024*1024),
@@ -271,6 +309,15 @@ func Load() (*Config, error) {
 		},
 	}
 
+	// Open self-registration is opt-in for production deployments.
+	if cfg.IsProduction() && os.Getenv("MBFLOW_ALLOW_REGISTRATION") == "" {
+		cfg.Auth.AllowRegistration = false
+	}
+
+	if len(parseErrors) > 0 {
+		return nil, fmt.Errorf("invalid configuration: %s", strings.Join(parseErrors, "; "))
+	}
+
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
@@ -281,6 +328,14 @@ func Load() (*Config, error) {
 
 // Validate validates the configuration.
 func (c *Config) Validate() error {
+	// Configs built in code (e.g. embedded servers) may leave Env empty.
+	if c.Env == "" {
+		c.Env = EnvDevelopment
+	}
+	if c.Env != EnvDevelopment && c.Env != EnvProduction {
+		return fmt.Errorf("invalid MBFLOW_ENV: %s (must be %s or %s)", c.Env, EnvDevelopment, EnvProduction)
+	}
+
 	if c.Server.Port < 1 || c.Server.Port > 65535 {
 		return fmt.Errorf("invalid port: %d", c.Server.Port)
 	}
@@ -320,6 +375,36 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	if c.IsProduction() {
+		if err := c.validateProduction(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// IsProduction reports whether the server runs with MBFLOW_ENV=production.
+func (c *Config) IsProduction() bool {
+	return c.Env == EnvProduction
+}
+
+// validateProduction enforces settings that must be explicit in production.
+func (c *Config) validateProduction() error {
+	if c.Database.URL == defaultDatabaseURL {
+		return fmt.Errorf("MBFLOW_DATABASE_URL must be set explicitly in production")
+	}
+	if c.Database.Debug {
+		return fmt.Errorf("MBFLOW_DB_DEBUG must not be enabled in production (it logs query arguments)")
+	}
+	if c.Server.CORS && len(c.Server.CORSAllowedOrigins) == 0 {
+		return fmt.Errorf("MBFLOW_CORS_ALLOWED_ORIGINS must be set in production when CORS is enabled")
+	}
+	for _, o := range c.Server.CORSAllowedOrigins {
+		if o == "*" {
+			return fmt.Errorf("wildcard CORS origin is not allowed in production")
+		}
+	}
 	return nil
 }
 
@@ -353,6 +438,10 @@ func (c *Config) validateAuth() error {
 		}
 	}
 
+	if (c.Auth.BootstrapAdminEmail == "") != (c.Auth.BootstrapAdminPassword == "") {
+		return fmt.Errorf("MBFLOW_ADMIN_EMAIL and MBFLOW_ADMIN_PASSWORD must be set together")
+	}
+
 	if c.Auth.MinPasswordLength < 8 {
 		return fmt.Errorf("MBFLOW_MIN_PASSWORD_LENGTH must be at least 8")
 	}
@@ -377,6 +466,7 @@ func getEnvAsInt(key string, defaultValue int) int {
 
 	value, err := strconv.Atoi(valueStr)
 	if err != nil {
+		parseErrors = append(parseErrors, fmt.Sprintf("%s=%q: %v", key, valueStr, err))
 		return defaultValue
 	}
 
@@ -391,6 +481,7 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 
 	value, err := strconv.ParseBool(valueStr)
 	if err != nil {
+		parseErrors = append(parseErrors, fmt.Sprintf("%s=%q: %v", key, valueStr, err))
 		return defaultValue
 	}
 
@@ -405,6 +496,7 @@ func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 
 	value, err := time.ParseDuration(valueStr)
 	if err != nil {
+		parseErrors = append(parseErrors, fmt.Sprintf("%s=%q: %v", key, valueStr, err))
 		return defaultValue
 	}
 
@@ -435,6 +527,10 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 		result = append(result, current)
 	}
 
+	for i := range result {
+		result[i] = strings.TrimSpace(result[i])
+	}
+
 	return result
 }
 
@@ -446,6 +542,7 @@ func getEnvAsInt64(key string, defaultValue int64) int64 {
 
 	value, err := strconv.ParseInt(valueStr, 10, 64)
 	if err != nil {
+		parseErrors = append(parseErrors, fmt.Sprintf("%s=%q: %v", key, valueStr, err))
 		return defaultValue
 	}
 
@@ -460,6 +557,7 @@ func getEnvAsFloat(key string, defaultValue float64) float64 {
 
 	value, err := strconv.ParseFloat(valueStr, 64)
 	if err != nil {
+		parseErrors = append(parseErrors, fmt.Sprintf("%s=%q: %v", key, valueStr, err))
 		return defaultValue
 	}
 

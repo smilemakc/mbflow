@@ -60,10 +60,10 @@ func newEphemeralTestManager(executorType string, exec executor.Executor) *Execu
 	return &ExecutionManager{
 		executorManager: registry,
 		// No repos needed for ephemeral execution with persist=false
-		workflowRepo:  nil,
-		executionRepo: nil,
-		eventRepo:     nil,
-		resourceRepo:  nil,
+		workflowRepo:    nil,
+		executionRepo:   nil,
+		eventRepo:       nil,
+		resourceRepo:    nil,
 		observerManager: nil,
 	}
 }

@@ -16,17 +16,17 @@ type ExecutionModel struct {
 	WorkflowSource   string     `bun:"workflow_source,notnull,default:'stored'" json:"workflow_source"`
 	WorkflowSnapshot JSONBMap   `bun:"workflow_snapshot,type:jsonb" json:"workflow_snapshot,omitempty"`
 	TriggerID        *uuid.UUID `bun:"trigger_id,type:uuid" json:"trigger_id,omitempty"`
-	Status      string     `bun:"status,notnull,default:'pending'" json:"status" validate:"required,oneof=pending running completed failed cancelled paused"`
-	StartedAt   *time.Time `bun:"started_at" json:"started_at,omitempty"`
-	CompletedAt *time.Time `bun:"completed_at" json:"completed_at,omitempty"`
-	InputData   JSONBMap   `bun:"input_data,type:jsonb,default:'{}'" json:"input_data,omitempty"`
-	OutputData  JSONBMap   `bun:"output_data,type:jsonb" json:"output_data,omitempty"`
-	Variables   JSONBMap   `bun:"variables,type:jsonb,default:'{}'" json:"variables,omitempty"`
-	StrictMode  bool       `bun:"strict_mode,default:false" json:"strict_mode"`
-	Error       string     `bun:"error" json:"error,omitempty"`
-	Metadata    JSONBMap   `bun:"metadata,type:jsonb,default:'{}'" json:"metadata,omitempty"`
-	CreatedAt   time.Time  `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt   time.Time  `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
+	Status           string     `bun:"status,notnull,default:'pending'" json:"status" validate:"required,oneof=pending running completed failed cancelled paused"`
+	StartedAt        *time.Time `bun:"started_at" json:"started_at,omitempty"`
+	CompletedAt      *time.Time `bun:"completed_at" json:"completed_at,omitempty"`
+	InputData        JSONBMap   `bun:"input_data,type:jsonb,default:'{}'" json:"input_data,omitempty"`
+	OutputData       JSONBMap   `bun:"output_data,type:jsonb" json:"output_data,omitempty"`
+	Variables        JSONBMap   `bun:"variables,type:jsonb,default:'{}'" json:"variables,omitempty"`
+	StrictMode       bool       `bun:"strict_mode,default:false" json:"strict_mode"`
+	Error            string     `bun:"error" json:"error,omitempty"`
+	Metadata         JSONBMap   `bun:"metadata,type:jsonb,default:'{}'" json:"metadata,omitempty"`
+	CreatedAt        time.Time  `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt        time.Time  `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 
 	// Relationships
 	Workflow       *WorkflowModel        `bun:"rel:belongs-to,join:workflow_id=id" json:"workflow,omitempty"`

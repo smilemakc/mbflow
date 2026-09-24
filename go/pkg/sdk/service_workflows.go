@@ -77,13 +77,13 @@ type ServiceCreateWorkflowRequest struct {
 
 // ServiceUpdateWorkflowRequest defines the request for updating a workflow via Service API.
 type ServiceUpdateWorkflowRequest struct {
-	Name        string                        `json:"name,omitempty"`
-	Description string                        `json:"description,omitempty"`
-	Variables   map[string]any                `json:"variables,omitempty"`
-	Metadata    map[string]any                `json:"metadata,omitempty"`
-	Nodes       []ServiceNodeRequest          `json:"nodes,omitempty"`
-	Edges       []ServiceEdgeRequest          `json:"edges,omitempty"`
-	Resources   []ServiceResourceRequest      `json:"resources,omitempty"`
+	Name        string                   `json:"name,omitempty"`
+	Description string                   `json:"description,omitempty"`
+	Variables   map[string]any           `json:"variables,omitempty"`
+	Metadata    map[string]any           `json:"metadata,omitempty"`
+	Nodes       []ServiceNodeRequest     `json:"nodes,omitempty"`
+	Edges       []ServiceEdgeRequest     `json:"edges,omitempty"`
+	Resources   []ServiceResourceRequest `json:"resources,omitempty"`
 }
 
 // ServiceNodeRequest represents a node in the request body for Service API.

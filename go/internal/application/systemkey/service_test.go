@@ -16,14 +16,14 @@ import (
 
 // MockSystemKeyRepository is a mock implementation of SystemKeyRepository
 type MockSystemKeyRepository struct {
-	keys         map[string]*models.SystemKey
-	prefixIndex  map[string][]string // prefix -> []keyID
-	countResult  int64
-	countErr     error
-	createErr    error
-	findByIDErr  error
-	revokeErr    error
-	deleteErr    error
+	keys              map[string]*models.SystemKey
+	prefixIndex       map[string][]string // prefix -> []keyID
+	countResult       int64
+	countErr          error
+	createErr         error
+	findByIDErr       error
+	revokeErr         error
+	deleteErr         error
 	updateLastUsedErr error
 }
 
@@ -684,8 +684,8 @@ func TestNewService_ShouldUseDefaultConfig_WhenConfigInvalid(t *testing.T) {
 
 	// Act
 	service := NewService(repo, Config{
-		MaxKeys:    0,  // Invalid
-		BcryptCost: 0,  // Invalid
+		MaxKeys:    0, // Invalid
+		BcryptCost: 0, // Invalid
 	})
 
 	// Assert

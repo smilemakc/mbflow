@@ -194,3 +194,27 @@ func SetupTestTx(t *testing.T) (bun.IDB, func()) {
 
 	return db, cleanup
 }
+
+// SetupTestDSN creates an isolated database from the migrated template and
+// returns its connection string, for tests that open their own connection
+// (e.g. a full server). Requires RunWithEmbeddedDB in TestMain.
+func SetupTestDSN(t *testing.T) string {
+	t.Helper()
+
+	if adminDB == nil {
+		t.Fatal("embedded postgres not started — add TestMain with testutil.RunWithEmbeddedDB(m)")
+	}
+
+	short := strings.ReplaceAll(uuid.New().String()[:8], "-", "")
+	dbName := "mbflow_s_" + short
+
+	ctx := context.Background()
+	if _, err := adminDB.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %s TEMPLATE %s", dbName, templateDatabase)); err != nil {
+		t.Fatalf("create test db %s: %v", dbName, err)
+	}
+	t.Cleanup(func() {
+		_, _ = adminDB.ExecContext(context.Background(), fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", dbName))
+	})
+
+	return dsnForDB(dbName)
+}

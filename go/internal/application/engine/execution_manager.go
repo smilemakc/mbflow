@@ -2,7 +2,11 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
+	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +16,7 @@ import (
 	pkgengine "github.com/smilemakc/mbflow/go/pkg/engine"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // ExecutionManager manages workflow execution lifecycle.
@@ -24,6 +29,21 @@ type ExecutionManager struct {
 	dagExecutor       *pkgengine.DAGExecutor
 	observerManager   *observer.ObserverManager
 	ephemeralRegistry *EphemeralStreamRegistry
+
+	// Background executions are tracked so Shutdown can drain them.
+	inflight   sync.WaitGroup
+	rootOnce   sync.Once
+	rootCtx    context.Context
+	rootCancel context.CancelFunc
+}
+
+// runContext returns the root context for background executions. It is
+// initialized lazily so zero-value managers (e.g. in tests) work too.
+func (em *ExecutionManager) runContext() context.Context {
+	em.rootOnce.Do(func() {
+		em.rootCtx, em.rootCancel = context.WithCancel(context.Background())
+	})
+	return em.rootCtx
 }
 
 // NewExecutionManager creates a new execution manager.
@@ -120,12 +140,23 @@ func (em *ExecutionManager) ExecuteAsync(
 		return nil, err
 	}
 
+	// The goroutine below mutates execution; callers get a snapshot so they
+	// can serialize it without racing.
+	snapshot := *execution
+
+	em.inflight.Add(1)
 	go func() {
+		defer em.inflight.Done()
+
 		// Register per-execution webhook observers
 		webhookNames := em.registerWebhookObservers(execution.ID, opts)
 		defer em.unregisterWebhookObservers(webhookNames)
 
-		bgCtx := context.Background()
+		// runCtx is cancelled when shutdown times out; bgCtx stays valid so the
+		// final state can still be persisted.
+		runCtx := em.runContext()
+		bgCtx := context.WithoutCancel(runCtx)
+		defer em.recoverExecution(bgCtx, execution, true, nil)
 
 		execution.Status = models.ExecutionStatusRunning
 		executionModel := storagemodels.ExecutionDomainToModel(execution)
@@ -136,7 +167,7 @@ func (em *ExecutionManager) ExecuteAsync(
 
 		em.notifyExecutionStarted(bgCtx, execution)
 
-		execState, execErr := em.executeWorkflowDAG(bgCtx, execution, workflow, opts)
+		execState, execErr := em.executeWorkflowDAG(runCtx, execution, workflow, opts)
 
 		if err := em.finalizeExecution(bgCtx, execution, workflow, workflowModel, execState, execErr); err != nil {
 			em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to finalize execution: %w", err))
@@ -144,7 +175,7 @@ func (em *ExecutionManager) ExecuteAsync(
 		}
 	}()
 
-	return execution, nil
+	return &snapshot, nil
 }
 
 // prepareExecution loads workflow and creates execution record.
@@ -465,11 +496,23 @@ func (em *ExecutionManager) registerWebhookObservers(executionID string, opts *E
 
 		compoundFilter := observer.NewCompoundEventFilter(filters...)
 
+		// SSRF pre-flight: reject callback URLs pointing at disallowed networks
+		// (no-op under the permissive default policy).
+		checkCtx, cancelCheck := context.WithTimeout(context.Background(), 5*time.Second)
+		checkErr := netguard.Default().CheckURL(checkCtx, wh.URL)
+		cancelCheck()
+		if checkErr != nil {
+			continue
+		}
+
 		obs := observer.NewHTTPCallbackObserver(
 			wh.URL,
 			observer.WithHTTPName(name),
 			observer.WithHTTPHeaders(wh.Headers),
 			observer.WithHTTPFilter(compoundFilter),
+			// User-supplied URL: every connection (incl. redirects and DNS
+			// re-resolution) goes through the SSRF-guarded transport.
+			observer.WithHTTPClient(netguard.DefaultClient(10*time.Second)),
 		)
 
 		if err := em.observerManager.Register(obs); err != nil {
@@ -529,4 +572,58 @@ func convertToPkgOptions(opts *ExecutionOptions) *pkgengine.ExecutionOptions {
 	}
 
 	return pkgOpts
+}
+
+// Shutdown waits for in-flight background executions to finish. If ctx expires
+// first, running executions are cancelled (and recorded as cancelled) and
+// Shutdown waits briefly for them to persist their final state.
+func (em *ExecutionManager) Shutdown(ctx context.Context) error {
+	em.runContext()
+
+	done := make(chan struct{})
+	go func() {
+		em.inflight.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		em.rootCancel()
+		return nil
+	case <-ctx.Done():
+	}
+
+	em.rootCancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+	}
+	return fmt.Errorf("executions still running at shutdown deadline: %w", ctx.Err())
+}
+
+// recoverExecution converts a panic in a background execution into a failed
+// execution instead of crashing the process. onPanic runs after the state is
+// updated (may be nil). persist controls whether the failure is stored.
+func (em *ExecutionManager) recoverExecution(ctx context.Context, execution *models.Execution, persist bool, onPanic func()) {
+	r := recover()
+	if r == nil {
+		return
+	}
+
+	slog.Error("recovered panic in workflow execution",
+		"execution_id", execution.ID, "panic", r, "stack", string(debug.Stack()))
+
+	now := time.Now()
+	execution.Status = models.ExecutionStatusFailed
+	execution.Error = fmt.Sprintf("internal error: execution panicked: %v", r)
+	execution.CompletedAt = &now
+	if persist {
+		if err := em.executionRepo.Update(ctx, storagemodels.ExecutionDomainToModel(execution)); err != nil {
+			slog.Error("failed to persist panicked execution", "execution_id", execution.ID, "error", err)
+		}
+	}
+	em.notifyExecutionError(ctx, execution, errors.New(execution.Error))
+	if onPanic != nil {
+		onPanic()
+	}
 }

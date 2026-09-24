@@ -20,13 +20,24 @@ import (
 )
 
 func (s *Server) setupRoutes() error {
-	if s.config.Logging.Level == "debug" {
+	devDebug := !s.config.IsProduction() && s.config.Logging.Level == "debug"
+	if devDebug {
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	s.router = gin.New()
+
+	// Only trust X-Forwarded-For from configured reverse proxies; otherwise
+	// clients could spoof their IP and bypass per-IP rate limiting.
+	var trustedProxies []string
+	if len(s.config.Server.TrustedProxies) > 0 {
+		trustedProxies = s.config.Server.TrustedProxies
+	}
+	if err := s.router.SetTrustedProxies(trustedProxies); err != nil {
+		return fmt.Errorf("invalid MBFLOW_TRUSTED_PROXIES: %w", err)
+	}
 
 	s.router.MaxMultipartMemory = s.config.Server.MaxMultipartMemory
 
@@ -41,7 +52,7 @@ func (s *Server) setupRoutes() error {
 
 	if s.config.Server.CORS {
 		allowedOrigins := s.config.Server.CORSAllowedOrigins
-		allowAll := len(allowedOrigins) == 0 && s.config.Logging.Level == "debug"
+		allowAll := len(allowedOrigins) == 0 && devDebug
 
 		if !allowAll && len(allowedOrigins) == 0 {
 			s.logger.Warn("CORS enabled but no allowed origins configured (MBFLOW_CORS_ALLOWED_ORIGINS). Set origins or use debug log level for wildcard.")
@@ -84,7 +95,9 @@ func (s *Server) setupRoutes() error {
 	}
 
 	s.setupHealthEndpoints()
-	s.setupSwaggerEndpoint()
+	if !s.config.IsProduction() {
+		s.setupSwaggerEndpoint()
+	}
 	s.setupWebSocketEndpoints()
 	s.setupAPIv1Routes()
 
@@ -93,34 +106,50 @@ func (s *Server) setupRoutes() error {
 }
 
 func (s *Server) setupHealthEndpoints() {
-	s.router.GET("/health", func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-		defer cancel()
+	// Liveness: the process is up and serving HTTP. Deliberately does not
+	// check dependencies so a database outage does not restart every replica.
+	liveness := func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	}
+	s.router.GET("/health", liveness)
+	s.router.GET("/livez", liveness)
 
-		if err := storage.Ping(ctx, s.data.DB); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"status": "unhealthy",
-				"error":  fmt.Sprintf("database: %s", err.Error()),
-			})
+	// Readiness: dependencies are reachable and the server is not draining.
+	readiness := func(c *gin.Context) {
+		if s.shuttingDown.Load() {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "shutting_down"})
 			return
 		}
 
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		checks := gin.H{"database": "ok"}
+		healthy := true
+
+		if err := storage.Ping(ctx, s.data.DB); err != nil {
+			s.logger.Warn("Readiness check failed: database", "error", err)
+			checks["database"] = "unavailable"
+			healthy = false
+		}
+
 		if s.data.RedisCache != nil {
+			checks["redis"] = "ok"
 			if err := s.data.RedisCache.Health(ctx); err != nil {
-				c.JSON(http.StatusServiceUnavailable, gin.H{
-					"status": "unhealthy",
-					"error":  fmt.Sprintf("redis: %s", err.Error()),
-				})
-				return
+				s.logger.Warn("Readiness check failed: redis", "error", err)
+				checks["redis"] = "unavailable"
+				healthy = false
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
-	})
-
-	s.router.GET("/ready", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ready"})
-	})
+		if !healthy {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready", "checks": checks})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ready", "checks": checks})
+	}
+	s.router.GET("/ready", readiness)
+	s.router.GET("/readyz", readiness)
 
 	s.router.GET("/metrics", func(c *gin.Context) {
 		dbStats := storage.Stats(s.data.DB)
@@ -158,7 +187,15 @@ func (s *Server) setupSwaggerEndpoint() {
 func (s *Server) setupWebSocketEndpoints() {
 	if s.config.Observer.EnableWebSocket && s.execution.WSHub != nil {
 		wsHandler := observer.NewWebSocketHandler(s.execution.WSHub, s.logger)
-		s.router.GET("/ws/executions", func(c *gin.Context) {
+		wsHandler.SetAllowedOrigins(s.config.Server.CORSAllowedOrigins, !s.config.IsProduction() && len(s.config.Server.CORSAllowedOrigins) == 0)
+		// Browsers cannot set headers on WebSocket upgrades, so the token may
+		// also be passed as ?token=... (supported by the auth middleware).
+		s.router.GET("/ws/executions", s.auth.AuthMiddleware.RequireAuth(), func(c *gin.Context) {
+			// Subscribing to all executions is limited to administrators.
+			if c.Query("execution_id") == "" && !rest.IsAdmin(c) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "execution_id is required"})
+				return
+			}
 			wsHandler.ServeHTTP(c.Writer, c.Request)
 		})
 		s.router.GET("/ws/health", func(c *gin.Context) {
@@ -250,7 +287,7 @@ func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 	importHandlers := rest.NewImportHandlers(s.data.WorkflowRepo, s.data.TriggerRepo, s.logger, s.execution.ExecutorManager)
 
 	workflows := apiV1.Group("/workflows")
-	workflows.Use(s.auth.AuthMiddleware.OptionalAuth())
+	workflows.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		workflows.POST("", workflowHandlers.HandleCreateWorkflow)
 		workflows.GET("", workflowHandlers.HandleListWorkflows)
@@ -301,6 +338,7 @@ func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 	executionHandlers := rest.NewExecutionHandlers(ops, s.logger)
 
 	executions := apiV1.Group("/executions")
+	executions.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		executions.POST("/run/:workflow_id", executionHandlers.HandleRunExecution)
 		executions.POST("/ephemeral", executionHandlers.HandleRunEphemeralExecution)
@@ -331,6 +369,7 @@ func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
 	triggerHandlers := rest.NewTriggerHandlers(ops, s.logger)
 
 	triggers := apiV1.Group("/triggers")
+	triggers.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		triggers.POST("", triggerHandlers.HandleCreateTrigger)
 		triggers.GET("", triggerHandlers.HandleListTriggers)
@@ -347,7 +386,7 @@ func (s *Server) setupFileRoutes(apiV1 *gin.RouterGroup) {
 	fileHandlers := rest.NewFileHandlers(s.data.FileRepo, s.fileStorage.FileStorageManager, s.logger)
 
 	files := apiV1.Group("/files")
-	files.Use(s.auth.AuthMiddleware.OptionalAuth())
+	files.Use(s.auth.AuthMiddleware.RequireAuth())
 	{
 		files.POST("", fileHandlers.HandleUploadFile)
 		files.GET("", fileHandlers.HandleListFiles)
