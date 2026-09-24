@@ -40,7 +40,7 @@ examples/
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.25 or later
 - PostgreSQL 16
 - Redis 7 (optional)
 - Docker and Docker Compose (for containerized setup)
@@ -51,19 +51,32 @@ examples/
 
 ```bash
 git clone https://github.com/smilemakc/mbflow.git
-cd mbflow/backend
+cd mbflow/go
 ```
 
-2. Start all services:
+2. Create a `.env` file with secrets (see the top of `docker-compose.yml`):
 
 ```bash
-docker compose up -d
+cat > .env <<ENV
+MBFLOW_JWT_SECRET=$(openssl rand -hex 32)
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+REDIS_PASSWORD=$(openssl rand -hex 16)
+MBFLOW_ADMIN_EMAIL=admin@example.com
+MBFLOW_ADMIN_PASSWORD=$(openssl rand -base64 18)Aa1!  # print it: grep ADMIN_PASSWORD .env
+ENV
 ```
 
-3. Check service health:
+3. Start all services (migrations run automatically via the one-shot `mbflow-migrate` service):
 
 ```bash
-curl http://localhost:8585/health
+docker compose up -d --build
+```
+
+4. Check service health and open the UI at http://localhost:8080:
+
+```bash
+curl http://localhost:8585/health   # liveness
+curl http://localhost:8585/ready    # readiness (DB + Redis)
 ```
 
 ### Local Development Setup
@@ -97,9 +110,10 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-4. Build and run the server:
+4. Apply database migrations, then build and run the server:
 
 ```bash
+go run ./cmd/migrate -command up   # uses MBFLOW_DATABASE_URL
 go build -o mbflow-server ./cmd/server
 ./mbflow-server
 ```
@@ -175,8 +189,8 @@ MBFLOW_AUTH_REDIRECT_URL=http://localhost:8585/auth/callback
 
 ### Health & Monitoring
 
-- `GET /health` - Health check
-- `GET /ready` - Readiness check
+- `GET /health` (alias `/livez`) - Liveness check; does not touch dependencies
+- `GET /ready` (alias `/readyz`) - Readiness check; verifies PostgreSQL and Redis, returns 503 while shutting down
 - `GET /metrics` - System metrics
 
 ### API v1
@@ -344,12 +358,23 @@ docker build -t mbflow:latest .
 
 ```bash
 docker build -t mbflow:latest .
+# Apply migrations (safe to run from several replicas: guarded by a lock)
+docker run --rm -e MBFLOW_DATABASE_URL=postgres://... \
+  --entrypoint ./mbflow-migrate mbflow:latest -command up
+
 docker run -d \
   -p 8585:8585 \
-  -e DATABASE_URL=postgres://... \
-  -e REDIS_URL=redis://... \
+  -e MBFLOW_ENV=production \
+  -e MBFLOW_DATABASE_URL=postgres://... \
+  -e MBFLOW_REDIS_URL=redis://... \
+  -e MBFLOW_JWT_SECRET=... \
+  -e MBFLOW_CORS_ALLOWED_ORIGINS=https://mbflow.example.com \
   mbflow:latest
 ```
+
+For Kubernetes, point the liveness probe at `/health` and the readiness probe
+at `/ready`, and set `terminationGracePeriodSeconds` above
+`MBFLOW_SHUTDOWN_TIMEOUT` (default 30s) so running executions can drain.
 
 ### Docker Compose
 
@@ -381,8 +406,6 @@ Metrics include:
 
 - Database connection pool statistics
 - Redis cache statistics
-- Request counts and latencies
-- Execution statistics
 
 ## Security
 
