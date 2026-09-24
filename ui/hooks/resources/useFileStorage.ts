@@ -19,7 +19,7 @@ export interface FileStorageActions {
   loadFiles: (resource: FileStorageResource) => Promise<void>;
   uploadFile: (file: File) => Promise<boolean>;
   deleteFile: (fileId: string, fileName: string) => Promise<boolean>;
-  downloadFile: (fileId: string) => void;
+  downloadFile: (fileId: string) => Promise<void>;
   clearSelection: () => void;
 }
 
@@ -86,19 +86,20 @@ export const useFileStorage = (onResourceUpdate?: () => Promise<void>): FileStor
     }
   }, [selectedResource, loadFiles, onResourceUpdate]);
 
-  const downloadFile = useCallback((fileId: string) => {
+  const downloadFile = useCallback(async (fileId: string) => {
     if (!selectedResource) {
       toast.error('Error', 'No resource selected.');
       return;
     }
 
     try {
-      resourcesApi.downloadFile(selectedResource.id, fileId);
+      const fileName = files.find((f) => f.id === fileId)?.name;
+      await resourcesApi.downloadFile(selectedResource.id, fileId, fileName);
     } catch (error: unknown) {
       console.error('Failed to download file:', error);
       toast.error('Download Failed', getErrorMessage(error));
     }
-  }, [selectedResource]);
+  }, [selectedResource, files]);
 
   const clearSelection = useCallback(() => {
     setSelectedResource(null);

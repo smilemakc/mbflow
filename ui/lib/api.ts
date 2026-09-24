@@ -1,8 +1,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { toast } from './toast';
+import { TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_STORAGE_KEY } from './authStorage';
 
 // API URL: use relative path (proxied by Vite) or env variable for production
-const API_URL = (import.meta as any).env?.VITE_API_URL || '/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 /**
  * Paginated list response
@@ -175,11 +176,6 @@ export const ErrorCodes = {
   // Trigger
   TRIGGER_DISABLED: 'TRIGGER_DISABLED',
 } as const;
-
-// Storage keys
-const TOKEN_KEY = 'auth_token';
-const REFRESH_TOKEN_KEY = 'auth_refresh_token';
-const AUTH_STORAGE_KEY = 'auth-storage';
 
 // Clear all auth data and redirect to login
 const clearAuthAndRedirect = () => {

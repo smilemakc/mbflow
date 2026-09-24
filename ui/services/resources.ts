@@ -1,5 +1,20 @@
 import { apiClient } from '../lib/api';
 
+/** Extract a filename from a Content-Disposition header, if present. */
+const filenameFromDisposition = (header: unknown): string | undefined => {
+  if (typeof header !== 'string') return undefined;
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      /* fall through */
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  return plain ? plain[1].trim() : undefined;
+};
+
 export interface FileStorageResource {
   id: string;
   type: string;
@@ -79,18 +94,23 @@ export const resourcesApi = {
     ),
   getFileMetadata: (resourceId: string, fileId: string) =>
     apiClient.get<FileMetadata>(`/resources/${resourceId}/files/${fileId}`),
-  downloadFile: (resourceId: string, fileId: string) => {
-    const token = localStorage.getItem('token');
-    const url = `${apiClient.defaults.baseURL}/resources/${resourceId}/files/${fileId}/download`;
+  downloadFile: async (resourceId: string, fileId: string, fileName?: string) => {
+    const response = await apiClient.get<Blob>(
+      `/resources/${resourceId}/files/${fileId}/download`,
+      { responseType: 'blob', timeout: 0 },
+    );
+    const objectUrl = URL.createObjectURL(response.data);
     const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', '');
-    if (token) {
-      link.setAttribute('Authorization', `Bearer ${token}`);
-    }
+    link.href = objectUrl;
+    link.download = fileName || filenameFromDisposition(response.headers['content-disposition']) || fileId;
     document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      link.click();
+    } finally {
+      document.body.removeChild(link);
+      // Defer revocation so the browser has a chance to start the download
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    }
   },
   deleteFile: (resourceId: string, fileId: string) =>
     apiClient.delete(`/resources/${resourceId}/files/${fileId}`),

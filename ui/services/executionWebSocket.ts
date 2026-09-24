@@ -4,6 +4,7 @@
  */
 
 import type { ExecutionEvent } from '@/types/execution';
+import { getAccessToken } from '@/lib/authStorage';
 
 export type ExecutionEventHandler = (event: ExecutionEvent) => void;
 
@@ -22,7 +23,7 @@ class ExecutionWebSocketService {
    * Build WebSocket URL for execution monitoring
    */
   private buildUrl(executionId?: string): string {
-    const baseUrl = (import.meta as any).env?.VITE_WS_URL || '/ws';
+    const baseUrl = import.meta.env.VITE_WS_URL || '/ws';
     let wsUrl = baseUrl;
 
     if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
@@ -30,8 +31,17 @@ class ExecutionWebSocketService {
       wsUrl = `${protocol}//${window.location.host}${baseUrl}`;
     }
 
+    const params = new URLSearchParams();
+    if (executionId) {
+      params.set('execution_id', executionId);
+    }
+    const token = getAccessToken();
+    if (token) {
+      params.set('token', token);
+    }
+    const query = params.toString();
     const url = `${wsUrl}/executions`;
-    return executionId ? `${url}?execution_id=${executionId}` : url;
+    return query ? `${url}?${query}` : url;
   }
 
   /**
@@ -51,7 +61,7 @@ class ExecutionWebSocketService {
 
     // Create new connection
     const url = this.buildUrl(executionId);
-    console.log('[ExecutionWS] Connecting:', url);
+    console.log('[ExecutionWS] Connecting:', url.replace(/token=[^&]*/, 'token=***'));
 
     const ws = new WebSocket(url);
     const handlers = new Set<ExecutionEventHandler>();

@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { authService } from '@/services/authService';
 import { toast } from '@/lib/toast';
+import { AUTH_STORAGE_KEY } from '@/lib/authStorage';
 import { getErrorMessage, isErrorCode, ErrorCodes } from '@/lib/api';
 import type {
   User,
@@ -260,7 +261,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'auth-storage',
+      name: AUTH_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
       // Only persist user data, not loading states
       partialize: (state) => ({
