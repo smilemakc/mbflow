@@ -82,7 +82,7 @@ func (em *ExecutionManager) executeEphemeralSync(
 	defer em.markEphemeralTerminal(execution.ID)
 
 	if opts.PersistExecution {
-		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow); err != nil {
+		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow, opts.CreatedBy); err != nil {
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
 	}
@@ -129,7 +129,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 	webhookNames []string,
 ) (*models.Execution, error) {
 	if opts.PersistExecution {
-		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow); err != nil {
+		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow, opts.CreatedBy); err != nil {
 			em.markEphemeralTerminal(execution.ID)
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
@@ -265,8 +265,9 @@ func buildEphemeralNodeExecutions(execState *pkgengine.ExecutionState, workflow 
 	return nodeExecs
 }
 
-func (em *ExecutionManager) createEphemeralExecution(ctx context.Context, execution *models.Execution, workflow *models.Workflow) error {
+func (em *ExecutionManager) createEphemeralExecution(ctx context.Context, execution *models.Execution, workflow *models.Workflow, createdBy *uuid.UUID) error {
 	executionModel := storagemodels.ExecutionDomainToModel(execution)
+	executionModel.CreatedBy = createdBy
 	snapshot, err := serializeWorkflowSnapshot(workflow)
 	if err != nil {
 		return fmt.Errorf("serialize workflow snapshot: %w", err)

@@ -414,6 +414,34 @@ Metrics include:
 - No secrets in source code
 - CORS support for browser clients
 
+### Data isolation between users
+
+Every `/api/v1` workflow, execution, trigger and file endpoint requires
+authentication and is scoped to the caller:
+
+| Record | Owner |
+|--------|-------|
+| Workflow (and its nodes, edges, attached resources) | `mbflow_workflows.created_by` |
+| Trigger | its workflow's owner |
+| Stored execution | its workflow's owner |
+| Inline (ephemeral) execution | `mbflow_executions.created_by` |
+| File | `mbflow_files.created_by`, or the owner of the workflow it is attached to |
+
+- Lists only return the caller's records; administrators see everything.
+- Reading, changing or deleting someone else's record returns **404**, so the
+  API does not reveal whether it exists.
+- Users can only attach their own resources (credentials, storage, keys) to a
+  workflow, and a `sub_workflow` node can only call workflows of the same owner.
+- The execution WebSocket (`/ws/executions?execution_id=...`) only streams
+  executions the caller owns. Non-persisted inline executions are not stored,
+  so only admins can watch them there; use webhooks or the gRPC stream instead.
+- Records created before ownership was tracked (`created_by IS NULL`) are
+  visible to administrators only. Migration `018_record_ownership` backfills
+  file owners from their resource or workflow; assign any remaining legacy
+  workflows by setting `created_by` directly in the database.
+- The Service API (`/api/v1/service/*`, system keys) is a trusted
+  administrative interface and is not restricted by these rules.
+
 ## Troubleshooting
 
 ### Database Connection Issues

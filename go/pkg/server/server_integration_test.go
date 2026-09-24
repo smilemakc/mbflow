@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -70,7 +72,20 @@ func newTestServer(t *testing.T) *Server {
 }
 
 func doRequest(srv *Server, method, path, token string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, path, nil)
+	return doJSONRequest(srv, method, path, token, "")
+}
+
+func doJSONRequest(srv *Server, method, path, token, body string) *httptest.ResponseRecorder {
+	var reader *strings.Reader
+	if body != "" {
+		reader = strings.NewReader(body)
+	} else {
+		reader = strings.NewReader("")
+	}
+	req := httptest.NewRequest(method, path, reader)
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -131,4 +146,43 @@ func TestServer_ProductionHardening(t *testing.T) {
 		defer srv.shuttingDown.Store(false)
 		assert.Equal(t, http.StatusServiceUnavailable, doRequest(srv, "GET", "/ready", "").Code)
 	})
+}
+
+// loginNewUser creates a regular user and returns an access token.
+func loginNewUser(t *testing.T, srv *Server, email string) string {
+	t.Helper()
+	ctx := context.Background()
+	_, err := srv.AuthService().CreateUser(ctx, &auth.RegisterRequest{Email: email, Password: "User-Passw0rd-123"}, false)
+	require.NoError(t, err)
+	result, err := srv.AuthService().Login(ctx, &auth.LoginRequest{Email: email, Password: "User-Passw0rd-123"}, "127.0.0.1", "test")
+	require.NoError(t, err)
+	return result.AccessToken
+}
+
+func TestServer_PerUserIsolation(t *testing.T) {
+	srv := newTestServer(t)
+	tokenA := loginNewUser(t, srv, "alice@example.com")
+	tokenB := loginNewUser(t, srv, "bob@example.com")
+
+	w := doJSONRequest(srv, "POST", "/api/v1/workflows", tokenA, `{"name":"alice workflow"}`)
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	var created map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+	wfID := created["id"].(string)
+
+	// Bob can neither see nor delete Alice's workflow.
+	assert.Equal(t, http.StatusNotFound, doRequest(srv, "GET", "/api/v1/workflows/"+wfID, tokenB).Code)
+	assert.Equal(t, http.StatusNotFound, doRequest(srv, "DELETE", "/api/v1/workflows/"+wfID, tokenB).Code)
+	assert.Equal(t, http.StatusNotFound, doRequest(srv, "POST", "/api/v1/executions/run/"+wfID, tokenB).Code)
+	assert.Equal(t, http.StatusNotFound, doRequest(srv, "GET", "/ws/executions?execution_id="+uuid.NewString(), tokenB).Code)
+
+	w = doRequest(srv, "GET", "/api/v1/workflows", tokenB)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.NotContains(t, w.Body.String(), wfID)
+
+	// Alice still has it.
+	assert.Equal(t, http.StatusOK, doRequest(srv, "GET", "/api/v1/workflows/"+wfID, tokenA).Code)
+	w = doRequest(srv, "GET", "/api/v1/workflows", tokenA)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), wfID)
 }

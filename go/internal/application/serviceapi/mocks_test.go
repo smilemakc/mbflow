@@ -545,3 +545,20 @@ var (
 	_ repository.CredentialsRepository     = (*mockCredentialsRepo)(nil)
 	_ repository.ServiceAuditLogRepository = (*mockAuditLogRepo)(nil)
 )
+
+func (m *mockExecutionRepo) FindWithFilters(ctx context.Context, filters repository.ExecutionFilters, limit, offset int) ([]*storagemodels.ExecutionModel, error) {
+	args := m.Called(ctx, filters, limit, offset)
+	ems, _ := args.Get(0).([]*storagemodels.ExecutionModel)
+	return ems, args.Error(1)
+}
+
+func (m *mockTriggerRepo) FindWithFilters(ctx context.Context, filters repository.TriggerFilters, limit, offset int) ([]*storagemodels.TriggerModel, error) {
+	args := m.Called(ctx, filters, limit, offset)
+	tms, _ := args.Get(0).([]*storagemodels.TriggerModel)
+	return tms, args.Error(1)
+}
+
+func (m *mockTriggerRepo) CountWithFilters(ctx context.Context, filters repository.TriggerFilters) (int, error) {
+	args := m.Called(ctx, filters)
+	return args.Int(0), args.Error(1)
+}

@@ -408,3 +408,16 @@ func (m *mockWebhookRegistry) UnregisterWebhook(ctx context.Context, triggerID s
 	args := m.Called(ctx, triggerID)
 	return args.Error(0)
 }
+
+func (m *mockTriggerRepo) FindWithFilters(ctx context.Context, filters repository.TriggerFilters, limit, offset int) ([]*storagemodels.TriggerModel, error) {
+	args := m.Called(ctx, filters, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*storagemodels.TriggerModel), args.Error(1)
+}
+
+func (m *mockTriggerRepo) CountWithFilters(ctx context.Context, filters repository.TriggerFilters) (int, error) {
+	args := m.Called(ctx, filters)
+	return args.Int(0), args.Error(1)
+}

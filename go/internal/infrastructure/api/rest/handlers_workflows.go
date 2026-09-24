@@ -14,6 +14,13 @@ import (
 type WorkflowHandlers struct {
 	ops    *serviceapi.Operations
 	logger *logger.Logger
+	guard  *OwnershipGuard
+}
+
+// WithOwnershipGuard enables ownership checks for referenced resources.
+func (h *WorkflowHandlers) WithOwnershipGuard(g *OwnershipGuard) *WorkflowHandlers {
+	h.guard = g
+	return h
 }
 
 func NewWorkflowHandlers(ops *serviceapi.Operations, log *logger.Logger) *WorkflowHandlers {
@@ -155,6 +162,9 @@ func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 		}
 
 		params.UserID = &requestedUserID
+	} else if owner := ownerFilterFromContext(c); owner != nil {
+		// Regular users only ever see their own workflows.
+		params.UserID = owner
 	}
 
 	result, err := h.ops.ListWorkflows(c.Request.Context(), params)
@@ -544,6 +554,11 @@ func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
 	accessType := req.AccessType
 	if accessType == "" {
 		accessType = "read"
+	}
+
+	// Only resources the caller owns may be attached (credentials, keys...).
+	if h.guard != nil && !h.guard.CheckResourceAccess(c, resourceUUID) {
+		return
 	}
 
 	if err := h.ops.AttachWorkflowResource(c.Request.Context(), serviceapi.AttachWorkflowResourceParams{

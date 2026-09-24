@@ -71,6 +71,7 @@ Useful targets in `go/Makefile`: `make test`, `make lint` (golangci-lint v2), `m
 - [ ] Terminate TLS at a reverse proxy, and list that proxy in `MBFLOW_TRUSTED_PROXIES` so client IPs are correct for rate limiting and audit logs.
 - [ ] Set `MBFLOW_CORS_ALLOWED_ORIGINS` to the exact UI origin(s).
 - [ ] Keep self-registration off with `MBFLOW_ALLOW_REGISTRATION=false`, which is the default in production.
+- [ ] Users only see their own workflows, executions, triggers and files, while admins see everything (see "Data isolation between users" in [go/README.md](go/README.md)). After upgrading an existing installation, workflows without an owner are visible to admins only, so assign their `created_by` if regular users need them.
 - [ ] Leave `MBFLOW_HTTP_ALLOW_PRIVATE_NETWORKS=false` unless workflows must call internal services. If they must, allow only specific hosts with `MBFLOW_HTTP_ALLOWED_HOSTS`.
 - [ ] Back up the `postgres_data` volume (for example with `pg_dump`) and the `file_storage` volume (`/app/data/storage`).
 - [ ] Create the first admin user. You can do this in either of two ways:

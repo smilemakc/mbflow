@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -24,6 +25,52 @@ type FileHandlers struct {
 	fileRepo       *storage.FileRepository
 	storageManager filestorage.Manager
 	logger         *logger.Logger
+	guard          *OwnershipGuard
+}
+
+// WithOwnershipGuard enables ownership checks for the workflow/execution a
+// file is attached to on upload.
+func (h *FileHandlers) WithOwnershipGuard(g *OwnershipGuard) *FileHandlers {
+	h.guard = g
+	return h
+}
+
+// authorizeAttachment verifies the caller may attach a file to the given
+// workflow/execution. It writes the error response and returns false if not.
+func (h *FileHandlers) authorizeAttachment(c *gin.Context, workflowID, executionID string) bool {
+	if h.guard == nil {
+		return true
+	}
+	if workflowID != "" {
+		id, err := uuid.Parse(workflowID)
+		if err != nil {
+			respondError(c, http.StatusBadRequest, "invalid workflow_id")
+			return false
+		}
+		if !h.guard.CheckWorkflowAccess(c, id) {
+			return false
+		}
+	}
+	if executionID != "" {
+		id, err := uuid.Parse(executionID)
+		if err != nil {
+			respondError(c, http.StatusBadRequest, "invalid execution_id")
+			return false
+		}
+		if !h.guard.check(c, "EXECUTION_NOT_FOUND", "Execution not found", func(ctx context.Context, s accessScope) (bool, error) {
+			return h.guard.canAccessExecution(ctx, s, id)
+		}) {
+			return false
+		}
+	}
+	return true
+}
+
+// setOwner records the uploading user on the file model.
+func setOwner(c *gin.Context, model *storagemodels.FileModel) {
+	if userID, ok := GetUserIDAsUUID(c); ok && userID != uuid.Nil {
+		model.CreatedBy = &userID
+	}
 }
 
 // NewFileHandlers creates a new FileHandlers instance
@@ -69,6 +116,10 @@ func (h *FileHandlers) handleMultipartUpload(c *gin.Context) {
 	workflowID := c.PostForm("workflow_id")
 	executionID := c.PostForm("execution_id")
 	tagsStr := c.PostForm("tags")
+
+	if !h.authorizeAttachment(c, workflowID, executionID) {
+		return
+	}
 
 	// Parse tags
 	var tags []string
@@ -130,6 +181,7 @@ func (h *FileHandlers) handleMultipartUpload(c *gin.Context) {
 
 	// Save to database
 	fileModel := h.entryToModel(stored)
+	setOwner(c, fileModel)
 	if err := h.fileRepo.Create(c.Request.Context(), fileModel); err != nil {
 		h.logger.Error("Failed to save file metadata", "error", err, "file_id", stored.ID)
 		respondError(c, http.StatusInternalServerError, "failed to save file metadata")
@@ -155,6 +207,10 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respondError(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if !h.authorizeAttachment(c, req.WorkflowID, req.ExecutionID) {
 		return
 	}
 
@@ -280,6 +336,7 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 
 	// Save to database
 	fileModel := h.entryToModel(stored)
+	setOwner(c, fileModel)
 	if err := h.fileRepo.Create(c.Request.Context(), fileModel); err != nil {
 		h.logger.Error("Failed to save file metadata", "error", err, "file_id", stored.ID)
 		respondError(c, http.StatusInternalServerError, "failed to save file metadata")
@@ -413,6 +470,7 @@ func (h *FileHandlers) HandleListFiles(c *gin.Context) {
 		Offset:      offset,
 		OrderBy:     c.DefaultQuery("order_by", "created_at"),
 		OrderDir:    c.DefaultQuery("order_dir", "DESC"),
+		OwnerID:     ownerFilterFromContext(c),
 	}
 
 	// Parse workflow_id if provided
@@ -481,12 +539,15 @@ func (h *FileHandlers) HandleGetStorageUsage(c *gin.Context) {
 	}
 
 	accessScope := c.Query("access_scope")
+	owner := ownerFilterFromContext(c)
 
-	// If access_scope is provided, use filtered query
-	if accessScope != "" {
+	// Regular users only see usage of their own files, which requires the
+	// filtered query; the aggregate below covers the whole storage.
+	if accessScope != "" || owner != nil {
 		query := &storage.FileQuery{
 			StorageID:   storageID,
 			AccessScope: accessScope,
+			OwnerID:     owner,
 		}
 		files, err := h.fileRepo.FindByQuery(c.Request.Context(), query)
 		if err != nil {

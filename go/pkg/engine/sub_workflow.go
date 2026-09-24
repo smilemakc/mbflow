@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -39,6 +40,10 @@ type subWorkflowItemResult struct {
 	DurationMs  int64  `json:"duration_ms,omitempty"`
 }
 
+// ErrSubWorkflowNotAccessible is returned when a sub_workflow node references
+// a workflow owned by a different user than the parent workflow.
+var ErrSubWorkflowNotAccessible = errors.New("workflow not found")
+
 // executeSubWorkflow handles fan-out execution of sub-workflow nodes.
 func (de *DAGExecutor) executeSubWorkflow(
 	ctx context.Context,
@@ -63,6 +68,12 @@ func (de *DAGExecutor) executeSubWorkflow(
 	childWF, err := de.workflowLoader.LoadWorkflow(ctx, cfg.WorkflowID)
 	if err != nil {
 		return fmt.Errorf("failed to load child workflow %s: %w", cfg.WorkflowID, err)
+	}
+
+	// A workflow may only call sub-workflows of the same owner; otherwise a
+	// user could run (and read the output of) someone else's workflow by ID.
+	if execState.Workflow != nil && childWF.CreatedBy != execState.Workflow.CreatedBy {
+		return fmt.Errorf("failed to load child workflow %s: %w", cfg.WorkflowID, ErrSubWorkflowNotAccessible)
 	}
 
 	// 3. Handle empty array

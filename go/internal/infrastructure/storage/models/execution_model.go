@@ -25,8 +25,10 @@ type ExecutionModel struct {
 	StrictMode       bool       `bun:"strict_mode,default:false" json:"strict_mode"`
 	Error            string     `bun:"error" json:"error,omitempty"`
 	Metadata         JSONBMap   `bun:"metadata,type:jsonb,default:'{}'" json:"metadata,omitempty"`
-	CreatedAt        time.Time  `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt        time.Time  `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
+	// CreatedBy is set for inline executions; stored ones are owned via workflow.
+	CreatedBy *uuid.UUID `bun:"created_by,type:uuid" json:"created_by,omitempty"`
+	CreatedAt time.Time  `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt time.Time  `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 
 	// Relationships
 	Workflow       *WorkflowModel        `bun:"rel:belongs-to,join:workflow_id=id" json:"workflow,omitempty"`

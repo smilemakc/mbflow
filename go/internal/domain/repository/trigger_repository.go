@@ -36,6 +36,12 @@ type TriggerRepository interface {
 	// FindAll retrieves all triggers with pagination
 	FindAll(ctx context.Context, limit, offset int) ([]*models.TriggerModel, error)
 
+	// FindWithFilters retrieves triggers matching the filters with pagination
+	FindWithFilters(ctx context.Context, filters TriggerFilters, limit, offset int) ([]*models.TriggerModel, error)
+
+	// CountWithFilters returns the number of triggers matching the filters
+	CountWithFilters(ctx context.Context, filters TriggerFilters) (int, error)
+
 	// Count returns the total count of triggers
 	Count(ctx context.Context) (int, error)
 
@@ -53,4 +59,12 @@ type TriggerRepository interface {
 
 	// MarkTriggered updates the last triggered timestamp
 	MarkTriggered(ctx context.Context, id uuid.UUID) error
+}
+
+// TriggerFilters narrows trigger listings. Nil fields are ignored.
+type TriggerFilters struct {
+	WorkflowID *uuid.UUID
+	Type       *string
+	// OwnerID limits results to triggers of workflows created by the user.
+	OwnerID *uuid.UUID
 }

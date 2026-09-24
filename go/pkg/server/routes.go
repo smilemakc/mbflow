@@ -190,7 +190,7 @@ func (s *Server) setupWebSocketEndpoints() {
 		wsHandler.SetAllowedOrigins(s.config.Server.CORSAllowedOrigins, !s.config.IsProduction() && len(s.config.Server.CORSAllowedOrigins) == 0)
 		// Browsers cannot set headers on WebSocket upgrades, so the token may
 		// also be passed as ?token=... (supported by the auth middleware).
-		s.router.GET("/ws/executions", s.auth.AuthMiddleware.RequireAuth(), func(c *gin.Context) {
+		s.router.GET("/ws/executions", s.auth.AuthMiddleware.RequireAuth(), s.ownershipGuard().RequireExecutionQueryAccess("execution_id"), func(c *gin.Context) {
 			// Subscribing to all executions is limited to administrators.
 			if c.Query("execution_id") == "" && !rest.IsAdmin(c) {
 				c.JSON(http.StatusForbidden, gin.H{"error": "execution_id is required"})
@@ -205,6 +205,21 @@ func (s *Server) setupWebSocketEndpoints() {
 			"endpoints", []string{"/ws/executions", "/ws/health"},
 		)
 	}
+}
+
+// ownershipGuard enforces per-user isolation of workflows and related records.
+func (s *Server) ownershipGuard() *rest.OwnershipGuard {
+	if s.guard == nil {
+		s.guard = rest.NewOwnershipGuard(
+			s.data.WorkflowRepo,
+			s.data.ExecutionRepo,
+			s.data.TriggerRepo,
+			s.data.FileRepo,
+			s.data.ResourceRepo,
+			s.logger,
+		)
+	}
+	return s.guard
 }
 
 func (s *Server) setupAPIv1Routes() {
@@ -280,7 +295,7 @@ func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 		Logger:          s.logger,
 	}
 
-	workflowHandlers := rest.NewWorkflowHandlers(ops, s.logger)
+	workflowHandlers := rest.NewWorkflowHandlers(ops, s.logger).WithOwnershipGuard(s.ownershipGuard())
 	nodeHandlers := rest.NewNodeHandlers(s.data.WorkflowRepo, s.logger)
 	edgeHandlers := rest.NewEdgeHandlers(s.data.WorkflowRepo, s.logger)
 	executionHandlers := rest.NewExecutionHandlers(ops, s.logger)
@@ -288,6 +303,7 @@ func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 
 	workflows := apiV1.Group("/workflows")
 	workflows.Use(s.auth.AuthMiddleware.RequireAuth())
+	workflows.Use(s.ownershipGuard().RequireWorkflowAccess("workflow_id"))
 	{
 		workflows.POST("", workflowHandlers.HandleCreateWorkflow)
 		workflows.GET("", workflowHandlers.HandleListWorkflows)
@@ -339,6 +355,8 @@ func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 
 	executions := apiV1.Group("/executions")
 	executions.Use(s.auth.AuthMiddleware.RequireAuth())
+	executions.Use(s.ownershipGuard().RequireExecutionAccess("id"))
+	executions.Use(s.ownershipGuard().RequireWorkflowAccess("workflow_id"))
 	{
 		executions.POST("/run/:workflow_id", executionHandlers.HandleRunExecution)
 		executions.POST("/ephemeral", executionHandlers.HandleRunEphemeralExecution)
@@ -366,10 +384,11 @@ func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
 		Logger:          s.logger,
 	}
 
-	triggerHandlers := rest.NewTriggerHandlers(ops, s.logger)
+	triggerHandlers := rest.NewTriggerHandlers(ops, s.logger).WithOwnershipGuard(s.ownershipGuard())
 
 	triggers := apiV1.Group("/triggers")
 	triggers.Use(s.auth.AuthMiddleware.RequireAuth())
+	triggers.Use(s.ownershipGuard().RequireTriggerAccess("id"))
 	{
 		triggers.POST("", triggerHandlers.HandleCreateTrigger)
 		triggers.GET("", triggerHandlers.HandleListTriggers)
@@ -383,10 +402,11 @@ func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupFileRoutes(apiV1 *gin.RouterGroup) {
-	fileHandlers := rest.NewFileHandlers(s.data.FileRepo, s.fileStorage.FileStorageManager, s.logger)
+	fileHandlers := rest.NewFileHandlers(s.data.FileRepo, s.fileStorage.FileStorageManager, s.logger).WithOwnershipGuard(s.ownershipGuard())
 
 	files := apiV1.Group("/files")
 	files.Use(s.auth.AuthMiddleware.RequireAuth())
+	files.Use(s.ownershipGuard().RequireFileAccess("id"))
 	{
 		files.POST("", fileHandlers.HandleUploadFile)
 		files.GET("", fileHandlers.HandleListFiles)

@@ -13,6 +13,13 @@ import (
 type TriggerHandlers struct {
 	ops    *serviceapi.Operations
 	logger *logger.Logger
+	guard  *OwnershipGuard
+}
+
+// WithOwnershipGuard enables ownership checks for the target workflow.
+func (h *TriggerHandlers) WithOwnershipGuard(g *OwnershipGuard) *TriggerHandlers {
+	h.guard = g
+	return h
 }
 
 func NewTriggerHandlers(ops *serviceapi.Operations, log *logger.Logger) *TriggerHandlers {
@@ -32,6 +39,14 @@ func (h *TriggerHandlers) HandleCreateTrigger(c *gin.Context) {
 
 	if err := bindJSON(c, &req); err != nil {
 		return
+	}
+
+	if h.guard != nil {
+		// binding:"uuid" above guarantees a valid ID here.
+		workflowUUID, _ := uuid.Parse(req.WorkflowID)
+		if !h.guard.CheckWorkflowAccess(c, workflowUUID) {
+			return
+		}
 	}
 
 	trigger, err := h.ops.CreateTrigger(c.Request.Context(), serviceapi.CreateTriggerParams{
@@ -97,6 +112,8 @@ func (h *TriggerHandlers) HandleListTriggers(c *gin.Context) {
 	if triggerType := c.Query("type"); triggerType != "" {
 		params.Type = &triggerType
 	}
+
+	params.OwnerID = ownerFilterFromContext(c)
 
 	result, err := h.ops.ListTriggers(c.Request.Context(), params)
 	if err != nil {

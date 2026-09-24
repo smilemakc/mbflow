@@ -169,6 +169,7 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		params.Status = &status
 	}
+	params.OwnerID = ownerFilterFromContext(c)
 
 	result, err := h.ops.ListExecutions(c.Request.Context(), params)
 	if err != nil {
@@ -308,6 +309,15 @@ func (h *ExecutionHandlers) HandleRunEphemeralExecution(c *gin.Context) {
 		}
 	}
 
+	// The inline workflow runs as the caller: never trust a client-supplied
+	// created_by (it scopes which sub-workflows may be loaded).
+	var createdBy *uuid.UUID
+	workflow.CreatedBy = ""
+	if userID, ok := GetUserIDAsUUID(c); ok && userID != uuid.Nil {
+		createdBy = &userID
+		workflow.CreatedBy = userID.String()
+	}
+
 	params := serviceapi.EphemeralExecutionParams{
 		Workflow:         &workflow,
 		Input:            req.Input,
@@ -315,6 +325,7 @@ func (h *ExecutionHandlers) HandleRunEphemeralExecution(c *gin.Context) {
 		CredentialIDs:    req.CredentialIDs,
 		Variables:        req.Variables,
 		PersistExecution: req.PersistExecution,
+		CreatedBy:        createdBy,
 	}
 
 	if len(req.Webhooks) > 0 {

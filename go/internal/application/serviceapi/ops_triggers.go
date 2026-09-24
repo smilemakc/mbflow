@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -16,6 +17,8 @@ type ListTriggersParams struct {
 	Offset     int
 	WorkflowID *uuid.UUID
 	Type       *string
+	// OwnerID restricts results to triggers of workflows created by this user.
+	OwnerID *uuid.UUID
 }
 
 // ListTriggersResult contains the result of listing triggers.
@@ -28,7 +31,15 @@ func (o *Operations) ListTriggers(ctx context.Context, params ListTriggersParams
 	var triggerModels []*storagemodels.TriggerModel
 	var err error
 
-	if params.WorkflowID != nil {
+	ownerFilters := repository.TriggerFilters{
+		WorkflowID: params.WorkflowID,
+		Type:       params.Type,
+		OwnerID:    params.OwnerID,
+	}
+
+	if params.OwnerID != nil {
+		triggerModels, err = o.TriggerRepo.FindWithFilters(ctx, ownerFilters, params.Limit, params.Offset)
+	} else if params.WorkflowID != nil {
 		triggerModels, err = o.TriggerRepo.FindByWorkflowID(ctx, *params.WorkflowID)
 	} else if params.Type != nil {
 		triggerModels, err = o.TriggerRepo.FindByType(ctx, *params.Type, params.Limit, params.Offset)
@@ -47,7 +58,9 @@ func (o *Operations) ListTriggers(ctx context.Context, params ListTriggersParams
 	}
 
 	var total int
-	if params.WorkflowID != nil {
+	if params.OwnerID != nil {
+		total, err = o.TriggerRepo.CountWithFilters(ctx, ownerFilters)
+	} else if params.WorkflowID != nil {
 		total, err = o.TriggerRepo.CountByWorkflowID(ctx, *params.WorkflowID)
 	} else if params.Type != nil {
 		total, err = o.TriggerRepo.CountByType(ctx, *params.Type)

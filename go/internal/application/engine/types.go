@@ -3,6 +3,7 @@ package engine
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/go/internal/application/observer"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -86,4 +87,6 @@ type EphemeralExecutionOptions struct {
 	Timeout          time.Duration
 	NodeTimeout      time.Duration
 	ContinueOnError  bool
+	// CreatedBy records the user who started the execution (nil for system).
+	CreatedBy *uuid.UUID
 }

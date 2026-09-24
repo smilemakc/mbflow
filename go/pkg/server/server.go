@@ -22,6 +22,7 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/application/servicekey"
 	"github.com/smilemakc/mbflow/go/internal/application/trigger"
 	"github.com/smilemakc/mbflow/go/internal/config"
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/api/rest"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
@@ -42,6 +43,8 @@ type Server struct {
 	serviceAPI  ServiceAPILayer
 	triggers    TriggerLayer
 	fileStorage FileStorageLayer
+
+	guard *rest.OwnershipGuard
 
 	// bgCtx is cancelled on shutdown to stop background loops.
 	bgOnce   sync.Once

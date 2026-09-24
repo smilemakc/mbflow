@@ -590,3 +590,10 @@ func TestHandleExportWorkflow_InvalidID(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 }
+
+func (r *testTriggerRepository) FindWithFilters(ctx context.Context, filters repository.TriggerFilters, limit, offset int) ([]*storagemodels.TriggerModel, error) {
+	return nil, nil
+}
+func (r *testTriggerRepository) CountWithFilters(ctx context.Context, filters repository.TriggerFilters) (int, error) {
+	return 0, nil
+}
