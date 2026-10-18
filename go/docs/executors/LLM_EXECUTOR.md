@@ -10,6 +10,7 @@ LLM Executor provides integration with Large Language Model providers (OpenAI, A
 - [Template Resolution](#template-resolution)
 - [Supported Providers](#supported-providers)
 - [Examples](#examples)
+- [API Tools](#api-tools)
 
 ## Overview
 
@@ -58,6 +59,8 @@ The LLM Executor supports:
 | `presence_penalty` | float | No | Presence penalty (-2 to 2) |
 | `stop_sequences` | []string | No | Stop sequences for generation |
 | `tools` | []object | No | Function tools available to the model |
+| `tool_call_config` | object | No | Tool calling mode: `{"mode": "auto"}` runs the tools inside the node; also `max_iterations`, `timeout_per_tool`, `total_timeout` (seconds), `stop_on_tool_failure` |
+| `api_tools` | []object | No | Operations of imported API clients the model calls in auto mode, see [API Tools](#api-tools) |
 | `response_format` | object | No | Structured output format |
 | `use_input_directly` | bool | No | Pass input parameter directly to LLM (useful for Responses API) |
 
@@ -423,6 +426,34 @@ Supported models:
 }
 ```
 
+## API Tools
+
+In auto tool calling mode the model can call operations of API clients imported from OpenAPI or Swagger specifications, the same operations the `openapi` node runs. The node config only references the operations; the executor builds the tool definitions from the current client when the node runs, so a re-imported specification applies without editing the workflow.
+
+```json
+{
+  "type": "llm",
+  "config": {
+    "provider": "openai",
+    "model": "gpt-4.1",
+    "api_key": "{{env.openai_api_key}}",
+    "prompt": "What is the status of order {{input.order_id}}?",
+    "tool_call_config": {"mode": "auto", "max_iterations": 5, "timeout_per_tool": 30},
+    "api_tools": [
+      {"client_id": "4f0c2a5e-0000-0000-0000-000000000000", "operation_ids": ["getOrder", "listShipments"]}
+    ]
+  }
+}
+```
+
+- **Tool name**: the operation id with characters other than letters, digits, `_` and `-` replaced by `_`, at most 64 characters. If an entry of `functions` already has the name, the operation gets a numeric suffix.
+- **Arguments**: grouped like the `openapi` node config into `path_params`, `query_params`, `headers`, `cookies` and `body`. Component `$ref`s are inlined. Recursive structures, nesting deeper than 8 levels and fields beyond 256 schema nodes keep only their type. Read-only body fields and parameters filled in by the client authentication are left out.
+- **Authentication**: the executor takes it from the credential of the API client. Secrets are not part of the node config, `resolved_config` or the messages sent to the model, and secret values that a response echoes are masked.
+- **Access**: only clients of the workflow owner can be used; another user's client is reported as not found.
+- **Result for the model**: `{"status": 200, "body": ...}`. A body over 16 KiB is cut and marked with `"truncated": true` and `"body_bytes"`. A binary body is described by its content type and size. A response with status 400 or above is a failed call (`Error: HTTP 404: ...`), so `stop_on_tool_failure` applies to it.
+
+`api_tools` are used only in `auto` mode, by the `openai`, `openai-responses` and `gemini` providers. One request takes at most 128 tools, including `functions`. In the node editor, API tools are selected in the tool calling section of the advanced settings.
+
 ## Output Format
 
 The executor returns a map with the following fields:
@@ -443,6 +474,23 @@ The executor returns a map with the following fields:
   "metadata": {...}
 }
 ```
+
+### Auto Tool Calling Output
+
+In auto mode the output also has the conversation and the tool calls:
+
+```json
+{
+  "messages": [{"role": "user", "content": "..."}, {"role": "assistant", "tool_calls": [...]}, {"role": "tool", "tool_call_id": "call_1", "content": "..."}],
+  "tool_executions": [
+    {"tool_call_id": "call_1", "function_name": "getOrder", "result": {"status": 200, "body": {...}}, "execution_time": 120}
+  ],
+  "total_iterations": 2,
+  "stopped_reason": "finish"
+}
+```
+
+`stopped_reason` is `finish` when the model answered and `max_iterations` when the iteration limit was reached. A failed call has `error` instead of `result`.
 
 ### Responses API Output
 

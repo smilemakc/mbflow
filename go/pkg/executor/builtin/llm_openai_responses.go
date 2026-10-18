@@ -111,10 +111,14 @@ func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[s
 		"model": req.Model,
 	}
 
-	// Input (can be string or structured array)
-	if req.Input != nil {
+	// Input (can be string or structured array); the conversation of
+	// req.Messages replaces the instruction and the prompt.
+	switch {
+	case len(req.Messages) > 0:
+		body["input"] = p.buildHistory(req)
+	case req.Input != nil:
 		body["input"] = req.Input
-	} else if req.Prompt != "" {
+	case req.Prompt != "":
 		// Fallback to prompt for simple text input
 		body["input"] = req.Prompt
 	}
@@ -122,7 +126,7 @@ func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[s
 	// Instructions (system message)
 	if req.Instructions != "" {
 		body["instructions"] = req.Instructions
-	} else if req.Instruction != "" {
+	} else if req.Instruction != "" && len(req.Messages) == 0 {
 		body["instructions"] = req.Instruction
 	}
 
@@ -220,6 +224,38 @@ func (p *OpenAIResponsesProvider) buildRequestBody(req *models.LLMRequest) map[s
 	}
 
 	return body
+}
+
+// buildHistory converts the conversation of req.Messages into input items:
+// messages, the function calls of the model and their outputs. Function call
+// items carry no item id, so they need no reasoning items next to them.
+func (p *OpenAIResponsesProvider) buildHistory(req *models.LLMRequest) []map[string]any {
+	items := make([]map[string]any, 0, len(req.Messages))
+	for _, msg := range req.Messages {
+		switch msg.Role {
+		case "assistant":
+			if msg.Content != "" {
+				items = append(items, map[string]any{"role": "assistant", "content": msg.Content})
+			}
+			for _, tc := range msg.ToolCalls {
+				items = append(items, map[string]any{
+					"type":      "function_call",
+					"call_id":   tc.ID,
+					"name":      tc.Function.Name,
+					"arguments": tc.Function.Arguments,
+				})
+			}
+		case "tool":
+			items = append(items, map[string]any{
+				"type":    "function_call_output",
+				"call_id": msg.ToolCallID,
+				"output":  msg.Content,
+			})
+		default:
+			items = append(items, map[string]any{"role": msg.Role, "content": msg.Content})
+		}
+	}
+	return items
 }
 
 // buildResponseFormat builds the response format for structured outputs.

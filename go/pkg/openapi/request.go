@@ -55,8 +55,12 @@ func BuildRequest(client *models.APIClient, op *models.APIOperation, in RequestI
 		return nil, fmt.Errorf("invalid request URL: %w", err)
 	}
 
+	// The executor adds authentication after the request is built, so
+	// parameters it fills in are not required from the caller.
+	setByAuth := func(p *models.APIParameter) bool { return isAuthParam(client, op, p) }
+
 	query := u.Query()
-	if err := addQueryParams(query, op, in.QueryParams, client.Schemas); err != nil {
+	if err := addQueryParams(query, op, in.QueryParams, client.Schemas, setByAuth); err != nil {
 		return nil, err
 	}
 	u.RawQuery = query.Encode()
@@ -65,10 +69,10 @@ func BuildRequest(client *models.APIClient, op *models.APIOperation, in RequestI
 	for name, value := range client.DefaultHeaders {
 		header.Set(name, value)
 	}
-	if err := addHeaderParams(header, op, in.Headers, client.Schemas); err != nil {
+	if err := addHeaderParams(header, op, in.Headers, client.Schemas, setByAuth); err != nil {
 		return nil, err
 	}
-	cookies, err := cookieParams(op, in.Cookies, client.Schemas)
+	cookies, err := cookieParams(op, in.Cookies, client.Schemas, setByAuth)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +197,7 @@ func serializePathParam(p *models.APIParameter, value any) string {
 	}
 }
 
-func addQueryParams(query url.Values, op *models.APIOperation, values map[string]any, schemas map[string]map[string]any) error {
+func addQueryParams(query url.Values, op *models.APIOperation, values map[string]any, schemas map[string]map[string]any, setByAuth func(*models.APIParameter) bool) error {
 	declared := make(map[string]bool)
 	var missing []string
 	for _, p := range op.Parameters {
@@ -203,7 +207,7 @@ func addQueryParams(query url.Values, op *models.APIOperation, values map[string
 		declared[p.Name] = true
 		value, ok := values[p.Name]
 		if !ok || isEmptyValue(value) {
-			if p.Required {
+			if p.Required && !setByAuth(p) {
 				missing = append(missing, p.Name)
 			}
 			continue
@@ -279,7 +283,7 @@ func addQueryParams(query url.Values, op *models.APIOperation, values map[string
 	return nil
 }
 
-func addHeaderParams(header http.Header, op *models.APIOperation, values map[string]any, schemas map[string]map[string]any) error {
+func addHeaderParams(header http.Header, op *models.APIOperation, values map[string]any, schemas map[string]map[string]any, setByAuth func(*models.APIParameter) bool) error {
 	declared := make(map[string]bool)
 	var missing []string
 	for _, p := range op.Parameters {
@@ -289,7 +293,7 @@ func addHeaderParams(header http.Header, op *models.APIOperation, values map[str
 		declared[strings.ToLower(p.Name)] = true
 		value, ok := lookupFold(values, p.Name)
 		if !ok || isEmptyValue(value) {
-			if p.Required {
+			if p.Required && !setByAuth(p) {
 				missing = append(missing, p.Name)
 			}
 			continue
@@ -309,7 +313,7 @@ func addHeaderParams(header http.Header, op *models.APIOperation, values map[str
 	return nil
 }
 
-func cookieParams(op *models.APIOperation, values map[string]any, schemas map[string]map[string]any) ([]string, error) {
+func cookieParams(op *models.APIOperation, values map[string]any, schemas map[string]map[string]any, setByAuth func(*models.APIParameter) bool) ([]string, error) {
 	declared := make(map[string]bool)
 	var cookies, missing []string
 	for _, p := range op.Parameters {
@@ -319,7 +323,7 @@ func cookieParams(op *models.APIOperation, values map[string]any, schemas map[st
 		declared[p.Name] = true
 		value, ok := values[p.Name]
 		if !ok || isEmptyValue(value) {
-			if p.Required {
+			if p.Required && !setByAuth(p) {
 				missing = append(missing, p.Name)
 			}
 			continue

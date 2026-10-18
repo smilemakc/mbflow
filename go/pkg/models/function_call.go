@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 )
 
 // FunctionHandler is a function that executes a function call.
@@ -42,8 +43,10 @@ func (f *FunctionCallInput) ParseArguments() (map[string]any, error) {
 	return args, nil
 }
 
-// FunctionRegistry is a registry of function handlers.
+// FunctionRegistry is a registry of function handlers. It is safe for
+// concurrent use: the function_call and llm executors share one registry.
 type FunctionRegistry struct {
+	mu       sync.RWMutex
 	handlers map[string]FunctionHandler
 }
 
@@ -56,23 +59,31 @@ func NewFunctionRegistry() *FunctionRegistry {
 
 // Register registers a function handler.
 func (r *FunctionRegistry) Register(name string, handler FunctionHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.handlers[name] = handler
 }
 
 // Get retrieves a function handler by name.
 func (r *FunctionRegistry) Get(name string) (FunctionHandler, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	handler, ok := r.handlers[name]
 	return handler, ok
 }
 
 // Has checks if a function handler exists.
 func (r *FunctionRegistry) Has(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	_, ok := r.handlers[name]
 	return ok
 }
 
 // List returns all registered function names.
 func (r *FunctionRegistry) List() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	names := make([]string, 0, len(r.handlers))
 	for name := range r.handlers {
 		names = append(names, name)
@@ -82,5 +93,7 @@ func (r *FunctionRegistry) List() []string {
 
 // Unregister removes a function handler.
 func (r *FunctionRegistry) Unregister(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	delete(r.handlers, name)
 }

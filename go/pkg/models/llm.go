@@ -48,6 +48,7 @@ type LLMRequest struct {
 	ToolCallConfig *ToolCallConfig      `json:"tool_call_config,omitempty"` // Auto/manual mode configuration
 	Messages       []LLMMessage         `json:"messages,omitempty"`         // Conversation history (auto mode)
 	Functions      []FunctionDefinition `json:"functions,omitempty"`        // Extended function definitions (built-in, sub-workflow, custom code, OpenAPI)
+	APITools       []APIToolRef         `json:"api_tools,omitempty"`        // Operations of API clients added to Functions in auto mode
 }
 
 // LLMFileAttachment represents a base64-encoded file attachment for multimodal LLM requests.
@@ -141,6 +142,9 @@ type LLMToolCall struct {
 	ID       string          `json:"id"`
 	Type     string          `json:"type"` // "function"
 	Function LLMFunctionCall `json:"function"`
+	// Signature is opaque provider data that has to be sent back with the
+	// call in the conversation history (the Gemini thought signature).
+	Signature string `json:"signature,omitempty"`
 }
 
 // LLMFunctionCall represents a function call with arguments.

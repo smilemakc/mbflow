@@ -3,6 +3,8 @@ import {DEFAULT_TOOL_CALL_CONFIG, LLM_PROVIDER_MODELS, LLMNodeConfig} from '@/ty
 import {VariableAutocomplete} from '@/components';
 import {Button} from '@/components/ui';
 import {useTranslation} from '@/store/translations';
+import {format} from '@/components/apiClients/schemaUtils';
+import {LLMApiTools} from './LLMApiTools';
 
 interface Props {
     config: LLMNodeConfig;
@@ -53,6 +55,7 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
             updateConfig({
                 tool_call_config: undefined,
                 functions: undefined,
+                api_tools: undefined,
             });
         }
     };
@@ -433,21 +436,22 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
                                     </div>
                                 )}
 
-                                <div className="flex flex-col gap-1.5">
-                                    <label className={labelClasses}>
-                                        Functions ({functionCount})
-                                        <span className={hintClasses}>Phase 1: Built-in functions only</span>
-                                    </label>
-                                    <div
-                                        className="p-6 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-center">
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                                            Function editor will be available in the next update.
-                                        </p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-                                            For now, configure functions via JSON in workflow definition.
-                                        </p>
-                                    </div>
-                                </div>
+                                {toolCallMode === 'auto' ? (
+                                    <LLMApiTools
+                                        value={localConfig.api_tools}
+                                        otherTools={functionCount}
+                                        onChange={(apiTools) => updateConfig({api_tools: apiTools})}
+                                    />
+                                ) : (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        {t.nodeConfig.llm.apiTools.autoOnly}
+                                    </p>
+                                )}
+                                {functionCount > 0 && (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        {format(t.nodeConfig.llm.apiTools.otherFunctions, {count: functionCount})}
+                                    </p>
+                                )}
                             </div>
                         )}
                     </div>

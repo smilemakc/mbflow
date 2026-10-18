@@ -93,28 +93,17 @@ func (e *APIOperationExecutor) Execute(ctx context.Context, config map[string]an
 	}
 	clientID, _ := config["client_id"].(string)
 	operationID, _ := config["operation_id"].(string)
-	clientID, operationID = strings.TrimSpace(clientID), strings.TrimSpace(operationID)
-
-	client, err := e.clients.GetAPIClient(ctx, clientID)
+	client, op, err := e.operation(ctx, strings.TrimSpace(clientID), strings.TrimSpace(operationID))
 	if err != nil {
-		return nil, fmt.Errorf("API client %s: %w", clientID, err)
+		return nil, err
 	}
-	// Only the owner of the workflow may call the client: it can carry the
-	// owner's credentials. Other users get the same error as for a missing client.
-	owner := ""
-	if execCtx, ok := executor.GetExecutionContext(ctx); ok {
-		owner = execCtx.OwnerID
-	}
-	if client.OwnerID != owner {
-		return nil, fmt.Errorf("API client %s: %w", clientID, models.ErrAPIClientNotFound)
-	}
+	output, _, err := e.call(ctx, client, op, config, input)
+	return output, err
+}
 
-	op := client.FindOperation(operationID)
-	if op == nil {
-		return nil, fmt.Errorf("%w: %q in API client %q; the specification may have changed",
-			models.ErrAPIOperationNotFound, operationID, client.Name)
-	}
-
+// call sends the request of op built from the node config. It also returns
+// the secret values it sent, so callers that pass the output on can mask them.
+func (e *APIOperationExecutor) call(ctx context.Context, client *models.APIClient, op *models.APIOperation, config map[string]any, input any) (any, []string, error) {
 	req, err := openapi.BuildRequest(client, op, openapi.RequestInput{
 		BaseURL:     e.GetStringDefault(config, "base_url", ""),
 		PathParams:  objectConfig(config, "path_params"),
@@ -125,14 +114,14 @@ func (e *APIOperationExecutor) Execute(ctx context.Context, config map[string]an
 		ContentType: e.GetStringDefault(config, "content_type", ""),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%s %s: %w", op.Method, op.Path, err)
+		return nil, nil, fmt.Errorf("%s %s: %w", op.Method, op.Path, err)
 	}
 	requestURL := req.URL.Redacted()
 
 	var secrets []string
 	if !op.NoAuth && client.Auth.IsEnabled() {
 		if secrets, err = e.applyAuth(ctx, client, req); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -152,15 +141,47 @@ func (e *APIOperationExecutor) Execute(ctx context.Context, config map[string]an
 
 	output, err := e.http.Execute(ctx, httpConfig, input)
 	if err != nil {
-		return nil, redactSecrets(fmt.Errorf("%s %s: %w", op.Method, op.Path, err), secrets)
+		return nil, secrets, redactSecrets(fmt.Errorf("%s %s: %w", op.Method, op.Path, err), secrets)
 	}
 	result, ok := output.(map[string]any)
 	if !ok {
-		return output, nil
+		return output, secrets, nil
 	}
 	result["operation_id"] = op.ID
 	result["request"] = map[string]any{"method": req.Method, "url": requestURL}
-	return result, nil
+	return result, secrets, nil
+}
+
+// operation loads an operation of a client the workflow owner may use.
+func (e *APIOperationExecutor) operation(ctx context.Context, clientID, operationID string) (*models.APIClient, *models.APIOperation, error) {
+	client, err := e.ownedClient(ctx, clientID)
+	if err != nil {
+		return nil, nil, err
+	}
+	op := client.FindOperation(operationID)
+	if op == nil {
+		return nil, nil, fmt.Errorf("%w: %q in API client %q; the specification may have changed",
+			models.ErrAPIOperationNotFound, operationID, client.Name)
+	}
+	return client, op, nil
+}
+
+// ownedClient loads a client of the workflow owner. Only the owner may call
+// the client, since it can carry the owner's credentials; for other users the
+// client is reported missing.
+func (e *APIOperationExecutor) ownedClient(ctx context.Context, clientID string) (*models.APIClient, error) {
+	client, err := e.clients.GetAPIClient(ctx, clientID)
+	if err != nil {
+		return nil, fmt.Errorf("API client %s: %w", clientID, err)
+	}
+	owner := ""
+	if execCtx, ok := executor.GetExecutionContext(ctx); ok {
+		owner = execCtx.OwnerID
+	}
+	if client.OwnerID != owner {
+		return nil, fmt.Errorf("API client %s: %w", clientID, models.ErrAPIClientNotFound)
+	}
+	return client, nil
 }
 
 // Validate checks that the node references an operation.
@@ -353,19 +374,24 @@ func (e *redactedError) Unwrap() error { return e.err }
 
 func redactSecrets(err error, secrets []string) error {
 	msg := err.Error()
-	redacted := msg
+	redacted := maskSecrets(msg, secrets)
+	if redacted == msg {
+		return err
+	}
+	return &redactedError{msg: redacted, err: err}
+}
+
+// maskSecrets replaces secret values in text, as is and URL-escaped, with "***".
+func maskSecrets(text string, secrets []string) string {
 	for _, secret := range secrets {
 		if len(secret) < minRedactedSecretLength {
 			continue
 		}
 		for _, form := range []string{secret, url.QueryEscape(secret), url.PathEscape(secret)} {
-			redacted = strings.ReplaceAll(redacted, form, "***")
+			text = strings.ReplaceAll(text, form, "***")
 		}
 	}
-	if redacted == msg {
-		return err
-	}
-	return &redactedError{msg: redacted, err: err}
+	return text
 }
 
 func tokenCacheKey(credentialID string, cfg clientcredentials.Config) string {

@@ -360,13 +360,8 @@ func TestFunctionDefinition_OpenAPI(t *testing.T) {
 				"email": map[string]any{"type": "string"},
 			},
 		},
-		OpenAPISpec: "https://api.example.com/openapi.json",
+		ClientID:    "client-1",
 		OperationID: "createUser",
-		BaseURL:     "https://api.example.com",
-		AuthConfig: map[string]any{
-			"type":  "bearer",
-			"token": "sk-123",
-		},
 	}
 
 	data, err := json.Marshal(def)
@@ -377,11 +372,14 @@ func TestFunctionDefinition_OpenAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, FunctionTypeOpenAPI, unmarshaled.Type)
-	assert.Equal(t, "https://api.example.com/openapi.json", unmarshaled.OpenAPISpec)
+	assert.Equal(t, "client-1", unmarshaled.ClientID)
 	assert.Equal(t, "createUser", unmarshaled.OperationID)
-	assert.Equal(t, "https://api.example.com", unmarshaled.BaseURL)
-	assert.NotNil(t, unmarshaled.AuthConfig)
-	assert.Equal(t, "bearer", unmarshaled.AuthConfig["type"])
+}
+
+func TestAPIToolRef_JSON(t *testing.T) {
+	var ref APIToolRef
+	require.NoError(t, json.Unmarshal([]byte(`{"client_id":"c-1","operation_ids":["listPets","getPet"]}`), &ref))
+	assert.Equal(t, APIToolRef{ClientID: "c-1", OperationIDs: []string{"listPets", "getPet"}}, ref)
 }
 
 // ==================== ToolExecutionResult Tests ====================

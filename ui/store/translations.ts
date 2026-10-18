@@ -840,7 +840,27 @@ const dictionaries = {
         responseFormatText: "Text",
         responseFormatJson: "JSON",
         timeout: "Timeout (seconds)",
-        retryCount: "Retry Count"
+        retryCount: "Retry Count",
+        apiTools: {
+          title: "API tools",
+          hint: "Operations of imported API clients the model can call. The model fills in the arguments; authentication comes from the API client.",
+          addClient: "Add an API client…",
+          noClients: "No API clients yet.",
+          importApi: "Import an API",
+          manage: "Manage APIs",
+          loading: "Loading operations…",
+          clientMissing: "API client {id} is not found: it may have been deleted.",
+          operationMissing: "no longer in the specification",
+          filter: "Filter operations",
+          selected: "{count} of {total} selected",
+          selectAll: "Select shown",
+          clear: "Clear",
+          remove: "Remove",
+          noMatches: "No operations match the filter.",
+          tooMany: "{count} tools are selected, but a request supports at most {max}.",
+          autoOnly: "API tools are called in Auto mode.",
+          otherFunctions: "Functions from the workflow JSON: {count}."
+        }
       },
       transform: {
         title: "Transform Data",
@@ -2087,7 +2107,27 @@ const dictionaries = {
         responseFormatText: "Текст",
         responseFormatJson: "JSON",
         timeout: "Таймаут (секунды)",
-        retryCount: "Количество повторов"
+        retryCount: "Количество повторов",
+        apiTools: {
+          title: "Инструменты API",
+          hint: "Операции импортированных API-клиентов, которые может вызывать модель. Аргументы заполняет модель, авторизацию берёт API-клиент.",
+          addClient: "Добавить API-клиент…",
+          noClients: "API-клиентов пока нет.",
+          importApi: "Импортировать API",
+          manage: "Управление API",
+          loading: "Загружаем операции…",
+          clientMissing: "API-клиент {id} не найден: возможно, его удалили.",
+          operationMissing: "больше нет в спецификации",
+          filter: "Фильтр операций",
+          selected: "Выбрано {count} из {total}",
+          selectAll: "Выбрать показанные",
+          clear: "Снять все",
+          remove: "Убрать",
+          noMatches: "Под фильтр не подходит ни одна операция.",
+          tooMany: "Выбрано инструментов: {count}, а запрос поддерживает не больше {max}.",
+          autoOnly: "Инструменты API вызываются в режиме Auto.",
+          otherFunctions: "Функций из JSON workflow: {count}."
+        }
       },
       transform: {
         title: "Преобразование данных",

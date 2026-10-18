@@ -45,8 +45,15 @@ const (
 	FunctionTypeBuiltin     FunctionType = "builtin"      // Встроенные функции (get_weather, http_request)
 	FunctionTypeSubWorkflow FunctionType = "sub_workflow" // Вызов другого workflow
 	FunctionTypeCustomCode  FunctionType = "custom_code"  // Inline JS/Python
-	FunctionTypeOpenAPI     FunctionType = "openapi"      // Из OpenAPI спецификации
+	FunctionTypeOpenAPI     FunctionType = "openapi"      // Операция импортированного API-клиента
 )
+
+// APIToolRef выбирает операции импортированного API-клиента, которые LLM-нода
+// вызывает как инструменты (config "api_tools").
+type APIToolRef struct {
+	ClientID     string   `json:"client_id"`
+	OperationIDs []string `json:"operation_ids"`
+}
 
 // FunctionDefinition определяет функцию для tool calling
 type FunctionDefinition struct {
@@ -67,11 +74,10 @@ type FunctionDefinition struct {
 	Language string `json:"language,omitempty"` // "javascript" или "python"
 	Code     string `json:"code,omitempty"`
 
-	// Для FunctionTypeOpenAPI
-	OpenAPISpec string         `json:"openapi_spec,omitempty"` // URL или inline YAML/JSON
-	OperationID string         `json:"operation_id,omitempty"`
-	BaseURL     string         `json:"base_url,omitempty"`
-	AuthConfig  map[string]any `json:"auth_config,omitempty"` // API keys, OAuth, etc
+	// Для FunctionTypeOpenAPI: операция API-клиента. Авторизацию исполнитель
+	// берёт из credentials клиента, поэтому в определении функции секретов нет.
+	ClientID    string `json:"client_id,omitempty"`
+	OperationID string `json:"operation_id,omitempty"`
 }
 
 // ToolExecutionResult результат выполнения tool

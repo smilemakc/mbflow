@@ -10,11 +10,17 @@ import (
 // Note: file_storage executor requires RegisterFileStorage to be called separately
 // with a filestorage.Manager instance.
 func RegisterBuiltins(manager executor.Manager) error {
+	functionCall := NewFunctionCallExecutor()
+	llm := NewLLMExecutor()
+	// Tool calling in auto mode runs the built-in functions of function_call;
+	// RegisterOpenAPI adds the operations of API clients.
+	llm.SetToolCallingRegistry(NewToolCallingRegistry(functionCall.registry))
+
 	executors := map[string]executor.Executor{
 		"http":              NewHTTPExecutor(),
 		"transform":         NewTransformExecutor(),
-		"llm":               NewLLMExecutor(),
-		"function_call":     NewFunctionCallExecutor(),
+		"llm":               llm,
+		"function_call":     functionCall,
 		"telegram":          NewTelegramExecutor(),
 		"telegram_download": NewTelegramDownloadExecutor(),
 		"telegram_parse":    NewTelegramParseExecutor(),
@@ -42,10 +48,20 @@ func RegisterFileStorage(manager executor.Manager, storageManager filestorage.Ma
 	return manager.Register("file_storage", NewFileStorageExecutor(storageManager))
 }
 
-// RegisterOpenAPI registers the executor of operations of imported API clients.
-// credentials may be nil when credentials are unavailable.
+// RegisterOpenAPI registers the executor of operations of imported API clients
+// and gives the llm executor, if already registered, the operations as tools
+// ("api_tools"). credentials may be nil when credentials are unavailable.
 func RegisterOpenAPI(manager executor.Manager, clients APIClientProvider, credentials CredentialProvider) error {
-	return manager.Register(OpenAPINodeType, NewAPIOperationExecutor(clients, credentials))
+	operations := NewAPIOperationExecutor(clients, credentials)
+	if err := manager.Register(OpenAPINodeType, operations); err != nil {
+		return err
+	}
+	if exec, err := manager.Get("llm"); err == nil {
+		if llm, ok := exec.(*LLMExecutor); ok {
+			llm.toolRegistry().SetOpenAPIExecutor(operations)
+		}
+	}
+	return nil
 }
 
 // MustRegisterBuiltins registers all built-in executors and panics on error.
