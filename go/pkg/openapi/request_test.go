@@ -75,6 +75,28 @@ func TestBuildRequest_MissingRequiredParameters(t *testing.T) {
 	assert.Contains(t, err.Error(), "missing required path parameters: petId")
 }
 
+func TestBuildRequest_ParametersSetByAuthAreNotRequired(t *testing.T) {
+	op := &models.APIOperation{ID: "search", Method: "GET", Path: "/search", Parameters: []*models.APIParameter{
+		{Name: "X-API-Key", In: "header", Required: true},
+		{Name: "key", In: "query", Required: true},
+	}}
+	client := &models.APIClient{Name: "Search", BaseURL: "https://search.test", Auth: models.APIClientAuth{
+		Type: models.APIClientAuthAPIKey, In: models.APIKeyInHeader, Name: "x-api-key", CredentialID: "cred",
+	}}
+
+	_, err := BuildRequest(client, op, RequestInput{QueryParams: map[string]any{"key": "k"}})
+	require.NoError(t, err, "the executor sets the header from the credential")
+
+	_, err = BuildRequest(client, op, RequestInput{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing required query parameters: key")
+
+	op.NoAuth = true
+	_, err = BuildRequest(client, op, RequestInput{QueryParams: map[string]any{"key": "k"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing required header parameters: X-API-Key", "an operation without auth gets no key")
+}
+
 func TestBuildRequest_PathParameterIsEscaped(t *testing.T) {
 	client := petstoreClient(t)
 	req, err := BuildRequest(client, client.FindOperation("getPet"), RequestInput{
@@ -129,7 +151,7 @@ func TestAddQueryParams_Styles(t *testing.T) {
 		"obj":   map[string]any{"k": "v"},
 		"flat":  `{"a":1,"b":2}`,
 		"json":  `{"q":"z"}`,
-	}, nil)
+	}, nil, func(*models.APIParameter) bool { return false })
 	require.NoError(t, err)
 	assert.Equal(t, url.Values{
 		"csv":   {"a,b,c"},
