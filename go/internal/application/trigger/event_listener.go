@@ -272,7 +272,7 @@ func (el *EventListener) executeTrigger(ctx context.Context, trigger *models.Tri
 	}
 
 	// Execute workflow
-	_, err := el.executionMgr.Execute(ctx, trigger.WorkflowID, input, nil)
+	_, err := el.executionMgr.Execute(ctx, trigger.WorkflowID, input, executionOptionsFor(trigger.ID))
 	if err != nil {
 		return fmt.Errorf("failed to execute workflow: %w", err)
 	}

@@ -7,7 +7,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smilemakc/mbflow/go/api/proto/serviceapipb"
-	"github.com/smilemakc/mbflow/go/internal/application/serviceapi"
 	serviceapigrpc "github.com/smilemakc/mbflow/go/internal/infrastructure/api/grpc"
 )
 
@@ -17,19 +16,9 @@ func (s *Server) setupGRPCServer() error {
 		return nil
 	}
 
-	s.serviceAPI.Operations = &serviceapi.Operations{
-		WorkflowRepo:    s.data.WorkflowRepo,
-		ExecutionRepo:   s.data.ExecutionRepo,
-		TriggerRepo:     s.data.TriggerRepo,
-		CredentialsRepo: s.data.CredentialsRepo,
-		ExecutionMgr:    s.execution.ExecutionManager,
-		ExecutorManager: s.execution.ExecutorManager,
-		EncryptionSvc:   s.auth.EncryptionService,
-		AuditService:    s.serviceAPI.AuditService,
-		Logger:          s.logger,
-	}
+	ops := s.operations()
 
-	s.serviceAPI.GRPCServer = serviceapigrpc.NewServiceAPIServer(s.serviceAPI.Operations)
+	s.serviceAPI.GRPCServer = serviceapigrpc.NewServiceAPIServer(ops)
 
 	s.serviceAPI.GRPCServerInstance = grpc.NewServer(
 		grpc.ChainUnaryInterceptor(

@@ -158,30 +158,8 @@ func (cs *CronScheduler) parseCronSchedule(trigger *models.Trigger) (cron.Schedu
 		return nil, fmt.Errorf("schedule not found in trigger config")
 	}
 
-	// Get timezone if specified
-	location := time.UTC
-	if tz, ok := trigger.Config["timezone"].(string); ok && tz != "" {
-		loc, err := time.LoadLocation(tz)
-		if err != nil {
-			return nil, fmt.Errorf("invalid timezone %s: %w", tz, err)
-		}
-		location = loc
-	}
-
-	// Create cron with timezone
-	c := cron.New(cron.WithSeconds(), cron.WithLocation(location))
-
-	// Parse cron expression
-	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
-	schedule, err := parser.Parse(scheduleStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid cron expression %s: %w", scheduleStr, err)
-	}
-
-	// For testing purposes, we need to close the temporary cron instance
-	_ = c
-
-	return schedule, nil
+	tz, _ := trigger.Config["timezone"].(string)
+	return ParseCronSchedule(scheduleStr, tz)
 }
 
 // parseIntervalSchedule parses an interval schedule
@@ -237,7 +215,7 @@ func (cs *CronScheduler) executeTrigger(ctx context.Context, trigger *models.Tri
 	}
 
 	// Execute workflow
-	_, err := cs.executionMgr.Execute(ctx, trigger.WorkflowID, input, nil)
+	_, err := cs.executionMgr.Execute(ctx, trigger.WorkflowID, input, executionOptionsFor(trigger.ID))
 	if err != nil {
 		return fmt.Errorf("failed to execute workflow: %w", err)
 	}
@@ -307,4 +285,47 @@ func (cs *CronScheduler) modelToDomain(tm *storagemodels.TriggerModel) *models.T
 	}
 
 	return trigger
+}
+
+// cronParser accepts standard 5-field expressions ("0 9 * * *", as used in
+// the docs), 6-field expressions with a leading seconds field, descriptors
+// such as @hourly, and an optional CRON_TZ=/TZ= prefix.
+var cronParser = cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+
+// ParseCronSchedule parses a cron expression evaluated in the given IANA
+// timezone (UTC when empty).
+func ParseCronSchedule(expression, timezone string) (cron.Schedule, error) {
+	spec := expression
+	if timezone != "" {
+		if _, err := time.LoadLocation(timezone); err != nil {
+			return nil, fmt.Errorf("invalid timezone %s: %w", timezone, err)
+		}
+		// The schedule itself must carry the location: the scheduler's own
+		// location only applies to specs without one.
+		spec = "CRON_TZ=" + timezone + " " + expression
+	}
+	schedule, err := cronParser.Parse(spec)
+	if err != nil {
+		return nil, fmt.Errorf("invalid cron expression %s: %w", expression, err)
+	}
+	return schedule, nil
+}
+
+// ValidateScheduleConfig checks that a cron or interval trigger config can
+// be scheduled. Other trigger types are accepted as-is.
+func ValidateScheduleConfig(triggerType string, config map[string]any) error {
+	t := &models.Trigger{Type: models.TriggerType(triggerType), Config: config}
+	if t.Config == nil {
+		t.Config = map[string]any{}
+	}
+	cs := &CronScheduler{}
+	switch t.Type {
+	case models.TriggerTypeCron:
+		_, err := cs.parseCronSchedule(t)
+		return err
+	case models.TriggerTypeInterval:
+		_, err := cs.parseIntervalSchedule(t)
+		return err
+	}
+	return nil
 }

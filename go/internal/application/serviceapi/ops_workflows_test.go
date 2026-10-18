@@ -373,7 +373,7 @@ func TestUpdateWorkflow_ShouldReturnError_WhenWorkflowNotFound(t *testing.T) {
 	ops := newTestOperations(wfRepo, nil, nil, nil, nil, nil, newMockExecutorManager())
 
 	wfID := uuid.New()
-	wfRepo.On("FindByID", mock.Anything, wfID).Return((*storagemodels.WorkflowModel)(nil), models.ErrWorkflowNotFound)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return((*storagemodels.WorkflowModel)(nil), models.ErrWorkflowNotFound)
 
 	result, err := ops.UpdateWorkflow(context.Background(), UpdateWorkflowParams{WorkflowID: wfID})
 
@@ -390,7 +390,7 @@ func TestUpdateWorkflow_ShouldUpdateNameAndDescription_WhenProvided(t *testing.T
 		ID: wfID, Name: "Old Name", Description: "Old Desc", Status: "draft",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil).Once()
 	wfRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	updatedModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "New Name", Description: "New Desc", Status: "draft",
@@ -468,7 +468,7 @@ func TestUpdateWorkflow_ShouldAllowCommentNodeType(t *testing.T) {
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil).Once()
 	wfRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil)
 
@@ -604,7 +604,7 @@ func TestUpdateWorkflow_ShouldReturnValidationError_WhenInvalidResourceID(t *tes
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil)
 
 	result, err := ops.UpdateWorkflow(context.Background(), UpdateWorkflowParams{
 		WorkflowID: wfID,
@@ -628,7 +628,7 @@ func TestUpdateWorkflow_ShouldDefaultAccessTypeToRead_WhenEmpty(t *testing.T) {
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil).Once()
 
 	var savedModel *storagemodels.WorkflowModel
 	wfRepo.On("Update", mock.Anything, mock.Anything).
@@ -658,7 +658,7 @@ func TestUpdateWorkflow_ShouldSkipNodeValidation_WhenNodesNil(t *testing.T) {
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil).Once()
 	wfRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil)
 
@@ -679,7 +679,7 @@ func TestUpdateWorkflow_ShouldReturnError_WhenUpdateFails(t *testing.T) {
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil)
 	wfRepo.On("Update", mock.Anything, mock.Anything).Return(errors.New("update err"))
 
 	result, err := ops.UpdateWorkflow(context.Background(), UpdateWorkflowParams{
@@ -699,7 +699,7 @@ func TestUpdateWorkflow_ShouldReturnError_WhenFetchUpdatedFails(t *testing.T) {
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil).Once()
 	wfRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return((*storagemodels.WorkflowModel)(nil), errors.New("fetch err"))
 
@@ -750,7 +750,7 @@ func TestPublishWorkflow_ShouldSetStatusActive(t *testing.T) {
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil)
 	wfRepo.On("Update", mock.Anything, mock.MatchedBy(func(m *storagemodels.WorkflowModel) bool {
 		return m.Status == "active"
 	})).Return(nil)
@@ -767,7 +767,7 @@ func TestPublishWorkflow_ShouldReturnError_WhenWorkflowNotFound(t *testing.T) {
 	ops := newTestOperations(wfRepo, nil, nil, nil, nil, nil, nil)
 
 	wfID := uuid.New()
-	wfRepo.On("FindByID", mock.Anything, wfID).Return((*storagemodels.WorkflowModel)(nil), models.ErrWorkflowNotFound)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return((*storagemodels.WorkflowModel)(nil), models.ErrWorkflowNotFound)
 
 	result, err := ops.PublishWorkflow(context.Background(), PublishWorkflowParams{WorkflowID: wfID})
 
@@ -783,7 +783,7 @@ func TestPublishWorkflow_ShouldReturnError_WhenUpdateFails(t *testing.T) {
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil)
 	wfRepo.On("Update", mock.Anything, mock.Anything).Return(errors.New("update failed"))
 
 	result, err := ops.PublishWorkflow(context.Background(), PublishWorkflowParams{WorkflowID: wfID})
@@ -802,7 +802,7 @@ func TestUnpublishWorkflow_ShouldSetStatusDraft(t *testing.T) {
 	wfModel := &storagemodels.WorkflowModel{
 		ID: wfID, Name: "WF", Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	wfRepo.On("FindByID", mock.Anything, wfID).Return(wfModel, nil)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(wfModel, nil)
 	wfRepo.On("Update", mock.Anything, mock.MatchedBy(func(m *storagemodels.WorkflowModel) bool {
 		return m.Status == "draft"
 	})).Return(nil)
@@ -819,7 +819,7 @@ func TestUnpublishWorkflow_ShouldReturnError_WhenWorkflowNotFound(t *testing.T) 
 	ops := newTestOperations(wfRepo, nil, nil, nil, nil, nil, nil)
 
 	wfID := uuid.New()
-	wfRepo.On("FindByID", mock.Anything, wfID).Return((*storagemodels.WorkflowModel)(nil), models.ErrWorkflowNotFound)
+	wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return((*storagemodels.WorkflowModel)(nil), models.ErrWorkflowNotFound)
 
 	result, err := ops.UnpublishWorkflow(context.Background(), UnpublishWorkflowParams{WorkflowID: wfID})
 
@@ -1135,4 +1135,47 @@ func TestValidateEdges_ShouldReturnError_WhenToNodeNotInNodes(t *testing.T) {
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "to node")
+}
+
+// The repository replaces nodes/edges/resources with whatever the model holds,
+// so metadata-only updates and publish/unpublish must load the stored graph
+// first; otherwise they silently delete it.
+func TestWorkflowMetadataChanges_ShouldKeepGraph(t *testing.T) {
+	wfID := uuid.New()
+	stored := func() *storagemodels.WorkflowModel {
+		return &storagemodels.WorkflowModel{
+			ID: wfID, Name: "wf", Status: "draft",
+			Nodes:     []*storagemodels.NodeModel{{ID: uuid.New(), NodeID: "a", WorkflowID: wfID, Name: "A", Type: "transform"}},
+			Edges:     []*storagemodels.EdgeModel{{ID: uuid.New(), EdgeID: "e", WorkflowID: wfID, FromNodeID: "a", ToNodeID: "a"}},
+			Resources: []*storagemodels.WorkflowResourceModel{{WorkflowID: wfID, ResourceID: uuid.New(), Alias: "r"}},
+		}
+	}
+	keepsGraph := mock.MatchedBy(func(m *storagemodels.WorkflowModel) bool {
+		return len(m.Nodes) == 1 && len(m.Edges) == 1 && len(m.Resources) == 1
+	})
+
+	for name, run := range map[string]func(*Operations) error{
+		"rename": func(o *Operations) error {
+			_, err := o.UpdateWorkflow(context.Background(), UpdateWorkflowParams{WorkflowID: wfID, Name: "renamed"})
+			return err
+		},
+		"publish": func(o *Operations) error {
+			_, err := o.PublishWorkflow(context.Background(), PublishWorkflowParams{WorkflowID: wfID})
+			return err
+		},
+		"unpublish": func(o *Operations) error {
+			_, err := o.UnpublishWorkflow(context.Background(), UnpublishWorkflowParams{WorkflowID: wfID})
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			wfRepo := new(mockWorkflowRepo)
+			ops := newTestOperations(wfRepo, nil, nil, nil, nil, nil, newMockExecutorManager())
+			wfRepo.On("FindByIDWithRelations", mock.Anything, wfID).Return(stored(), nil)
+			wfRepo.On("Update", mock.Anything, keepsGraph).Return(nil)
+
+			require.NoError(t, run(ops))
+			wfRepo.AssertCalled(t, "Update", mock.Anything, keepsGraph)
+		})
+	}
 }

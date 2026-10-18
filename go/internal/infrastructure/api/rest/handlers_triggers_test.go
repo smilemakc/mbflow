@@ -81,7 +81,7 @@ func TestHandlers_CreateTrigger_Cron(t *testing.T) {
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
 		"config": map[string]any{
-			"expression": "0 0 * * *",
+			"schedule": "0 0 * * *",
 		},
 		"enabled": true,
 	}
@@ -148,7 +148,7 @@ func TestHandlers_CreateTrigger_MissingName(t *testing.T) {
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
 		"config": map[string]any{
-			"expression": "0 0 * * *",
+			"schedule": "0 0 * * *",
 		},
 	}
 
@@ -167,7 +167,7 @@ func TestHandlers_CreateTrigger_InvalidWorkflowID(t *testing.T) {
 		"type":        "cron",
 		"workflow_id": uuid.New().String(), // Non-existent workflow
 		"config": map[string]any{
-			"expression": "0 0 * * *",
+			"schedule": "0 0 * * *",
 		},
 	}
 
@@ -197,7 +197,7 @@ func TestHandlers_GetTrigger_Success(t *testing.T) {
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
 		"config": map[string]any{
-			"expression": "0 0 * * *",
+			"schedule": "0 0 * * *",
 		},
 		"enabled": true,
 	}
@@ -276,7 +276,7 @@ func TestHandlers_ListTriggers_WithData(t *testing.T) {
 			"name":        fmt.Sprintf("Trigger %d", i),
 			"type":        "cron",
 			"workflow_id": workflowModel.ID.String(),
-			"schedule":    "0 0 * * *",
+			"config":      map[string]any{"schedule": "0 0 * * *"},
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", req)
 		require.Equal(t, http.StatusCreated, w.Code)
@@ -316,7 +316,7 @@ func TestHandlers_ListTriggers_FilterByWorkflowID(t *testing.T) {
 			"name":        fmt.Sprintf("Trigger W1-%d", i),
 			"type":        "cron",
 			"workflow_id": workflowModel1.ID.String(),
-			"schedule":    "0 0 * * *",
+			"config":      map[string]any{"schedule": "0 0 * * *"},
 		}
 		w := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", req)
 		require.Equal(t, http.StatusCreated, w.Code)
@@ -327,7 +327,7 @@ func TestHandlers_ListTriggers_FilterByWorkflowID(t *testing.T) {
 		"name":        "Trigger W2",
 		"type":        "cron",
 		"workflow_id": workflowModel2.ID.String(),
-		"schedule":    "0 0 * * *",
+		"config":      map[string]any{"schedule": "0 0 * * *"},
 	}
 	w := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", req)
 	require.Equal(t, http.StatusCreated, w.Code)
@@ -361,7 +361,7 @@ func TestHandlers_UpdateTrigger_Success(t *testing.T) {
 		"name":        "Original Name",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
-		"schedule":    "0 0 * * *",
+		"config":      map[string]any{"schedule": "0 0 * * *"},
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
@@ -372,8 +372,8 @@ func TestHandlers_UpdateTrigger_Success(t *testing.T) {
 
 	// Update trigger
 	updateReq := map[string]any{
-		"name":     "Updated Name",
-		"schedule": "0 12 * * *",
+		"name":   "Updated Name",
+		"config": map[string]any{"schedule": "0 12 * * *"},
 	}
 	updateW := testutil.MakeRequest(t, router, "PUT", fmt.Sprintf("/api/v1/triggers/%s", triggerID), updateReq)
 
@@ -418,7 +418,7 @@ func TestHandlers_DeleteTrigger_Success(t *testing.T) {
 		"name":        "To Delete",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
-		"schedule":    "0 0 * * *",
+		"config":      map[string]any{"schedule": "0 0 * * *"},
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
@@ -464,7 +464,7 @@ func TestHandlers_EnableTrigger_Success(t *testing.T) {
 		"name":        "To Enable",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
-		"schedule":    "0 0 * * *",
+		"config":      map[string]any{"schedule": "0 0 * * *"},
 		"enabled":     false,
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)
@@ -501,7 +501,7 @@ func TestHandlers_DisableTrigger_Success(t *testing.T) {
 		"name":        "To Disable",
 		"type":        "cron",
 		"workflow_id": workflowModel.ID.String(),
-		"schedule":    "0 0 * * *",
+		"config":      map[string]any{"schedule": "0 0 * * *"},
 		"enabled":     true,
 	}
 	createW := testutil.MakeRequest(t, router, "POST", "/api/v1/triggers", createReq)

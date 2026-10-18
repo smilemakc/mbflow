@@ -14,6 +14,8 @@ type EphemeralNotifier struct {
 	manager  *observer.ObserverManager
 	redactor *EventRedactor
 	seq      atomic.Int64
+	// notPersisted marks events of executions without a database record.
+	notPersisted bool
 }
 
 // NewEphemeralNotifier creates a new EphemeralNotifier.
@@ -42,6 +44,9 @@ func (n *EphemeralNotifier) Notify(ctx context.Context, event pkgengine.Executio
 		obsEvent.Metadata = make(map[string]any)
 	}
 	obsEvent.Metadata["sequence"] = seq
+	if n.notPersisted {
+		obsEvent.Metadata[observer.MetadataKeyNotPersisted] = true
+	}
 
 	n.manager.Notify(ctx, obsEvent)
 }

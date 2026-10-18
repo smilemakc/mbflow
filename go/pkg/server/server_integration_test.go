@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,6 +20,13 @@ import (
 )
 
 func newTestServer(t *testing.T) *Server {
+	t.Helper()
+	return newTestServerWithRedis(t, "redis://127.0.0.1:1")
+}
+
+// newTestServerWithRedis builds a production-mode server; redisURL may point
+// to an unreachable address (Redis is optional) or to a miniredis instance.
+func newTestServerWithRedis(t *testing.T, redisURL string) *Server {
 	t.Helper()
 
 	cfg := &config.Config{
@@ -41,8 +49,7 @@ func newTestServer(t *testing.T) *Server {
 			MaxIdleTime:     time.Minute,
 			MaxConnLifetime: time.Minute,
 		},
-		// Unreachable Redis: optional, the server must still start.
-		Redis:    config.RedisConfig{URL: "redis://127.0.0.1:1", PoolSize: 1},
+		Redis:    config.RedisConfig{URL: redisURL, PoolSize: 2},
 		Logging:  config.LoggingConfig{Level: "error", Format: "json"},
 		Observer: config.ObserverConfig{EnableWebSocket: true, WebSocketBufferSize: 16, BufferSize: 16},
 		Auth: config.AuthConfig{
@@ -185,4 +192,67 @@ func TestServer_PerUserIsolation(t *testing.T) {
 	w = doRequest(srv, "GET", "/api/v1/workflows", tokenA)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), wfID)
+}
+
+// countExecutions returns how many executions of workflowID were started by a
+// trigger (trigger_id set).
+func countTriggeredExecutions(t *testing.T, srv *Server, workflowID string) int {
+	t.Helper()
+	n, err := srv.DB().NewSelect().Table("mbflow_executions").
+		Where("workflow_id = ?", workflowID).Where("trigger_id IS NOT NULL").Count(context.Background())
+	require.NoError(t, err)
+	return n
+}
+
+func TestServer_TriggersApplyWithoutRestart(t *testing.T) {
+	mr := miniredis.RunT(t)
+	srv := newTestServerWithRedis(t, "redis://"+mr.Addr())
+	require.NotNil(t, srv.TriggerManager(), "trigger manager needs Redis")
+	token := loginNewUser(t, srv, "carol@example.com")
+
+	// Nodes sent on create must be stored (they used to be dropped silently).
+	w := doJSONRequest(srv, "POST", "/api/v1/workflows", token, `{"name":"triggered",
+		"nodes":[{"id":"t","name":"T","type":"transform","config":{"type":"expression","expression":"1 + 1"}}]}`)
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	var wf map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wf))
+	wfID := wf["id"].(string)
+	require.Len(t, wf["nodes"], 1)
+
+	createTrigger := func(body string) string {
+		t.Helper()
+		w := doJSONRequest(srv, "POST", "/api/v1/triggers", token, body)
+		require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+		var tr map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &tr))
+		return tr["id"].(string)
+	}
+
+	// Invalid schedules are rejected instead of silently never firing.
+	w = doJSONRequest(srv, "POST", "/api/v1/triggers", token,
+		`{"workflow_id":"`+wfID+`","name":"bad","type":"cron","enabled":true,"config":{"expression":"0 * * * *"}}`)
+	assert.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
+
+	// Webhook trigger is callable right after creation (no restart).
+	hookID := createTrigger(`{"workflow_id":"` + wfID + `","name":"hook","type":"webhook","enabled":true,"config":{}}`)
+	w = doJSONRequest(srv, "POST", "/api/v1/webhooks/"+hookID, "", `{"x":1}`)
+	assert.Less(t, w.Code, 300, "webhook call: %d %s", w.Code, w.Body.String())
+
+	// Interval trigger starts firing without a restart and records trigger_id.
+	intervalID := createTrigger(`{"workflow_id":"` + wfID + `","name":"tick","type":"interval","enabled":true,"config":{"interval":"1s"}}`)
+	require.Eventually(t, func() bool { return countTriggeredExecutions(t, srv, wfID) >= 2 }, 10*time.Second, 200*time.Millisecond)
+
+	// After deletion it stops firing.
+	require.Equal(t, http.StatusOK, doRequest(srv, "DELETE", "/api/v1/triggers/"+intervalID, token).Code)
+	time.Sleep(1200 * time.Millisecond) // let an in-flight tick finish
+	before := countTriggeredExecutions(t, srv, wfID)
+	time.Sleep(2500 * time.Millisecond)
+	assert.Equal(t, before, countTriggeredExecutions(t, srv, wfID), "deleted trigger must not keep firing")
+}
+
+func TestServer_PayloadTooLarge(t *testing.T) {
+	srv := newTestServer(t)
+	token := loginNewUser(t, srv, "dave@example.com")
+	big := `{"name":"` + strings.Repeat("a", 2<<20) + `"}` // > MaxBodySize (1 MiB in tests)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, doJSONRequest(srv, "POST", "/api/v1/workflows", token, big).Code)
 }

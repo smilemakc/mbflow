@@ -27,6 +27,10 @@ func (em *ExecutionManager) ExecuteEphemeral(ctx context.Context, opts *Ephemera
 
 	redactor := NewEventRedactor()
 	ephNotifier := NewEphemeralNotifier(em.observerManager, redactor)
+	ephNotifier.notPersisted = !opts.PersistExecution
+	if !opts.PersistExecution {
+		em.notPersisted.Store(execution.ID, struct{}{})
+	}
 
 	if em.ephemeralRegistry != nil {
 		em.ephemeralRegistry.Register(execution.ID, ephNotifier)
@@ -304,6 +308,7 @@ func (em *ExecutionManager) registerEphemeralWebhookObservers(executionID string
 }
 
 func (em *ExecutionManager) markEphemeralTerminal(executionID string) {
+	em.notPersisted.Delete(executionID)
 	if em.ephemeralRegistry != nil {
 		em.ephemeralRegistry.MarkTerminal(executionID)
 	}

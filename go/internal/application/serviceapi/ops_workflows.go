@@ -223,6 +223,8 @@ type UpdateWorkflowParams struct {
 	Resources   []ResourceInput
 }
 
+// UpdateWorkflow updates a workflow. Nodes, edges and resources are replaced
+// only when provided (non-nil); otherwise the stored ones are kept.
 func (o *Operations) UpdateWorkflow(ctx context.Context, params UpdateWorkflowParams) (*models.Workflow, error) {
 	if err := o.validateNodes(params.Nodes); err != nil {
 		return nil, NewValidationError("NODE_VALIDATION_FAILED", err.Error())
@@ -232,7 +234,9 @@ func (o *Operations) UpdateWorkflow(ctx context.Context, params UpdateWorkflowPa
 		return nil, NewValidationError("EDGE_VALIDATION_FAILED", err.Error())
 	}
 
-	workflowModel, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID)
+	// Load relations: the repository syncs nodes, edges and resources to the
+	// model, so a model without them would delete the whole graph.
+	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, params.WorkflowID)
 	if err != nil {
 		o.Logger.Error("Failed to find workflow for update", "error", err, "workflow_id", params.WorkflowID)
 		return nil, err
@@ -339,7 +343,7 @@ type PublishWorkflowParams struct {
 }
 
 func (o *Operations) PublishWorkflow(ctx context.Context, params PublishWorkflowParams) (*models.Workflow, error) {
-	workflowModel, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID)
+	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, params.WorkflowID)
 	if err != nil {
 		o.Logger.Error("Failed to find workflow for publish", "error", err, "workflow_id", params.WorkflowID)
 		return nil, err
@@ -357,7 +361,7 @@ type UnpublishWorkflowParams struct {
 }
 
 func (o *Operations) UnpublishWorkflow(ctx context.Context, params UnpublishWorkflowParams) (*models.Workflow, error) {
-	workflowModel, err := o.WorkflowRepo.FindByID(ctx, params.WorkflowID)
+	workflowModel, err := o.WorkflowRepo.FindByIDWithRelations(ctx, params.WorkflowID)
 	if err != nil {
 		o.Logger.Error("Failed to find workflow for unpublish", "error", err, "workflow_id", params.WorkflowID)
 		return nil, err

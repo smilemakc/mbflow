@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -137,24 +138,40 @@ func (rl *RateLimiter) cleanupLoop() {
 }
 
 // LoginRateLimiter provides specialized rate limiting for login attempts
+//
+// Failed attempts are tracked per key (see LoginAttemptKey: client IP plus
+// account), so one user's typos do not lock out everyone behind the same NAT.
+// Middleware adds a separate, generous per-IP cap on all login requests
+// against password spraying across many accounts.
 type LoginRateLimiter struct {
 	rl              *RateLimiter
+	perIP           *RateLimiter
 	maxAttempts     int
 	lockoutDuration time.Duration
 }
+
+// loginRequestsPerIPFactor scales maxAttempts into the per-IP request cap.
+const loginRequestsPerIPFactor = 20
 
 // NewLoginRateLimiter creates a new login-specific rate limiter
 func NewLoginRateLimiter(maxAttempts int, windowDuration, lockoutDuration time.Duration) *LoginRateLimiter {
 	return &LoginRateLimiter{
 		rl:              NewRateLimiter(maxAttempts, windowDuration, lockoutDuration),
+		perIP:           NewRateLimiter(maxAttempts*loginRequestsPerIPFactor, windowDuration, lockoutDuration),
 		maxAttempts:     maxAttempts,
 		lockoutDuration: lockoutDuration,
 	}
 }
 
-// Middleware returns the rate limiting middleware
+// LoginAttemptKey identifies a login target for failed-attempt tracking.
+func LoginAttemptKey(clientIP, email string) string {
+	return clientIP + "|" + strings.ToLower(strings.TrimSpace(email))
+}
+
+// Middleware caps the total number of login requests per client IP. It uses
+// its own counters so failed attempts are not counted twice.
 func (lrl *LoginRateLimiter) Middleware() gin.HandlerFunc {
-	return lrl.rl.Middleware()
+	return lrl.perIP.Middleware()
 }
 
 // RecordFailedAttempt records a failed login attempt

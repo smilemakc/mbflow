@@ -30,7 +30,15 @@ func (o *DatabaseObserver) Name() string {
 
 // Filter returns nil to receive all events
 func (o *DatabaseObserver) Filter() EventFilter {
-	return nil // No filter - store all events
+	return persistedOnlyFilter{}
+}
+
+// persistedOnlyFilter skips events of executions without a database record;
+// storing them would violate the events -> executions foreign key.
+type persistedOnlyFilter struct{}
+
+func (persistedOnlyFilter) ShouldNotify(event Event) bool {
+	return !IsNotPersisted(event)
 }
 
 // OnEvent handles event persistence

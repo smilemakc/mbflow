@@ -30,6 +30,8 @@ type ExecutionOptions struct {
 	MaxOutputSize    int64
 	MaxTotalMemory   int64
 	EnableMemoryOpts bool
+	// TriggerID links the execution to the trigger that started it (optional).
+	TriggerID string
 }
 
 // RetryPolicy defines the retry behavior for node execution.

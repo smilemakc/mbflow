@@ -30,6 +30,10 @@ type ExecutionManager struct {
 	observerManager   *observer.ObserverManager
 	ephemeralRegistry *EphemeralStreamRegistry
 
+	// notPersisted holds IDs of running ephemeral executions that have no
+	// database record; their events must not reach storage observers.
+	notPersisted sync.Map
+
 	// Background executions are tracked so Shutdown can drain them.
 	inflight   sync.WaitGroup
 	rootOnce   sync.Once
@@ -214,6 +218,11 @@ func (em *ExecutionManager) prepareExecution(
 	}
 
 	executionModel := storagemodels.ExecutionDomainToModel(execution)
+	if opts.TriggerID != "" {
+		if triggerID, err := uuid.Parse(opts.TriggerID); err == nil {
+			executionModel.TriggerID = &triggerID
+		}
+	}
 	if err := em.executionRepo.Create(ctx, executionModel); err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to create execution: %w", err)
 	}
@@ -297,6 +306,7 @@ func (em *ExecutionManager) notifyExecutionStarted(ctx context.Context, executio
 			Status:      string(execution.Status),
 			Input:       execution.Input,
 			Variables:   execution.Variables,
+			Metadata:    em.eventMetadata(execution.ID),
 		}
 		em.observerManager.Notify(ctx, event)
 	}
@@ -320,6 +330,7 @@ func (em *ExecutionManager) notifyExecutionCompletion(ctx context.Context, execu
 			Output:      execution.Output,
 			DurationMs:  &duration,
 			Variables:   execution.Variables,
+			Metadata:    em.eventMetadata(execution.ID),
 		}
 
 		if execErr != nil {
@@ -339,9 +350,19 @@ func (em *ExecutionManager) notifyExecutionError(ctx context.Context, execution 
 			WorkflowID:  execution.WorkflowID,
 			Timestamp:   time.Now(),
 			Error:       err,
+			Metadata:    em.eventMetadata(execution.ID),
 		}
 		em.observerManager.Notify(ctx, event)
 	}
+}
+
+// eventMetadata returns metadata for execution-level events; events of
+// non-persisted executions are flagged so storage observers skip them.
+func (em *ExecutionManager) eventMetadata(executionID string) map[string]any {
+	if _, ok := em.notPersisted.Load(executionID); ok {
+		return map[string]any{observer.MetadataKeyNotPersisted: true}
+	}
+	return nil
 }
 
 // getFinalOutput gets output from leaf nodes.

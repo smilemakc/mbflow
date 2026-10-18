@@ -94,7 +94,7 @@ func TestNewDatabaseObserver(t *testing.T) {
 
 	assert.NotNil(t, obs)
 	assert.Equal(t, "database", obs.Name())
-	assert.Nil(t, obs.Filter(), "DatabaseObserver should not have a filter (receives all events)")
+	assert.NotNil(t, obs.Filter(), "DatabaseObserver skips events of non-persisted executions")
 }
 
 func TestDatabaseObserver_Name(t *testing.T) {
@@ -108,7 +108,13 @@ func TestDatabaseObserver_Filter(t *testing.T) {
 	mockRepo := new(MockEventRepository)
 	obs := NewDatabaseObserver(mockRepo)
 
-	assert.Nil(t, obs.Filter(), "DatabaseObserver should receive all events")
+	filter := obs.Filter()
+	require.NotNil(t, filter)
+	assert.True(t, filter.ShouldNotify(Event{Type: EventTypeExecutionStarted}), "stored executions are persisted")
+	assert.False(t, filter.ShouldNotify(Event{
+		Type:     EventTypeExecutionStarted,
+		Metadata: map[string]any{MetadataKeyNotPersisted: true},
+	}), "events of non-persisted executions would violate the foreign key")
 }
 
 func TestDatabaseObserver_OnEvent(t *testing.T) {

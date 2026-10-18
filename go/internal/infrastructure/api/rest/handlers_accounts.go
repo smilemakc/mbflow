@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -34,7 +35,7 @@ func (h *AccountHandlers) GetAccount(c *gin.Context) {
 		return
 	}
 
-	account, err := h.accountRepo.GetByUserID(c.Request.Context(), userID)
+	account, err := h.getOrCreateAccount(c.Request.Context(), userID)
 	if err != nil {
 		if err == models.ErrAccountNotFound {
 			respondError(c, http.StatusNotFound, "account not found")
@@ -77,7 +78,7 @@ func (h *AccountHandlers) Deposit(c *gin.Context) {
 		return
 	}
 
-	account, err := h.accountRepo.GetByUserID(c.Request.Context(), userID)
+	account, err := h.getOrCreateAccount(c.Request.Context(), userID)
 	if err != nil {
 		if err == models.ErrAccountNotFound {
 			respondError(c, http.StatusNotFound, "account not found")
@@ -164,7 +165,7 @@ func (h *AccountHandlers) ListTransactions(c *gin.Context) {
 		return
 	}
 
-	account, err := h.accountRepo.GetByUserID(c.Request.Context(), userID)
+	account, err := h.getOrCreateAccount(c.Request.Context(), userID)
 	if err != nil {
 		if err == models.ErrAccountNotFound {
 			respondError(c, http.StatusNotFound, "account not found")
@@ -240,7 +241,7 @@ func (h *AccountHandlers) GetTransaction(c *gin.Context) {
 		return
 	}
 
-	account, err := h.accountRepo.GetByUserID(c.Request.Context(), userID)
+	account, err := h.getOrCreateAccount(c.Request.Context(), userID)
 	if err != nil {
 		if err == models.ErrAccountNotFound {
 			respondError(c, http.StatusNotFound, "account not found")
@@ -283,4 +284,19 @@ func (h *AccountHandlers) GetTransaction(c *gin.Context) {
 		"metadata":        transaction.Metadata,
 		"created_at":      transaction.CreatedAt,
 	})
+}
+
+// getOrCreateAccount returns the user's billing account, creating it on first
+// use. Users created by an admin or the bootstrap (and installations that
+// predate automatic account creation) otherwise have no account at all.
+func (h *AccountHandlers) getOrCreateAccount(ctx context.Context, userID string) (*models.Account, error) {
+	account, err := h.accountRepo.GetByUserID(ctx, userID)
+	if err != models.ErrAccountNotFound {
+		return account, err
+	}
+	if createErr := h.accountRepo.Create(ctx, models.NewAccount(userID)); createErr != nil {
+		// A concurrent request may have created it first.
+		return h.accountRepo.GetByUserID(ctx, userID)
+	}
+	return h.accountRepo.GetByUserID(ctx, userID)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/smilemakc/mbflow/go/internal/application/trigger"
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/models"
@@ -112,6 +113,10 @@ func (o *Operations) CreateTrigger(ctx context.Context, params CreateTriggerPara
 		return nil, NewValidationError("INVALID_TRIGGER_TYPE", "invalid trigger type")
 	}
 
+	if err := trigger.ValidateScheduleConfig(params.Type, params.Config); err != nil {
+		return nil, NewValidationError("INVALID_TRIGGER_CONFIG", err.Error())
+	}
+
 	triggerModel := &storagemodels.TriggerModel{
 		ID:         uuid.New(),
 		WorkflowID: workflowUUID,
@@ -126,6 +131,7 @@ func (o *Operations) CreateTrigger(ctx context.Context, params CreateTriggerPara
 		o.Logger.Error("Failed to create trigger", "error", err, "workflow_id", workflowUUID, "trigger_type", params.Type)
 		return nil, err
 	}
+	o.syncTrigger(ctx, triggerModel.ID.String())
 
 	return triggerModelToDomain(triggerModel, params.Name, params.Description), nil
 }
@@ -162,10 +168,15 @@ func (o *Operations) UpdateTrigger(ctx context.Context, params UpdateTriggerPara
 		triggerModel.Enabled = *params.Enabled
 	}
 
+	if err := trigger.ValidateScheduleConfig(triggerModel.Type, triggerModel.Config); err != nil {
+		return nil, NewValidationError("INVALID_TRIGGER_CONFIG", err.Error())
+	}
+
 	if err := o.TriggerRepo.Update(ctx, triggerModel); err != nil {
 		o.Logger.Error("Failed to update trigger", "error", err, "trigger_id", params.TriggerID)
 		return nil, err
 	}
+	o.syncTrigger(ctx, params.TriggerID.String())
 
 	return triggerModelToDomain(triggerModel, params.Name, params.Description), nil
 }
@@ -180,6 +191,7 @@ func (o *Operations) DeleteTrigger(ctx context.Context, params DeleteTriggerPara
 		o.Logger.Error("Failed to delete trigger", "error", err, "trigger_id", params.TriggerID)
 		return err
 	}
+	o.syncTrigger(ctx, params.TriggerID.String())
 	return nil
 }
 
@@ -221,6 +233,7 @@ func (o *Operations) EnableTrigger(ctx context.Context, params EnableTriggerPara
 		o.Logger.Error("Failed to find trigger after enable", "error", err, "trigger_id", params.TriggerID)
 		return nil, models.ErrTriggerNotFound
 	}
+	o.syncTrigger(ctx, params.TriggerID.String())
 	return triggerModelToDomain(triggerModel, "", ""), nil
 }
 
@@ -238,6 +251,7 @@ func (o *Operations) DisableTrigger(ctx context.Context, params DisableTriggerPa
 		o.Logger.Error("Failed to find trigger after disable", "error", err, "trigger_id", params.TriggerID)
 		return nil, models.ErrTriggerNotFound
 	}
+	o.syncTrigger(ctx, params.TriggerID.String())
 	return triggerModelToDomain(triggerModel, "", ""), nil
 }
 

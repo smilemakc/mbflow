@@ -21,6 +21,12 @@ func NewBodySizeMiddleware(log *logger.Logger, maxBodySize int64) *BodySizeMiddl
 
 func (m *BodySizeMiddleware) LimitBodySize() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Reject declared oversized bodies up front; chunked bodies are cut
+		// off by MaxBytesReader and reported by bindJSON.
+		if c.Request.ContentLength > m.maxBodySize {
+			c.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, ErrPayloadTooLarge)
+			return
+		}
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, m.maxBodySize)
 		c.Next()
 	}

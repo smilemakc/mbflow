@@ -252,6 +252,12 @@ func (o *Operations) StartEphemeralExecution(ctx context.Context, params Ephemer
 
 	execution, err := o.ExecutionMgr.ExecuteEphemeral(ctx, opts)
 	if err != nil {
+		// A sync run whose workflow failed is a normal result: the caller gets
+		// the execution with status/error, not a server error.
+		if execution != nil && (execution.Status == models.ExecutionStatusFailed || execution.Status == models.ExecutionStatusCancelled) {
+			o.Logger.Info("Ephemeral execution finished unsuccessfully", "execution_id", execution.ID, "status", execution.Status, "error", err)
+			return execution, nil
+		}
 		o.Logger.Error("Failed to start ephemeral execution", "error", err)
 		return nil, err
 	}

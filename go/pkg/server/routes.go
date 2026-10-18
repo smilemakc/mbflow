@@ -207,6 +207,31 @@ func (s *Server) setupWebSocketEndpoints() {
 	}
 }
 
+// operations returns the shared transport-agnostic business layer used by
+// the REST and gRPC handlers.
+func (s *Server) operations() *serviceapi.Operations {
+	if s.serviceAPI.Operations == nil {
+		ops := &serviceapi.Operations{
+			WorkflowRepo:    s.data.WorkflowRepo,
+			ExecutionRepo:   s.data.ExecutionRepo,
+			TriggerRepo:     s.data.TriggerRepo,
+			CredentialsRepo: s.data.CredentialsRepo,
+			ExecutionMgr:    s.execution.ExecutionManager,
+			ExecutorManager: s.execution.ExecutorManager,
+			EncryptionSvc:   s.auth.EncryptionService,
+			AuditService:    s.serviceAPI.AuditService,
+			Logger:          s.logger,
+		}
+		// Assign only a non-nil manager: a typed nil would make the
+		// interface non-nil and panic on first use.
+		if s.triggers.TriggerManager != nil {
+			ops.TriggerSync = s.triggers.TriggerManager
+		}
+		s.serviceAPI.Operations = ops
+	}
+	return s.serviceAPI.Operations
+}
+
 // ownershipGuard enforces per-user isolation of workflows and related records.
 func (s *Server) ownershipGuard() *rest.OwnershipGuard {
 	if s.guard == nil {
@@ -283,17 +308,7 @@ func (s *Server) setupAdminRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
-	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.data.WorkflowRepo,
-		ExecutionRepo:   s.data.ExecutionRepo,
-		TriggerRepo:     s.data.TriggerRepo,
-		CredentialsRepo: s.data.CredentialsRepo,
-		ExecutionMgr:    s.execution.ExecutionManager,
-		ExecutorManager: s.execution.ExecutorManager,
-		EncryptionSvc:   s.auth.EncryptionService,
-		AuditService:    s.serviceAPI.AuditService,
-		Logger:          s.logger,
-	}
+	ops := s.operations()
 
 	workflowHandlers := rest.NewWorkflowHandlers(ops, s.logger).WithOwnershipGuard(s.ownershipGuard())
 	nodeHandlers := rest.NewNodeHandlers(s.data.WorkflowRepo, s.logger)
@@ -339,17 +354,7 @@ func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
-	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.data.WorkflowRepo,
-		ExecutionRepo:   s.data.ExecutionRepo,
-		TriggerRepo:     s.data.TriggerRepo,
-		CredentialsRepo: s.data.CredentialsRepo,
-		ExecutionMgr:    s.execution.ExecutionManager,
-		ExecutorManager: s.execution.ExecutorManager,
-		EncryptionSvc:   s.auth.EncryptionService,
-		AuditService:    s.serviceAPI.AuditService,
-		Logger:          s.logger,
-	}
+	ops := s.operations()
 
 	executionHandlers := rest.NewExecutionHandlers(ops, s.logger)
 
@@ -372,17 +377,7 @@ func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
-	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.data.WorkflowRepo,
-		ExecutionRepo:   s.data.ExecutionRepo,
-		TriggerRepo:     s.data.TriggerRepo,
-		CredentialsRepo: s.data.CredentialsRepo,
-		ExecutionMgr:    s.execution.ExecutionManager,
-		ExecutorManager: s.execution.ExecutorManager,
-		EncryptionSvc:   s.auth.EncryptionService,
-		AuditService:    s.serviceAPI.AuditService,
-		Logger:          s.logger,
-	}
+	ops := s.operations()
 
 	triggerHandlers := rest.NewTriggerHandlers(ops, s.logger).WithOwnershipGuard(s.ownershipGuard())
 
@@ -552,14 +547,14 @@ func (s *Server) setupWebhookRoutes(apiV1 *gin.RouterGroup) {
 	}
 
 	webhookHandlers := rest.NewWebhookHandlers(s.triggers.TriggerManager.WebhookRegistry(), s.logger)
-	apiV1.POST("/webhooks/:path", webhookHandlers.HandleWebhook)
-	apiV1.GET("/webhooks/:path", webhookHandlers.HandleWebhookGet)
+	apiV1.POST("/webhooks/:trigger_id", webhookHandlers.HandleWebhook)
+	apiV1.GET("/webhooks/:trigger_id", webhookHandlers.HandleWebhookGet)
 
 	telegramWebhookHandlers := rest.NewTelegramWebhookHandlers(s.triggers.TriggerManager.WebhookRegistry(), s.logger)
 	apiV1.POST("/webhooks/telegram/:trigger_id", telegramWebhookHandlers.HandleTelegramWebhook)
 
 	s.logger.Info("Webhook endpoints registered",
-		"endpoints", []string{"/api/v1/webhooks/:path", "/api/v1/webhooks/telegram/:trigger_id"},
+		"endpoints", []string{"/api/v1/webhooks/:trigger_id", "/api/v1/webhooks/telegram/:trigger_id"},
 	)
 }
 
@@ -580,17 +575,7 @@ func (s *Server) setupServiceAPIRoutes(apiV1 *gin.RouterGroup) {
 	serviceAPI.Use(s.serviceAPI.SystemAuthMiddleware.HandleImpersonation())
 	serviceAPI.Use(s.serviceAPI.AuditMiddleware.RecordAction())
 	{
-		ops := &serviceapi.Operations{
-			WorkflowRepo:    s.data.WorkflowRepo,
-			ExecutionRepo:   s.data.ExecutionRepo,
-			TriggerRepo:     s.data.TriggerRepo,
-			CredentialsRepo: s.data.CredentialsRepo,
-			ExecutionMgr:    s.execution.ExecutionManager,
-			ExecutorManager: s.execution.ExecutorManager,
-			EncryptionSvc:   s.auth.EncryptionService,
-			AuditService:    s.serviceAPI.AuditService,
-			Logger:          s.logger,
-		}
+		ops := s.operations()
 
 		wfh := rest.NewServiceAPIWorkflowHandlers(ops)
 		serviceAPI.GET("/workflows", wfh.ListWorkflows)
