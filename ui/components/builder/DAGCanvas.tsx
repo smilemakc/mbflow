@@ -17,6 +17,7 @@ import {NodeType} from '@/types';
 import {CustomNode} from './CustomNode';
 import {ContextMenu} from './ContextMenu';
 import {QuickAddMenu} from './QuickAddMenu';
+import {NODE_TYPE_MIME, readNodeTemplate} from './dragData';
 import {LayoutDirection, useAutoLayout} from '@/hooks/useAutoLayout';
 
 // Define Custom Node Types
@@ -88,7 +89,7 @@ export const DAGCanvas: React.FC = () => {
 
             if (!reactFlowWrapper.current || !reactFlowInstance) return;
 
-            const type = event.dataTransfer.getData('application/reactflow') as NodeType;
+            const type = event.dataTransfer.getData(NODE_TYPE_MIME) as NodeType;
             if (!type) return;
 
             const position = reactFlowInstance.screenToFlowPosition({
@@ -96,7 +97,7 @@ export const DAGCanvas: React.FC = () => {
                 y: event.clientY,
             });
 
-            addNode(type, position);
+            addNode(type, position, readNodeTemplate(event.dataTransfer));
         },
         [reactFlowInstance, addNode]
     );

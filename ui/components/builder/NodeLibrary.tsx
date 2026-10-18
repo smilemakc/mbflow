@@ -31,6 +31,8 @@ import {NodeType} from '@/types.ts';
 import {useTranslation} from '@/store/translations.ts';
 import {useUIStore} from '@/store/uiStore.ts';
 import {Button} from '@/components/ui';
+import {ApiOperationsLibrary} from './ApiOperationsLibrary';
+import {NODE_TYPE_MIME} from './dragData';
 
 // Node definitions with metadata
 interface NodeDefinition {
@@ -210,7 +212,7 @@ export const NodeLibrary: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
 
     const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
-        event.dataTransfer.setData('application/reactflow', nodeType);
+        event.dataTransfer.setData(NODE_TYPE_MIME, nodeType);
         event.dataTransfer.effectAllowed = 'move';
     };
 
@@ -284,6 +286,7 @@ export const NodeLibrary: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                <ApiOperationsLibrary searchQuery={searchQuery} categoryLabel={t.builder.apis}/>
                 {Object.entries(groupedNodes).map(([category, nodes]) => {
                     if (nodes.length === 0) return null;
                     return (

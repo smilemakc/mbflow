@@ -9,6 +9,7 @@ import {
     History,
     LayoutDashboard,
     LogOut,
+    Plug,
     Settings,
     Workflow,
     Zap
@@ -106,6 +107,13 @@ export const Sidebar: React.FC = () => {
                     active={isActive('/resources')}
                     collapsed={isSidebarCollapsed}
                     onClick={() => navigate('/resources')}
+                />
+                <NavItem
+                    icon={<Plug size={20}/>}
+                    label={t.sidebar.apiClients}
+                    active={isActive('/api-clients')}
+                    collapsed={isSidebarCollapsed}
+                    onClick={() => navigate('/api-clients')}
                 />
                 <NavItem
                     icon={<Settings size={20}/>}

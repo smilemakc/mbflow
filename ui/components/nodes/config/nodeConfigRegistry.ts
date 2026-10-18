@@ -28,6 +28,7 @@ import { CSVToJSONNodeConfigComponent } from './CSVToJSONNodeConfig';
 import { GoogleSheetsNodeConfigComponent } from './GoogleSheetsNodeConfig';
 import { GoogleDriveNodeConfigComponent } from './GoogleDriveNodeConfig';
 import { SubWorkflowNodeConfigComponent } from './SubWorkflowNodeConfig';
+import { OpenAPINodeConfigComponent } from './OpenAPINodeConfig';
 
 export interface NodeConfigProps<T = Record<string, any>> {
     config: T;
@@ -212,4 +213,10 @@ registerNodeConfig(NodeType.SUB_WORKFLOW, {
     component: SubWorkflowNodeConfigComponent,
     label: 'Sub-Workflow',
     description: 'Fan-out execution over an array',
+});
+
+registerNodeConfig(NodeType.OPENAPI, {
+    component: OpenAPINodeConfigComponent,
+    label: 'API Operation',
+    description: 'Call an operation of an imported OpenAPI client',
 });

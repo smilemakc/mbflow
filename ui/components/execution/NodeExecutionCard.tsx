@@ -8,6 +8,7 @@ import {
   FileJson,
   AlertTriangle,
   Layers,
+  Plug,
   Workflow
 } from 'lucide-react';
 import { NodeExecution } from '@/types/execution';
@@ -35,6 +36,8 @@ const getNodeTypeIcon = (nodeType?: string) => {
       return <AlertTriangle size={14} />;
     case 'merge':
       return <Layers size={14} />;
+    case 'openapi':
+      return <Plug size={14} />;
     default:
       return <Workflow size={14} />;
   }
