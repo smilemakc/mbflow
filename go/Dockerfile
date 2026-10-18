@@ -1,9 +1,11 @@
 # syntax=docker/dockerfile:1
 
+# The build needs no OS packages: modules come from GOPROXY, the base images
+# ship CA certificates, and timezone data is embedded in the binaries
+# (-tags timetzdata) so cron triggers with a timezone work in any image.
+
 # Build stage
 FROM golang:1.25-alpine AS builder
-
-RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /app
 
@@ -14,7 +16,7 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -trimpath \
+    -trimpath -tags timetzdata \
     -ldflags="-s -w" \
     -o /out/mbflow-server ./cmd/server && \
     CGO_ENABLED=0 GOOS=linux go build \
@@ -25,8 +27,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # Runtime stage
 FROM alpine:3.22
 
-RUN apk --no-cache add ca-certificates tzdata wget && \
-    addgroup -g 1000 mbflow && \
+# busybox provides wget (healthcheck) and addgroup/adduser
+RUN addgroup -g 1000 mbflow && \
     adduser -D -u 1000 -G mbflow mbflow
 
 WORKDIR /app

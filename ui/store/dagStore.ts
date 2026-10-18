@@ -753,6 +753,35 @@ export const useDagStore = create<DAGState>((set, get) => ({
         clearInterval(checkInterval);
       }
     }, 2000);
+
+    // Fast executions can finish before the WebSocket subscription is active,
+    // and the socket can drop mid-run; either way no completion event arrives.
+    // Poll the API as a fallback and replay the final state if needed.
+    void (async () => {
+      const terminal = ['completed', 'failed', 'cancelled'];
+      for (let attempt = 0; attempt < 150; attempt++) {
+        await new Promise(r => setTimeout(r, attempt === 0 ? 750 : 2000));
+        const { isRunning, executionId: current } = get();
+        if (!isRunning || current !== executionId) return;
+        try {
+          const exec = await executionService.getRaw(executionId);
+          if (!terminal.includes(exec.status)) continue;
+          if (!get().isRunning || get().executionId !== executionId) return;
+          const handle = get().handleExecutionEvent;
+          const base = { execution_id: exec.id, workflow_id: exec.workflow_id, timestamp: exec.completed_at || new Date().toISOString() };
+          for (const ne of exec.node_executions || []) {
+            // Only replay nodes that actually finished; pending/skipped nodes never ran.
+            if (ne.status !== 'completed' && ne.status !== 'failed') continue;
+            const eventType = ne.status === 'completed' ? 'node.completed' : 'node.failed';
+            handle({ type: 'event', timestamp: base.timestamp, event: { ...base, event_type: eventType, status: ne.status, node_id: ne.node_id, output: ne.output, error: ne.error } });
+          }
+          handle({ type: 'event', timestamp: base.timestamp, event: { ...base, event_type: `execution.${exec.status}`, status: exec.status, error: exec.error } });
+          return;
+        } catch {
+          // Transient API error: keep polling.
+        }
+      }
+    })();
   },
 
   disconnectFromExecution: () => {
