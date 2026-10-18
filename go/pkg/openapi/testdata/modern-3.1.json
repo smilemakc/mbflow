@@ -1,0 +1,90 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Modern API",
+    "version": "2.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://modern.test/api/"
+    }
+  ],
+  "paths": {
+    "/users/{userId}": {
+      "patch": {
+        "summary": "Update a user",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          }
+        },
+        "security": [
+          {
+            "oauth": ["users:write"]
+          }
+        ]
+      }
+    },
+    "/status": {
+      "get": {
+        "operationId": "status",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "oauth": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://auth.modern.test/token",
+            "scopes": {
+              "users:write": "Modify users",
+              "users:read": "Read users"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "UserPatch": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": ["string", "null"]
+          },
+          "score": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    }
+  }
+}
