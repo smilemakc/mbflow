@@ -259,6 +259,7 @@ func (s *Server) setupAPIv1Routes() {
 		s.setupResourceRoutes(apiV1)
 		s.setupAccountRoutes(apiV1)
 		s.setupCredentialsRoutes(apiV1)
+		s.setupAPIClientRoutes(apiV1)
 		s.setupRentalKeyRoutes(apiV1)
 		s.setupServiceKeyRoutes(apiV1)
 		s.setupWebhookRoutes(apiV1)
@@ -480,6 +481,27 @@ func (s *Server) setupCredentialsRoutes(apiV1 *gin.RouterGroup) {
 	}
 
 	s.logger.Info("Credentials endpoints registered")
+}
+
+// setupAPIClientRoutes registers API clients imported from OpenAPI specifications.
+// Every client belongs to one user; the handlers report other users' clients as missing.
+func (s *Server) setupAPIClientRoutes(apiV1 *gin.RouterGroup) {
+	handlers := rest.NewAPIClientHandlers(s.execution.APIClientService, s.logger)
+
+	apiClients := apiV1.Group("/api-clients")
+	apiClients.Use(s.auth.AuthMiddleware.RequireAuth())
+	{
+		apiClients.POST("/preview", handlers.HandlePreview)
+		apiClients.POST("", handlers.HandleCreate)
+		apiClients.GET("", handlers.HandleList)
+		apiClients.GET("/:id", handlers.HandleGet)
+		apiClients.PUT("/:id", handlers.HandleUpdate)
+		apiClients.DELETE("/:id", handlers.HandleDelete)
+		apiClients.GET("/:id/spec", handlers.HandleDownloadSpec)
+		apiClients.PUT("/:id/spec", handlers.HandleReplaceSpec)
+	}
+
+	s.logger.Info("API client endpoints registered")
 }
 
 func (s *Server) setupRentalKeyRoutes(apiV1 *gin.RouterGroup) {

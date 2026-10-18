@@ -94,6 +94,10 @@ func TranslateError(err error) *APIError {
 		return NewAPIError("USER_NOT_FOUND", "User not found", http.StatusNotFound)
 	case errors.Is(err, models.ErrRoleNotFound):
 		return NewAPIError("ROLE_NOT_FOUND", "Role not found", http.StatusNotFound)
+	case errors.Is(err, models.ErrAPIClientNotFound):
+		return NewAPIError("API_CLIENT_NOT_FOUND", "API client not found", http.StatusNotFound)
+	case errors.Is(err, models.ErrInvalidAPISpec):
+		return NewAPIError("INVALID_API_SPEC", err.Error(), http.StatusBadRequest)
 
 	case errors.Is(err, models.ErrInvalidWorkflowID):
 		return NewAPIError("INVALID_WORKFLOW_ID", "Invalid workflow ID format", http.StatusBadRequest)

@@ -42,6 +42,12 @@ func RegisterFileStorage(manager executor.Manager, storageManager filestorage.Ma
 	return manager.Register("file_storage", NewFileStorageExecutor(storageManager))
 }
 
+// RegisterOpenAPI registers the executor of operations of imported API clients.
+// credentials may be nil when credentials are unavailable.
+func RegisterOpenAPI(manager executor.Manager, clients APIClientProvider, credentials CredentialProvider) error {
+	return manager.Register(OpenAPINodeType, NewAPIOperationExecutor(clients, credentials))
+}
+
 // MustRegisterBuiltins registers all built-in executors and panics on error.
 // This is a convenience function for initialization code.
 func MustRegisterBuiltins(manager executor.Manager) {

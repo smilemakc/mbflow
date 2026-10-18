@@ -6,6 +6,7 @@ import (
 	"github.com/uptrace/bun"
 	grpclib "google.golang.org/grpc"
 
+	"github.com/smilemakc/mbflow/go/internal/application/apiclient"
 	"github.com/smilemakc/mbflow/go/internal/application/auth"
 	"github.com/smilemakc/mbflow/go/internal/application/engine"
 	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
@@ -45,6 +46,7 @@ type DataLayer struct {
 	SystemKeyRepo   *storage.SystemKeyRepoImpl
 	AuditLogRepo    *storage.ServiceAuditLogRepoImpl
 	RentalKeyRepo   *storage.RentalKeyRepositoryImpl
+	APIClientRepo   *storage.APIClientRepositoryImpl
 }
 
 // AuthLayer holds authentication and authorization components.
@@ -65,6 +67,8 @@ type ExecutionLayer struct {
 	ObserverManager   *observer.ObserverManager
 	WSHub             *observer.WebSocketHub
 	EphemeralRegistry *engine.EphemeralStreamRegistry
+	// APIClientService manages imported API clients and loads them for "openapi" nodes.
+	APIClientService *apiclient.Service
 }
 
 // ServiceAPILayer holds Service API and gRPC components.
