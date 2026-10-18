@@ -51,11 +51,15 @@ export interface FunctionDefinition {
   language?: "javascript" | "python";
   code?: string;
 
-  // OpenAPI
-  openapi_spec?: string;
+  // OpenAPI: an operation of an imported API client
+  client_id?: string;
   operation_id?: string;
-  base_url?: string;
-  auth_config?: Record<string, any>;
+}
+
+/** Operations of an imported API client that an LLM node calls as tools in auto mode. */
+export interface ApiToolRef {
+  client_id: string;
+  operation_ids: string[];
 }
 
 // LLM Node
@@ -83,6 +87,7 @@ export interface LLMNodeConfig extends BaseNodeConfig {
   // Tool calling
   tool_call_config?: ToolCallConfig;
   functions?: FunctionDefinition[];
+  api_tools?: ApiToolRef[];
 }
 
 // Transform Node
