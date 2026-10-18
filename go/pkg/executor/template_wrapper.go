@@ -48,7 +48,15 @@ func (w *TemplateExecutorWrapper) Validate(config map[string]any) error {
 type ExecutionContextKey struct{}
 
 // ExecutionContextData holds data needed for template resolution during execution.
+// The engine also passes it to executors through the context (see GetExecutionContext).
 type ExecutionContextData struct {
+	ExecutionID string
+	WorkflowID  string
+	NodeID      string
+	// OwnerID is the user who owns the workflow; executors use it to check access
+	// to user-owned entities. It is empty for workflows without an owner.
+	OwnerID string
+
 	WorkflowVariables  map[string]any
 	ExecutionVariables map[string]any
 	ParentNodeOutput   map[string]any
