@@ -265,8 +265,8 @@ func (s *Server) initEncryptionServices() error {
 }
 
 // initAPIClients wires API clients imported from OpenAPI specifications and
-// registers the executor of their operations. Without an encryption key,
-// clients cannot reference credentials.
+// registers the executor of their operations, which llm nodes also call as
+// tools. Without an encryption key, clients cannot reference credentials.
 func (s *Server) initAPIClients() error {
 	var credentialLookup apiclient.CredentialLookup
 	var credentialProvider builtin.CredentialProvider

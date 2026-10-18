@@ -110,25 +110,26 @@ func (p *OpenAIProvider) buildRequestBody(req *models.LLMRequest) map[string]any
 		"model": req.Model,
 	}
 
-	// Build messages
-	messages := []map[string]any{}
+	if len(req.Messages) > 0 {
+		body["messages"] = p.buildHistory(req)
+	} else {
+		messages := []map[string]any{}
 
-	// System message (instruction)
-	if req.Instruction != "" {
+		// System message (instruction)
+		if req.Instruction != "" {
+			messages = append(messages, map[string]any{
+				"role":    "system",
+				"content": req.Instruction,
+			})
+		}
+
+		// User message with multimodal support
 		messages = append(messages, map[string]any{
-			"role":    "system",
-			"content": req.Instruction,
+			"role":    "user",
+			"content": p.buildUserContent(req),
 		})
+		body["messages"] = messages
 	}
-
-	// User message with multimodal support
-	userContent := p.buildUserContent(req)
-	messages = append(messages, map[string]any{
-		"role":    "user",
-		"content": userContent,
-	})
-
-	body["messages"] = messages
 
 	// Optional parameters
 	if req.MaxTokens > 0 {
@@ -164,21 +165,74 @@ func (p *OpenAIProvider) buildRequestBody(req *models.LLMRequest) map[string]any
 	return body
 }
 
+// buildHistory converts the conversation of req.Messages, which replaces the
+// instruction and the prompt. The attachments of the request go to the first
+// user message.
+func (p *OpenAIProvider) buildHistory(req *models.LLMRequest) []map[string]any {
+	messages := make([]map[string]any, 0, len(req.Messages))
+	attached := false
+	for _, msg := range req.Messages {
+		switch msg.Role {
+		case "user":
+			var content any = msg.Content
+			if !attached {
+				attached = true
+				content = p.userContent(req, msg.Content)
+			}
+			messages = append(messages, map[string]any{"role": "user", "content": content})
+		case "assistant":
+			m := map[string]any{"role": "assistant", "content": nil}
+			if msg.Content != "" {
+				m["content"] = msg.Content
+			}
+			if len(msg.ToolCalls) > 0 {
+				calls := make([]map[string]any, len(msg.ToolCalls))
+				for i, tc := range msg.ToolCalls {
+					calls[i] = map[string]any{
+						"id":   tc.ID,
+						"type": "function",
+						"function": map[string]any{
+							"name":      tc.Function.Name,
+							"arguments": tc.Function.Arguments,
+						},
+					}
+				}
+				m["tool_calls"] = calls
+			}
+			messages = append(messages, m)
+		case "tool":
+			messages = append(messages, map[string]any{
+				"role":         "tool",
+				"tool_call_id": msg.ToolCallID,
+				"content":      msg.Content,
+			})
+		default:
+			messages = append(messages, map[string]any{"role": msg.Role, "content": msg.Content})
+		}
+	}
+	return messages
+}
+
 // buildUserContent builds the user message content with multimodal support.
 func (p *OpenAIProvider) buildUserContent(req *models.LLMRequest) any {
+	return p.userContent(req, req.Prompt)
+}
+
+// userContent builds a user message from text and the attachments of req.
+func (p *OpenAIProvider) userContent(req *models.LLMRequest, text string) any {
 	// If no images or files, just return text
 	if len(req.ImageURLs) == 0 && len(req.ImageIDs) == 0 && len(req.Files) == 0 {
-		return req.Prompt
+		return text
 	}
 
 	// Build multimodal content array
 	content := []map[string]any{}
 
 	// Add text
-	if req.Prompt != "" {
+	if text != "" {
 		content = append(content, map[string]any{
 			"type": "text",
-			"text": req.Prompt,
+			"text": text,
 		})
 	}
 

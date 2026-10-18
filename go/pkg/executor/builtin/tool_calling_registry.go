@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/smilemakc/mbflow/go/pkg/models"
@@ -28,9 +29,13 @@ type CodeExecutor interface {
 	ExecuteCode(ctx context.Context, language, code string, args map[string]any) (any, error)
 }
 
-// OpenAPIExecutor интерфейс для OpenAPI calls
+// OpenAPIExecutor предоставляет операции импортированных API-клиентов как
+// инструменты; его реализует APIOperationExecutor.
 type OpenAPIExecutor interface {
-	ExecuteOperation(ctx context.Context, spec, operationID, baseURL string, args map[string]any, auth map[string]any) (any, error)
+	// OperationTools строит определения функций для выбранных операций.
+	OperationTools(ctx context.Context, refs []models.APIToolRef) ([]models.FunctionDefinition, error)
+	// ExecuteOperation вызывает операцию с аргументами tool call.
+	ExecuteOperation(ctx context.Context, clientID, operationID string, args map[string]any) (any, error)
 }
 
 // NewToolCallingRegistry создает новый registry
@@ -67,12 +72,11 @@ func (r *ToolCallingRegistry) ExecuteFunction(
 	funcDef *models.FunctionDefinition,
 	argumentsJSON string,
 ) (any, error) {
-	// Парсим аргументы
-	var args map[string]any
-	if argumentsJSON != "" {
-		if err := json.Unmarshal([]byte(argumentsJSON), &args); err != nil {
-			return nil, fmt.Errorf("failed to parse arguments: %w", err)
-		}
+	// Аргументы операций API попадают в URL и тело запроса, поэтому числа
+	// в них не округляются до float64.
+	args, err := parseToolArguments(argumentsJSON, funcDef.Type == models.FunctionTypeOpenAPI)
+	if err != nil {
+		return nil, err
 	}
 
 	switch funcDef.Type {
@@ -163,21 +167,45 @@ func (r *ToolCallingRegistry) executeOpenAPI(
 	funcDef *models.FunctionDefinition,
 	args map[string]any,
 ) (any, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if r.openAPIExecutor == nil {
+	exec := r.openAPI()
+	if exec == nil {
 		return nil, fmt.Errorf("OpenAPI executor not configured")
 	}
+	return exec.ExecuteOperation(ctx, funcDef.ClientID, funcDef.OperationID, args)
+}
 
-	return r.openAPIExecutor.ExecuteOperation(
-		ctx,
-		funcDef.OpenAPISpec,
-		funcDef.OperationID,
-		funcDef.BaseURL,
-		args,
-		funcDef.AuthConfig,
-	)
+// APITools возвращает определения функций для операций API-клиентов из
+// config "api_tools".
+func (r *ToolCallingRegistry) APITools(ctx context.Context, refs []models.APIToolRef) ([]models.FunctionDefinition, error) {
+	exec := r.openAPI()
+	if exec == nil {
+		return nil, fmt.Errorf("API tools are not available: OpenAPI executor not configured")
+	}
+	return exec.OperationTools(ctx, refs)
+}
+
+func (r *ToolCallingRegistry) openAPI() OpenAPIExecutor {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.openAPIExecutor
+}
+
+func parseToolArguments(argumentsJSON string, exactNumbers bool) (map[string]any, error) {
+	var args map[string]any
+	if strings.TrimSpace(argumentsJSON) == "" {
+		return args, nil
+	}
+	decoder := json.NewDecoder(strings.NewReader(argumentsJSON))
+	if exactNumbers {
+		decoder.UseNumber()
+	}
+	if err := decoder.Decode(&args); err != nil {
+		return nil, fmt.Errorf("failed to parse arguments: %w", err)
+	}
+	if decoder.More() {
+		return nil, fmt.Errorf("failed to parse arguments: unexpected data after the JSON object")
+	}
+	return args, nil
 }
 
 // ValidateFunctionDefinition валидирует определение функции
@@ -214,8 +242,8 @@ func (r *ToolCallingRegistry) ValidateFunctionDefinition(funcDef *models.Functio
 		}
 
 	case models.FunctionTypeOpenAPI:
-		if funcDef.OpenAPISpec == "" || funcDef.OperationID == "" {
-			return fmt.Errorf("openapi_spec and operation_id are required for OpenAPI functions")
+		if funcDef.ClientID == "" || funcDef.OperationID == "" {
+			return fmt.Errorf("client_id and operation_id are required for OpenAPI functions")
 		}
 
 	default:

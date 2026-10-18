@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
+
+// maxToolsPerRequest is the OpenAI limit on tools in one request.
+const maxToolsPerRequest = 128
 
 // LLMProvider interface for different LLM providers.
 type LLMProvider interface {
@@ -37,6 +41,17 @@ func (e *LLMExecutor) SetToolCallingRegistry(registry *ToolCallingRegistry) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.toolCallingRegistry = registry
+}
+
+// toolRegistry returns the tool calling registry, creating one without
+// built-in functions when none is set.
+func (e *LLMExecutor) toolRegistry() *ToolCallingRegistry {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.toolCallingRegistry == nil {
+		e.toolCallingRegistry = NewToolCallingRegistry(models.NewFunctionRegistry())
+	}
+	return e.toolCallingRegistry
 }
 
 // RegisterProvider registers a custom LLM provider.
@@ -192,6 +207,12 @@ func (e *LLMExecutor) Validate(config map[string]any) error {
 		}
 	}
 
+	if apiTools, ok := config["api_tools"]; ok && apiTools != nil {
+		if _, err := e.parseAPITools(apiTools); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -333,7 +354,47 @@ func (e *LLMExecutor) parseConfig(config map[string]any) (*models.LLMRequest, er
 		req.Functions = parsedFunctions
 	}
 
+	if apiTools, ok := config["api_tools"]; ok && apiTools != nil {
+		refs, err := e.parseAPITools(apiTools)
+		if err != nil {
+			return nil, err
+		}
+		req.APITools = refs
+	}
+
 	return req, nil
+}
+
+// parseAPITools parses "api_tools", the operations of API clients the model
+// may call in auto mode: [{"client_id": "...", "operation_ids": ["..."]}].
+func (e *LLMExecutor) parseAPITools(value any) ([]models.APIToolRef, error) {
+	list, ok := value.([]any)
+	if !ok {
+		return nil, fmt.Errorf("api_tools must be an array")
+	}
+	refs := make([]models.APIToolRef, 0, len(list))
+	for i, item := range list {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("api_tools[%d] must be an object", i)
+		}
+		clientID, _ := entry["client_id"].(string)
+		ref := models.APIToolRef{ClientID: strings.TrimSpace(clientID)}
+		if ref.ClientID == "" {
+			return nil, fmt.Errorf("api_tools[%d]: client_id is required", i)
+		}
+		ids, _ := entry["operation_ids"].([]any)
+		for _, id := range ids {
+			if s, ok := id.(string); ok && strings.TrimSpace(s) != "" {
+				ref.OperationIDs = append(ref.OperationIDs, strings.TrimSpace(s))
+			}
+		}
+		if len(ref.OperationIDs) == 0 {
+			return nil, fmt.Errorf("api_tools[%d]: operation_ids must list at least one operation", i)
+		}
+		refs = append(refs, ref)
+	}
+	return refs, nil
 }
 
 // parseTools parses tools configuration into LLMTool structs.
@@ -995,17 +1056,11 @@ func (e *LLMExecutor) parseFunctions(functionsConfig []any) ([]models.FunctionDe
 		if code, ok := funcMap["code"].(string); ok {
 			funcDef.Code = code
 		}
-		if openAPISpec, ok := funcMap["openapi_spec"].(string); ok {
-			funcDef.OpenAPISpec = openAPISpec
+		if clientID, ok := funcMap["client_id"].(string); ok {
+			funcDef.ClientID = clientID
 		}
 		if operationID, ok := funcMap["operation_id"].(string); ok {
 			funcDef.OperationID = operationID
-		}
-		if baseURL, ok := funcMap["base_url"].(string); ok {
-			funcDef.BaseURL = baseURL
-		}
-		if authConfig, ok := funcMap["auth_config"].(map[string]any); ok {
-			funcDef.AuthConfig = authConfig
 		}
 
 		functions = append(functions, funcDef)
@@ -1039,6 +1094,18 @@ func (e *LLMExecutor) executeWithToolCalling(
 	if maxIterations <= 0 {
 		maxIterations = 10
 	}
+	if config.TotalTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(config.TotalTimeout)*time.Second)
+		defer cancel()
+	}
+	toolTimeout := time.Duration(config.TimeoutPerTool) * time.Second
+
+	functions, err := e.toolFunctions(ctx, req, registry)
+	if err != nil {
+		return nil, err
+	}
+	req.Functions = functions
 
 	// Initialize messages
 	messages := make([]models.LLMMessage, 0)
@@ -1113,7 +1180,7 @@ func (e *LLMExecutor) executeWithToolCalling(
 
 		// Execute tool calls
 		if len(response.ToolCalls) > 0 {
-			toolResults, err := e.executeToolCallsWithRegistry(ctx, response.ToolCalls, req.Functions, registry)
+			toolResults, err := e.executeToolCallsWithRegistry(ctx, response.ToolCalls, req.Functions, registry, toolTimeout)
 			if err != nil {
 				if config.StopOnToolFailure {
 					return nil, fmt.Errorf("tool execution failed at iteration %d: %w", iteration, err)
@@ -1165,12 +1232,41 @@ func (e *LLMExecutor) executeWithToolCalling(
 	}, nil
 }
 
-// executeToolCallsWithRegistry executes tool calls using the registry.
+// toolFunctions returns the functions of the request followed by the
+// operations of API clients selected in api_tools. An operation whose name is
+// already taken gets a numeric suffix; names of the functions stay as configured.
+func (e *LLMExecutor) toolFunctions(ctx context.Context, req *models.LLMRequest, registry *ToolCallingRegistry) ([]models.FunctionDefinition, error) {
+	functions := req.Functions
+	if len(req.APITools) > 0 {
+		apiTools, err := registry.APITools(ctx, req.APITools)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load API tools: %w", err)
+		}
+		taken := make(map[string]bool, len(functions)+len(apiTools))
+		for _, f := range functions {
+			taken[f.Name] = true
+		}
+		functions = append([]models.FunctionDefinition(nil), functions...)
+		for _, tool := range apiTools {
+			tool.Name = uniqueToolName(tool.Name, taken)
+			taken[tool.Name] = true
+			functions = append(functions, tool)
+		}
+	}
+	if len(functions) > maxToolsPerRequest {
+		return nil, fmt.Errorf("%d tools are configured, at most %d are supported", len(functions), maxToolsPerRequest)
+	}
+	return functions, nil
+}
+
+// executeToolCallsWithRegistry executes tool calls using the registry. A
+// positive timeout limits each call.
 func (e *LLMExecutor) executeToolCallsWithRegistry(
 	ctx context.Context,
 	toolCalls []models.LLMToolCall,
 	functions []models.FunctionDefinition,
 	registry *ToolCallingRegistry,
+	timeout time.Duration,
 ) ([]models.ToolExecutionResult, error) {
 	results := make([]models.ToolExecutionResult, len(toolCalls))
 
@@ -1190,7 +1286,12 @@ func (e *LLMExecutor) executeToolCallsWithRegistry(
 		}
 
 		// Execute function through registry
-		result, err := registry.ExecuteFunction(ctx, funcDef, toolCall.Function.Arguments)
+		callCtx, cancel := ctx, context.CancelFunc(func() {})
+		if timeout > 0 {
+			callCtx, cancel = context.WithTimeout(ctx, timeout)
+		}
+		result, err := registry.ExecuteFunction(callCtx, funcDef, toolCall.Function.Arguments)
+		cancel()
 
 		executionTime := time.Since(startTime).Milliseconds()
 

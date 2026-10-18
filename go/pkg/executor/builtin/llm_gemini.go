@@ -102,24 +102,31 @@ func (p *GeminiProvider) Execute(ctx context.Context, req *models.LLMRequest) (*
 func (p *GeminiProvider) buildRequestBody(req *models.LLMRequest) map[string]any {
 	body := map[string]any{}
 
-	// System instruction
-	if req.Instruction != "" {
-		body["systemInstruction"] = map[string]any{
-			"parts": []map[string]any{
-				{
-					"text": req.Instruction,
+	if len(req.Messages) > 0 {
+		system, contents := p.buildHistory(req)
+		if len(system) > 0 {
+			body["systemInstruction"] = map[string]any{"parts": system}
+		}
+		body["contents"] = contents
+	} else {
+		// System instruction
+		if req.Instruction != "" {
+			body["systemInstruction"] = map[string]any{
+				"parts": []map[string]any{
+					{
+						"text": req.Instruction,
+					},
 				},
+			}
+		}
+
+		// Build contents (user message with multimodal support)
+		body["contents"] = []map[string]any{
+			{
+				"role":  "user",
+				"parts": p.buildUserContent(req),
 			},
 		}
-	}
-
-	// Build contents (user message with multimodal support)
-	userContent := p.buildUserContent(req)
-	body["contents"] = []map[string]any{
-		{
-			"role":  "user",
-			"parts": userContent,
-		},
 	}
 
 	// Build generation config
@@ -161,14 +168,90 @@ func (p *GeminiProvider) buildRequestBody(req *models.LLMRequest) map[string]any
 	return body
 }
 
+// buildHistory converts the conversation of req.Messages, which replaces the
+// instruction and the prompt. System messages form the system instruction,
+// the attachments of the request go to the first user message, and results of
+// the calls of one turn are sent together as functionResponse parts.
+func (p *GeminiProvider) buildHistory(req *models.LLMRequest) (system, contents []map[string]any) {
+	attached := false
+	var responses []map[string]any
+	flushResponses := func() {
+		if len(responses) > 0 {
+			contents = append(contents, map[string]any{"role": "user", "parts": responses})
+			responses = nil
+		}
+	}
+	for _, msg := range req.Messages {
+		if msg.Role != "tool" {
+			flushResponses()
+		}
+		switch msg.Role {
+		case "system":
+			if msg.Content != "" {
+				system = append(system, map[string]any{"text": msg.Content})
+			}
+		case "assistant":
+			var parts []map[string]any
+			if msg.Content != "" {
+				parts = append(parts, map[string]any{"text": msg.Content})
+			}
+			for _, tc := range msg.ToolCalls {
+				args := map[string]any{}
+				if tc.Function.Arguments != "" {
+					_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+				}
+				part := map[string]any{"functionCall": map[string]any{"name": tc.Function.Name, "args": args}}
+				if tc.Signature != "" {
+					part["thoughtSignature"] = tc.Signature
+				}
+				parts = append(parts, part)
+			}
+			if len(parts) > 0 {
+				contents = append(contents, map[string]any{"role": "model", "parts": parts})
+			}
+		case "tool":
+			responses = append(responses, map[string]any{"functionResponse": map[string]any{
+				"name":     msg.Name,
+				"response": geminiFunctionResponse(msg.Content),
+			}})
+		default:
+			parts := []map[string]any{{"text": msg.Content}}
+			if !attached {
+				attached = true
+				parts = p.userParts(req, msg.Content)
+			}
+			contents = append(contents, map[string]any{"role": "user", "parts": parts})
+		}
+	}
+	flushResponses()
+	return system, contents
+}
+
+// geminiFunctionResponse wraps a tool result into the object Gemini expects.
+func geminiFunctionResponse(content string) map[string]any {
+	var value any
+	if err := json.Unmarshal([]byte(content), &value); err != nil {
+		return map[string]any{"result": content}
+	}
+	if m, ok := value.(map[string]any); ok {
+		return m
+	}
+	return map[string]any{"result": value}
+}
+
 // buildUserContent builds the user message content with multimodal support.
 func (p *GeminiProvider) buildUserContent(req *models.LLMRequest) []map[string]any {
+	return p.userParts(req, req.Prompt)
+}
+
+// userParts builds the parts of a user message from text and the attachments of req.
+func (p *GeminiProvider) userParts(req *models.LLMRequest, text string) []map[string]any {
 	parts := []map[string]any{}
 
 	// Add text
-	if req.Prompt != "" {
+	if text != "" {
 		parts = append(parts, map[string]any{
-			"text": req.Prompt,
+			"text": text,
 		})
 	}
 
@@ -267,6 +350,7 @@ func (p *GeminiProvider) convertResponse(resp *geminiGenerateContentResponse, re
 					Name:      part.FunctionCall.Name,
 					Arguments: string(argsJSON),
 				},
+				Signature: part.ThoughtSignature,
 			})
 		}
 	}
@@ -333,8 +417,9 @@ type geminiContent struct {
 }
 
 type geminiPart struct {
-	Text         string              `json:"text,omitempty"`
-	FunctionCall *geminiFunctionCall `json:"functionCall,omitempty"`
+	Text             string              `json:"text,omitempty"`
+	FunctionCall     *geminiFunctionCall `json:"functionCall,omitempty"`
+	ThoughtSignature string              `json:"thoughtSignature,omitempty"`
 }
 
 type geminiFunctionCall struct {
