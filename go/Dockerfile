@@ -25,7 +25,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o /out/mbflow-migrate ./cmd/migrate
 
 # Runtime stage
-FROM alpine:3.22
+FROM alpine:3.24
 
 # busybox provides wget (healthcheck) and addgroup/adduser
 RUN addgroup -g 1000 mbflow && \
