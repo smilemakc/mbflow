@@ -14,6 +14,13 @@ import (
 type WorkflowHandlers struct {
 	ops    *serviceapi.Operations
 	logger *logger.Logger
+	guard  *OwnershipGuard
+}
+
+// WithOwnershipGuard enables ownership checks for referenced resources.
+func (h *WorkflowHandlers) WithOwnershipGuard(g *OwnershipGuard) *WorkflowHandlers {
+	h.guard = g
+	return h
 }
 
 func NewWorkflowHandlers(ops *serviceapi.Operations, log *logger.Logger) *WorkflowHandlers {
@@ -40,6 +47,8 @@ func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 		Description string         `json:"description,omitempty"`
 		Variables   map[string]any `json:"variables,omitempty"`
 		Metadata    map[string]any `json:"metadata,omitempty"`
+		Nodes       []NodeRequest  `json:"nodes,omitempty" binding:"omitempty,dive"`
+		Edges       []EdgeRequest  `json:"edges,omitempty" binding:"omitempty,dive"`
 	}
 
 	if err := bindJSON(c, &req); err != nil {
@@ -51,6 +60,8 @@ func (h *WorkflowHandlers) HandleCreateWorkflow(c *gin.Context) {
 		Description: req.Description,
 		Variables:   req.Variables,
 		Metadata:    req.Metadata,
+		Nodes:       toNodeInputs(req.Nodes),
+		Edges:       toEdgeInputs(req.Edges),
 	}
 
 	if userID, ok := GetUserIDAsUUID(c); ok {
@@ -155,6 +166,9 @@ func (h *WorkflowHandlers) HandleListWorkflows(c *gin.Context) {
 		}
 
 		params.UserID = &requestedUserID
+	} else if owner := ownerFilterFromContext(c); owner != nil {
+		// Regular users only ever see their own workflows.
+		params.UserID = owner
 	}
 
 	result, err := h.ops.ListWorkflows(c.Request.Context(), params)
@@ -202,6 +216,46 @@ type EdgeRequest struct {
 	} `json:"loop,omitempty"`
 }
 
+// toNodeInputs converts request nodes; nil stays nil (meaning "unchanged").
+func toNodeInputs(nodes []NodeRequest) []serviceapi.NodeInput {
+	if nodes == nil {
+		return nil
+	}
+	out := make([]serviceapi.NodeInput, len(nodes))
+	for i, n := range nodes {
+		out[i] = serviceapi.NodeInput{
+			ID:       n.ID,
+			Name:     n.Name,
+			Type:     n.Type,
+			Config:   n.Config,
+			Position: n.Position,
+		}
+	}
+	return out
+}
+
+// toEdgeInputs converts request edges; nil stays nil (meaning "unchanged").
+func toEdgeInputs(edges []EdgeRequest) []serviceapi.EdgeInput {
+	if edges == nil {
+		return nil
+	}
+	out := make([]serviceapi.EdgeInput, len(edges))
+	for i, e := range edges {
+		ei := serviceapi.EdgeInput{
+			ID:           e.ID,
+			From:         e.From,
+			To:           e.To,
+			SourceHandle: e.SourceHandle,
+			Condition:    e.Condition,
+		}
+		if e.Loop != nil {
+			ei.Loop = &serviceapi.LoopInput{MaxIterations: e.Loop.MaxIterations}
+		}
+		out[i] = ei
+	}
+	return out
+}
+
 // HandleUpdateWorkflow updates an existing workflow
 //
 //	@Summary		Update workflow
@@ -244,39 +298,23 @@ func (h *WorkflowHandlers) HandleUpdateWorkflow(c *gin.Context) {
 		Metadata:    req.Metadata,
 	}
 
-	if req.Nodes != nil {
-		params.Nodes = make([]serviceapi.NodeInput, len(req.Nodes))
-		for i, n := range req.Nodes {
-			params.Nodes[i] = serviceapi.NodeInput{
-				ID:       n.ID,
-				Name:     n.Name,
-				Type:     n.Type,
-				Config:   n.Config,
-				Position: n.Position,
-			}
-		}
-	}
-
-	if req.Edges != nil {
-		params.Edges = make([]serviceapi.EdgeInput, len(req.Edges))
-		for i, e := range req.Edges {
-			ei := serviceapi.EdgeInput{
-				ID:           e.ID,
-				From:         e.From,
-				To:           e.To,
-				SourceHandle: e.SourceHandle,
-				Condition:    e.Condition,
-			}
-			if e.Loop != nil {
-				ei.Loop = &serviceapi.LoopInput{MaxIterations: e.Loop.MaxIterations}
-			}
-			params.Edges[i] = ei
-		}
-	}
+	params.Nodes = toNodeInputs(req.Nodes)
+	params.Edges = toEdgeInputs(req.Edges)
 
 	if req.Resources != nil {
 		params.Resources = make([]serviceapi.ResourceInput, len(req.Resources))
 		for i, r := range req.Resources {
+			// Only resources the caller owns may be attached (credentials, keys...).
+			if h.guard != nil {
+				resourceUUID, err := uuid.Parse(r.ResourceID)
+				if err != nil {
+					respondAPIError(c, NewAPIError("INVALID_RESOURCE_ID", "Invalid resource ID format", http.StatusBadRequest))
+					return
+				}
+				if !h.guard.CheckResourceAccess(c, resourceUUID) {
+					return
+				}
+			}
 			params.Resources[i] = serviceapi.ResourceInput{
 				ResourceID: r.ResourceID,
 				Alias:      r.Alias,
@@ -544,6 +582,11 @@ func (h *WorkflowHandlers) AttachWorkflowResource(c *gin.Context) {
 	accessType := req.AccessType
 	if accessType == "" {
 		accessType = "read"
+	}
+
+	// Only resources the caller owns may be attached (credentials, keys...).
+	if h.guard != nil && !h.guard.CheckResourceAccess(c, resourceUUID) {
+		return
 	}
 
 	if err := h.ops.AttachWorkflowResource(c.Request.Context(), serviceapi.AttachWorkflowResourceParams{

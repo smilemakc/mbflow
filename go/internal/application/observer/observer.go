@@ -72,6 +72,17 @@ type EventFilter interface {
 	ShouldNotify(event Event) bool
 }
 
+// MetadataKeyNotPersisted marks events of executions that are not stored in
+// the database (non-persisted ephemeral runs). Storage observers skip them.
+const MetadataKeyNotPersisted = "not_persisted"
+
+// IsNotPersisted reports whether the event belongs to an execution that has
+// no database record.
+func IsNotPersisted(event Event) bool {
+	v, _ := event.Metadata[MetadataKeyNotPersisted].(bool)
+	return v
+}
+
 // EventTypeFilter filters events by type
 type EventTypeFilter struct {
 	allowedTypes map[EventType]bool

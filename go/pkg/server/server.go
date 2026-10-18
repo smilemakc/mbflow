@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/application/servicekey"
 	"github.com/smilemakc/mbflow/go/internal/application/trigger"
 	"github.com/smilemakc/mbflow/go/internal/config"
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/api/rest"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
@@ -40,6 +43,26 @@ type Server struct {
 	serviceAPI  ServiceAPILayer
 	triggers    TriggerLayer
 	fileStorage FileStorageLayer
+
+	guard *rest.OwnershipGuard
+
+	// bgCtx is cancelled on shutdown to stop background loops.
+	bgOnce   sync.Once
+	bgCtx    context.Context
+	bgCancel context.CancelFunc
+
+	// shuttingDown makes /ready fail so load balancers stop routing traffic.
+	shuttingDown atomic.Bool
+	shutdownOnce sync.Once
+	shutdownErr  error
+}
+
+// backgroundContext returns the context for server-owned background goroutines.
+func (s *Server) backgroundContext() context.Context {
+	s.bgOnce.Do(func() {
+		s.bgCtx, s.bgCancel = context.WithCancel(context.Background())
+	})
+	return s.bgCtx
 }
 
 // New creates a new server with the given options
@@ -78,11 +101,13 @@ func New(opts ...Option) (*Server, error) {
 	}
 
 	s.httpServer = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port),
-		Handler:      s.router,
-		ReadTimeout:  s.config.Server.ReadTimeout,
-		WriteTimeout: s.config.Server.WriteTimeout,
-		IdleTimeout:  120 * time.Second,
+		Addr:              fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port),
+		Handler:           s.router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       s.config.Server.ReadTimeout,
+		WriteTimeout:      s.config.Server.WriteTimeout,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	return s, nil
@@ -91,7 +116,7 @@ func New(opts ...Option) (*Server, error) {
 // Run starts the server and blocks until a shutdown signal is received
 func (s *Server) Run() error {
 	s.logger.Info("Starting MBFlow Server",
-		"version", "1.0.0",
+		"env", s.config.Env,
 		"host", s.config.Server.Host,
 		"port", s.config.Server.Port,
 	)
@@ -102,7 +127,9 @@ func (s *Server) Run() error {
 			"host", s.config.Server.Host,
 			"port", s.config.Server.Port,
 		)
-		serverErrors <- s.httpServer.ListenAndServe()
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErrors <- err
+		}
 	}()
 
 	if s.serviceAPI.GRPCServerInstance != nil {
@@ -118,75 +145,120 @@ func (s *Server) Run() error {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
+	defer signal.Stop(shutdown)
+
+	var runErr error
 	select {
 	case err := <-serverErrors:
-		return fmt.Errorf("server error: %w", err)
+		runErr = fmt.Errorf("server error: %w", err)
+		s.logger.Error("Server failed, shutting down", "error", err)
 
 	case sig := <-shutdown:
 		s.logger.Info("Server shutdown initiated", "signal", sig)
-
-		ctx, cancel := context.WithTimeout(context.Background(), s.config.Server.ShutdownTimeout)
-		defer cancel()
-
-		return s.Shutdown(ctx)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.Server.ShutdownTimeout)
+	defer cancel()
+
+	if err := s.Shutdown(ctx); err != nil && runErr == nil {
+		runErr = err
+	}
+	return runErr
 }
 
-// Shutdown gracefully stops the server
+// Shutdown gracefully stops the server. Order matters: stop accepting new
+// work (HTTP, gRPC, triggers), drain running executions, then release
+// storage, Redis and the database. Safe to call more than once.
 func (s *Server) Shutdown(ctx context.Context) error {
-	if s.triggers.TriggerManager != nil {
-		s.logger.Info("Stopping trigger manager...")
-		if err := s.triggers.TriggerManager.Stop(); err != nil {
-			s.logger.Error("Trigger manager shutdown failed", "error", err)
-		} else {
-			s.logger.Info("Trigger manager stopped")
+	s.shutdownOnce.Do(func() {
+		s.shutdownErr = s.shutdown(ctx)
+	})
+	return s.shutdownErr
+}
+
+func (s *Server) shutdown(ctx context.Context) error {
+	s.shuttingDown.Store(true)
+	var firstErr error
+	record := func(err error) {
+		if err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
 
-	if s.fileStorage.FileStorageManager != nil {
-		s.logger.Info("Closing file storage manager...")
-		if err := s.fileStorage.FileStorageManager.Close(); err != nil {
-			s.logger.Error("File storage manager shutdown failed", "error", err)
-		} else {
-			s.logger.Info("File storage manager closed")
+	// 1. Stop accepting new requests and wait for in-flight ones.
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			s.logger.Error("Graceful HTTP shutdown failed", "error", err)
+			record(err)
+			if err := s.httpServer.Close(); err != nil {
+				s.logger.Error("HTTP server close failed", "error", err)
+			}
 		}
 	}
 
 	if s.serviceAPI.GRPCServerInstance != nil {
 		s.logger.Info("Stopping gRPC Service API server...")
-		s.serviceAPI.GRPCServerInstance.GracefulStop()
+		stopped := make(chan struct{})
+		go func() {
+			s.serviceAPI.GRPCServerInstance.GracefulStop()
+			close(stopped)
+		}()
+		select {
+		case <-stopped:
+		case <-ctx.Done():
+			s.serviceAPI.GRPCServerInstance.Stop()
+			record(ctx.Err())
+		}
 		s.logger.Info("gRPC Service API server stopped")
 	}
 
-	if err := s.httpServer.Shutdown(ctx); err != nil {
-		s.logger.Error("Graceful shutdown failed", "error", err)
-		if err := s.httpServer.Close(); err != nil {
-			s.logger.Error("Server close failed", "error", err)
+	// 2. Stop producing new executions.
+	if s.triggers.TriggerManager != nil {
+		s.logger.Info("Stopping trigger manager...")
+		if err := s.triggers.TriggerManager.Stop(); err != nil {
+			s.logger.Error("Trigger manager shutdown failed", "error", err)
+			record(err)
 		}
 	}
 
-	// Close Redis cache
+	// 3. Drain executions that are still running in the background.
+	if s.execution.ExecutionManager != nil {
+		s.logger.Info("Waiting for running executions to finish...")
+		if err := s.execution.ExecutionManager.Shutdown(ctx); err != nil {
+			s.logger.Error("Executions did not finish before shutdown deadline", "error", err)
+			record(err)
+		}
+	}
+
+	// 4. Stop background loops (cleanup tickers, hubs).
+	if s.bgCancel != nil {
+		s.bgCancel()
+	}
+
+	// 5. Release resources.
+	if s.fileStorage.FileStorageManager != nil {
+		if err := s.fileStorage.FileStorageManager.Close(); err != nil {
+			s.logger.Error("File storage manager shutdown failed", "error", err)
+			record(err)
+		}
+	}
+
 	if s.data.RedisCache != nil {
-		s.logger.Info("Closing Redis cache...")
 		if err := s.data.RedisCache.Close(); err != nil {
 			s.logger.Error("Redis cache close failed", "error", err)
-		} else {
-			s.logger.Info("Redis cache closed")
+			record(err)
 		}
 	}
 
-	// Close database connection
 	if s.data.DB != nil {
-		s.logger.Info("Closing database connection...")
 		if err := storage.Close(s.data.DB); err != nil {
 			s.logger.Error("Database close failed", "error", err)
-		} else {
-			s.logger.Info("Database connection closed")
+			record(err)
 		}
 	}
 
 	s.logger.Info("Server stopped")
-	return nil
+	return firstErr
 }
 
 // Router returns the Gin router for adding custom endpoints

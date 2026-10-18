@@ -730,3 +730,46 @@ func TestHandlers_ListWorkflows_UnauthenticatedSeeAll(t *testing.T) {
 
 	assert.Len(t, workflows, 3)
 }
+
+func TestHandlers_WorkflowGraphSurvivesPublishAndRename(t *testing.T) {
+	t.Parallel()
+	_, router, cleanup := setupWorkflowHandlersTest(t)
+	defer cleanup()
+
+	w := testutil.MakeRequest(t, router, "POST", "/api/v1/workflows", map[string]any{
+		"name": "graph",
+		"nodes": []map[string]any{
+			{"id": "a", "name": "A", "type": "transform", "config": map[string]any{"type": "passthrough"}},
+			{"id": "b", "name": "B", "type": "transform", "config": map[string]any{"type": "passthrough"}},
+		},
+		"edges": []map[string]any{{"id": "e1", "from": "a", "to": "b"}},
+	})
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	var created map[string]any
+	testutil.ParseResponse(t, w, &created)
+	id := created["id"].(string)
+
+	graph := func() (int, int) {
+		w := testutil.MakeRequest(t, router, "GET", "/api/v1/workflows/"+id, nil)
+		require.Equal(t, http.StatusOK, w.Code)
+		var wf map[string]any
+		testutil.ParseResponse(t, w, &wf)
+		nodes, _ := wf["nodes"].([]any)
+		edges, _ := wf["edges"].([]any)
+		return len(nodes), len(edges)
+	}
+
+	n, e := graph()
+	require.Equal(t, 2, n, "nodes sent on create are stored")
+	require.Equal(t, 1, e)
+
+	require.Equal(t, http.StatusOK, testutil.MakeRequest(t, router, "POST", "/api/v1/workflows/"+id+"/publish", nil).Code)
+	n, e = graph()
+	assert.Equal(t, 2, n, "publish must not delete nodes")
+	assert.Equal(t, 1, e, "publish must not delete edges")
+
+	require.Equal(t, http.StatusOK, testutil.MakeRequest(t, router, "PUT", "/api/v1/workflows/"+id, map[string]any{"name": "renamed"}).Code)
+	n, e = graph()
+	assert.Equal(t, 2, n, "metadata-only update must not delete nodes")
+	assert.Equal(t, 1, e)
+}

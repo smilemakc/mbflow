@@ -145,7 +145,7 @@ func (wr *WebhookRegistry) ExecuteWebhook(ctx context.Context, triggerID string,
 	}
 
 	// Execute workflow
-	execution, err := wr.executionMgr.Execute(ctx, trigger.WorkflowID, input, nil)
+	execution, err := wr.executionMgr.Execute(ctx, trigger.WorkflowID, input, executionOptionsFor(trigger.ID))
 	if err != nil {
 		return "", fmt.Errorf("failed to execute workflow: %w", err)
 	}

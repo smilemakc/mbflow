@@ -53,6 +53,16 @@ func WithHTTPFilter(filter EventFilter) HTTPObserverOption {
 	}
 }
 
+// WithHTTPClient replaces the HTTP client used to deliver callbacks (e.g. a
+// client with an SSRF-guarded transport for user-supplied URLs).
+func WithHTTPClient(client *http.Client) HTTPObserverOption {
+	return func(o *HTTPCallbackObserver) {
+		if client != nil {
+			o.client = client
+		}
+	}
+}
+
 // WithHTTPTimeout sets request timeout
 func WithHTTPTimeout(timeout time.Duration) HTTPObserverOption {
 	return func(o *HTTPCallbackObserver) {

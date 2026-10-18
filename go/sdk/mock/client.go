@@ -26,9 +26,9 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) Workflows() mbflow.WorkflowService    { return c.workflows }
-func (c *Client) Executions() mbflow.ExecutionService  { return c.executions }
-func (c *Client) Triggers() mbflow.TriggerService      { return c.triggers }
+func (c *Client) Workflows() mbflow.WorkflowService     { return c.workflows }
+func (c *Client) Executions() mbflow.ExecutionService   { return c.executions }
+func (c *Client) Triggers() mbflow.TriggerService       { return c.triggers }
 func (c *Client) Credentials() mbflow.CredentialService { return c.credentials }
 func (c *Client) Close() error                          { return nil }
 

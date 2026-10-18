@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -411,5 +412,53 @@ func TestSubWorkflow_InvalidConfig(t *testing.T) {
 	err := dagExec.Execute(context.Background(), execState, DefaultExecutionOptions())
 	if err == nil {
 		t.Fatal("expected error for missing workflow_id")
+	}
+}
+
+func TestSubWorkflow_RejectsWorkflowOfAnotherOwner(t *testing.T) {
+	t.Parallel()
+
+	newParent := func(owner string) *models.Workflow {
+		return &models.Workflow{
+			ID:        "parent-wf",
+			Name:      "Parent",
+			CreatedBy: owner,
+			Nodes: []*models.Node{{
+				ID:     "fanout",
+				Name:   "Fan Out",
+				Type:   "sub_workflow",
+				Config: map[string]any{"workflow_id": "child-wf", "for_each": "input.items"},
+			}},
+		}
+	}
+
+	childWF := &models.Workflow{
+		ID:        "child-wf",
+		Name:      "Child",
+		CreatedBy: "user-a",
+		Nodes:     []*models.Node{{ID: "noop", Name: "Noop", Type: "transform", Config: map[string]any{}}},
+	}
+
+	registry := executor.NewManager()
+	registry.Register("transform", &executor.ExecutorFunc{
+		ExecuteFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			return map[string]any{}, nil
+		},
+	})
+	loader := NewMockWorkflowLoader(map[string]*models.Workflow{"child-wf": childWF})
+	dagExec := NewDAGExecutor(NewNodeExecutor(registry), NewExprConditionEvaluator(), NewNoOpNotifier(), loader)
+	input := map[string]any{"items": []any{float64(1)}}
+
+	// Another user's parent workflow must not be able to run user-a's workflow.
+	state := NewExecutionState("exec-other", "parent-wf", newParent("user-b"), input, nil)
+	err := dagExec.Execute(context.Background(), state, DefaultExecutionOptions())
+	if err == nil || !errors.Is(err, ErrSubWorkflowNotAccessible) {
+		t.Fatalf("expected ErrSubWorkflowNotAccessible, got: %v", err)
+	}
+
+	// The owner can.
+	state = NewExecutionState("exec-owner", "parent-wf", newParent("user-a"), input, nil)
+	if err := dagExec.Execute(context.Background(), state, DefaultExecutionOptions()); err != nil {
+		t.Fatalf("owner execution failed: %v", err)
 	}
 }

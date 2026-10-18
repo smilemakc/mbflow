@@ -1,51 +1,50 @@
+# syntax=docker/dockerfile:1
+
+# The build needs no OS packages: modules come from GOPROXY, the base images
+# ship CA certificates, and timezone data is embedded in the binaries
+# (-tags timetzdata) so cron triggers with a timezone work in any image.
+
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache git make
-
-# Set working directory
 WORKDIR /app
 
-# Copy go mod files
+# Cache dependencies separately from source
 COPY go.mod go.sum ./
-
-# Download dependencies
 RUN go mod download
 
-# Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o mbflow-server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -trimpath -tags timetzdata \
+    -ldflags="-s -w" \
+    -o /out/mbflow-server ./cmd/server && \
+    CGO_ENABLED=0 GOOS=linux go build \
+    -trimpath \
+    -ldflags="-s -w" \
+    -o /out/mbflow-migrate ./cmd/migrate
 
 # Runtime stage
-FROM alpine:latest
+FROM alpine:3.22
 
-# Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
-
-# Create non-root user
+# busybox provides wget (healthcheck) and addgroup/adduser
 RUN addgroup -g 1000 mbflow && \
     adduser -D -u 1000 -G mbflow mbflow
 
 WORKDIR /app
 
-# Copy binary from builder
-COPY --from=builder /app/mbflow-server .
+COPY --from=builder /out/mbflow-server /out/mbflow-migrate ./
 
-# Change ownership
-RUN chown -R mbflow:mbflow /app
+# Writable directory for local file storage (MBFLOW_FILE_STORAGE_PATH)
+RUN mkdir -p /app/data/storage && chown -R mbflow:mbflow /app/data
 
-# Use non-root user
 USER mbflow
 
-# Expose port
+ENV MBFLOW_FILE_STORAGE_PATH=/app/data/storage
+
 EXPOSE 8585
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8585/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8585/health || exit 1
 
-# Run the application
-CMD ["./mbflow-server"]
+ENTRYPOINT ["./mbflow-server"]

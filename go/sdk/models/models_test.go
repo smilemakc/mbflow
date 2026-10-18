@@ -28,9 +28,9 @@ func TestWorkflowJSONRoundTrip(t *testing.T) {
 				Position: &models.Position{X: 100, Y: 200},
 			},
 			{
-				ID:   "node-2",
-				Name: "End",
-				Type: "end",
+				ID:     "node-2",
+				Name:   "End",
+				Type:   "end",
 				Config: map[string]any{},
 			},
 		},

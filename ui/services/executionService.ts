@@ -44,6 +44,12 @@ export const executionService = {
     return executionFromApi(response.data);
   },
 
+  // Get the raw API representation of an execution (incl. node executions)
+  getRaw: async (executionId: string) => {
+    const response = await apiClient.get<ExecutionApiResponse>(`/executions/${executionId}`);
+    return response.data;
+  },
+
   // Get logs for an execution
   getLogs: async (executionId: string) => {
     const response = await apiClient.get<LogsResponse>(`/executions/${executionId}/logs`);

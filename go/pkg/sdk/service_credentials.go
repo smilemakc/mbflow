@@ -13,17 +13,17 @@ type ServiceCredentialsAPI struct {
 
 // ServiceCredential represents a credential response from the Service API.
 type ServiceCredential struct {
-	ID           string            `json:"id"`
-	OwnerID      string            `json:"owner_id"`
-	Name         string            `json:"name"`
-	Description  string            `json:"description,omitempty"`
-	Provider     string            `json:"provider"`
-	AuthType     string            `json:"auth_type"`
-	Status       string            `json:"status"`
-	UsageCount   int64             `json:"usage_count"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
-	CreatedAt    string            `json:"created_at"`
-	UpdatedAt    string            `json:"updated_at"`
+	ID          string            `json:"id"`
+	OwnerID     string            `json:"owner_id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	Provider    string            `json:"provider"`
+	AuthType    string            `json:"auth_type"`
+	Status      string            `json:"status"`
+	UsageCount  int64             `json:"usage_count"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+	CreatedAt   string            `json:"created_at"`
+	UpdatedAt   string            `json:"updated_at"`
 }
 
 // List returns all credentials, optionally filtered by user_id.
@@ -84,12 +84,12 @@ type ServiceCredentialListOptions struct {
 
 // ServiceCreateCredentialRequest defines the request for creating a credential.
 type ServiceCreateCredentialRequest struct {
-	Name         string            `json:"name"`
-	Description  string            `json:"description,omitempty"`
-	Provider     string            `json:"provider"`
-	AuthType     string            `json:"auth_type"`
-	Data         map[string]string `json:"data"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	Provider    string            `json:"provider"`
+	AuthType    string            `json:"auth_type"`
+	Data        map[string]string `json:"data"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 // ServiceUpdateCredentialRequest defines the request for updating a credential.

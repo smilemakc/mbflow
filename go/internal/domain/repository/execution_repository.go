@@ -34,6 +34,9 @@ type ExecutionRepository interface {
 	// FindAll retrieves all executions with pagination
 	FindAll(ctx context.Context, limit, offset int) ([]*models.ExecutionModel, error)
 
+	// FindWithFilters retrieves executions matching the filters with pagination
+	FindWithFilters(ctx context.Context, filters ExecutionFilters, limit, offset int) ([]*models.ExecutionModel, error)
+
 	// FindRunning retrieves all running executions
 	FindRunning(ctx context.Context) ([]*models.ExecutionModel, error)
 
@@ -85,4 +88,13 @@ type ExecutionStatistics struct {
 	AverageDuration *time.Duration `json:"average_duration,omitempty"`
 	SuccessRate     float64        `json:"success_rate"`
 	FailureRate     float64        `json:"failure_rate"`
+}
+
+// ExecutionFilters narrows execution listings. Nil fields are ignored.
+type ExecutionFilters struct {
+	WorkflowID *uuid.UUID
+	Status     *string
+	// OwnerID limits results to executions of workflows created by the user
+	// and inline executions started by the user.
+	OwnerID *uuid.UUID
 }

@@ -17,9 +17,7 @@ import type {
   AuthInfo,
 } from '@/types/auth';
 
-// Storage keys
-const TOKEN_KEY = 'auth_token';
-const REFRESH_TOKEN_KEY = 'auth_refresh_token';
+import { TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/lib/authStorage';
 
 class AuthService {
   /**

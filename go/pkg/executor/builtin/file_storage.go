@@ -14,6 +14,7 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // FileStorageExecutor executes file storage operations
@@ -118,7 +119,11 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		}
 	} else if fileURL := e.GetStringDefault(config, "file_url", ""); fileURL != "" {
 		// Download from URL
-		resp, err := http.Get(fileURL)
+		dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("invalid file URL: %w", err)
+		}
+		resp, err := netguard.DefaultClient(60 * time.Second).Do(dlReq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download file from URL: %w", err)
 		}
@@ -129,7 +134,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		}
 
 		// Read into buffer
-		data, err := io.ReadAll(resp.Body)
+		data, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read file from URL: %w", err)
 		}

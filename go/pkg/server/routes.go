@@ -20,13 +20,24 @@ import (
 )
 
 func (s *Server) setupRoutes() error {
-	if s.config.Logging.Level == "debug" {
+	devDebug := !s.config.IsProduction() && s.config.Logging.Level == "debug"
+	if devDebug {
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	s.router = gin.New()
+
+	// Only trust X-Forwarded-For from configured reverse proxies; otherwise
+	// clients could spoof their IP and bypass per-IP rate limiting.
+	var trustedProxies []string
+	if len(s.config.Server.TrustedProxies) > 0 {
+		trustedProxies = s.config.Server.TrustedProxies
+	}
+	if err := s.router.SetTrustedProxies(trustedProxies); err != nil {
+		return fmt.Errorf("invalid MBFLOW_TRUSTED_PROXIES: %w", err)
+	}
 
 	s.router.MaxMultipartMemory = s.config.Server.MaxMultipartMemory
 
@@ -41,7 +52,7 @@ func (s *Server) setupRoutes() error {
 
 	if s.config.Server.CORS {
 		allowedOrigins := s.config.Server.CORSAllowedOrigins
-		allowAll := len(allowedOrigins) == 0 && s.config.Logging.Level == "debug"
+		allowAll := len(allowedOrigins) == 0 && devDebug
 
 		if !allowAll && len(allowedOrigins) == 0 {
 			s.logger.Warn("CORS enabled but no allowed origins configured (MBFLOW_CORS_ALLOWED_ORIGINS). Set origins or use debug log level for wildcard.")
@@ -84,7 +95,9 @@ func (s *Server) setupRoutes() error {
 	}
 
 	s.setupHealthEndpoints()
-	s.setupSwaggerEndpoint()
+	if !s.config.IsProduction() {
+		s.setupSwaggerEndpoint()
+	}
 	s.setupWebSocketEndpoints()
 	s.setupAPIv1Routes()
 
@@ -93,34 +106,50 @@ func (s *Server) setupRoutes() error {
 }
 
 func (s *Server) setupHealthEndpoints() {
-	s.router.GET("/health", func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-		defer cancel()
+	// Liveness: the process is up and serving HTTP. Deliberately does not
+	// check dependencies so a database outage does not restart every replica.
+	liveness := func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	}
+	s.router.GET("/health", liveness)
+	s.router.GET("/livez", liveness)
 
-		if err := storage.Ping(ctx, s.data.DB); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"status": "unhealthy",
-				"error":  fmt.Sprintf("database: %s", err.Error()),
-			})
+	// Readiness: dependencies are reachable and the server is not draining.
+	readiness := func(c *gin.Context) {
+		if s.shuttingDown.Load() {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "shutting_down"})
 			return
 		}
 
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		checks := gin.H{"database": "ok"}
+		healthy := true
+
+		if err := storage.Ping(ctx, s.data.DB); err != nil {
+			s.logger.Warn("Readiness check failed: database", "error", err)
+			checks["database"] = "unavailable"
+			healthy = false
+		}
+
 		if s.data.RedisCache != nil {
+			checks["redis"] = "ok"
 			if err := s.data.RedisCache.Health(ctx); err != nil {
-				c.JSON(http.StatusServiceUnavailable, gin.H{
-					"status": "unhealthy",
-					"error":  fmt.Sprintf("redis: %s", err.Error()),
-				})
-				return
+				s.logger.Warn("Readiness check failed: redis", "error", err)
+				checks["redis"] = "unavailable"
+				healthy = false
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
-	})
-
-	s.router.GET("/ready", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ready"})
-	})
+		if !healthy {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready", "checks": checks})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ready", "checks": checks})
+	}
+	s.router.GET("/ready", readiness)
+	s.router.GET("/readyz", readiness)
 
 	s.router.GET("/metrics", func(c *gin.Context) {
 		dbStats := storage.Stats(s.data.DB)
@@ -158,7 +187,15 @@ func (s *Server) setupSwaggerEndpoint() {
 func (s *Server) setupWebSocketEndpoints() {
 	if s.config.Observer.EnableWebSocket && s.execution.WSHub != nil {
 		wsHandler := observer.NewWebSocketHandler(s.execution.WSHub, s.logger)
-		s.router.GET("/ws/executions", func(c *gin.Context) {
+		wsHandler.SetAllowedOrigins(s.config.Server.CORSAllowedOrigins, !s.config.IsProduction() && len(s.config.Server.CORSAllowedOrigins) == 0)
+		// Browsers cannot set headers on WebSocket upgrades, so the token may
+		// also be passed as ?token=... (supported by the auth middleware).
+		s.router.GET("/ws/executions", s.auth.AuthMiddleware.RequireAuth(), s.ownershipGuard().RequireExecutionQueryAccess("execution_id"), func(c *gin.Context) {
+			// Subscribing to all executions is limited to administrators.
+			if c.Query("execution_id") == "" && !rest.IsAdmin(c) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "execution_id is required"})
+				return
+			}
 			wsHandler.ServeHTTP(c.Writer, c.Request)
 		})
 		s.router.GET("/ws/health", func(c *gin.Context) {
@@ -168,6 +205,46 @@ func (s *Server) setupWebSocketEndpoints() {
 			"endpoints", []string{"/ws/executions", "/ws/health"},
 		)
 	}
+}
+
+// operations returns the shared transport-agnostic business layer used by
+// the REST and gRPC handlers.
+func (s *Server) operations() *serviceapi.Operations {
+	if s.serviceAPI.Operations == nil {
+		ops := &serviceapi.Operations{
+			WorkflowRepo:    s.data.WorkflowRepo,
+			ExecutionRepo:   s.data.ExecutionRepo,
+			TriggerRepo:     s.data.TriggerRepo,
+			CredentialsRepo: s.data.CredentialsRepo,
+			ExecutionMgr:    s.execution.ExecutionManager,
+			ExecutorManager: s.execution.ExecutorManager,
+			EncryptionSvc:   s.auth.EncryptionService,
+			AuditService:    s.serviceAPI.AuditService,
+			Logger:          s.logger,
+		}
+		// Assign only a non-nil manager: a typed nil would make the
+		// interface non-nil and panic on first use.
+		if s.triggers.TriggerManager != nil {
+			ops.TriggerSync = s.triggers.TriggerManager
+		}
+		s.serviceAPI.Operations = ops
+	}
+	return s.serviceAPI.Operations
+}
+
+// ownershipGuard enforces per-user isolation of workflows and related records.
+func (s *Server) ownershipGuard() *rest.OwnershipGuard {
+	if s.guard == nil {
+		s.guard = rest.NewOwnershipGuard(
+			s.data.WorkflowRepo,
+			s.data.ExecutionRepo,
+			s.data.TriggerRepo,
+			s.data.FileRepo,
+			s.data.ResourceRepo,
+			s.logger,
+		)
+	}
+	return s.guard
 }
 
 func (s *Server) setupAPIv1Routes() {
@@ -231,26 +308,17 @@ func (s *Server) setupAdminRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
-	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.data.WorkflowRepo,
-		ExecutionRepo:   s.data.ExecutionRepo,
-		TriggerRepo:     s.data.TriggerRepo,
-		CredentialsRepo: s.data.CredentialsRepo,
-		ExecutionMgr:    s.execution.ExecutionManager,
-		ExecutorManager: s.execution.ExecutorManager,
-		EncryptionSvc:   s.auth.EncryptionService,
-		AuditService:    s.serviceAPI.AuditService,
-		Logger:          s.logger,
-	}
+	ops := s.operations()
 
-	workflowHandlers := rest.NewWorkflowHandlers(ops, s.logger)
+	workflowHandlers := rest.NewWorkflowHandlers(ops, s.logger).WithOwnershipGuard(s.ownershipGuard())
 	nodeHandlers := rest.NewNodeHandlers(s.data.WorkflowRepo, s.logger)
 	edgeHandlers := rest.NewEdgeHandlers(s.data.WorkflowRepo, s.logger)
 	executionHandlers := rest.NewExecutionHandlers(ops, s.logger)
 	importHandlers := rest.NewImportHandlers(s.data.WorkflowRepo, s.data.TriggerRepo, s.logger, s.execution.ExecutorManager)
 
 	workflows := apiV1.Group("/workflows")
-	workflows.Use(s.auth.AuthMiddleware.OptionalAuth())
+	workflows.Use(s.auth.AuthMiddleware.RequireAuth())
+	workflows.Use(s.ownershipGuard().RequireWorkflowAccess("workflow_id"))
 	{
 		workflows.POST("", workflowHandlers.HandleCreateWorkflow)
 		workflows.GET("", workflowHandlers.HandleListWorkflows)
@@ -286,21 +354,14 @@ func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
-	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.data.WorkflowRepo,
-		ExecutionRepo:   s.data.ExecutionRepo,
-		TriggerRepo:     s.data.TriggerRepo,
-		CredentialsRepo: s.data.CredentialsRepo,
-		ExecutionMgr:    s.execution.ExecutionManager,
-		ExecutorManager: s.execution.ExecutorManager,
-		EncryptionSvc:   s.auth.EncryptionService,
-		AuditService:    s.serviceAPI.AuditService,
-		Logger:          s.logger,
-	}
+	ops := s.operations()
 
 	executionHandlers := rest.NewExecutionHandlers(ops, s.logger)
 
 	executions := apiV1.Group("/executions")
+	executions.Use(s.auth.AuthMiddleware.RequireAuth())
+	executions.Use(s.ownershipGuard().RequireExecutionAccess("id"))
+	executions.Use(s.ownershipGuard().RequireWorkflowAccess("workflow_id"))
 	{
 		executions.POST("/run/:workflow_id", executionHandlers.HandleRunExecution)
 		executions.POST("/ephemeral", executionHandlers.HandleRunEphemeralExecution)
@@ -316,21 +377,13 @@ func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
-	ops := &serviceapi.Operations{
-		WorkflowRepo:    s.data.WorkflowRepo,
-		ExecutionRepo:   s.data.ExecutionRepo,
-		TriggerRepo:     s.data.TriggerRepo,
-		CredentialsRepo: s.data.CredentialsRepo,
-		ExecutionMgr:    s.execution.ExecutionManager,
-		ExecutorManager: s.execution.ExecutorManager,
-		EncryptionSvc:   s.auth.EncryptionService,
-		AuditService:    s.serviceAPI.AuditService,
-		Logger:          s.logger,
-	}
+	ops := s.operations()
 
-	triggerHandlers := rest.NewTriggerHandlers(ops, s.logger)
+	triggerHandlers := rest.NewTriggerHandlers(ops, s.logger).WithOwnershipGuard(s.ownershipGuard())
 
 	triggers := apiV1.Group("/triggers")
+	triggers.Use(s.auth.AuthMiddleware.RequireAuth())
+	triggers.Use(s.ownershipGuard().RequireTriggerAccess("id"))
 	{
 		triggers.POST("", triggerHandlers.HandleCreateTrigger)
 		triggers.GET("", triggerHandlers.HandleListTriggers)
@@ -344,10 +397,11 @@ func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupFileRoutes(apiV1 *gin.RouterGroup) {
-	fileHandlers := rest.NewFileHandlers(s.data.FileRepo, s.fileStorage.FileStorageManager, s.logger)
+	fileHandlers := rest.NewFileHandlers(s.data.FileRepo, s.fileStorage.FileStorageManager, s.logger).WithOwnershipGuard(s.ownershipGuard())
 
 	files := apiV1.Group("/files")
-	files.Use(s.auth.AuthMiddleware.OptionalAuth())
+	files.Use(s.auth.AuthMiddleware.RequireAuth())
+	files.Use(s.ownershipGuard().RequireFileAccess("id"))
 	{
 		files.POST("", fileHandlers.HandleUploadFile)
 		files.GET("", fileHandlers.HandleListFiles)
@@ -493,14 +547,14 @@ func (s *Server) setupWebhookRoutes(apiV1 *gin.RouterGroup) {
 	}
 
 	webhookHandlers := rest.NewWebhookHandlers(s.triggers.TriggerManager.WebhookRegistry(), s.logger)
-	apiV1.POST("/webhooks/:path", webhookHandlers.HandleWebhook)
-	apiV1.GET("/webhooks/:path", webhookHandlers.HandleWebhookGet)
+	apiV1.POST("/webhooks/:trigger_id", webhookHandlers.HandleWebhook)
+	apiV1.GET("/webhooks/:trigger_id", webhookHandlers.HandleWebhookGet)
 
 	telegramWebhookHandlers := rest.NewTelegramWebhookHandlers(s.triggers.TriggerManager.WebhookRegistry(), s.logger)
 	apiV1.POST("/webhooks/telegram/:trigger_id", telegramWebhookHandlers.HandleTelegramWebhook)
 
 	s.logger.Info("Webhook endpoints registered",
-		"endpoints", []string{"/api/v1/webhooks/:path", "/api/v1/webhooks/telegram/:trigger_id"},
+		"endpoints", []string{"/api/v1/webhooks/:trigger_id", "/api/v1/webhooks/telegram/:trigger_id"},
 	)
 }
 
@@ -521,17 +575,7 @@ func (s *Server) setupServiceAPIRoutes(apiV1 *gin.RouterGroup) {
 	serviceAPI.Use(s.serviceAPI.SystemAuthMiddleware.HandleImpersonation())
 	serviceAPI.Use(s.serviceAPI.AuditMiddleware.RecordAction())
 	{
-		ops := &serviceapi.Operations{
-			WorkflowRepo:    s.data.WorkflowRepo,
-			ExecutionRepo:   s.data.ExecutionRepo,
-			TriggerRepo:     s.data.TriggerRepo,
-			CredentialsRepo: s.data.CredentialsRepo,
-			ExecutionMgr:    s.execution.ExecutionManager,
-			ExecutorManager: s.execution.ExecutorManager,
-			EncryptionSvc:   s.auth.EncryptionService,
-			AuditService:    s.serviceAPI.AuditService,
-			Logger:          s.logger,
-		}
+		ops := s.operations()
 
 		wfh := rest.NewServiceAPIWorkflowHandlers(ops)
 		serviceAPI.GET("/workflows", wfh.ListWorkflows)

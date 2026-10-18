@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // RSSParserExecutor parses RSS/Atom feeds and returns structured data.
@@ -115,7 +115,7 @@ func (e *RSSParserExecutor) Execute(ctx context.Context, config map[string]any, 
 	req.Header.Set("User-Agent", "MBFlow-RSS-Parser/1.0")
 	req.Header.Set("Accept", "application/rss+xml, application/xml, text/xml, application/atom+xml")
 
-	resp, err := e.client.Do(req)
+	resp, err := netguard.Guard(e.client).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch RSS feed: %w", err)
 	}
@@ -126,7 +126,7 @@ func (e *RSSParserExecutor) Execute(ctx context.Context, config map[string]any, 
 	}
 
 	// Read response body
-	body, err := io.ReadAll(resp.Body)
+	body, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}

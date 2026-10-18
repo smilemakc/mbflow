@@ -40,7 +40,7 @@ examples/
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.25 or later
 - PostgreSQL 16
 - Redis 7 (optional)
 - Docker and Docker Compose (for containerized setup)
@@ -51,19 +51,32 @@ examples/
 
 ```bash
 git clone https://github.com/smilemakc/mbflow.git
-cd mbflow/backend
+cd mbflow/go
 ```
 
-2. Start all services:
+2. Create a `.env` file with secrets (see the top of `docker-compose.yml`):
 
 ```bash
-docker compose up -d
+cat > .env <<ENV
+MBFLOW_JWT_SECRET=$(openssl rand -hex 32)
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+REDIS_PASSWORD=$(openssl rand -hex 16)
+MBFLOW_ADMIN_EMAIL=admin@example.com
+MBFLOW_ADMIN_PASSWORD=$(openssl rand -base64 18)Aa1!  # print it: grep ADMIN_PASSWORD .env
+ENV
 ```
 
-3. Check service health:
+3. Start all services (migrations run automatically via the one-shot `mbflow-migrate` service):
 
 ```bash
-curl http://localhost:8585/health
+docker compose up -d --build
+```
+
+4. Check service health and open the UI at http://localhost:8080:
+
+```bash
+curl http://localhost:8585/health   # liveness
+curl http://localhost:8585/ready    # readiness (DB + Redis)
 ```
 
 ### Local Development Setup
@@ -97,9 +110,10 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-4. Build and run the server:
+4. Apply database migrations, then build and run the server:
 
 ```bash
+go run ./cmd/migrate -command up   # uses MBFLOW_DATABASE_URL
 go build -o mbflow-server ./cmd/server
 ./mbflow-server
 ```
@@ -175,22 +189,38 @@ MBFLOW_AUTH_REDIRECT_URL=http://localhost:8585/auth/callback
 
 ### Health & Monitoring
 
-- `GET /health` - Health check
-- `GET /ready` - Readiness check
+- `GET /health` (alias `/livez`) - Liveness check; does not touch dependencies
+- `GET /ready` (alias `/readyz`) - Readiness check; verifies PostgreSQL and Redis, returns 503 while shutting down
 - `GET /metrics` - System metrics
 
 ### API v1
 
-- `POST /api/v1/workflows` - Create workflow
+- `POST /api/v1/workflows` - Create workflow (optionally with `nodes` and `edges`)
 - `GET /api/v1/workflows` - List workflows
 - `GET /api/v1/workflows/:id` - Get workflow
-- `PUT /api/v1/workflows/:id` - Update workflow
+- `PUT /api/v1/workflows/:id` - Update workflow (`nodes`, `edges`, `resources` are replaced only when sent)
 - `DELETE /api/v1/workflows/:id` - Delete workflow
-- `POST /api/v1/executions` - Execute workflow
+- `POST /api/v1/workflows/:id/execute` - Execute workflow (async; poll the execution or use the WebSocket)
+- `POST /api/v1/executions/ephemeral` - Run an inline workflow (`mode: sync|async`)
 - `GET /api/v1/executions/:id` - Get execution
 - `POST /api/v1/triggers` - Create trigger
+- `POST /api/v1/webhooks/:trigger_id` - Call a webhook trigger
 
 (Full API documentation coming soon)
+
+### Triggers
+
+Trigger changes made through the API (create, update, enable, disable,
+delete) take effect immediately; executions started by a trigger record its
+`trigger_id`. Triggers are created disabled unless `"enabled": true` is sent.
+
+| Type | Config |
+|------|--------|
+| `cron` | `{"schedule": "0 9 * * 1-5", "timezone": "Europe/Moscow", "input": {...}}`. Standard 5-field cron, 6-field with leading seconds, or descriptors such as `@hourly`. `timezone` is an IANA name (default UTC). |
+| `interval` | `{"interval": "30s"}` (Go duration or number of seconds) |
+| `webhook` | `{"secret": "...", "ip_whitelist": [...], "input": {...}}`, all optional. Call `POST /api/v1/webhooks/<trigger_id>`. |
+
+Invalid schedules are rejected with `400 INVALID_TRIGGER_CONFIG`.
 
 ## SDK Usage
 
@@ -344,12 +374,23 @@ docker build -t mbflow:latest .
 
 ```bash
 docker build -t mbflow:latest .
+# Apply migrations (safe to run from several replicas: guarded by a lock)
+docker run --rm -e MBFLOW_DATABASE_URL=postgres://... \
+  --entrypoint ./mbflow-migrate mbflow:latest -command up
+
 docker run -d \
   -p 8585:8585 \
-  -e DATABASE_URL=postgres://... \
-  -e REDIS_URL=redis://... \
+  -e MBFLOW_ENV=production \
+  -e MBFLOW_DATABASE_URL=postgres://... \
+  -e MBFLOW_REDIS_URL=redis://... \
+  -e MBFLOW_JWT_SECRET=... \
+  -e MBFLOW_CORS_ALLOWED_ORIGINS=https://mbflow.example.com \
   mbflow:latest
 ```
+
+For Kubernetes, point the liveness probe at `/health` and the readiness probe
+at `/ready`, and set `terminationGracePeriodSeconds` above
+`MBFLOW_SHUTDOWN_TIMEOUT` (default 30s) so running executions can drain.
 
 ### Docker Compose
 
@@ -381,8 +422,6 @@ Metrics include:
 
 - Database connection pool statistics
 - Redis cache statistics
-- Request counts and latencies
-- Execution statistics
 
 ## Security
 
@@ -390,6 +429,34 @@ Metrics include:
 - Environment variable-based secrets
 - No secrets in source code
 - CORS support for browser clients
+
+### Data isolation between users
+
+Every `/api/v1` workflow, execution, trigger and file endpoint requires
+authentication and is scoped to the caller:
+
+| Record | Owner |
+|--------|-------|
+| Workflow (and its nodes, edges, attached resources) | `mbflow_workflows.created_by` |
+| Trigger | its workflow's owner |
+| Stored execution | its workflow's owner |
+| Inline (ephemeral) execution | `mbflow_executions.created_by` |
+| File | `mbflow_files.created_by`, or the owner of the workflow it is attached to |
+
+- Lists only return the caller's records; administrators see everything.
+- Reading, changing or deleting someone else's record returns **404**, so the
+  API does not reveal whether it exists.
+- Users can only attach their own resources (credentials, storage, keys) to a
+  workflow, and a `sub_workflow` node can only call workflows of the same owner.
+- The execution WebSocket (`/ws/executions?execution_id=...`) only streams
+  executions the caller owns. Non-persisted inline executions are not stored,
+  so only admins can watch them there; use webhooks or the gRPC stream instead.
+- Records created before ownership was tracked (`created_by IS NULL`) are
+  visible to administrators only. Migration `018_record_ownership` backfills
+  file owners from their resource or workflow; assign any remaining legacy
+  workflows by setting `created_by` directly in the database.
+- The Service API (`/api/v1/service/*`, system keys) is a trusted
+  administrative interface and is not restricted by these rules.
 
 ## Troubleshooting
 

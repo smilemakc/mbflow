@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/models"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // OpenAIResponsesProvider implements the LLM provider for OpenAI Responses API.
@@ -67,14 +67,14 @@ func (p *OpenAIResponsesProvider) Execute(ctx context.Context, req *models.LLMRe
 	}
 
 	// Execute request
-	resp, err := p.client.Do(httpReq)
+	resp, err := netguard.Guard(p.client).Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

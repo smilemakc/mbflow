@@ -11,6 +11,7 @@ import (
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // FunctionCallExecutor executes function calls from LLM responses.
@@ -313,13 +314,13 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 			}
 		}
 
-		resp, err := e.client.Do(req)
+		resp, err := netguard.Guard(e.client).Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("request failed: %w", err)
 		}
 		defer resp.Body.Close()
 
-		respBody, err := io.ReadAll(resp.Body)
+		respBody, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response: %w", err)
 		}

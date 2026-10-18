@@ -93,9 +93,10 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 	}
 
 	clientIP := c.ClientIP()
+	attemptKey := LoginAttemptKey(clientIP, req.Email)
 
-	// Check if IP is rate limited
-	if h.rateLimiter != nil && h.rateLimiter.IsBlocked(clientIP) {
+	// Check if this client is locked out for this account
+	if h.rateLimiter != nil && h.rateLimiter.IsBlocked(attemptKey) {
 		respondErrorWithDetails(c, http.StatusTooManyRequests, "too many login attempts", "RATE_LIMIT_EXCEEDED", map[string]any{
 			"retry_after": 900, // 15 minutes
 		})
@@ -144,11 +145,11 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 
 	if err != nil {
 		if h.rateLimiter != nil {
-			h.rateLimiter.RecordFailedAttempt(clientIP)
+			h.rateLimiter.RecordFailedAttempt(attemptKey)
 		}
 
 		if err == auth.ErrInvalidCredentials && h.rateLimiter != nil {
-			remaining := h.rateLimiter.GetRemainingAttempts(clientIP)
+			remaining := h.rateLimiter.GetRemainingAttempts(attemptKey)
 			apiErr := TranslateError(err)
 			if apiErr.Details == nil {
 				apiErr.Details = make(map[string]any)
@@ -164,7 +165,7 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 
 	// Reset rate limit on successful login
 	if h.rateLimiter != nil {
-		h.rateLimiter.RecordSuccessfulLogin(clientIP)
+		h.rateLimiter.RecordSuccessfulLogin(attemptKey)
 	}
 
 	respondJSON(c, http.StatusOK, authResult)

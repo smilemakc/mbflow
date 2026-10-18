@@ -440,3 +440,27 @@ func (r *ExecutionRepository) GetEventsSince(ctx context.Context, executionID uu
 	}
 	return events, nil
 }
+
+// FindWithFilters retrieves executions matching the filters with pagination
+func (r *ExecutionRepository) FindWithFilters(ctx context.Context, filters repository.ExecutionFilters, limit, offset int) ([]*models.ExecutionModel, error) {
+	var executions []*models.ExecutionModel
+	q := r.db.NewSelect().Model(&executions)
+	if filters.WorkflowID != nil {
+		q = q.Where("ex.workflow_id = ?", *filters.WorkflowID)
+	}
+	if filters.Status != nil {
+		q = q.Where("ex.status = ?", *filters.Status)
+	}
+	if filters.OwnerID != nil {
+		q = q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.
+				Where("ex.workflow_id IN (SELECT id FROM mbflow_workflows WHERE created_by = ?)", *filters.OwnerID).
+				WhereOr("ex.created_by = ?", *filters.OwnerID)
+		})
+	}
+	err := q.Order("started_at DESC").Limit(limit).Offset(offset).Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find executions: %w", err)
+	}
+	return executions, nil
+}

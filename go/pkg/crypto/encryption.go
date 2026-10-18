@@ -38,13 +38,16 @@ type EncryptionService struct {
 
 var (
 	defaultService *EncryptionService
+	defaultErr     error
 	serviceOnce    sync.Once
 )
 
 // GetDefaultService returns the default encryption service configured from environment
 func GetDefaultService() (*EncryptionService, error) {
-	var initErr error
 	serviceOnce.Do(func() {
+		var initErr error
+		defer func() { defaultErr = initErr }()
+
 		keyStr := os.Getenv(KeyEnvVar)
 		if keyStr == "" {
 			initErr = ErrKeyNotConfigured
@@ -60,8 +63,9 @@ func GetDefaultService() (*EncryptionService, error) {
 		defaultService, initErr = NewEncryptionService(key)
 	})
 
-	if initErr != nil {
-		return nil, initErr
+	// The init error is remembered: later calls must not return (nil, nil).
+	if defaultErr != nil {
+		return nil, defaultErr
 	}
 
 	return defaultService, nil

@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/smilemakc/mbflow/go/internal/application/trigger"
+	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -16,6 +18,8 @@ type ListTriggersParams struct {
 	Offset     int
 	WorkflowID *uuid.UUID
 	Type       *string
+	// OwnerID restricts results to triggers of workflows created by this user.
+	OwnerID *uuid.UUID
 }
 
 // ListTriggersResult contains the result of listing triggers.
@@ -28,7 +32,15 @@ func (o *Operations) ListTriggers(ctx context.Context, params ListTriggersParams
 	var triggerModels []*storagemodels.TriggerModel
 	var err error
 
-	if params.WorkflowID != nil {
+	ownerFilters := repository.TriggerFilters{
+		WorkflowID: params.WorkflowID,
+		Type:       params.Type,
+		OwnerID:    params.OwnerID,
+	}
+
+	if params.OwnerID != nil {
+		triggerModels, err = o.TriggerRepo.FindWithFilters(ctx, ownerFilters, params.Limit, params.Offset)
+	} else if params.WorkflowID != nil {
 		triggerModels, err = o.TriggerRepo.FindByWorkflowID(ctx, *params.WorkflowID)
 	} else if params.Type != nil {
 		triggerModels, err = o.TriggerRepo.FindByType(ctx, *params.Type, params.Limit, params.Offset)
@@ -47,7 +59,9 @@ func (o *Operations) ListTriggers(ctx context.Context, params ListTriggersParams
 	}
 
 	var total int
-	if params.WorkflowID != nil {
+	if params.OwnerID != nil {
+		total, err = o.TriggerRepo.CountWithFilters(ctx, ownerFilters)
+	} else if params.WorkflowID != nil {
 		total, err = o.TriggerRepo.CountByWorkflowID(ctx, *params.WorkflowID)
 	} else if params.Type != nil {
 		total, err = o.TriggerRepo.CountByType(ctx, *params.Type)
@@ -99,6 +113,10 @@ func (o *Operations) CreateTrigger(ctx context.Context, params CreateTriggerPara
 		return nil, NewValidationError("INVALID_TRIGGER_TYPE", "invalid trigger type")
 	}
 
+	if err := trigger.ValidateScheduleConfig(params.Type, params.Config); err != nil {
+		return nil, NewValidationError("INVALID_TRIGGER_CONFIG", err.Error())
+	}
+
 	triggerModel := &storagemodels.TriggerModel{
 		ID:         uuid.New(),
 		WorkflowID: workflowUUID,
@@ -113,6 +131,7 @@ func (o *Operations) CreateTrigger(ctx context.Context, params CreateTriggerPara
 		o.Logger.Error("Failed to create trigger", "error", err, "workflow_id", workflowUUID, "trigger_type", params.Type)
 		return nil, err
 	}
+	o.syncTrigger(ctx, triggerModel.ID.String())
 
 	return triggerModelToDomain(triggerModel, params.Name, params.Description), nil
 }
@@ -149,10 +168,15 @@ func (o *Operations) UpdateTrigger(ctx context.Context, params UpdateTriggerPara
 		triggerModel.Enabled = *params.Enabled
 	}
 
+	if err := trigger.ValidateScheduleConfig(triggerModel.Type, triggerModel.Config); err != nil {
+		return nil, NewValidationError("INVALID_TRIGGER_CONFIG", err.Error())
+	}
+
 	if err := o.TriggerRepo.Update(ctx, triggerModel); err != nil {
 		o.Logger.Error("Failed to update trigger", "error", err, "trigger_id", params.TriggerID)
 		return nil, err
 	}
+	o.syncTrigger(ctx, params.TriggerID.String())
 
 	return triggerModelToDomain(triggerModel, params.Name, params.Description), nil
 }
@@ -167,6 +191,7 @@ func (o *Operations) DeleteTrigger(ctx context.Context, params DeleteTriggerPara
 		o.Logger.Error("Failed to delete trigger", "error", err, "trigger_id", params.TriggerID)
 		return err
 	}
+	o.syncTrigger(ctx, params.TriggerID.String())
 	return nil
 }
 
@@ -208,6 +233,7 @@ func (o *Operations) EnableTrigger(ctx context.Context, params EnableTriggerPara
 		o.Logger.Error("Failed to find trigger after enable", "error", err, "trigger_id", params.TriggerID)
 		return nil, models.ErrTriggerNotFound
 	}
+	o.syncTrigger(ctx, params.TriggerID.String())
 	return triggerModelToDomain(triggerModel, "", ""), nil
 }
 
@@ -225,6 +251,7 @@ func (o *Operations) DisableTrigger(ctx context.Context, params DisableTriggerPa
 		o.Logger.Error("Failed to find trigger after disable", "error", err, "trigger_id", params.TriggerID)
 		return nil, models.ErrTriggerNotFound
 	}
+	o.syncTrigger(ctx, params.TriggerID.String())
 	return triggerModelToDomain(triggerModel, "", ""), nil
 }
 

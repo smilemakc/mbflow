@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,19 +30,14 @@ func (m *LoggingMiddleware) RequestLogger() gin.HandlerFunc {
 		start := time.Now()
 
 		requestID := c.GetHeader(RequestIDHeader)
-		if requestID == "" {
+		if !validRequestID(requestID) {
 			requestID = uuid.New().String()
 		}
 		c.Set(ContextKeyRequestID, requestID)
 		c.Header(RequestIDHeader, requestID)
 
-		userID, _ := GetUserID(c)
-		if userID == "" {
-			userID = "anonymous"
-		}
-
 		path := c.Request.URL.Path
-		query := c.Request.URL.RawQuery
+		query := redactQuery(c.Request.URL.RawQuery)
 		method := c.Request.Method
 		clientIP := c.ClientIP()
 		userAgent := c.Request.UserAgent()
@@ -52,10 +49,15 @@ func (m *LoggingMiddleware) RequestLogger() gin.HandlerFunc {
 			"query", query,
 			"client_ip", clientIP,
 			"user_agent", userAgent,
-			"user_id", userID,
 		)
 
 		c.Next()
+
+		// Auth middleware runs after this one, so the user is known only now.
+		userID, _ := GetUserID(c)
+		if userID == "" {
+			userID = "anonymous"
+		}
 
 		duration := time.Since(start)
 		statusCode := c.Writer.Status()
@@ -100,4 +102,56 @@ func GetRequestID(c *gin.Context) string {
 		return ""
 	}
 	return requestID.(string)
+}
+
+// sensitiveQueryParams are masked in request logs (tokens may be passed in the
+// query string, e.g. for WebSocket and SSE connections).
+var sensitiveQueryParams = map[string]struct{}{
+	"token":         {},
+	"access_token":  {},
+	"refresh_token": {},
+	"api_key":       {},
+	"apikey":        {},
+	"key":           {},
+	"secret":        {},
+	"password":      {},
+	"code":          {},
+}
+
+// redactQuery masks values of sensitive query parameters.
+func redactQuery(raw string) string {
+	if raw == "" {
+		return raw
+	}
+	values, err := url.ParseQuery(raw)
+	if err != nil {
+		return "[unparseable]"
+	}
+	redacted := false
+	for k := range values {
+		if _, ok := sensitiveQueryParams[strings.ToLower(k)]; ok {
+			values[k] = []string{"REDACTED"}
+			redacted = true
+		}
+	}
+	if !redacted {
+		return raw
+	}
+	return values.Encode()
+}
+
+// validRequestID accepts client-supplied request IDs only if they are short
+// and contain safe characters, preventing log injection.
+func validRequestID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_', r == '.', r == ':':
+		default:
+			return false
+		}
+	}
+	return true
 }

@@ -1,4 +1,17 @@
-.PHONY: help build run test clean docker-build docker-up docker-down install lint migrate
+.PHONY: help build build-linux run run-dev test test-integration test-cover test-race test-verbose \
+	clean docker-build docker-build-api docker-build-ui docker-up docker-down docker-logs install fmt lint \
+	run-example-basic run-example-custom run-example-embedded \
+	migrate-build migrate-up migrate-down migrate-status migrate-reset db-setup db-reset
+
+# migrate-reset uses bash-only syntax ([[ ]], read -n)
+SHELL := /bin/bash
+
+# Database URL for migrate-* targets: MBFLOW_DATABASE_URL takes precedence, DATABASE_URL is the fallback.
+DB_URL ?= $(or $(MBFLOW_DATABASE_URL),$(DATABASE_URL))
+
+# Docker image names/tags
+API_IMAGE ?= mbflow-api:local
+UI_IMAGE ?= mbflow-ui:local
 
 # Default target
 help:
@@ -12,11 +25,11 @@ help:
 	@echo "  test-cover    - Run tests with coverage"
 	@echo "  test-race     - Run tests with race detector"
 	@echo "  clean         - Remove build artifacts"
-	@echo "  docker-build  - Build Docker image"
+	@echo "  docker-build  - Build API and UI Docker images"
 	@echo "  docker-up     - Start Docker Compose services"
 	@echo "  docker-down   - Stop Docker Compose services"
 	@echo "  install       - Install dependencies"
-	@echo "  lint          - Run linters"
+	@echo "  lint          - Run golangci-lint (fails on issues)"
 	@echo "  fmt           - Format code"
 	@echo "  migrate-build - Build migration tool"
 	@echo "  migrate-up    - Run database migrations"
@@ -66,9 +79,15 @@ test-verbose:
 	go test -v ./...
 
 # Docker targets
-docker-build:
-	@echo "Building Docker image..."
-	docker build -t mbflow:latest .
+docker-build: docker-build-api docker-build-ui
+
+docker-build-api:
+	@echo "Building API image $(API_IMAGE)..."
+	docker build -t $(API_IMAGE) -f Dockerfile .
+
+docker-build-ui:
+	@echo "Building UI image $(UI_IMAGE)..."
+	docker build -t $(UI_IMAGE) -f ../ui/Dockerfile ../ui
 
 docker-up:
 	@echo "Starting Docker Compose services..."
@@ -93,8 +112,8 @@ fmt:
 
 lint:
 	@echo "Running linters..."
-	@which golangci-lint > /dev/null || echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
-	@which golangci-lint > /dev/null && golangci-lint run || echo "Skipping lint"
+	@command -v golangci-lint > /dev/null || (echo "golangci-lint not installed. Install v2 with: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest" && exit 1)
+	golangci-lint run ./...
 
 # Clean targets
 clean:
@@ -123,26 +142,26 @@ migrate-build:
 
 migrate-up: migrate-build
 	@echo "Running database migrations..."
-	@test -n "$(DATABASE_URL)" || (echo "ERROR: DATABASE_URL is not set" && exit 1)
-	./bin/migrate -database-url "$(DATABASE_URL)" -command up
+	@test -n "$(DB_URL)" || (echo "ERROR: MBFLOW_DATABASE_URL (or DATABASE_URL) is not set" && exit 1)
+	./bin/migrate -database-url "$(DB_URL)" -command up
 
 migrate-down: migrate-build
 	@echo "Rolling back last migration..."
-	@test -n "$(DATABASE_URL)" || (echo "ERROR: DATABASE_URL is not set" && exit 1)
-	./bin/migrate -database-url "$(DATABASE_URL)" -command down
+	@test -n "$(DB_URL)" || (echo "ERROR: MBFLOW_DATABASE_URL (or DATABASE_URL) is not set" && exit 1)
+	./bin/migrate -database-url "$(DB_URL)" -command down
 
 migrate-status: migrate-build
 	@echo "Checking migration status..."
-	@test -n "$(DATABASE_URL)" || (echo "ERROR: DATABASE_URL is not set" && exit 1)
-	./bin/migrate -database-url "$(DATABASE_URL)" -command status
+	@test -n "$(DB_URL)" || (echo "ERROR: MBFLOW_DATABASE_URL (or DATABASE_URL) is not set" && exit 1)
+	./bin/migrate -database-url "$(DB_URL)" -command status
 
 migrate-reset: migrate-build
 	@echo "CAUTION: This will reset all migrations and drop all tables!"
 	@read -p "Are you sure? [y/N] " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		test -n "$(DATABASE_URL)" || (echo "ERROR: DATABASE_URL is not set" && exit 1); \
-		./bin/migrate -database-url "$(DATABASE_URL)" -command reset; \
+		test -n "$(DB_URL)" || (echo "ERROR: MBFLOW_DATABASE_URL (or DATABASE_URL) is not set" && exit 1); \
+		./bin/migrate -database-url "$(DB_URL)" -command reset; \
 	fi
 
 # Database targets

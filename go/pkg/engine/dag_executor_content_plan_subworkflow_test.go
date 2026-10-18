@@ -17,7 +17,7 @@ import (
 // Architecture:
 //   - Main workflow: CTX_NODE → GRID_NODE → SUB_WF_NODE → COLLECT_NODE
 //   - Child "cell-gen-wf": C1_PROMPT → C2_GEN → C3_CHECK → C4_SELECT (true branch)
-//                                                          → C5_REGEN (false branch)
+//     → C5_REGEN (false branch)
 //     Loop edge: C5_REGEN → C2_GEN (MaxIterations=2)
 //     Forward edge: C5_REGEN → C6_FAIL (executes only when loop exhausted)
 //

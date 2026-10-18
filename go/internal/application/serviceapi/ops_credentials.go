@@ -107,6 +107,10 @@ func (o *Operations) CreateCredential(ctx context.Context, params CreateCredenti
 		return nil, NewValidationError("INVALID_CREDENTIAL_TYPE", "invalid credential_type")
 	}
 
+	if o.EncryptionSvc == nil {
+		return nil, NewNotImplementedError("credentials are disabled: MBFLOW_ENCRYPTION_KEY is not configured")
+	}
+
 	encryptedData, err := o.EncryptionSvc.EncryptMap(params.Data)
 	if err != nil {
 		o.Logger.Error("Failed to encrypt credential data", "error", err, "user_id", params.UserID)

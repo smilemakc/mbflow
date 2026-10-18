@@ -15,6 +15,8 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // MockUserRepository implements repository.UserRepository for testing
@@ -1072,4 +1074,29 @@ func TestAuthMiddleware_RequireAdmin(t *testing.T) {
 			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 		}
 	})
+}
+
+func TestLoginRateLimiter_LockoutIsPerAccountNotPerIP(t *testing.T) {
+	limiter := NewLoginRateLimiter(5, 5*time.Minute, 15*time.Minute)
+	ip := "203.0.113.7" // e.g. an office NAT shared by many users
+
+	victim := LoginAttemptKey(ip, "Alice@Example.com ")
+	for i := 0; i < 5; i++ {
+		limiter.RecordFailedAttempt(victim)
+	}
+	assert.True(t, limiter.IsBlocked(LoginAttemptKey(ip, "alice@example.com")), "keys are normalized")
+	assert.False(t, limiter.IsBlocked(LoginAttemptKey(ip, "bob@example.com")), "other users on the same IP can still log in")
+
+	// The middleware has its own per-IP counter: failed attempts recorded by
+	// the handler must not also consume it (that halved the allowed attempts).
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.POST("/login", limiter.Middleware(), func(c *gin.Context) { c.Status(http.StatusOK) })
+	for i := 0; i < 50; i++ {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/login", nil)
+		req.RemoteAddr = ip + ":1234"
+		r.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code, "request %d", i)
+	}
 }

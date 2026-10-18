@@ -27,6 +27,7 @@ type FileModel struct {
 	WorkflowID   *uuid.UUID  `bun:"workflow_id,type:uuid" json:"workflow_id,omitempty"`
 	ExecutionID  *uuid.UUID  `bun:"execution_id,type:uuid" json:"execution_id,omitempty"`
 	SourceNodeID *string     `bun:"source_node_id" json:"source_node_id,omitempty"`
+	CreatedBy    *uuid.UUID  `bun:"created_by,type:uuid" json:"created_by,omitempty"`
 	CreatedAt    time.Time   `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
 	UpdatedAt    time.Time   `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 

@@ -364,7 +364,7 @@ func TestCreateTrigger_ShouldReturnTrigger_WhenValidParams(t *testing.T) {
 		Name:        "My Cron Trigger",
 		Description: "Runs every hour",
 		Type:        "cron",
-		Config:      map[string]any{"expression": "0 * * * *"},
+		Config:      map[string]any{"schedule": "0 0 * * * *"},
 		Enabled:     true,
 	})
 
@@ -410,10 +410,20 @@ func TestCreateTrigger_ShouldAcceptAllValidTypes(t *testing.T) {
 			wfRepo.On("FindByID", mock.Anything, wfID).Return(&storagemodels.WorkflowModel{ID: wfID}, nil)
 			trigRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
 
+			// Schedule-based triggers need a valid schedule.
+			config := map[string]any{}
+			switch typ {
+			case "cron":
+				config["schedule"] = "*/30 * * * * *"
+			case "interval":
+				config["interval"] = "1m"
+			}
+
 			result, err := ops.CreateTrigger(context.Background(), CreateTriggerParams{
 				WorkflowID: wfID.String(),
 				Name:       "Test",
 				Type:       typ,
+				Config:     config,
 			})
 
 			require.NoError(t, err)
@@ -502,6 +512,7 @@ func TestUpdateTrigger_ShouldUpdateType_WhenProvided(t *testing.T) {
 	result, err := ops.UpdateTrigger(context.Background(), UpdateTriggerParams{
 		TriggerID: trigID,
 		Type:      "cron",
+		Config:    map[string]any{"schedule": "0 0 * * * *"},
 	})
 
 	require.NoError(t, err)
@@ -538,16 +549,16 @@ func TestUpdateTrigger_ShouldUpdateConfig_WhenProvided(t *testing.T) {
 	trigID := uuid.New()
 	tm := &storagemodels.TriggerModel{
 		ID: trigID, WorkflowID: uuid.New(), Type: "cron",
-		Config: storagemodels.JSONBMap{"expression": "old"}, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		Config: storagemodels.JSONBMap{"schedule": "0 0 1 * * *"}, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	trigRepo.On("FindByID", mock.Anything, trigID).Return(tm, nil)
 	trigRepo.On("Update", mock.Anything, mock.MatchedBy(func(m *storagemodels.TriggerModel) bool {
-		return m.Config["expression"] == "0 0 * * *"
+		return m.Config["schedule"] == "0 0 2 * * *"
 	})).Return(nil)
 
 	result, err := ops.UpdateTrigger(context.Background(), UpdateTriggerParams{
 		TriggerID: trigID,
-		Config:    map[string]any{"expression": "0 0 * * *"},
+		Config:    map[string]any{"schedule": "0 0 2 * * *"},
 	})
 
 	require.NoError(t, err)
@@ -723,4 +734,80 @@ func TestDisableTrigger_ShouldReturnNotFound_WhenFindAfterDisableFails(t *testin
 
 	assert.Nil(t, result)
 	assert.ErrorIs(t, err, models.ErrTriggerNotFound)
+}
+
+// fakeTriggerSync records SyncTrigger calls.
+type fakeTriggerSync struct{ synced []string }
+
+func (f *fakeTriggerSync) SyncTrigger(_ context.Context, triggerID string) error {
+	f.synced = append(f.synced, triggerID)
+	return nil
+}
+
+func TestCreateTrigger_ShouldRejectInvalidSchedule(t *testing.T) {
+	for name, tc := range map[string]struct {
+		typ    string
+		config map[string]any
+	}{
+		"cron without schedule":   {"cron", map[string]any{"expression": "0 * * * *"}},
+		"cron with bad syntax":    {"cron", map[string]any{"schedule": "every minute"}},
+		"cron with bad timezone":  {"cron", map[string]any{"schedule": "0 0 * * * *", "timezone": "Mars/Base"}},
+		"interval without value":  {"interval", map[string]any{}},
+		"interval not a duration": {"interval", map[string]any{"interval": "soon"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			wfRepo := new(mockWorkflowRepo)
+			trigRepo := new(mockTriggerRepo)
+			ops := newTestOperations(wfRepo, nil, trigRepo, nil, nil, nil, nil)
+			wfID := uuid.New()
+			wfRepo.On("FindByID", mock.Anything, wfID).Return(&storagemodels.WorkflowModel{ID: wfID}, nil)
+
+			result, err := ops.CreateTrigger(context.Background(), CreateTriggerParams{
+				WorkflowID: wfID.String(), Name: "t", Type: tc.typ, Config: tc.config,
+			})
+
+			assert.Nil(t, result)
+			var opErr *OperationError
+			require.ErrorAs(t, err, &opErr)
+			assert.Equal(t, "INVALID_TRIGGER_CONFIG", opErr.Code)
+			trigRepo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+		})
+	}
+}
+
+func TestTriggerMutations_ShouldSyncRunningScheduler(t *testing.T) {
+	wfRepo := new(mockWorkflowRepo)
+	trigRepo := new(mockTriggerRepo)
+	ops := newTestOperations(wfRepo, nil, trigRepo, nil, nil, nil, nil)
+	syncer := &fakeTriggerSync{}
+	ops.TriggerSync = syncer
+
+	wfID := uuid.New()
+	wfRepo.On("FindByID", mock.Anything, wfID).Return(&storagemodels.WorkflowModel{ID: wfID}, nil)
+	trigRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+
+	created, err := ops.CreateTrigger(context.Background(), CreateTriggerParams{
+		WorkflowID: wfID.String(), Name: "t", Type: "cron",
+		Config: map[string]any{"schedule": "0 0 * * * *"}, Enabled: true,
+	})
+	require.NoError(t, err)
+
+	trigID := uuid.MustParse(created.ID)
+	tm := &storagemodels.TriggerModel{ID: trigID, WorkflowID: wfID, Type: "cron", Config: storagemodels.JSONBMap{"schedule": "0 0 * * * *"}}
+	trigRepo.On("FindByID", mock.Anything, trigID).Return(tm, nil)
+	trigRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
+	trigRepo.On("Enable", mock.Anything, trigID).Return(nil)
+	trigRepo.On("Disable", mock.Anything, trigID).Return(nil)
+	trigRepo.On("Delete", mock.Anything, trigID).Return(nil)
+
+	_, err = ops.UpdateTrigger(context.Background(), UpdateTriggerParams{TriggerID: trigID, Config: map[string]any{"schedule": "0 30 * * * *"}})
+	require.NoError(t, err)
+	_, err = ops.EnableTrigger(context.Background(), EnableTriggerParams{TriggerID: trigID})
+	require.NoError(t, err)
+	_, err = ops.DisableTrigger(context.Background(), DisableTriggerParams{TriggerID: trigID})
+	require.NoError(t, err)
+	require.NoError(t, ops.DeleteTrigger(context.Background(), DeleteTriggerParams{TriggerID: trigID}))
+
+	// create, update, enable, disable, delete: each must reach the scheduler.
+	assert.Equal(t, []string{created.ID, created.ID, created.ID, created.ID, created.ID}, syncer.synced)
 }

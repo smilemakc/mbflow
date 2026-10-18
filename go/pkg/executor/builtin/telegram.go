@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"net/http"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // TelegramExecutor executes Telegram Bot API requests.
@@ -476,7 +476,7 @@ func (e *TelegramExecutor) executeMultipartRequest(ctx context.Context, url stri
 
 // parseAPIResponse parses Telegram API response.
 func (e *TelegramExecutor) parseAPIResponse(resp *http.Response) (*TelegramResponse, error) {
-	body, err := io.ReadAll(resp.Body)
+	body, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

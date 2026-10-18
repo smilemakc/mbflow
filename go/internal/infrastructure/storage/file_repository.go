@@ -94,6 +94,9 @@ func (r *FileRepository) FindByStorageAndPath(ctx context.Context, storageID, pa
 
 // FileQuery parameters for listing files
 type FileQuery struct {
+	// OwnerID limits results to files uploaded by the user or attached to the
+	// user's workflows. Nil means no ownership filter.
+	OwnerID     *uuid.UUID
 	StorageID   string
 	WorkflowID  *uuid.UUID
 	ExecutionID *uuid.UUID
@@ -113,6 +116,7 @@ func (r *FileRepository) FindByQuery(ctx context.Context, query *FileQuery) ([]*
 
 	q := r.db.NewSelect().Model(&files)
 
+	q = applyFileOwnerFilter(q, query.OwnerID)
 	if query.StorageID != "" {
 		q = q.Where("storage_id = ?", query.StorageID)
 	}
@@ -170,6 +174,7 @@ func (r *FileRepository) FindByQuery(ctx context.Context, query *FileQuery) ([]*
 func (r *FileRepository) CountByQuery(ctx context.Context, query *FileQuery) (int, error) {
 	q := r.db.NewSelect().Model((*models.FileModel)(nil))
 
+	q = applyFileOwnerFilter(q, query.OwnerID)
 	if query.StorageID != "" {
 		q = q.Where("storage_id = ?", query.StorageID)
 	}
@@ -312,4 +317,17 @@ func (r *StorageConfigRepository) FindAll(ctx context.Context) ([]*models.Storag
 		return nil, fmt.Errorf("failed to find storage configs: %w", err)
 	}
 	return configs, nil
+}
+
+// applyFileOwnerFilter restricts q to files uploaded by ownerID or attached to
+// workflows created by ownerID. A nil ownerID leaves q unchanged.
+func applyFileOwnerFilter(q *bun.SelectQuery, ownerID *uuid.UUID) *bun.SelectQuery {
+	if ownerID == nil {
+		return q
+	}
+	return q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+		return q.
+			Where("f.created_by = ?", *ownerID).
+			WhereOr("f.workflow_id IN (SELECT id FROM mbflow_workflows WHERE created_by = ?)", *ownerID)
+	})
 }

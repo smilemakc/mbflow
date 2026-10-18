@@ -2,6 +2,8 @@ package sdk
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -253,6 +255,15 @@ func TestExecuteWorkflowStandalone_Duration(t *testing.T) {
 
 	ctx := context.Background()
 
+	// Local server with a small delay so execution takes measurable time
+	// without depending on external network access.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(20 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":1,"name":"test"}`))
+	}))
+	defer srv.Close()
+
 	// Use HTTP node to ensure execution takes measurable time
 	workflow := &models.Workflow{
 		Name: "Test Duration",
@@ -263,7 +274,7 @@ func TestExecuteWorkflowStandalone_Duration(t *testing.T) {
 				Type: "http",
 				Config: map[string]any{
 					"method": "GET",
-					"url":    "https://jsonplaceholder.typicode.com/users/1",
+					"url":    srv.URL + "/users/1",
 				},
 			},
 		},

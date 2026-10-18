@@ -38,10 +38,10 @@ func NewExecutionHandlers(ops *serviceapi.Operations, log *logger.Logger) *Execu
 //	@Router			/workflows/{workflow_id}/execute [post]
 func (h *ExecutionHandlers) HandleRunExecution(c *gin.Context) {
 	var req struct {
-		WorkflowID string `json:"workflow_id"`
+		WorkflowID string         `json:"workflow_id"`
 		Input      map[string]any `json:"input"`
 		Variables  map[string]any `json:"variables,omitempty"`
-		Async      bool   `json:"async"`
+		Async      bool           `json:"async"`
 		Webhooks   []struct {
 			URL     string            `json:"url"`
 			Events  []string          `json:"events,omitempty"`
@@ -169,6 +169,7 @@ func (h *ExecutionHandlers) HandleListExecutions(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		params.Status = &status
 	}
+	params.OwnerID = ownerFilterFromContext(c)
 
 	result, err := h.ops.ListExecutions(c.Request.Context(), params)
 	if err != nil {
@@ -263,12 +264,12 @@ const maxWorkflowSnapshotSize = 1_048_576
 
 func (h *ExecutionHandlers) HandleRunEphemeralExecution(c *gin.Context) {
 	var req struct {
-		Workflow         json.RawMessage   `json:"workflow"`
-		Input            map[string]any    `json:"input"`
-		Mode             string            `json:"mode"`
-		CredentialIDs    []string          `json:"credential_ids"`
-		Variables        map[string]any    `json:"variables"`
-		PersistExecution bool              `json:"persist_execution"`
+		Workflow         json.RawMessage `json:"workflow"`
+		Input            map[string]any  `json:"input"`
+		Mode             string          `json:"mode"`
+		CredentialIDs    []string        `json:"credential_ids"`
+		Variables        map[string]any  `json:"variables"`
+		PersistExecution bool            `json:"persist_execution"`
 		Webhooks         []struct {
 			URL     string            `json:"url"`
 			Events  []string          `json:"events,omitempty"`
@@ -308,6 +309,15 @@ func (h *ExecutionHandlers) HandleRunEphemeralExecution(c *gin.Context) {
 		}
 	}
 
+	// The inline workflow runs as the caller: never trust a client-supplied
+	// created_by (it scopes which sub-workflows may be loaded).
+	var createdBy *uuid.UUID
+	workflow.CreatedBy = ""
+	if userID, ok := GetUserIDAsUUID(c); ok && userID != uuid.Nil {
+		createdBy = &userID
+		workflow.CreatedBy = userID.String()
+	}
+
 	params := serviceapi.EphemeralExecutionParams{
 		Workflow:         &workflow,
 		Input:            req.Input,
@@ -315,6 +325,7 @@ func (h *ExecutionHandlers) HandleRunEphemeralExecution(c *gin.Context) {
 		CredentialIDs:    req.CredentialIDs,
 		Variables:        req.Variables,
 		PersistExecution: req.PersistExecution,
+		CreatedBy:        createdBy,
 	}
 
 	if len(req.Webhooks) > 0 {

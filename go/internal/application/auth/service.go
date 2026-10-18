@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -127,15 +128,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*AuthResu
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Create billing account for the new user
-	if s.accountRepo != nil {
-		billingAccount := pkgmodels.NewAccount(user.ID.String())
-		if err := s.accountRepo.Create(ctx, billingAccount); err != nil {
-			// Log error but don't fail registration - account can be created later
-			// In production, this should be done in a transaction
-			fmt.Printf("warning: failed to create billing account for user %s: %v\n", user.ID.String(), err)
-		}
-	}
+	s.createBillingAccount(ctx, user.ID)
 
 	// Assign default "user" role
 	defaultRole, err := s.userRepo.FindRoleByName(ctx, "user")
@@ -470,8 +463,41 @@ func (s *Service) CreateUser(ctx context.Context, req *RegisterRequest, isAdmin 
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
+	s.createBillingAccount(ctx, user.ID)
 
 	return s.toDomainUser(user), nil
+}
+
+// createBillingAccount creates the user's billing account. Failures are not
+// fatal: the account is also created lazily on first use.
+func (s *Service) createBillingAccount(ctx context.Context, userID uuid.UUID) {
+	if s.accountRepo == nil {
+		return
+	}
+	if err := s.accountRepo.Create(ctx, pkgmodels.NewAccount(userID.String())); err != nil {
+		slog.Warn("failed to create billing account", "user_id", userID.String(), "error", err)
+	}
+}
+
+// EnsureAdmin creates an administrator account with the given credentials
+// unless a user with that email already exists. It is used to bootstrap the
+// first admin on a fresh installation. Returns true if a user was created.
+func (s *Service) EnsureAdmin(ctx context.Context, email, password string) (bool, error) {
+	exists, err := s.userRepo.ExistsByEmail(ctx, normalizeEmail(email))
+	if err != nil {
+		return false, fmt.Errorf("failed to check email: %w", err)
+	}
+	if exists {
+		return false, nil
+	}
+	if _, err := s.CreateUser(ctx, &RegisterRequest{Email: email, Password: password, FullName: "Administrator"}, true); err != nil {
+		if errors.Is(err, ErrEmailAlreadyTaken) {
+			// Created concurrently by another replica.
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // GetUser retrieves a user by ID (admin operation)

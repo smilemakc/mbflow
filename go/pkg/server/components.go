@@ -19,9 +19,16 @@ import (
 	"github.com/smilemakc/mbflow/go/pkg/crypto"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/executor/builtin"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 func (s *Server) initComponents() error {
+	// Outbound HTTP policy for workflow nodes and user-supplied callback URLs.
+	netguard.SetDefault(netguard.Policy{
+		AllowPrivate: s.config.Server.HTTPAllowPrivateNetworks,
+		AllowedHosts: s.config.Server.HTTPAllowedHosts,
+	})
+
 	if err := s.initDatabase(); err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
@@ -77,7 +84,7 @@ func (s *Server) initDatabase() error {
 		MaxIdleConns:    s.config.Database.MinConnections,
 		ConnMaxLifetime: s.config.Database.MaxConnLifetime,
 		ConnMaxIdleTime: s.config.Database.MaxIdleTime,
-		Debug:           s.config.Logging.Level == "debug",
+		Debug:           s.config.Database.Debug,
 	}
 
 	db, err := storage.NewDB(dbConfig)
@@ -255,7 +262,9 @@ func (s *Server) initAuthSystem() error {
 
 	providerManager, err := auth.NewProviderManager(&s.config.Auth, s.auth.AuthService)
 	if err != nil {
-		s.logger.Warn("Failed to initialize auth provider manager", "error", err)
+		// Every auth middleware depends on the provider manager; running without
+		// it would fail open or panic on the first authenticated request.
+		return fmt.Errorf("failed to initialize auth provider manager: %w", err)
 	}
 	s.auth.ProviderManager = providerManager
 
@@ -271,6 +280,10 @@ func (s *Server) initAuthSystem() error {
 		s.config.Auth.LockoutDuration,
 	)
 
+	if err := s.bootstrapAdmin(); err != nil {
+		return err
+	}
+
 	s.logger.Info("Auth system initialized",
 		"mode", s.config.Auth.Mode,
 		"registration_enabled", s.config.Auth.AllowRegistration,
@@ -284,10 +297,31 @@ func (s *Server) initAuthSystem() error {
 	return nil
 }
 
+// bootstrapAdmin creates the first administrator from MBFLOW_ADMIN_EMAIL /
+// MBFLOW_ADMIN_PASSWORD when configured and the user does not exist yet.
+func (s *Server) bootstrapAdmin() error {
+	email := s.config.Auth.BootstrapAdminEmail
+	if email == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	created, err := s.auth.AuthService.EnsureAdmin(ctx, email, s.config.Auth.BootstrapAdminPassword)
+	if err != nil {
+		return fmt.Errorf("failed to bootstrap admin user: %w", err)
+	}
+	if created {
+		s.logger.Info("Bootstrap admin user created", "email", email)
+	}
+	return nil
+}
+
 func (s *Server) initExecutionEngine() error {
 	registry := engine.NewEphemeralStreamRegistry(5 * time.Minute)
 	s.execution.EphemeralRegistry = registry
-	go registry.StartCleanup(context.Background())
+	go registry.StartCleanup(s.backgroundContext())
 
 	s.execution.ExecutionManager = engine.NewExecutionManager(
 		s.execution.ExecutorManager,

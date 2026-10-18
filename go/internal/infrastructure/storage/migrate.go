@@ -87,6 +87,16 @@ func (m *Migrator) Init(ctx context.Context) error {
 func (m *Migrator) Up(ctx context.Context) error {
 	slog.Info("running migrations up")
 
+	// Guard against concurrent runs (e.g. several replicas migrating on deploy).
+	if err := m.migrator.Lock(ctx); err != nil {
+		return fmt.Errorf("failed to acquire migration lock: %w", err)
+	}
+	defer func() {
+		if err := m.migrator.Unlock(ctx); err != nil {
+			slog.Error("failed to release migration lock", slog.String("error", err.Error()))
+		}
+	}()
+
 	group, err := m.migrator.Migrate(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to migrate: %w", err)

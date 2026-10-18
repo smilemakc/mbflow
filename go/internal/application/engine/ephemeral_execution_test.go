@@ -3,9 +3,11 @@ package engine
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/smilemakc/mbflow/go/internal/application/observer"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
@@ -60,10 +62,10 @@ func newEphemeralTestManager(executorType string, exec executor.Executor) *Execu
 	return &ExecutionManager{
 		executorManager: registry,
 		// No repos needed for ephemeral execution with persist=false
-		workflowRepo:  nil,
-		executionRepo: nil,
-		eventRepo:     nil,
-		resourceRepo:  nil,
+		workflowRepo:    nil,
+		executionRepo:   nil,
+		eventRepo:       nil,
+		resourceRepo:    nil,
 		observerManager: nil,
 	}
 }
@@ -540,4 +542,47 @@ func TestEphemeralExecution_Sync_ShouldUseParallelBranches_WhenWorkflowHasFork(t
 	require.NotNil(t, execution.Output)
 	assert.NotNil(t, execution.Output["branchA"])
 	assert.NotNil(t, execution.Output["branchB"])
+}
+
+func TestEphemeralExecution_NonPersistedEventsSkipStorage(t *testing.T) {
+	recorder := &recordingObserver{}
+	om := observer.NewObserverManager()
+	require.NoError(t, om.Register(recorder))
+
+	em := &ExecutionManager{observerManager: om}
+	exec := &models.Execution{ID: "eph-1", Status: models.ExecutionStatusRunning, StartedAt: time.Now()}
+
+	em.notPersisted.Store(exec.ID, struct{}{})
+	em.notifyExecutionStarted(context.Background(), exec)
+	em.markEphemeralTerminal(exec.ID)
+	em.notifyExecutionStarted(context.Background(), &models.Execution{ID: "stored-1", StartedAt: time.Now()})
+
+	require.Eventually(t, func() bool { return recorder.count() == 2 }, time.Second, 10*time.Millisecond)
+	events := recorder.snapshot()
+	byID := map[string]observer.Event{}
+	for _, e := range events {
+		byID[e.ExecutionID] = e
+	}
+	assert.True(t, observer.IsNotPersisted(byID["eph-1"]), "non-persisted execution events are flagged")
+	assert.False(t, observer.IsNotPersisted(byID["stored-1"]), "stored execution events are not flagged")
+}
+
+type recordingObserver struct {
+	mu     sync.Mutex
+	events []observer.Event
+}
+
+func (r *recordingObserver) Name() string                 { return "recorder" }
+func (r *recordingObserver) Filter() observer.EventFilter { return nil }
+func (r *recordingObserver) OnEvent(_ context.Context, e observer.Event) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.events = append(r.events, e)
+	return nil
+}
+func (r *recordingObserver) count() int { r.mu.Lock(); defer r.mu.Unlock(); return len(r.events) }
+func (r *recordingObserver) snapshot() []observer.Event {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]observer.Event(nil), r.events...)
 }

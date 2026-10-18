@@ -49,6 +49,7 @@ var (
 	ErrInternalServer      = NewAPIError("INTERNAL_ERROR", "Internal server error", http.StatusInternalServerError)
 	ErrTooManyRequests     = NewAPIError("RATE_LIMIT_EXCEEDED", "Too many requests", http.StatusTooManyRequests)
 	ErrInvalidJSON         = NewAPIError("INVALID_JSON", "Invalid JSON in request body", http.StatusBadRequest)
+	ErrPayloadTooLarge     = NewAPIError("PAYLOAD_TOO_LARGE", "Request body is too large", http.StatusRequestEntityTooLarge)
 	ErrMissingParameter    = NewAPIError("MISSING_PARAMETER", "Required parameter is missing", http.StatusBadRequest)
 	ErrInvalidParameter    = NewAPIError("INVALID_PARAMETER", "Invalid parameter value", http.StatusBadRequest)
 	ErrInvalidID           = NewAPIError("INVALID_ID", "Invalid ID format", http.StatusBadRequest)

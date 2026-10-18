@@ -98,12 +98,12 @@ func (h *ServiceAPIExecutionHandlers) StartExecution(c *gin.Context) {
 
 func (h *ServiceAPIExecutionHandlers) StartEphemeralExecution(c *gin.Context) {
 	var req struct {
-		Workflow         json.RawMessage   `json:"workflow"`
-		Input            map[string]any    `json:"input"`
-		Mode             string            `json:"mode"`
-		CredentialIDs    []string          `json:"credential_ids"`
-		Variables        map[string]any    `json:"variables"`
-		PersistExecution bool              `json:"persist_execution"`
+		Workflow         json.RawMessage `json:"workflow"`
+		Input            map[string]any  `json:"input"`
+		Mode             string          `json:"mode"`
+		CredentialIDs    []string        `json:"credential_ids"`
+		Variables        map[string]any  `json:"variables"`
+		PersistExecution bool            `json:"persist_execution"`
 		Webhooks         []struct {
 			URL     string            `json:"url"`
 			Events  []string          `json:"events,omitempty"`

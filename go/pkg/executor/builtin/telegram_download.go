@@ -5,12 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // TelegramDownloadExecutor downloads files from Telegram by file_id.
@@ -134,7 +134,7 @@ func (e *TelegramDownloadExecutor) getFile(ctx context.Context, botToken, fileID
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
@@ -185,7 +185,7 @@ func (e *TelegramDownloadExecutor) downloadFile(ctx context.Context, url string,
 		return nil, fmt.Errorf("download failed with status: %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file content: %w", err)
 	}

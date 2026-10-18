@@ -457,11 +457,15 @@ func (r *WorkflowRepository) CountByStatus(ctx context.Context, status string) (
 // FindAllWithFilters retrieves workflows with optional filters for status and user_id
 func (r *WorkflowRepository) FindAllWithFilters(ctx context.Context, filters repository.WorkflowFilters, limit, offset int) ([]*models.WorkflowModel, error) {
 	var workflows []*models.WorkflowModel
+	// Nodes and edges are needed by listings (e.g. node counts); bun loads
+	// them with one extra query per relation for the whole page.
 	query := r.db.NewSelect().
 		Model(&workflows).
+		Relation("Nodes").
+		Relation("Edges").
 		Limit(limit).
 		Offset(offset).
-		Order("created_at DESC")
+		Order("w.created_at DESC")
 
 	// Apply status filter
 	if filters.Status != nil && *filters.Status != "" {

@@ -1,6 +1,12 @@
-version: '3.8'
-
 name: mbflow
+
+# Secrets and overrides are read from a .env file next to this compose file.
+# Minimal .env:
+#   MBFLOW_JWT_SECRET=<at least 32 random characters, e.g. `openssl rand -hex 32`>
+#   POSTGRES_PASSWORD=<strong password>
+#   REDIS_PASSWORD=<strong password>
+#   MBFLOW_ENCRYPTION_KEY=<`openssl rand -base64 32`>   (enables credentials)
+#   MBFLOW_ADMIN_EMAIL / MBFLOW_ADMIN_PASSWORD           (first admin, optional)
 
 services:
   postgres:
@@ -9,10 +15,10 @@ services:
     environment:
       POSTGRES_DB: mbflow
       POSTGRES_USER: mbflow
-      POSTGRES_PASSWORD: mbflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mbflow}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5566:5432"
+      - "127.0.0.1:5566:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,50 +28,101 @@ services:
       retries: 5
     networks:
       - mbflow-network
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: mbflow-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-mbflow}", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD:-mbflow}\" --no-auth-warning ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-mbflow}
     networks:
       - mbflow-network
+    restart: unless-stopped
+
+  mbflow-migrate:
+    image: mbflow-api:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mbflow-migrate
+    entrypoint: ["./mbflow-migrate", "-command", "up"]
+    environment:
+      MBFLOW_DATABASE_URL: postgres://mbflow:${POSTGRES_PASSWORD:-mbflow}@postgres:5432/mbflow?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mbflow-network
+    restart: "no"
 
   mbflow-api:
     build:
       context: .
       dockerfile: Dockerfile
+    image: mbflow-api:local
     container_name: mbflow-api
     environment:
-      DATABASE_URL: postgres://mbflow:mbflow@postgres:5432/mbflow?sslmode=disable
-      REDIS_URL: redis://redis:6379
-      PORT: 8585
-      LOG_LEVEL: info
-      LOG_FORMAT: json
-      CORS_ENABLED: "true"
+      MBFLOW_DATABASE_URL: postgres://mbflow:${POSTGRES_PASSWORD:-mbflow}@postgres:5432/mbflow?sslmode=disable
+      MBFLOW_REDIS_URL: redis://redis:6379
+      MBFLOW_REDIS_PASSWORD: ${REDIS_PASSWORD:-mbflow}
+      MBFLOW_PORT: 8585
+      MBFLOW_LOG_LEVEL: ${MBFLOW_LOG_LEVEL:-info}
+      MBFLOW_LOG_FORMAT: json
+      MBFLOW_JWT_SECRET: ${MBFLOW_JWT_SECRET:?MBFLOW_JWT_SECRET must be set (min 32 chars)}
+      MBFLOW_CORS_ENABLED: "true"
+      MBFLOW_CORS_ALLOWED_ORIGINS: ${MBFLOW_CORS_ALLOWED_ORIGINS:-http://localhost:8080}
+      MBFLOW_ENV: ${MBFLOW_ENV:-production}
+      MBFLOW_ALLOW_REGISTRATION: ${MBFLOW_ALLOW_REGISTRATION:-false}
+      # Optional: first administrator, created on startup if missing
+      MBFLOW_ADMIN_EMAIL: ${MBFLOW_ADMIN_EMAIL:-}
+      MBFLOW_ADMIN_PASSWORD: ${MBFLOW_ADMIN_PASSWORD:-}
+      # Required for credentials / rental keys (base64 of 32 random bytes: `openssl rand -base64 32`)
+      MBFLOW_ENCRYPTION_KEY: ${MBFLOW_ENCRYPTION_KEY:-}
+      # Reverse proxies whose X-Forwarded-For is trusted (the bundled UI nginx)
+      MBFLOW_TRUSTED_PROXIES: ${MBFLOW_TRUSTED_PROXIES:-172.16.0.0/12}
     ports:
-      - "8585:8585"
+      # Local access only; public traffic should go through the UI/nginx
+      # (or your own TLS-terminating proxy listed in MBFLOW_TRUSTED_PROXIES).
+      - "127.0.0.1:8585:8585"
+    volumes:
+      - file_storage:/app/data/storage
     depends_on:
-      postgres:
-        condition: service_healthy
+      mbflow-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
       - mbflow-network
     restart: unless-stopped
 
+  mbflow-ui:
+    build:
+      context: ../ui
+      dockerfile: Dockerfile
+    image: mbflow-ui:local
+    container_name: mbflow-ui
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mbflow-api
+    networks:
+      - mbflow-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
+  file_storage:
 
 networks:
   mbflow-network:

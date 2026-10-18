@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
+	"github.com/smilemakc/mbflow/go/pkg/netguard"
 )
 
 // HTTPExecutor executes HTTP requests.
@@ -86,14 +87,14 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]any, input
 	}
 
 	// Execute request
-	resp, err := e.client.Do(req)
+	resp, err := netguard.Guard(e.client).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

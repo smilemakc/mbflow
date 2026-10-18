@@ -27,6 +27,10 @@ func (em *ExecutionManager) ExecuteEphemeral(ctx context.Context, opts *Ephemera
 
 	redactor := NewEventRedactor()
 	ephNotifier := NewEphemeralNotifier(em.observerManager, redactor)
+	ephNotifier.notPersisted = !opts.PersistExecution
+	if !opts.PersistExecution {
+		em.notPersisted.Store(execution.ID, struct{}{})
+	}
 
 	if em.ephemeralRegistry != nil {
 		em.ephemeralRegistry.Register(execution.ID, ephNotifier)
@@ -82,7 +86,7 @@ func (em *ExecutionManager) executeEphemeralSync(
 	defer em.markEphemeralTerminal(execution.ID)
 
 	if opts.PersistExecution {
-		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow); err != nil {
+		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow, opts.CreatedBy); err != nil {
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
 	}
@@ -129,16 +133,28 @@ func (em *ExecutionManager) executeEphemeralAsync(
 	webhookNames []string,
 ) (*models.Execution, error) {
 	if opts.PersistExecution {
-		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow); err != nil {
+		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow, opts.CreatedBy); err != nil {
 			em.markEphemeralTerminal(execution.ID)
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
 	}
 
+	// The goroutine below mutates execution; callers get a snapshot so they
+	// can serialize it without racing.
+	snapshot := *execution
+
+	em.inflight.Add(1)
 	go func() {
+		defer em.inflight.Done()
 		defer em.unregisterWebhookObservers(webhookNames)
 
-		bgCtx := context.Background()
+		// runCtx is cancelled when shutdown times out; bgCtx stays valid so the
+		// final state can still be persisted.
+		runCtx := em.runContext()
+		bgCtx := context.WithoutCancel(runCtx)
+		defer em.recoverExecution(bgCtx, execution, opts.PersistExecution, func() {
+			em.markEphemeralTerminal(execution.ID)
+		})
 
 		execution.Status = models.ExecutionStatusRunning
 
@@ -160,7 +176,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 			execution.Variables,
 		)
 
-		execErr := dagExecutor.Execute(bgCtx, execState, pkgOpts)
+		execErr := dagExecutor.Execute(runCtx, execState, pkgOpts)
 
 		em.finalizeEphemeralExecution(execution, execState, opts.Workflow, execErr)
 
@@ -176,7 +192,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 		em.markEphemeralTerminal(execution.ID)
 	}()
 
-	return execution, nil
+	return &snapshot, nil
 }
 
 func (em *ExecutionManager) finalizeEphemeralExecution(
@@ -253,8 +269,9 @@ func buildEphemeralNodeExecutions(execState *pkgengine.ExecutionState, workflow 
 	return nodeExecs
 }
 
-func (em *ExecutionManager) createEphemeralExecution(ctx context.Context, execution *models.Execution, workflow *models.Workflow) error {
+func (em *ExecutionManager) createEphemeralExecution(ctx context.Context, execution *models.Execution, workflow *models.Workflow, createdBy *uuid.UUID) error {
 	executionModel := storagemodels.ExecutionDomainToModel(execution)
+	executionModel.CreatedBy = createdBy
 	snapshot, err := serializeWorkflowSnapshot(workflow)
 	if err != nil {
 		return fmt.Errorf("serialize workflow snapshot: %w", err)
@@ -291,6 +308,7 @@ func (em *ExecutionManager) registerEphemeralWebhookObservers(executionID string
 }
 
 func (em *ExecutionManager) markEphemeralTerminal(executionID string) {
+	em.notPersisted.Delete(executionID)
 	if em.ephemeralRegistry != nil {
 		em.ephemeralRegistry.MarkTerminal(executionID)
 	}

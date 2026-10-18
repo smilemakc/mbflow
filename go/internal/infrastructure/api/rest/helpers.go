@@ -84,6 +84,11 @@ type listMeta struct {
 
 func bindJSON(c *gin.Context, obj any) error {
 	if err := c.ShouldBindJSON(obj); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			respondAPIError(c, ErrPayloadTooLarge)
+			return err
+		}
 		var ve validator.ValidationErrors
 		if ok := errors.As(err, &ve); ok {
 			msgs := make([]string, 0, len(ve))

@@ -132,11 +132,11 @@ func TestConfig_Load_CustomValues(t *testing.T) {
 	assert.Equal(t, 200, cfg.Observer.BufferSize)
 }
 
-func TestConfig_Load_InvalidValuesUsesDefaults(t *testing.T) {
+func TestConfig_Load_InvalidValuesFail(t *testing.T) {
 	clearEnv()
 	os.Setenv("MBFLOW_JWT_SECRET", "test-secret-key-that-is-at-least-32-chars-long")
 
-	// Set invalid environment variables (should use defaults)
+	// Malformed values must fail fast instead of silently using defaults
 	os.Setenv("MBFLOW_PORT", "invalid")
 	os.Setenv("MBFLOW_DB_MAX_CONNECTIONS", "not_a_number")
 	os.Setenv("MBFLOW_READ_TIMEOUT", "invalid_duration")
@@ -145,14 +145,56 @@ func TestConfig_Load_InvalidValuesUsesDefaults(t *testing.T) {
 	defer clearEnv()
 
 	cfg, err := Load()
-	require.NoError(t, err)
-	assert.NotNil(t, cfg)
+	require.Error(t, err)
+	assert.Nil(t, cfg)
+	for _, key := range []string{"MBFLOW_PORT", "MBFLOW_DB_MAX_CONNECTIONS", "MBFLOW_READ_TIMEOUT", "MBFLOW_CORS_ENABLED"} {
+		assert.Contains(t, err.Error(), key)
+	}
+}
 
-	// Should use default values when parsing fails
-	assert.Equal(t, 8585, cfg.Server.Port)
-	assert.Equal(t, 20, cfg.Database.MaxConnections)
-	assert.Equal(t, 15*time.Second, cfg.Server.ReadTimeout)
-	assert.True(t, cfg.Server.CORS)
+func TestConfig_Load_InvalidEnv(t *testing.T) {
+	clearEnv()
+	os.Setenv("MBFLOW_JWT_SECRET", "test-secret-key-that-is-at-least-32-chars-long")
+	os.Setenv("MBFLOW_ENV", "staging")
+	defer clearEnv()
+
+	_, err := Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "MBFLOW_ENV")
+}
+
+func TestConfig_Validate_Production(t *testing.T) {
+	base := func() *Config {
+		return &Config{
+			Env:    EnvProduction,
+			Server: ServerConfig{Port: 8080, CORS: true, CORSAllowedOrigins: []string{"https://app.example.com"}},
+			Database: DatabaseConfig{
+				URL:            "postgres://user:pass@db:5432/mbflow",
+				MaxConnections: 10,
+				MinConnections: 5,
+			},
+			Logging: LoggingConfig{Level: "info", Format: "json"},
+			Auth:    validAuthConfig(),
+		}
+	}
+
+	require.NoError(t, base().Validate())
+
+	cfg := base()
+	cfg.Database.URL = defaultDatabaseURL
+	assert.ErrorContains(t, cfg.Validate(), "MBFLOW_DATABASE_URL")
+
+	cfg = base()
+	cfg.Server.CORSAllowedOrigins = nil
+	assert.ErrorContains(t, cfg.Validate(), "MBFLOW_CORS_ALLOWED_ORIGINS")
+
+	cfg = base()
+	cfg.Server.CORSAllowedOrigins = []string{"*"}
+	assert.ErrorContains(t, cfg.Validate(), "wildcard")
+
+	cfg = base()
+	cfg.Database.Debug = true
+	assert.ErrorContains(t, cfg.Validate(), "MBFLOW_DB_DEBUG")
 }
 
 // ==================== Config.Validate() Tests ====================
@@ -583,7 +625,7 @@ func TestGetEnvAsSlice_WithSpaces(t *testing.T) {
 	defer os.Unsetenv("TEST_SLICE")
 
 	result := getEnvAsSlice("TEST_SLICE", []string{})
-	assert.Equal(t, []string{"value1", " value2", " value3"}, result)
+	assert.Equal(t, []string{"value1", "value2", "value3"}, result)
 }
 
 func TestGetEnvAsSlice_Empty(t *testing.T) {
@@ -700,6 +742,7 @@ func clearEnv() {
 		"MBFLOW_AUTH_MODE", "MBFLOW_JWT_SECRET", "MBFLOW_JWT_EXPIRATION_HOURS", "MBFLOW_JWT_REFRESH_DAYS",
 		"MBFLOW_SESSION_DURATION", "MBFLOW_MAX_SESSIONS_PER_USER", "MBFLOW_MIN_PASSWORD_LENGTH",
 		"MBFLOW_AUTH_GATEWAY_URL", "MBFLOW_AUTH_CLIENT_ID", "MBFLOW_AUTH_GRPC_ADDRESS",
+		"MBFLOW_ENV", "MBFLOW_TRUSTED_PROXIES", "MBFLOW_HTTP_ALLOW_PRIVATE_NETWORKS", "MBFLOW_HTTP_ALLOWED_HOSTS", "MBFLOW_DB_DEBUG", "MBFLOW_ALLOW_REGISTRATION", "MBFLOW_ADMIN_EMAIL", "MBFLOW_ADMIN_PASSWORD",
 	}
 
 	for _, key := range envVars {

@@ -3,6 +3,7 @@ package engine
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/go/internal/application/observer"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -29,6 +30,8 @@ type ExecutionOptions struct {
 	MaxOutputSize    int64
 	MaxTotalMemory   int64
 	EnableMemoryOpts bool
+	// TriggerID links the execution to the trigger that started it (optional).
+	TriggerID string
 }
 
 // RetryPolicy defines the retry behavior for node execution.
@@ -86,4 +89,6 @@ type EphemeralExecutionOptions struct {
 	Timeout          time.Duration
 	NodeTimeout      time.Duration
 	ContinueOnError  bool
+	// CreatedBy records the user who started the execution (nil for system).
+	CreatedBy *uuid.UUID
 }

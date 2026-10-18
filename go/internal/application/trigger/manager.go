@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/application/engine"
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
@@ -173,7 +175,7 @@ func (m *Manager) Stop() error {
 // TriggerManual triggers a workflow manually
 func (m *Manager) TriggerManual(ctx context.Context, triggerID, workflowID string, input map[string]any) (string, error) {
 	// Execute workflow
-	execution, err := m.executionMgr.Execute(ctx, workflowID, input, nil)
+	execution, err := m.executionMgr.Execute(ctx, workflowID, input, executionOptionsFor(triggerID))
 	if err != nil {
 		return "", fmt.Errorf("failed to execute workflow: %w", err)
 	}
@@ -185,6 +187,36 @@ func (m *Manager) TriggerManual(ctx context.Context, triggerID, workflowID strin
 	}
 
 	return execution.ID, nil
+}
+
+// executionOptionsFor returns default execution options tagged with the
+// trigger that started the execution.
+func executionOptionsFor(triggerID string) *engine.ExecutionOptions {
+	opts := engine.DefaultExecutionOptions()
+	opts.TriggerID = triggerID
+	return opts
+}
+
+// SyncTrigger reconciles the running cron scheduler, event listener and
+// webhook registry with the stored state of a trigger. Call it after a
+// trigger is created, updated, enabled, disabled or deleted outside the
+// manager (e.g. through the API); otherwise the change only takes effect
+// after a restart and deleted triggers keep firing.
+func (m *Manager) SyncTrigger(ctx context.Context, triggerID string) error {
+	id, err := uuid.Parse(triggerID)
+	if err != nil {
+		return fmt.Errorf("invalid trigger ID %q: %w", triggerID, err)
+	}
+
+	tm, err := m.triggerRepo.FindByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to load trigger %s: %w", triggerID, err)
+	}
+	if tm == nil {
+		return m.OnTriggerDeleted(ctx, triggerID)
+	}
+
+	return m.OnTriggerUpdated(ctx, m.cronScheduler.modelToDomain(tm))
 }
 
 // OnTriggerCreated handles trigger creation events

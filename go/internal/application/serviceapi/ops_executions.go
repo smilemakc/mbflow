@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smilemakc/mbflow/go/internal/application/engine"
+	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -20,6 +21,9 @@ type ListExecutionsParams struct {
 	Offset     int
 	WorkflowID *uuid.UUID
 	Status     *string
+	// OwnerID restricts results to executions owned by this user (via the
+	// workflow's creator, or created_by for inline executions).
+	OwnerID *uuid.UUID
 }
 
 // ListExecutionsResult contains the result of listing executions.
@@ -32,7 +36,13 @@ func (o *Operations) ListExecutions(ctx context.Context, params ListExecutionsPa
 	var execModels []*storagemodels.ExecutionModel
 	var err error
 
-	if params.WorkflowID != nil {
+	if params.OwnerID != nil {
+		execModels, err = o.ExecutionRepo.FindWithFilters(ctx, repository.ExecutionFilters{
+			WorkflowID: params.WorkflowID,
+			Status:     params.Status,
+			OwnerID:    params.OwnerID,
+		}, params.Limit, params.Offset)
+	} else if params.WorkflowID != nil {
 		execModels, err = o.ExecutionRepo.FindByWorkflowID(ctx, *params.WorkflowID, params.Limit, params.Offset)
 	} else if params.Status != nil {
 		execModels, err = o.ExecutionRepo.FindByStatus(ctx, *params.Status, params.Limit, params.Offset)
@@ -205,6 +215,8 @@ type EphemeralExecutionParams struct {
 	Variables        map[string]any
 	PersistExecution bool
 	Webhooks         []WebhookSubscription
+	// CreatedBy records the user who started the execution (nil for system).
+	CreatedBy *uuid.UUID
 }
 
 func (o *Operations) StartEphemeralExecution(ctx context.Context, params EphemeralExecutionParams) (*models.Execution, error) {
@@ -223,6 +235,7 @@ func (o *Operations) StartEphemeralExecution(ctx context.Context, params Ephemer
 		Input:            params.Input,
 		Variables:        params.Variables,
 		CredentialIDs:    params.CredentialIDs,
+		CreatedBy:        params.CreatedBy,
 	}
 
 	if len(params.Webhooks) > 0 {
@@ -239,6 +252,12 @@ func (o *Operations) StartEphemeralExecution(ctx context.Context, params Ephemer
 
 	execution, err := o.ExecutionMgr.ExecuteEphemeral(ctx, opts)
 	if err != nil {
+		// A sync run whose workflow failed is a normal result: the caller gets
+		// the execution with status/error, not a server error.
+		if execution != nil && (execution.Status == models.ExecutionStatusFailed || execution.Status == models.ExecutionStatusCancelled) {
+			o.Logger.Info("Ephemeral execution finished unsuccessfully", "execution_id", execution.ID, "status", execution.Status, "error", err)
+			return execution, nil
+		}
 		o.Logger.Error("Failed to start ephemeral execution", "error", err)
 		return nil, err
 	}

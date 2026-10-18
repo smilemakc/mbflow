@@ -205,3 +205,29 @@ func (r *TriggerRepository) MarkTriggered(ctx context.Context, id uuid.UUID) err
 
 	return err
 }
+
+func applyTriggerFilters(q *bun.SelectQuery, filters repository.TriggerFilters) *bun.SelectQuery {
+	if filters.WorkflowID != nil {
+		q = q.Where("workflow_id = ?", *filters.WorkflowID)
+	}
+	if filters.Type != nil {
+		q = q.Where("type = ?", *filters.Type)
+	}
+	if filters.OwnerID != nil {
+		q = q.Where("workflow_id IN (SELECT id FROM mbflow_workflows WHERE created_by = ?)", *filters.OwnerID)
+	}
+	return q
+}
+
+// FindWithFilters retrieves triggers matching the filters with pagination
+func (r *TriggerRepository) FindWithFilters(ctx context.Context, filters repository.TriggerFilters, limit, offset int) ([]*models.TriggerModel, error) {
+	var triggers []*models.TriggerModel
+	q := applyTriggerFilters(r.db.NewSelect().Model(&triggers), filters)
+	err := q.Order("created_at DESC").Limit(limit).Offset(offset).Scan(ctx)
+	return triggers, err
+}
+
+// CountWithFilters returns the number of triggers matching the filters
+func (r *TriggerRepository) CountWithFilters(ctx context.Context, filters repository.TriggerFilters) (int, error) {
+	return applyTriggerFilters(r.db.NewSelect().Model((*models.TriggerModel)(nil)), filters).Count(ctx)
+}
