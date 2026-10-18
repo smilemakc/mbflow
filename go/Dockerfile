@@ -5,7 +5,7 @@
 # (-tags timetzdata) so cron triggers with a timezone work in any image.
 
 # Build stage
-FROM golang:1.25-alpine AS builder
+FROM golang:1.27-alpine AS builder
 
 WORKDIR /app
 
