@@ -31,6 +31,8 @@ type NodeExecutionResult struct {
 // NodeContext holds context for single node execution.
 type NodeContext struct {
 	ExecutionID        string
+	WorkflowID         string
+	OwnerID            string
 	NodeID             string
 	Node               *models.Node
 	WorkflowVariables  map[string]any
@@ -47,7 +49,7 @@ type NodeContext struct {
 //  2. Build ExecutionContextData from node context
 //  3. Create template engine from ExecutionContextData
 //  4. Resolve templates in config to get ResolvedConfig
-//  5. Execute with resolved config
+//  5. Execute with resolved config; the executor gets ExecutionContextData from ctx
 //  6. Return NodeExecutionResult with metadata
 func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (*NodeExecutionResult, error) {
 	baseExecutor, err := ne.executorManager.Get(nodeCtx.Node.Type)
@@ -56,6 +58,10 @@ func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (*Nod
 	}
 
 	execCtxData := &executor.ExecutionContextData{
+		ExecutionID:        nodeCtx.ExecutionID,
+		WorkflowID:         nodeCtx.WorkflowID,
+		NodeID:             nodeCtx.NodeID,
+		OwnerID:            nodeCtx.OwnerID,
 		WorkflowVariables:  nodeCtx.WorkflowVariables,
 		ExecutionVariables: nodeCtx.ExecutionVariables,
 		ParentNodeOutput:   nodeCtx.DirectParentOutput,
@@ -70,7 +76,7 @@ func (ne *NodeExecutor) Execute(ctx context.Context, nodeCtx *NodeContext) (*Nod
 		return nil, fmt.Errorf("template resolution failed: %w", err)
 	}
 
-	output, err := baseExecutor.Execute(ctx, resolvedConfig, nodeCtx.DirectParentOutput)
+	output, err := baseExecutor.Execute(executor.WithExecutionContext(ctx, execCtxData), resolvedConfig, nodeCtx.DirectParentOutput)
 
 	result := &NodeExecutionResult{
 		Output:         output,
@@ -134,6 +140,8 @@ func PrepareNodeContext(
 
 	return &NodeContext{
 		ExecutionID:        execState.ExecutionID,
+		WorkflowID:         execState.WorkflowID,
+		OwnerID:            execState.Workflow.CreatedBy,
 		NodeID:             node.ID,
 		Node:               node,
 		WorkflowVariables:  execState.Workflow.Variables,

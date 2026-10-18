@@ -16,6 +16,7 @@ const ExecutionDetailPage = named(() => import('@/pages/ExecutionDetailPage'), '
 const ExecutionsPage = named(() => import('@/pages/ExecutionsPage'), 'ExecutionsPage');
 const MonitoringPage = named(() => import('@/pages/MonitoringPage'), 'MonitoringPage');
 const ResourcesPage = named(() => import('@/pages/ResourcesPage'), 'ResourcesPage');
+const ApiClientsPage = named(() => import('@/pages/ApiClientsPage'), 'ApiClientsPage');
 const SettingsPage = named(() => import('@/pages/SettingsPage'), 'SettingsPage');
 const TriggersPage = named(() => import('@/pages/TriggersPage'), 'TriggersPage');
 const WorkflowsPage = named(() => import('@/pages/WorkflowsPage'), 'WorkflowsPage');
@@ -107,6 +108,11 @@ const App: React.FC = () => {
                     <Route path="/resources" element={
                         <ProtectedRoute>
                             <PageLayout title="Resources"><ResourcesPage/></PageLayout>
+                        </ProtectedRoute>
+                    }/>
+                    <Route path="/api-clients" element={
+                        <ProtectedRoute>
+                            <PageLayout title="API Clients"><ApiClientsPage/></PageLayout>
                         </ProtectedRoute>
                     }/>
                     <Route path="/settings" element={

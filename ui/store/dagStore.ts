@@ -22,6 +22,7 @@ import {
   NodeExecutionResult
 } from '@/types';
 import type { WorkflowResource } from '@/types/workflow';
+import type { NodeTemplate } from '@/components/builder/dragData';
 import type { ExecutionEvent } from '@/types/execution';
 import { workflowService } from '@/services/workflowService';
 import { executionService } from '@/services/executionService';
@@ -64,7 +65,7 @@ interface DAGState {
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
-  addNode: (type: NodeType, position: { x: number, y: number }) => AppNode;
+  addNode: (type: NodeType, position: { x: number, y: number }, template?: NodeTemplate) => AppNode;
   duplicateNode: (nodeId: string) => void;
   deleteNode: (nodeId: string) => void;
   setSelectedNodeId: (id: string | null) => void;
@@ -169,15 +170,16 @@ export const useDagStore = create<DAGState>((set, get) => ({
     set({ history: newHistory, historyIndex: newHistory.length - 1 });
   },
 
-  addNode: (type, position) => {
+  addNode: (type, position, template) => {
     const { nodes } = get();
 
-    // Generate node ID based on type + suffix
+    // Node ID is the type, or the type with the first free numeric suffix.
     const generateNodeId = (nodeType: NodeType): string => {
-      // Count existing nodes of this type
-      const existingCount = nodes.filter(n => n.data.type === nodeType).length;
-      // If first node of this type, use just the type, otherwise add suffix
-      return existingCount === 0 ? nodeType : `${nodeType}_${existingCount + 1}`;
+      const taken = new Set(nodes.map(n => n.id));
+      if (!taken.has(nodeType)) return nodeType;
+      let index = nodes.filter(n => n.data.type === nodeType).length + 1;
+      while (taken.has(`${nodeType}_${index}`)) index++;
+      return `${nodeType}_${index}`;
     };
 
     // Generate default label based on type
@@ -202,6 +204,7 @@ export const useDagStore = create<DAGState>((set, get) => ({
         [NodeType.BYTES_TO_JSON]: 'Bytes → JSON',
         [NodeType.FILE_TO_BYTES]: 'File → Bytes',
         [NodeType.BYTES_TO_FILE]: 'Bytes → File',
+        [NodeType.OPENAPI]: 'API Operation',
       };
       return labelMap[nodeType] || 'New Node';
     };
@@ -211,11 +214,11 @@ export const useDagStore = create<DAGState>((set, get) => ({
       type: 'custom',
       position,
       data: {
-        label: getDefaultLabel(type),
+        label: template?.label || getDefaultLabel(type),
         type,
         status: NodeStatus.IDLE,
-        description: 'Configure this node in the panel.',
-        config: {}
+        description: template?.description ?? 'Configure this node in the panel.',
+        config: template?.config ? structuredClone(template.config) : {}
       },
     };
 

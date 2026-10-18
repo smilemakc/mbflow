@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smilemakc/mbflow/go/internal/application/apiclient"
 	"github.com/smilemakc/mbflow/go/internal/application/auth"
 	"github.com/smilemakc/mbflow/go/internal/application/engine"
 	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
@@ -16,6 +17,7 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/api/rest"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage"
+	"github.com/smilemakc/mbflow/go/pkg/credentials"
 	"github.com/smilemakc/mbflow/go/pkg/crypto"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/executor/builtin"
@@ -56,6 +58,10 @@ func (s *Server) initComponents() error {
 
 	if err := s.initEncryptionServices(); err != nil {
 		s.logger.Warn("Encryption service not available - credentials and rental keys features disabled", "error", err)
+	}
+
+	if err := s.initAPIClients(); err != nil {
+		return fmt.Errorf("failed to initialize API clients: %w", err)
 	}
 
 	if err := s.initAuthSystem(); err != nil {
@@ -236,6 +242,7 @@ func (s *Server) initRepositories() error {
 	s.data.ServiceKeyRepo = storage.NewServiceKeyRepository(s.data.DB)
 	s.data.SystemKeyRepo = storage.NewSystemKeyRepo(s.data.DB)
 	s.data.AuditLogRepo = storage.NewServiceAuditLogRepo(s.data.DB)
+	s.data.APIClientRepo = storage.NewAPIClientRepository(s.data.DB)
 
 	s.logger.Info("Repositories initialized")
 	return nil
@@ -254,6 +261,26 @@ func (s *Server) initEncryptionServices() error {
 	s.auth.RentalKeyProvider = rentalkey.NewProvider(s.data.RentalKeyRepo, encryptionService)
 
 	s.logger.Info("Rental key provider initialized")
+	return nil
+}
+
+// initAPIClients wires API clients imported from OpenAPI specifications and
+// registers the executor of their operations. Without an encryption key,
+// clients cannot reference credentials.
+func (s *Server) initAPIClients() error {
+	var credentialLookup apiclient.CredentialLookup
+	var credentialProvider builtin.CredentialProvider
+	if s.auth.EncryptionService != nil {
+		credentialLookup = s.data.CredentialsRepo
+		credentialProvider = credentials.NewService(s.data.CredentialsRepo, s.auth.EncryptionService)
+	}
+
+	s.execution.APIClientService = apiclient.NewService(s.data.APIClientRepo, credentialLookup)
+	if err := builtin.RegisterOpenAPI(s.execution.ExecutorManager, s.execution.APIClientService, credentialProvider); err != nil {
+		return err
+	}
+
+	s.logger.Info("API clients initialized", "credentials_enabled", credentialProvider != nil)
 	return nil
 }
 

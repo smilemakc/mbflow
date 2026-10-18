@@ -42,6 +42,7 @@ export enum NodeType {
     // External integrations
     GOOGLE_SHEETS = 'google_sheets',
     GOOGLE_DRIVE = 'google_drive',
+    OPENAPI = 'openapi',
 
     // Advanced workflow patterns
     SUB_WORKFLOW = 'sub_workflow'

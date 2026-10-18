@@ -119,6 +119,36 @@ func TestNodeExecutor_Execute_TemplateResolution(t *testing.T) {
 	}
 }
 
+// TestNodeExecutor_Execute_PassesExecutionContext tests that executors receive execution identity through ctx
+func TestNodeExecutor_Execute_PassesExecutionContext(t *testing.T) {
+	t.Parallel()
+	var got *executor.ExecutionContextData
+	mockExec := &mockExecutor{
+		executeFn: func(ctx context.Context, config map[string]any, input any) (any, error) {
+			got, _ = executor.GetExecutionContext(ctx)
+			return map[string]any{}, nil
+		},
+	}
+	registry := executor.NewManager()
+	if err := registry.Register("http", mockExec); err != nil {
+		t.Fatalf("failed to register executor: %v", err)
+	}
+
+	node := &models.Node{ID: "node-1", Name: "Node", Type: "http", Config: map[string]any{}}
+	execState := NewExecutionState("exec-1", "wf-1", &models.Workflow{ID: "wf-1", CreatedBy: "user-1"}, nil, nil)
+	nodeCtx := PrepareNodeContext(execState, node, nil, &ExecutionOptions{})
+
+	if _, err := NewNodeExecutor(registry).Execute(context.Background(), nodeCtx); err != nil {
+		t.Fatalf("execution failed: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected execution context in executor ctx")
+	}
+	if got.ExecutionID != "exec-1" || got.WorkflowID != "wf-1" || got.NodeID != "node-1" || got.OwnerID != "user-1" {
+		t.Errorf("unexpected execution context: %+v", got)
+	}
+}
+
 // TestNodeExecutor_Execute_ExecutionVariablesOverride tests that execution variables override workflow variables
 func TestNodeExecutor_Execute_ExecutionVariablesOverride(t *testing.T) {
 	t.Parallel()

@@ -26,6 +26,7 @@ import {
     MessageSquare,
     MoreHorizontal,
     Network,
+    Plug,
     Rss,
     Send,
     Sheet,
@@ -36,6 +37,7 @@ import {
 } from 'lucide-react';
 import {NodeData, NodeStatus, NodeType} from '@/types';
 import {SubWorkflowProgress} from './SubWorkflowProgress';
+import {OpenAPINodeSummary} from './OpenAPINodeSummary';
 
 // Helper to get color/icon based on type
 const getNodeStyles = (type?: NodeType) => {
@@ -130,6 +132,14 @@ const getNodeStyles = (type?: NodeType) => {
                 bg: 'bg-blue-500',
                 border: 'border-blue-200 dark:border-blue-900',
                 gradient: 'from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-900'
+            };
+        case NodeType.OPENAPI:
+            return {
+                icon: Plug,
+                color: 'text-indigo-500',
+                bg: 'bg-indigo-500',
+                border: 'border-indigo-200 dark:border-indigo-900',
+                gradient: 'from-indigo-50 to-white dark:from-indigo-900/20 dark:to-slate-900'
             };
 
         // Triggers
@@ -352,6 +362,8 @@ export const CustomNode = memo(({data, selected}: NodeProps<NodeData>) => {
                 <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                     {data.description || 'No description provided.'}
                 </p>
+
+                {data.type === NodeType.OPENAPI && <OpenAPINodeSummary config={data.config}/>}
 
                 {/* Sub-workflow progress */}
                 {(data.nodeType === NodeType.SUB_WORKFLOW || data.type === NodeType.SUB_WORKFLOW) && data.subWorkflowProgress && (
