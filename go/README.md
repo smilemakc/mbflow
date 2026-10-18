@@ -195,16 +195,32 @@ MBFLOW_AUTH_REDIRECT_URL=http://localhost:8585/auth/callback
 
 ### API v1
 
-- `POST /api/v1/workflows` - Create workflow
+- `POST /api/v1/workflows` - Create workflow (optionally with `nodes` and `edges`)
 - `GET /api/v1/workflows` - List workflows
 - `GET /api/v1/workflows/:id` - Get workflow
-- `PUT /api/v1/workflows/:id` - Update workflow
+- `PUT /api/v1/workflows/:id` - Update workflow (`nodes`, `edges`, `resources` are replaced only when sent)
 - `DELETE /api/v1/workflows/:id` - Delete workflow
-- `POST /api/v1/executions` - Execute workflow
+- `POST /api/v1/workflows/:id/execute` - Execute workflow (async; poll the execution or use the WebSocket)
+- `POST /api/v1/executions/ephemeral` - Run an inline workflow (`mode: sync|async`)
 - `GET /api/v1/executions/:id` - Get execution
 - `POST /api/v1/triggers` - Create trigger
+- `POST /api/v1/webhooks/:trigger_id` - Call a webhook trigger
 
 (Full API documentation coming soon)
+
+### Triggers
+
+Trigger changes made through the API (create, update, enable, disable,
+delete) take effect immediately; executions started by a trigger record its
+`trigger_id`. Triggers are created disabled unless `"enabled": true` is sent.
+
+| Type | Config |
+|------|--------|
+| `cron` | `{"schedule": "0 9 * * 1-5", "timezone": "Europe/Moscow", "input": {...}}`. Standard 5-field cron, 6-field with leading seconds, or descriptors such as `@hourly`. `timezone` is an IANA name (default UTC). |
+| `interval` | `{"interval": "30s"}` (Go duration or number of seconds) |
+| `webhook` | `{"secret": "...", "ip_whitelist": [...], "input": {...}}`, all optional. Call `POST /api/v1/webhooks/<trigger_id>`. |
+
+Invalid schedules are rejected with `400 INVALID_TRIGGER_CONFIG`.
 
 ## SDK Usage
 

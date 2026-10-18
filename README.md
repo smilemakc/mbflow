@@ -84,6 +84,16 @@ Useful targets in `go/Makefile`: `make test`, `make lint` (golangci-lint v2), `m
     It prompts for the password if you omit `-password`.
   - **Bootstrap on startup**: set `MBFLOW_ADMIN_EMAIL` and `MBFLOW_ADMIN_PASSWORD` in the API container's environment. The server creates this admin if no user with that email exists. Remove the password from the environment afterwards.
 
+## Known limitations
+
+These were found while deploying and testing the full stack and are not fixed yet:
+
+- **UI placeholders.** The Monitoring page, the "System health" block on the Dashboard and the profile/notification sections of Settings show static demo data, not real metrics. Treat them as mock-ups; use `/ready`, `/metrics` and logs for real monitoring.
+- **Triggers in the UI.** The "Create trigger" dialog is a stub, and the triggers list expects a different data shape (`type: schedule`, `status`) than the API returns (`type: cron`, `enabled`). Manage triggers through the API for now.
+- **Single API replica for triggers.** Cron/interval triggers run in every API replica, so running more than one replica fires them more than once. The login lockout counters are also per process. Run one API replica, or add leader election and the Redis-based limiter, before scaling out.
+- **No execution concurrency limit or crash recovery.** Every execution runs in its own goroutine without a global cap, and executions that were running when the process was killed (not gracefully stopped) stay in `running`.
+- **UI dependency advisories.** Two moderate advisories in `react-router` are fixed only in v7, which needs a migration.
+
 ## More documentation
 
 - [go/README.md](go/README.md): backend architecture, configuration, API and SDK
