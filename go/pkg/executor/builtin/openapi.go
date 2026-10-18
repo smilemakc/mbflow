@@ -91,8 +91,9 @@ func (e *APIOperationExecutor) Execute(ctx context.Context, config map[string]an
 	if err := e.Validate(config); err != nil {
 		return nil, err
 	}
-	clientID := strings.TrimSpace(config["client_id"].(string))
-	operationID := strings.TrimSpace(config["operation_id"].(string))
+	clientID, _ := config["client_id"].(string)
+	operationID, _ := config["operation_id"].(string)
+	clientID, operationID = strings.TrimSpace(clientID), strings.TrimSpace(operationID)
 
 	client, err := e.clients.GetAPIClient(ctx, clientID)
 	if err != nil {

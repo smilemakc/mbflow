@@ -560,8 +560,6 @@ func asFile(value any, schema map[string]any, fieldName string) (*filePart, bool
 	return nil, false
 }
 
-var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
-
 func encodeMultipart(body any, schema map[string]any, schemas map[string]map[string]any) ([]byte, string, error) {
 	m, ok := body.(map[string]any)
 	if !ok {
@@ -582,8 +580,7 @@ func encodeMultipart(body any, schema map[string]any, schemas map[string]map[str
 	writer := multipart.NewWriter(&buf)
 	writeFile := func(field string, file *filePart) error {
 		h := make(textproto.MIMEHeader)
-		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
-			quoteEscaper.Replace(field), quoteEscaper.Replace(file.filename)))
+		h.Set("Content-Disposition", fmt.Sprintf("form-data; name=%q; filename=%q", field, file.filename))
 		h.Set("Content-Type", file.contentType)
 		part, err := writer.CreatePart(h)
 		if err != nil {

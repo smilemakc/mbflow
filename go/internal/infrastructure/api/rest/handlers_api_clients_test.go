@@ -60,7 +60,6 @@ components:
 
 type apiClientTestEnv struct {
 	router  *gin.Engine
-	userID  string
 	userIDs map[string]string
 }
 

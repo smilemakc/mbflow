@@ -490,16 +490,14 @@ func (s *Server) setupAPIClientRoutes(apiV1 *gin.RouterGroup) {
 
 	apiClients := apiV1.Group("/api-clients")
 	apiClients.Use(s.auth.AuthMiddleware.RequireAuth())
-	{
-		apiClients.POST("/preview", handlers.HandlePreview)
-		apiClients.POST("", handlers.HandleCreate)
-		apiClients.GET("", handlers.HandleList)
-		apiClients.GET("/:id", handlers.HandleGet)
-		apiClients.PUT("/:id", handlers.HandleUpdate)
-		apiClients.DELETE("/:id", handlers.HandleDelete)
-		apiClients.GET("/:id/spec", handlers.HandleDownloadSpec)
-		apiClients.PUT("/:id/spec", handlers.HandleReplaceSpec)
-	}
+	apiClients.POST("/preview", handlers.HandlePreview)
+	apiClients.POST("", handlers.HandleCreate)
+	apiClients.GET("", handlers.HandleList)
+	apiClients.GET("/:id", handlers.HandleGet)
+	apiClients.PUT("/:id", handlers.HandleUpdate)
+	apiClients.DELETE("/:id", handlers.HandleDelete)
+	apiClients.GET("/:id/spec", handlers.HandleDownloadSpec)
+	apiClients.PUT("/:id/spec", handlers.HandleReplaceSpec)
 
 	s.logger.Info("API client endpoints registered")
 }

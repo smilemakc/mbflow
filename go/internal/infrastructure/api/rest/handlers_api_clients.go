@@ -316,7 +316,7 @@ func (h *APIClientHandlers) readSpecUpload(c *gin.Context) (*specUpload, bool) {
 			}
 			return nil, false
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		data, err := io.ReadAll(file)
 		if err != nil {
 			respondAPIErrorWithRequestID(c, NewAPIError("READ_ERROR", "Failed to read specification file", http.StatusBadRequest))

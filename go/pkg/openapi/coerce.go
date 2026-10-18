@@ -11,8 +11,8 @@ import (
 const maxCoerceDepth = 32
 
 var (
-	jsonIntegerPattern = regexp.MustCompile(`^-?(0|[1-9][0-9]*)$`)
-	jsonNumberPattern  = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$`)
+	jsonIntegerPattern = regexp.MustCompile(`^-?(0|[1-9]\d*)$`)
+	jsonNumberPattern  = regexp.MustCompile(`^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$`)
 )
 
 // Coerce converts string values to the types declared by the schema.
@@ -90,7 +90,7 @@ func coerceString(s, typ string, schema map[string]any, schemas map[string]map[s
 	return s
 }
 
-func coerceObject(m map[string]any, schema map[string]any, schemas map[string]map[string]any, depth int) map[string]any {
+func coerceObject(m, schema map[string]any, schemas map[string]map[string]any, depth int) map[string]any {
 	props, _ := schema["properties"].(map[string]any)
 	additional, _ := schema["additionalProperties"].(map[string]any)
 
