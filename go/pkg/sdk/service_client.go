@@ -221,7 +221,12 @@ func decodeListResponse[T any](resp *http.Response, key string) ([]T, int, error
 	}
 
 	var items []T
-	if data, ok := raw[key]; ok {
+	data, ok := raw[key]
+	if !ok {
+		// The REST API returns paginated lists as {"data": [...], "total": N}.
+		data, ok = raw["data"]
+	}
+	if ok {
 		if err := json.Unmarshal(data, &items); err != nil {
 			return nil, 0, fmt.Errorf("failed to decode items: %w", err)
 		}

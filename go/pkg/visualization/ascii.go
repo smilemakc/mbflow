@@ -51,6 +51,10 @@ func (r *ASCIIRenderer) Render(workflow *models.Workflow, opts *RenderOptions) (
 		opts = DefaultRenderOptions()
 	}
 
+	// Work on a copy so the caller's options are not modified.
+	local := *opts
+	opts = &local
+
 	// Auto-detect TTY for color support
 	if opts.UseColor {
 		opts.UseColor = isTerminal()
@@ -79,9 +83,10 @@ func (r *ASCIIRenderer) Render(workflow *models.Workflow, opts *RenderOptions) (
 
 	// Render each root node and its children
 	visited := make(map[string]bool)
+	onPath := make(map[string]bool)
 	for i, root := range rootNodes {
 		isLast := i == len(rootNodes)-1
-		r.renderNode(&sb, root, graph, "", isLast, visited, opts)
+		r.renderNode(&sb, root, graph, "", isLast, visited, onPath, opts)
 	}
 
 	return sb.String(), nil
@@ -154,10 +159,12 @@ func (r *ASCIIRenderer) renderNode(
 	prefix string,
 	isLast bool,
 	visited map[string]bool,
+	onPath map[string]bool,
 	opts *RenderOptions,
 ) {
-	// Check for cycles
-	if visited[node.ID] {
+	// A node that is its own ancestor closes a cycle; a node already rendered
+	// through another parent (e.g. the join of a diamond) is only referenced.
+	if onPath[node.ID] || visited[node.ID] {
 		if prefix != "" {
 			if isLast {
 				sb.WriteString(prefix + lastBranchChar)
@@ -165,12 +172,18 @@ func (r *ASCIIRenderer) renderNode(
 				sb.WriteString(prefix + branchChar)
 			}
 		}
-		sb.WriteString(r.colorize("(cycle detected: "+node.ID+")", colorRed, opts.UseColor))
+		if onPath[node.ID] {
+			sb.WriteString(r.colorize("(cycle detected: "+node.ID+")", colorRed, opts.UseColor))
+		} else {
+			sb.WriteString(r.colorize("["+node.ID+"]", colorGreen, opts.UseColor) + " (see above)")
+		}
 		sb.WriteString("\n")
 		return
 	}
 
 	visited[node.ID] = true
+	onPath[node.ID] = true
+	defer delete(onPath, node.ID)
 
 	// Write node with proper prefix
 	if prefix != "" {
@@ -219,7 +232,7 @@ func (r *ASCIIRenderer) renderNode(
 	// Render children
 	for i, edge := range gNode.Children {
 		isLastChild := i == len(gNode.Children)-1
-		r.renderNode(sb, edge.Target, graph, childPrefix, isLastChild, visited, opts)
+		r.renderNode(sb, edge.Target, graph, childPrefix, isLastChild, visited, onPath, opts)
 	}
 }
 

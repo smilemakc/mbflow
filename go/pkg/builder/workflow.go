@@ -181,6 +181,11 @@ func (wb *WorkflowBuilder) Build() (*models.Workflow, error) {
 		if err != nil {
 			return nil, fmt.Errorf("node %s: %w", id, err)
 		}
+		if wb.strictMode {
+			if err := ValidateNodeConfig(node.Type, node.Config); err != nil {
+				return nil, fmt.Errorf("node %s: %w", id, err)
+			}
+		}
 		nodes = append(nodes, node)
 	}
 	wb.workflow.Nodes = nodes

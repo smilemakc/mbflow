@@ -33,7 +33,7 @@ func TestExecutionAPI_RunRemote_Success(t *testing.T) {
 	// Create mock server
 	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/api/v1/executions", r.URL.Path)
+		assert.Equal(t, "/api/v1/executions/run/wf-456", r.URL.Path)
 
 		execution := &models.Execution{
 			ID:         "exec-123",
@@ -235,8 +235,6 @@ func TestExecutionAPI_ListRemote_WithFilters(t *testing.T) {
 
 // TestExecutionAPI_CancelRemote_Success tests successful remote execution cancellation
 func TestExecutionAPI_CancelRemote_Success(t *testing.T) {
-	t.Skip("Cancel remote implementation not yet complete")
-
 	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123/cancel")
@@ -261,8 +259,6 @@ func TestExecutionAPI_CancelRemote_Success(t *testing.T) {
 
 // TestExecutionAPI_RetryRemote_Success tests successful remote execution retry
 func TestExecutionAPI_RetryRemote_Success(t *testing.T) {
-	t.Skip("Retry remote implementation not yet complete")
-
 	server := httptest.NewServer(withHealthCheck(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/api/v1/executions/exec-123/retry")

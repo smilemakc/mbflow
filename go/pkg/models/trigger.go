@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/robfig/cron/v3"
 )
 
 // Trigger represents a workflow trigger configuration.
@@ -88,8 +90,38 @@ func (t *Trigger) validateCronConfig() error {
 		return &ValidationError{Field: "config.schedule", Message: "cron schedule is required"}
 	}
 
-	// TODO: Validate cron expression format
+	if err := ValidateCronExpression(schedule); err != nil {
+		return &ValidationError{Field: "config.schedule", Message: "invalid cron expression: " + err.Error()}
+	}
+
+	if tz, ok := t.Config["timezone"]; ok && tz != nil {
+		tzStr, isStr := tz.(string)
+		if !isStr {
+			return &ValidationError{Field: "config.timezone", Message: "timezone must be a string"}
+		}
+		if tzStr != "" {
+			if _, err := time.LoadLocation(tzStr); err != nil {
+				return &ValidationError{Field: "config.timezone", Message: "invalid timezone: " + tzStr}
+			}
+		}
+	}
+
 	return nil
+}
+
+// cronExpressionParser mirrors the parser used by the trigger cron scheduler
+// (internal/application/trigger/cron_scheduler.go): standard 5-field
+// expressions, 6-field expressions with a leading seconds field, descriptors
+// such as @hourly / @every 5m, and an optional CRON_TZ=/TZ= prefix.
+var cronExpressionParser = cron.NewParser(
+	cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor,
+)
+
+// ValidateCronExpression reports whether expr is a cron expression the
+// trigger scheduler accepts.
+func ValidateCronExpression(expr string) error {
+	_, err := cronExpressionParser.Parse(expr)
+	return err
 }
 
 // validateWebhookConfig validates webhook trigger configuration.

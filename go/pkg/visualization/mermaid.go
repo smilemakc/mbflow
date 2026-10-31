@@ -2,6 +2,7 @@ package visualization
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/smilemakc/mbflow/go/pkg/models"
@@ -46,8 +47,13 @@ func (r *MermaidRenderer) Render(workflow *models.Workflow, opts *RenderOptions)
 		if len(opts.ThemeVariables) > 0 {
 			sb.WriteString("  theme: base\n")
 			sb.WriteString("  themeVariables:\n")
-			for key, value := range opts.ThemeVariables {
-				sb.WriteString(fmt.Sprintf("    %s: \"%s\"\n", key, value))
+			keys := make([]string, 0, len(opts.ThemeVariables))
+			for key := range opts.ThemeVariables {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				sb.WriteString(fmt.Sprintf("    %s: \"%s\"\n", key, opts.ThemeVariables[key]))
 			}
 		}
 
@@ -74,14 +80,20 @@ func (r *MermaidRenderer) Render(workflow *models.Workflow, opts *RenderOptions)
 	if len(workflow.Edges) > 0 {
 		sb.WriteString("\n")
 
-		// Group edges by source node for compact syntax
+		// Group edges by source node for compact syntax, keeping the order in
+		// which sources first appear so the output is deterministic.
 		edgesBySource := make(map[string][]*models.Edge)
+		var sourceOrder []string
 		for _, edge := range workflow.Edges {
+			if _, seen := edgesBySource[edge.From]; !seen {
+				sourceOrder = append(sourceOrder, edge.From)
+			}
 			edgesBySource[edge.From] = append(edgesBySource[edge.From], edge)
 		}
 
 		// Render grouped edges
-		for sourceID, edges := range edgesBySource {
+		for _, sourceID := range sourceOrder {
+			edges := edgesBySource[sourceID]
 			if len(edges) == 1 {
 				// Single edge - simple syntax
 				sb.WriteString("    ")
@@ -344,8 +356,14 @@ func (r *MermaidRenderer) applyNodeClasses(workflow *models.Workflow) string {
 		}
 	}
 
-	// Apply classes
-	for className, nodeIDs := range nodesByType {
+	// Apply classes in a stable order
+	classNames := make([]string, 0, len(nodesByType))
+	for className := range nodesByType {
+		classNames = append(classNames, className)
+	}
+	sort.Strings(classNames)
+	for _, className := range classNames {
+		nodeIDs := nodesByType[className]
 		if len(nodeIDs) > 0 {
 			sb.WriteString("    class ")
 			for i, nodeID := range nodeIDs {

@@ -4,9 +4,12 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -20,6 +23,7 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/sdk"
 	"github.com/smilemakc/mbflow/go/pkg/visualization"
+	"github.com/uptrace/bun"
 	"golang.org/x/term"
 )
 
@@ -118,102 +122,157 @@ ENVIRONMENT VARIABLES:
 `
 )
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(1)
-	}
+// gatewayProvider is the part of the auth-gateway gRPC provider the CLI uses.
+type gatewayProvider interface {
+	IsAvailable() bool
+	CreateUser(ctx context.Context, req *auth.CreateUserRequest) (*auth.ProviderAuthResult, error)
+	Close() error
+}
 
-	godotenv.Load()
+// cli holds the process dependencies of the command-line tool so commands can
+// be run (and tested) without touching the real process environment.
+type cli struct {
+	stdout io.Writer
+	stderr io.Writer
+	stdin  *bufio.Reader
+	getenv func(string) string
 
-	command := os.Args[1]
+	// readSecret reads a password without echo. ok is false when the input
+	// is not a terminal, in which case the password is read from stdin.
+	readSecret func() (secret string, ok bool, err error)
 
-	switch command {
-	case "workflow":
-		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "Error: workflow command requires a subcommand (show, list)")
-			fmt.Fprint(os.Stderr, usage)
-			os.Exit(1)
-		}
-		subcommand := os.Args[2]
-		switch subcommand {
-		case "show":
-			handleWorkflowShow(os.Args[3:])
-		case "list":
-			handleWorkflowList(os.Args[3:])
-		default:
-			fmt.Fprintf(os.Stderr, "Error: unknown workflow subcommand: %s\n", subcommand)
-			os.Exit(1)
-		}
+	newGatewayProvider func(cfg *config.AuthConfig) (gatewayProvider, error)
+}
 
-	case "user":
-		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "Error: user command requires a subcommand (create)")
-			fmt.Fprint(os.Stderr, usage)
-			os.Exit(1)
-		}
-		subcommand := os.Args[2]
-		switch subcommand {
-		case "create":
-			handleUserCreate(os.Args[3:])
-		default:
-			fmt.Fprintf(os.Stderr, "Error: unknown user subcommand: %s\n", subcommand)
-			os.Exit(1)
-		}
-
-	case "admin":
-		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "Error: admin command requires a subcommand (create)")
-			fmt.Fprint(os.Stderr, usage)
-			os.Exit(1)
-		}
-		subcommand := os.Args[2]
-		switch subcommand {
-		case "create":
-			handleAdminCreate(os.Args[3:])
-		default:
-			fmt.Fprintf(os.Stderr, "Error: unknown admin subcommand: %s\n", subcommand)
-			os.Exit(1)
-		}
-
-	case "system-key":
-		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "Error: system-key command requires a subcommand (create)")
-			fmt.Fprint(os.Stderr, usage)
-			os.Exit(1)
-		}
-		subcommand := os.Args[2]
-		switch subcommand {
-		case "create":
-			handleSystemKeyCreate(os.Args[3:])
-		default:
-			fmt.Fprintf(os.Stderr, "Error: unknown system-key subcommand: %s\n", subcommand)
-			os.Exit(1)
-		}
-
-	case "version":
-		fmt.Printf("MBFlow CLI v%s\n", version)
-
-	case "help", "-h", "--help":
-		fmt.Print(usage)
-
-	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown command: %s\n", command)
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(1)
+func newCLI() *cli {
+	return &cli{
+		stdout: os.Stdout,
+		stderr: os.Stderr,
+		stdin:  bufio.NewReader(os.Stdin),
+		getenv: os.Getenv,
+		readSecret: func() (string, bool, error) {
+			fd := int(syscall.Stdin)
+			if !term.IsTerminal(fd) {
+				return "", false, nil
+			}
+			secret, err := term.ReadPassword(fd)
+			return string(secret), true, err
+		},
+		newGatewayProvider: func(cfg *config.AuthConfig) (gatewayProvider, error) {
+			return auth.NewGRPCProvider(cfg)
+		},
 	}
 }
 
-func handleWorkflowShow(args []string) {
+// usageError is an error after which the usage text is printed.
+type usageError struct{ msg string }
+
+func (e *usageError) Error() string { return e.msg }
+
+// exit terminates the process; replaceable in tests.
+var exit = os.Exit
+
+func main() {
+	_ = godotenv.Load()
+	exit(newCLI().run(os.Args[1:]))
+}
+
+// run executes the command given by args (without the program name) and
+// returns the process exit code.
+func (c *cli) run(args []string) int {
+	err := c.dispatch(args)
+	if err == nil || errors.Is(err, flag.ErrHelp) {
+		return 0
+	}
+	fmt.Fprintf(c.stderr, "Error: %v\n", err)
+	var ue *usageError
+	if errors.As(err, &ue) {
+		fmt.Fprint(c.stderr, usage)
+	}
+	return 1
+}
+
+func (c *cli) dispatch(args []string) error {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Error: workflow show requires a workflow ID")
-		os.Exit(1)
+		return &usageError{msg: "a command is required"}
 	}
 
+	command := args[0]
+	subcommands := map[string]map[string]func([]string) error{
+		"workflow":   {"show": c.workflowShow, "list": c.workflowList},
+		"user":       {"create": c.userCreate},
+		"admin":      {"create": c.adminCreate},
+		"system-key": {"create": c.systemKeyCreate},
+	}
+
+	if subs, ok := subcommands[command]; ok {
+		names := make([]string, 0, len(subs))
+		for name := range subs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		if len(args) < 2 {
+			return &usageError{msg: fmt.Sprintf("%s command requires a subcommand (%s)", command, strings.Join(names, ", "))}
+		}
+		handler, ok := subs[args[1]]
+		if !ok {
+			return fmt.Errorf("unknown %s subcommand: %s", command, args[1])
+		}
+		return handler(args[2:])
+	}
+
+	switch command {
+	case "version":
+		fmt.Fprintf(c.stdout, "MBFlow CLI v%s\n", version)
+		return nil
+	case "help", "-h", "--help":
+		fmt.Fprint(c.stdout, usage)
+		return nil
+	default:
+		return &usageError{msg: "unknown command: " + command}
+	}
+}
+
+func (c *cli) newFlagSet(name string) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(c.stderr)
+	return fs
+}
+
+func (c *cli) env(key, defaultValue string) string {
+	if value := c.getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// connectionFlags registers the flags shared by commands that talk to the server.
+func (c *cli) connectionFlags(fs *flag.FlagSet) (endpoint, apiKey *string, timeout *time.Duration) {
+	endpoint = fs.String("endpoint", c.env("MBFLOW_ENDPOINT", "http://localhost:8585"), "MBFlow server endpoint")
+	apiKey = fs.String("api-key", c.env("MBFLOW_API_KEY", ""), "API key for authentication")
+	timeout = fs.Duration("timeout", 30*time.Second, "Request timeout")
+	return endpoint, apiKey, timeout
+}
+
+func newRemoteClient(endpoint, apiKey string, timeout time.Duration) (*sdk.Client, error) {
+	opts := []sdk.ClientOption{sdk.WithHTTPEndpoint(endpoint), sdk.WithTimeout(timeout)}
+	if apiKey != "" {
+		opts = append(opts, sdk.WithAPIKey(apiKey))
+	}
+	client, err := sdk.NewClient(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+	return client, nil
+}
+
+func (c *cli) workflowShow(args []string) error {
+	if len(args) < 1 || strings.HasPrefix(args[0], "-") {
+		return errors.New("workflow show requires a workflow ID")
+	}
 	workflowID := args[0]
 
-	// Parse flags
-	fs := flag.NewFlagSet("workflow show", flag.ExitOnError)
+	fs := c.newFlagSet("workflow show")
 	format := fs.String("format", "mermaid", "Output format: mermaid, ascii")
 	direction := fs.String("direction", "TB", "Diagram direction: TB, LR, RL, BT, elk")
 	showConfig := fs.Bool("config", true, "Show node configuration details")
@@ -221,47 +280,30 @@ func handleWorkflowShow(args []string) {
 	compact := fs.Bool("compact", false, "Compact mode for ASCII")
 	useColor := fs.Bool("color", true, "Use colors in ASCII")
 	output := fs.String("output", "", "Save to file instead of stdout")
-	endpoint := fs.String("endpoint", getEnv("MBFLOW_ENDPOINT", "http://localhost:8585"), "MBFlow server endpoint")
-	apiKey := fs.String("api-key", getEnv("MBFLOW_API_KEY", ""), "API key for authentication")
-	timeout := fs.Duration("timeout", 30*time.Second, "Request timeout")
-
+	endpoint, apiKey, timeout := c.connectionFlags(fs)
 	if err := fs.Parse(args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	// Validate format
 	*format = strings.ToLower(*format)
 	if *format != "mermaid" && *format != "ascii" {
-		fmt.Fprintf(os.Stderr, "Error: invalid format '%s' (must be mermaid or ascii)\n", *format)
-		os.Exit(1)
+		return fmt.Errorf("invalid format '%s' (must be mermaid or ascii)", *format)
 	}
 
-	// Create SDK client
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	clientOpts := []sdk.ClientOption{
-		sdk.WithHTTPEndpoint(*endpoint),
-	}
-	if *apiKey != "" {
-		clientOpts = append(clientOpts, sdk.WithAPIKey(*apiKey))
-	}
-
-	client, err := sdk.NewClient(clientOpts...)
+	client, err := newRemoteClient(*endpoint, *apiKey, *timeout)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create client: %v\n", err)
-		os.Exit(1)
+		return err
 	}
+	defer client.Close()
 
-	// Get workflow from server
 	workflow, err := client.Workflows().Get(ctx, workflowID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to get workflow '%s': %v\n", workflowID, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to get workflow '%s': %w", workflowID, err)
 	}
 
-	// Prepare render options
 	opts := &visualization.RenderOptions{
 		ShowConfig:     *showConfig,
 		ShowConditions: *showConditions,
@@ -269,270 +311,231 @@ func handleWorkflowShow(args []string) {
 		CompactMode:    *compact,
 		UseColor:       *useColor && *output == "", // Only use color for stdout
 	}
-
-	// Render diagram
 	diagram, err := visualization.RenderWorkflow(workflow, *format, opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to render workflow: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to render workflow: %w", err)
 	}
 
-	// Output diagram
 	if *output != "" {
-		if err := os.WriteFile(*output, []byte(diagram), 0644); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to write to file '%s': %v\n", *output, err)
-			os.Exit(1)
+		if err := os.WriteFile(*output, []byte(diagram), 0o644); err != nil {
+			return fmt.Errorf("failed to write to file '%s': %w", *output, err)
 		}
-		fmt.Printf("Diagram saved to %s\n", *output)
-	} else {
-		fmt.Println(diagram)
+		fmt.Fprintf(c.stdout, "Diagram saved to %s\n", *output)
+		return nil
 	}
+	fmt.Fprintln(c.stdout, diagram)
+	return nil
 }
 
-func handleWorkflowList(args []string) {
-	// Parse flags
-	fs := flag.NewFlagSet("workflow list", flag.ExitOnError)
-	endpoint := fs.String("endpoint", getEnv("MBFLOW_ENDPOINT", "http://localhost:8585"), "MBFlow server endpoint")
-	apiKey := fs.String("api-key", getEnv("MBFLOW_API_KEY", ""), "API key for authentication")
-	timeout := fs.Duration("timeout", 30*time.Second, "Request timeout")
-
+func (c *cli) workflowList(args []string) error {
+	fs := c.newFlagSet("workflow list")
+	endpoint, apiKey, timeout := c.connectionFlags(fs)
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	// Create SDK client
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	clientOpts := []sdk.ClientOption{
-		sdk.WithHTTPEndpoint(*endpoint),
-	}
-	if *apiKey != "" {
-		clientOpts = append(clientOpts, sdk.WithAPIKey(*apiKey))
-	}
-
-	client, err := sdk.NewClient(clientOpts...)
+	client, err := newRemoteClient(*endpoint, *apiKey, *timeout)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create client: %v\n", err)
-		os.Exit(1)
+		return err
 	}
+	defer client.Close()
 
-	// List workflows
 	workflows, err := client.Workflows().List(ctx, nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to list workflows: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to list workflows: %w", err)
 	}
 
 	if len(workflows) == 0 {
-		fmt.Println("No workflows found")
-		return
+		fmt.Fprintln(c.stdout, "No workflows found")
+		return nil
 	}
 
-	// Print workflows
-	fmt.Printf("Found %d workflow(s):\n\n", len(workflows))
+	fmt.Fprintf(c.stdout, "Found %d workflow(s):\n\n", len(workflows))
 	for _, wf := range workflows {
-		fmt.Printf("ID:          %s\n", wf.ID)
-		fmt.Printf("Name:        %s\n", wf.Name)
+		fmt.Fprintf(c.stdout, "ID:          %s\n", wf.ID)
+		fmt.Fprintf(c.stdout, "Name:        %s\n", wf.Name)
 		if wf.Description != "" {
-			fmt.Printf("Description: %s\n", wf.Description)
+			fmt.Fprintf(c.stdout, "Description: %s\n", wf.Description)
 		}
-		fmt.Printf("Status:      %s\n", wf.Status)
-		fmt.Printf("Nodes:       %d\n", len(wf.Nodes))
-		fmt.Printf("Edges:       %d\n", len(wf.Edges))
+		fmt.Fprintf(c.stdout, "Status:      %s\n", wf.Status)
+		fmt.Fprintf(c.stdout, "Nodes:       %d\n", len(wf.Nodes))
+		fmt.Fprintf(c.stdout, "Edges:       %d\n", len(wf.Edges))
 		if len(wf.Tags) > 0 {
-			fmt.Printf("Tags:        %s\n", strings.Join(wf.Tags, ", "))
+			fmt.Fprintf(c.stdout, "Tags:        %s\n", strings.Join(wf.Tags, ", "))
 		}
-		fmt.Println("---")
+		fmt.Fprintln(c.stdout, "---")
 	}
+	return nil
 }
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+// requirePassword prompts for a password (twice) when none was given.
+func (c *cli) requirePassword(password *string, prompt string) error {
+	if *password != "" {
+		return nil
 	}
-	return defaultValue
+	*password = c.promptPassword(prompt)
+	if *password == "" {
+		return errors.New("password cannot be empty")
+	}
+	if confirm := c.promptPassword("Confirm password: "); *password != confirm {
+		return errors.New("passwords do not match")
+	}
+	return nil
 }
 
-func handleAdminCreate(args []string) {
-	// Parse flags
-	fs := flag.NewFlagSet("admin create", flag.ExitOnError)
+func (c *cli) databaseURL(mode string) (string, error) {
+	databaseURL := c.getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return "", fmt.Errorf("DATABASE_URL environment variable is required%s\nExample: DATABASE_URL=\"postgres://user:pass@localhost:5432/mbflow?sslmode=disable\"", mode)
+	}
+	return databaseURL, nil
+}
+
+func openDatabase(databaseURL string) (*bun.DB, error) {
+	dbConfig := storage.DefaultConfig()
+	dbConfig.DSN = databaseURL
+	db, err := storage.NewDB(dbConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+	return db, nil
+}
+
+func (c *cli) adminCreate(args []string) error {
+	fs := c.newFlagSet("admin create")
 	email := fs.String("email", "", "Admin email address (required)")
 	username := fs.String("username", "", "Admin username (required)")
 	password := fs.String("password", "", "Admin password (will prompt if not provided)")
 	fullName := fs.String("full-name", "", "Admin full name (optional)")
-
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	// Validate required fields
 	if *email == "" {
-		fmt.Fprintln(os.Stderr, "Error: -email is required")
-		os.Exit(1)
+		return errors.New("-email is required")
 	}
 	if *username == "" {
-		fmt.Fprintln(os.Stderr, "Error: -username is required")
-		os.Exit(1)
+		return errors.New("-username is required")
+	}
+	if err := c.requirePassword(password, "Enter admin password: "); err != nil {
+		return err
+	}
+	databaseURL, err := c.databaseURL("")
+	if err != nil {
+		return err
 	}
 
-	// Get password if not provided
-	if *password == "" {
-		*password = promptPassword("Enter admin password: ")
-		if *password == "" {
-			fmt.Fprintln(os.Stderr, "Error: password cannot be empty")
-			os.Exit(1)
-		}
-
-		// Confirm password
-		confirm := promptPassword("Confirm password: ")
-		if *password != confirm {
-			fmt.Fprintln(os.Stderr, "Error: passwords do not match")
-			os.Exit(1)
-		}
-	}
-
-	// Get database URL from environment
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		fmt.Fprintln(os.Stderr, "Error: DATABASE_URL environment variable is required")
-		fmt.Fprintln(os.Stderr, "Example: DATABASE_URL=\"postgres://user:pass@localhost:5432/mbflow?sslmode=disable\"")
-		os.Exit(1)
-	}
-
-	// Connect to database
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	dbConfig := storage.DefaultConfig()
-	dbConfig.DSN = databaseURL
-
-	db, err := storage.NewDB(dbConfig)
+	user, err := createLocalUser(ctx, c.stdout, databaseURL, *email, *username, *password, *fullName, true)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to connect to database: %v\n", err)
-		os.Exit(1)
+		return err
+	}
+	fmt.Fprintln(c.stdout, "Admin user created successfully!")
+	c.printUser(user.ID.String(), user.Email, user.Username, user.FullName, user.IsAdmin)
+	return nil
+}
+
+func (c *cli) printUser(id, email, username, fullName string, isAdmin bool) {
+	fmt.Fprintf(c.stdout, "  ID:       %s\n", id)
+	fmt.Fprintf(c.stdout, "  Email:    %s\n", email)
+	fmt.Fprintf(c.stdout, "  Username: %s\n", username)
+	if fullName != "" {
+		fmt.Fprintf(c.stdout, "  Name:     %s\n", fullName)
+	}
+	fmt.Fprintf(c.stdout, "  Admin:    %v\n", isAdmin)
+}
+
+// createLocalUser creates a user directly in the database. Admin users also
+// get the "admin" role when it exists; failing to assign it is only a warning.
+func createLocalUser(ctx context.Context, warn io.Writer, databaseURL, email, username, password, fullName string, isAdmin bool) (*models.UserModel, error) {
+	db, err := openDatabase(databaseURL)
+	if err != nil {
+		return nil, err
 	}
 	defer storage.Close(db)
 
-	// Create user repository
 	userRepo := storage.NewUserRepository(db)
 
-	// Check if user already exists
-	existingUser, _ := userRepo.FindByEmail(ctx, *email)
-	if existingUser != nil {
-		fmt.Fprintf(os.Stderr, "Error: user with email '%s' already exists\n", *email)
-		os.Exit(1)
+	if existing, _ := userRepo.FindByEmail(ctx, email); existing != nil {
+		return nil, fmt.Errorf("user with email '%s' already exists", email)
+	}
+	if existing, _ := userRepo.FindByUsername(ctx, username); existing != nil {
+		return nil, fmt.Errorf("user with username '%s' already exists", username)
 	}
 
-	existingUser, _ = userRepo.FindByUsername(ctx, *username)
-	if existingUser != nil {
-		fmt.Fprintf(os.Stderr, "Error: user with username '%s' already exists\n", *username)
-		os.Exit(1)
-	}
-
-	// Create auth config for password service
-	authCfg := &config.AuthConfig{
-		MinPasswordLength: 8,
-	}
+	authCfg := &config.AuthConfig{MinPasswordLength: 8}
 	passwordService := auth.NewPasswordService(authCfg.MinPasswordLength)
-
-	// Validate password
-	if err := passwordService.ValidatePassword(*password); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	if err := passwordService.ValidatePassword(password); err != nil {
+		return nil, err
 	}
-
-	// Hash password
-	passwordHash, err := passwordService.HashPassword(*password)
+	passwordHash, err := passwordService.HashPassword(password)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to hash password: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Create admin user
 	user := &models.UserModel{
 		ID:           uuid.New(),
-		Email:        *email,
-		Username:     *username,
+		Email:        email,
+		Username:     username,
 		PasswordHash: passwordHash,
-		FullName:     *fullName,
+		FullName:     fullName,
 		IsActive:     true,
-		IsAdmin:      true,
+		IsAdmin:      isAdmin,
 	}
-
 	if err := userRepo.Create(ctx, user); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create admin user: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Assign admin role if exists
-	adminRole, err := userRepo.FindRoleByName(ctx, "admin")
-	if err == nil && adminRole != nil {
-		if err := userRepo.AssignRole(ctx, user.ID, adminRole.ID, nil); err != nil {
-			fmt.Printf("Warning: failed to assign admin role: %v\n", err)
+	if isAdmin {
+		adminRole, err := userRepo.FindRoleByName(ctx, "admin")
+		if err == nil && adminRole != nil {
+			if err := userRepo.AssignRole(ctx, user.ID, adminRole.ID, nil); err != nil {
+				fmt.Fprintf(warn, "Warning: failed to assign admin role: %v\n", err)
+			}
 		}
 	}
-
-	fmt.Println("Admin user created successfully!")
-	fmt.Printf("  ID:       %s\n", user.ID)
-	fmt.Printf("  Email:    %s\n", user.Email)
-	fmt.Printf("  Username: %s\n", user.Username)
-	if user.FullName != "" {
-		fmt.Printf("  Name:     %s\n", user.FullName)
-	}
-	fmt.Printf("  Admin:    true\n")
+	return user, nil
 }
 
-func handleSystemKeyCreate(args []string) {
-	fs := flag.NewFlagSet("system-key create", flag.ExitOnError)
+func (c *cli) systemKeyCreate(args []string) error {
+	fs := c.newFlagSet("system-key create")
 	name := fs.String("name", "", "Key name (required)")
 	description := fs.String("description", "", "Key description")
 	serviceName := fs.String("service", "cli", "Service name")
 	createdByEmail := fs.String("created-by", "", "Creator email (default: first admin user)")
 	expires := fs.Int("expires", 0, "Expiration in days (0 = no expiration)")
-
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	if *name == "" {
-		fmt.Fprintln(os.Stderr, "Error: -name is required")
-		os.Exit(1)
+		return errors.New("-name is required")
 	}
-
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		fmt.Fprintln(os.Stderr, "Error: DATABASE_URL environment variable is required")
-		fmt.Fprintln(os.Stderr, "Example: DATABASE_URL=\"postgres://user:pass@localhost:5432/mbflow?sslmode=disable\"")
-		os.Exit(1)
+	databaseURL, err := c.databaseURL("")
+	if err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	dbConfig := storage.DefaultConfig()
-	dbConfig.DSN = databaseURL
-
-	db, err := storage.NewDB(dbConfig)
+	db, err := openDatabase(databaseURL)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to connect to database: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	defer storage.Close(db)
 
-	// Resolve creator user ID
-	userRepo := storage.NewUserRepository(db)
-	creatorID, err := resolveCreatorID(ctx, userRepo, *createdByEmail)
+	creatorID, err := resolveCreatorID(ctx, storage.NewUserRepository(db), *createdByEmail)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	repo := storage.NewSystemKeyRepo(db)
-	svc := systemkey.NewService(repo, systemkey.Config{})
+	svc := systemkey.NewService(storage.NewSystemKeyRepo(db), systemkey.Config{})
 
 	var expiresInDays *int
 	if *expires > 0 {
@@ -541,23 +544,29 @@ func handleSystemKeyCreate(args []string) {
 
 	result, err := svc.CreateKey(ctx, *name, *description, *serviceName, creatorID, expiresInDays)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create system key: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create system key: %w", err)
 	}
 
-	fmt.Println("System key created successfully!")
-	fmt.Printf("  ID:      %s\n", result.Key.ID)
-	fmt.Printf("  Name:    %s\n", result.Key.Name)
-	fmt.Printf("  Service: %s\n", result.Key.ServiceName)
+	fmt.Fprintln(c.stdout, "System key created successfully!")
+	fmt.Fprintf(c.stdout, "  ID:      %s\n", result.Key.ID)
+	fmt.Fprintf(c.stdout, "  Name:    %s\n", result.Key.Name)
+	fmt.Fprintf(c.stdout, "  Service: %s\n", result.Key.ServiceName)
 	if result.Key.ExpiresAt != nil {
-		fmt.Printf("  Expires: %s\n", result.Key.ExpiresAt.Format(time.RFC3339))
+		fmt.Fprintf(c.stdout, "  Expires: %s\n", result.Key.ExpiresAt.Format(time.RFC3339))
 	}
-	fmt.Println()
-	fmt.Println("  Plain key (save it now, it will not be shown again):")
-	fmt.Printf("  %s\n", result.PlainKey)
+	fmt.Fprintln(c.stdout)
+	fmt.Fprintln(c.stdout, "  Plain key (save it now, it will not be shown again):")
+	fmt.Fprintf(c.stdout, "  %s\n", result.PlainKey)
+	return nil
 }
 
-func resolveCreatorID(ctx context.Context, userRepo *storage.UserRepository, email string) (uuid.UUID, error) {
+// creatorLookup is the part of the user repository resolveCreatorID needs.
+type creatorLookup interface {
+	FindByEmail(ctx context.Context, email string) (*models.UserModel, error)
+	FindAll(ctx context.Context, limit, offset int) ([]*models.UserModel, error)
+}
+
+func resolveCreatorID(ctx context.Context, userRepo creatorLookup, email string) (uuid.UUID, error) {
 	if email != "" {
 		user, err := userRepo.FindByEmail(ctx, email)
 		if err != nil || user == nil {
@@ -576,12 +585,11 @@ func resolveCreatorID(ctx context.Context, userRepo *storage.UserRepository, ema
 			return u.ID, nil
 		}
 	}
-	return uuid.Nil, fmt.Errorf("no admin user found; create one first with 'admin create' or specify -created-by")
+	return uuid.Nil, errors.New("no admin user found; create one first with 'admin create' or specify -created-by")
 }
 
-func handleUserCreate(args []string) {
-	// Parse flags
-	fs := flag.NewFlagSet("user create", flag.ExitOnError)
+func (c *cli) userCreate(args []string) error {
+	fs := c.newFlagSet("user create")
 	email := fs.String("email", "", "User email address (required)")
 	username := fs.String("username", "", "Username (required)")
 	password := fs.String("password", "", "Password (will prompt if not provided)")
@@ -590,222 +598,101 @@ func handleUserCreate(args []string) {
 	isAdmin := fs.Bool("admin", false, "Create as admin user")
 	useGateway := fs.Bool("gateway", false, "Create user via auth-gateway gRPC")
 	useLocal := fs.Bool("local", false, "Create user in local database")
-
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	// Validate required fields
 	if *email == "" {
-		fmt.Fprintln(os.Stderr, "Error: -email is required")
-		os.Exit(1)
+		return errors.New("-email is required")
 	}
 	if *username == "" {
-		fmt.Fprintln(os.Stderr, "Error: -username is required")
-		os.Exit(1)
+		return errors.New("-username is required")
 	}
-
-	// Must specify either -gateway or -local
 	if !*useGateway && !*useLocal {
-		fmt.Fprintln(os.Stderr, "Error: must specify either -gateway or -local")
-		fmt.Fprintln(os.Stderr, "  -gateway: create user via auth-gateway gRPC")
-		fmt.Fprintln(os.Stderr, "  -local:   create user in local database")
-		os.Exit(1)
+		return errors.New("must specify either -gateway or -local\n  -gateway: create user via auth-gateway gRPC\n  -local:   create user in local database")
 	}
-
-	// Get password if not provided
-	if *password == "" {
-		*password = promptPassword("Enter password: ")
-		if *password == "" {
-			fmt.Fprintln(os.Stderr, "Error: password cannot be empty")
-			os.Exit(1)
-		}
-
-		// Confirm password
-		confirm := promptPassword("Confirm password: ")
-		if *password != confirm {
-			fmt.Fprintln(os.Stderr, "Error: passwords do not match")
-			os.Exit(1)
-		}
+	if err := c.requirePassword(password, "Enter password: "); err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if *useGateway {
-		createUserViaGateway(ctx, *email, *username, *password, *fullName, *phone)
-	} else {
-		createUserLocal(ctx, *email, *username, *password, *fullName, *isAdmin)
+		return c.createUserViaGateway(ctx, *email, *username, *password, *fullName, *phone)
 	}
+
+	databaseURL, err := c.databaseURL(" for -local mode")
+	if err != nil {
+		return err
+	}
+	user, err := createLocalUser(ctx, c.stdout, databaseURL, *email, *username, *password, *fullName, *isAdmin)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(c.stdout, "User created successfully in local database!")
+	c.printUser(user.ID.String(), user.Email, user.Username, user.FullName, user.IsAdmin)
+	return nil
 }
 
-func createUserViaGateway(ctx context.Context, email, username, password, fullName, phone string) {
-	grpcAddress := os.Getenv("MBFLOW_AUTH_GRPC_ADDRESS")
+func (c *cli) createUserViaGateway(ctx context.Context, email, username, password, fullName, phone string) error {
+	grpcAddress := c.getenv("MBFLOW_AUTH_GRPC_ADDRESS")
 	if grpcAddress == "" {
-		fmt.Fprintln(os.Stderr, "Error: MBFLOW_AUTH_GRPC_ADDRESS environment variable is required for -gateway mode")
-		fmt.Fprintln(os.Stderr, "Example: MBFLOW_AUTH_GRPC_ADDRESS=\"localhost:50051\"")
-		os.Exit(1)
+		return errors.New("MBFLOW_AUTH_GRPC_ADDRESS environment variable is required for -gateway mode\nExample: MBFLOW_AUTH_GRPC_ADDRESS=\"localhost:50051\"")
 	}
 
-	// Create gRPC provider
-	authCfg := &config.AuthConfig{
+	provider, err := c.newGatewayProvider(&config.AuthConfig{
 		GRPCAddress: grpcAddress,
 		GRPCTimeout: 30 * time.Second,
-	}
-
-	provider, err := auth.NewGRPCProvider(authCfg)
+	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create gRPC provider: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create gRPC provider: %w", err)
 	}
 	defer provider.Close()
 
 	if !provider.IsAvailable() {
-		fmt.Fprintln(os.Stderr, "Error: gRPC auth provider is not available")
-		os.Exit(1)
+		return errors.New("gRPC auth provider is not available")
 	}
 
-	// Create user via gRPC
-	req := &auth.CreateUserRequest{
+	result, err := provider.CreateUser(ctx, &auth.CreateUserRequest{
 		Email:       email,
 		Phone:       phone,
 		Username:    username,
 		Password:    password,
 		FullName:    fullName,
 		AccountType: "human",
-	}
-
-	result, err := provider.CreateUser(ctx, req)
+	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create user via auth-gateway: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create user via auth-gateway: %w", err)
+	}
+	if result == nil || result.User == nil {
+		return errors.New("auth-gateway returned no user")
 	}
 
-	fmt.Println("User created successfully via auth-gateway!")
-	fmt.Printf("  ID:       %s\n", result.User.ID)
-	fmt.Printf("  Email:    %s\n", result.User.Email)
-	fmt.Printf("  Username: %s\n", result.User.Username)
-	if result.User.FullName != "" {
-		fmt.Printf("  Name:     %s\n", result.User.FullName)
-	}
-	fmt.Printf("  Admin:    %v\n", result.User.IsAdmin)
+	fmt.Fprintln(c.stdout, "User created successfully via auth-gateway!")
+	c.printUser(result.User.ID, result.User.Email, result.User.Username, result.User.FullName, result.User.IsAdmin)
 	if result.AccessToken != "" {
-		fmt.Printf("  Token:    %s...\n", result.AccessToken[:min(20, len(result.AccessToken))])
+		fmt.Fprintf(c.stdout, "  Token:    %s...\n", result.AccessToken[:min(20, len(result.AccessToken))])
 	}
+	return nil
 }
 
-func createUserLocal(ctx context.Context, email, username, password, fullName string, isAdmin bool) {
-	// Get database URL from environment
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		fmt.Fprintln(os.Stderr, "Error: DATABASE_URL environment variable is required for -local mode")
-		fmt.Fprintln(os.Stderr, "Example: DATABASE_URL=\"postgres://user:pass@localhost:5432/mbflow?sslmode=disable\"")
-		os.Exit(1)
-	}
+// promptPassword reads a password without echo from a terminal, or a line
+// from stdin otherwise. stdin is read through one shared buffered reader so
+// that consecutive prompts (password and confirmation) both see their line.
+func (c *cli) promptPassword(prompt string) string {
+	fmt.Fprint(c.stdout, prompt)
 
-	// Connect to database
-	dbConfig := storage.DefaultConfig()
-	dbConfig.DSN = databaseURL
-
-	db, err := storage.NewDB(dbConfig)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-	defer storage.Close(db)
-
-	// Create user repository
-	userRepo := storage.NewUserRepository(db)
-
-	// Check if user already exists
-	existingUser, _ := userRepo.FindByEmail(ctx, email)
-	if existingUser != nil {
-		fmt.Fprintf(os.Stderr, "Error: user with email '%s' already exists\n", email)
-		os.Exit(1)
-	}
-
-	existingUser, _ = userRepo.FindByUsername(ctx, username)
-	if existingUser != nil {
-		fmt.Fprintf(os.Stderr, "Error: user with username '%s' already exists\n", username)
-		os.Exit(1)
-	}
-
-	// Create auth config for password service
-	authCfg := &config.AuthConfig{
-		MinPasswordLength: 8,
-	}
-	passwordService := auth.NewPasswordService(authCfg.MinPasswordLength)
-
-	// Validate password
-	if err := passwordService.ValidatePassword(password); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Hash password
-	passwordHash, err := passwordService.HashPassword(password)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to hash password: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Create user
-	user := &models.UserModel{
-		ID:           uuid.New(),
-		Email:        email,
-		Username:     username,
-		PasswordHash: passwordHash,
-		FullName:     fullName,
-		IsActive:     true,
-		IsAdmin:      isAdmin,
-	}
-
-	if err := userRepo.Create(ctx, user); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create user: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Assign role if admin
-	if isAdmin {
-		adminRole, err := userRepo.FindRoleByName(ctx, "admin")
-		if err == nil && adminRole != nil {
-			if err := userRepo.AssignRole(ctx, user.ID, adminRole.ID, nil); err != nil {
-				fmt.Printf("Warning: failed to assign admin role: %v\n", err)
+	if c.readSecret != nil {
+		secret, ok, err := c.readSecret()
+		if ok {
+			fmt.Fprintln(c.stdout) // newline after hidden input
+			if err == nil {
+				return secret
 			}
 		}
 	}
 
-	fmt.Println("User created successfully in local database!")
-	fmt.Printf("  ID:       %s\n", user.ID)
-	fmt.Printf("  Email:    %s\n", user.Email)
-	fmt.Printf("  Username: %s\n", user.Username)
-	if user.FullName != "" {
-		fmt.Printf("  Name:     %s\n", user.FullName)
-	}
-	fmt.Printf("  Admin:    %v\n", user.IsAdmin)
-}
-
-func promptPassword(prompt string) string {
-	fmt.Print(prompt)
-
-	// Try to read password without echo
-	if term.IsTerminal(int(syscall.Stdin)) {
-		password, err := term.ReadPassword(int(syscall.Stdin))
-		fmt.Println() // Print newline after password input
-		if err != nil {
-			// Fallback to regular input
-			return promptPasswordFallback()
-		}
-		return string(password)
-	}
-
-	// Fallback for non-terminal input
-	return promptPasswordFallback()
-}
-
-func promptPasswordFallback() string {
-	reader := bufio.NewReader(os.Stdin)
-	password, _ := reader.ReadString('\n')
-	return strings.TrimSpace(password)
+	line, _ := c.stdin.ReadString('\n')
+	return strings.TrimSpace(line)
 }

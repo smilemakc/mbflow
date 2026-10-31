@@ -2,7 +2,10 @@ package sdk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -267,48 +270,138 @@ func (t *TriggerAPI) getHistoryEmbedded(ctx context.Context, triggerID string, o
 	return nil, errTriggersNotAvailable
 }
 
-// Remote mode implementations
+// Remote mode implementations.
+//
+// These call the MBFlow REST API (see pkg/server/routes.go):
+//
+//	POST   /api/v1/triggers
+//	GET    /api/v1/triggers/{id}
+//	GET    /api/v1/triggers?workflow_id=&type=&limit=&offset=
+//	PUT    /api/v1/triggers/{id}
+//	DELETE /api/v1/triggers/{id}
+//	POST   /api/v1/triggers/{id}/enable
+//	POST   /api/v1/triggers/{id}/disable
+//	POST   /api/v1/triggers/{id}/execute
+//
+// The list endpoint has no "enabled" filter, so TriggerListOptions.Enabled is
+// applied client-side. There is no trigger history endpoint: GetHistory
+// returns an *UnsupportedOperationError (errors.Is(err, ErrNotSupportedByAPI)).
+
+// remoteTriggerRequest is the body accepted by the trigger create/update endpoints.
+type remoteTriggerRequest struct {
+	WorkflowID  string         `json:"workflow_id,omitempty"`
+	Name        string         `json:"name,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Type        string         `json:"type,omitempty"`
+	Config      map[string]any `json:"config,omitempty"`
+	Enabled     *bool          `json:"enabled,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
+func triggerPath(triggerID string) string {
+	return "/api/v1/triggers/" + pathEscape(triggerID)
+}
+
 func (t *TriggerAPI) createRemote(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	enabled := trigger.Enabled
+	body := &remoteTriggerRequest{
+		WorkflowID:  trigger.WorkflowID,
+		Name:        trigger.Name,
+		Description: trigger.Description,
+		Type:        string(trigger.Type),
+		Config:      trigger.Config,
+		Enabled:     &enabled,
+		Metadata:    trigger.Metadata,
+	}
+	var out models.Trigger
+	if err := t.client.doRemote(ctx, http.MethodPost, "/api/v1/triggers", nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (t *TriggerAPI) getRemote(ctx context.Context, triggerID string) (*models.Trigger, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	var out models.Trigger
+	if err := t.client.doRemote(ctx, http.MethodGet, triggerPath(triggerID), nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (t *TriggerAPI) listRemote(ctx context.Context, opts *TriggerListOptions) ([]*models.Trigger, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	query := url.Values{}
+	if opts != nil {
+		setPagination(query, opts.Limit, opts.Offset)
+		if opts.WorkflowID != "" {
+			query.Set("workflow_id", opts.WorkflowID)
+		}
+		if opts.Type != "" {
+			query.Set("type", opts.Type)
+		}
+	}
+
+	var raw map[string]json.RawMessage
+	if err := t.client.doRemote(ctx, http.MethodGet, "/api/v1/triggers", query, nil, &raw); err != nil {
+		return nil, err
+	}
+	triggers, err := decodeListEnvelope[*models.Trigger](raw, "triggers")
+	if err != nil {
+		return nil, err
+	}
+
+	if opts == nil || opts.Enabled == nil {
+		return triggers, nil
+	}
+	filtered := make([]*models.Trigger, 0, len(triggers))
+	for _, tr := range triggers {
+		if tr != nil && tr.Enabled == *opts.Enabled {
+			filtered = append(filtered, tr)
+		}
+	}
+	return filtered, nil
 }
 
 func (t *TriggerAPI) updateRemote(ctx context.Context, trigger *models.Trigger) (*models.Trigger, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	enabled := trigger.Enabled
+	body := &remoteTriggerRequest{
+		Name:        trigger.Name,
+		Description: trigger.Description,
+		Type:        string(trigger.Type),
+		Config:      trigger.Config,
+		Enabled:     &enabled,
+		Metadata:    trigger.Metadata,
+	}
+	var out models.Trigger
+	if err := t.client.doRemote(ctx, http.MethodPut, triggerPath(trigger.ID), nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (t *TriggerAPI) deleteRemote(ctx context.Context, triggerID string) error {
-	// TODO: Implement HTTP API call
-	return fmt.Errorf("remote mode not implemented yet")
+	return t.client.doRemote(ctx, http.MethodDelete, triggerPath(triggerID), nil, nil, nil)
 }
 
 func (t *TriggerAPI) enableRemote(ctx context.Context, triggerID string) error {
-	// TODO: Implement HTTP API call
-	return fmt.Errorf("remote mode not implemented yet")
+	return t.client.doRemote(ctx, http.MethodPost, triggerPath(triggerID)+"/enable", nil, nil, nil)
 }
 
 func (t *TriggerAPI) disableRemote(ctx context.Context, triggerID string) error {
-	// TODO: Implement HTTP API call
-	return fmt.Errorf("remote mode not implemented yet")
+	return t.client.doRemote(ctx, http.MethodPost, triggerPath(triggerID)+"/disable", nil, nil, nil)
 }
 
 func (t *TriggerAPI) triggerRemote(ctx context.Context, triggerID string, input map[string]any) (*models.Execution, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	if input == nil {
+		input = map[string]any{}
+	}
+	body := map[string]any{"input": input}
+	var out models.Execution
+	if err := t.client.doRemote(ctx, http.MethodPost, triggerPath(triggerID)+"/execute", nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (t *TriggerAPI) getHistoryRemote(ctx context.Context, triggerID string, opts *TriggerHistoryOptions) ([]*models.Execution, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	return nil, errUnsupported("TriggerAPI.GetHistory", "the REST API has no trigger execution history endpoint")
 }
