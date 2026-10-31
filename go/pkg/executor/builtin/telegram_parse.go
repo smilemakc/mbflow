@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 )
@@ -493,6 +494,9 @@ func (e *TelegramParseExecutor) extractEntities(msg map[string]any) map[string]a
 
 	var urls, emails, mentions []string
 
+	// Telegram measures entity offsets and lengths in UTF-16 code units.
+	units := utf16.Encode([]rune(text))
+
 	for _, entity := range msgEntities {
 		entityMap, ok := entity.(map[string]any)
 		if !ok {
@@ -508,11 +512,11 @@ func (e *TelegramParseExecutor) extractEntities(msg map[string]any) map[string]a
 		offset := int(offsetVal)
 		length := int(lengthVal)
 
-		if offset < 0 || length < 0 || offset+length > len(text) {
+		if offset < 0 || length < 0 || offset+length > len(units) {
 			continue
 		}
 
-		value := text[offset : offset+length]
+		value := string(utf16.Decode(units[offset : offset+length]))
 
 		switch entityType {
 		case "url":

@@ -313,3 +313,19 @@ func TestRC_Telegram_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestRC_TelegramParse_EntitiesUseUTF16Offsets(t *testing.T) {
+	e := NewTelegramParseExecutor()
+	// "Привет 👋 " is 9 UTF-16 code units long (the emoji takes two units).
+	text := "Привет 👋 https://example.com @bob"
+	msg := map[string]any{
+		"text": text,
+		"entities": []any{
+			map[string]any{"type": "url", "offset": float64(10), "length": float64(19)},
+			map[string]any{"type": "mention", "offset": float64(30), "length": float64(4)},
+		},
+	}
+	got := e.extractEntities(msg)
+	assert.Equal(t, []string{"https://example.com"}, got["urls"])
+	assert.Equal(t, []string{"@bob"}, got["mentions"])
+}
