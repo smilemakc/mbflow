@@ -65,9 +65,8 @@ test-integration:
 	go test -tags=integration ./...
 
 test-cover:
-	@echo "Running tests with coverage..."
-	go test -cover ./...
-	go test -coverprofile=coverage.out ./...
+	@echo "Running tests with coverage (fails below 90%)..."
+	scripts/coverage.sh 90
 	go tool cover -html=coverage.out -o coverage.html
 
 test-race:
