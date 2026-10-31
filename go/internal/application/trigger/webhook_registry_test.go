@@ -1,16 +1,18 @@
 package trigger
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 func TestWebhookRegistry_ComputeSignature(t *testing.T) {
@@ -151,7 +153,7 @@ func TestWebhookRegistry_RegisterUnregister(t *testing.T) {
 	}
 
 	// Register webhook
-	err := wr.RegisterWebhook(nil, trigger)
+	err := wr.RegisterWebhook(context.Background(), trigger)
 	require.NoError(t, err)
 
 	// Verify webhook was registered
@@ -160,7 +162,7 @@ func TestWebhookRegistry_RegisterUnregister(t *testing.T) {
 	assert.Equal(t, trigger.ID, retrieved.ID)
 
 	// Unregister webhook
-	err = wr.UnregisterWebhook(nil, trigger.ID)
+	err = wr.UnregisterWebhook(context.Background(), trigger.ID)
 	require.NoError(t, err)
 
 	// Verify webhook was unregistered
@@ -242,17 +244,6 @@ func TestWebhookRegistry_ValidateSignature(t *testing.T) {
 	}
 }
 
-func TestWebhookRegistry_ExecuteWebhook(t *testing.T) {
-	t.Skip("Requires full integration test with execution manager and Redis")
-
-	// This test would verify:
-	// 1. Signature validation
-	// 2. IP whitelist checking
-	// 3. Rate limiting
-	// 4. Workflow execution
-	// 5. Trigger state updates
-}
-
 // TestWebhookRegistry_RegisterAll tests registering multiple webhooks
 func TestWebhookRegistry_RegisterAll(t *testing.T) {
 	wr := NewWebhookRegistry(WebhookRegistryConfig{})
@@ -287,7 +278,7 @@ func TestWebhookRegistry_RegisterAll(t *testing.T) {
 		},
 	}
 
-	err := wr.RegisterAll(nil, triggers)
+	err := wr.RegisterAll(context.Background(), triggers)
 	require.NoError(t, err)
 
 	// Verify only webhook triggers were registered
@@ -311,7 +302,7 @@ func TestWebhookRegistry_RegisterNonWebhookTrigger(t *testing.T) {
 		Enabled: true,
 	}
 
-	err := wr.RegisterWebhook(nil, cronTrigger)
+	err := wr.RegisterWebhook(context.Background(), cronTrigger)
 	assert.NoError(t, err)
 
 	// Verify webhook was not registered
@@ -350,7 +341,7 @@ func TestWebhookRegistry_ConcurrentOperations(t *testing.T) {
 					},
 					Enabled: true,
 				}
-				_ = wr.RegisterWebhook(nil, trigger)
+				_ = wr.RegisterWebhook(context.Background(), trigger)
 			}
 		}(i)
 	}
@@ -369,7 +360,7 @@ func TestWebhookRegistry_ConcurrentOperations(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < webhooksPerGoroutine; j++ {
 				triggerID := fmt.Sprintf("webhook-%d-%d", goroutineID, j)
-				_ = wr.UnregisterWebhook(nil, triggerID)
+				_ = wr.UnregisterWebhook(context.Background(), triggerID)
 			}
 		}(i)
 	}
@@ -409,11 +400,11 @@ func TestWebhookRegistry_DuplicateRegistration(t *testing.T) {
 	}
 
 	// Register first trigger
-	err := wr.RegisterWebhook(nil, trigger1)
+	err := wr.RegisterWebhook(context.Background(), trigger1)
 	require.NoError(t, err)
 
 	// Register second trigger with same ID (should replace)
-	err = wr.RegisterWebhook(nil, trigger2)
+	err = wr.RegisterWebhook(context.Background(), trigger2)
 	require.NoError(t, err)
 
 	// Verify only one webhook exists
@@ -433,7 +424,7 @@ func TestWebhookRegistry_UnregisterNonExistent(t *testing.T) {
 	wr := NewWebhookRegistry(WebhookRegistryConfig{})
 
 	// Unregistering non-existent webhook should not error
-	err := wr.UnregisterWebhook(nil, "non-existent")
+	err := wr.UnregisterWebhook(context.Background(), "non-existent")
 	assert.NoError(t, err)
 }
 
@@ -441,7 +432,7 @@ func TestWebhookRegistry_UnregisterNonExistent(t *testing.T) {
 func TestWebhookRegistry_EmptyRegisterAll(t *testing.T) {
 	wr := NewWebhookRegistry(WebhookRegistryConfig{})
 
-	err := wr.RegisterAll(nil, []*storagemodels.TriggerModel{})
+	err := wr.RegisterAll(context.Background(), []*storagemodels.TriggerModel{})
 	require.NoError(t, err)
 
 	wr.mu.RLock()

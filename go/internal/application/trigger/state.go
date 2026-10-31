@@ -41,7 +41,7 @@ func (ts *TriggerState) SetNextExecution(t time.Time) {
 }
 
 // Save persists the trigger state to Redis
-func (ts *TriggerState) Save(ctx context.Context, cache *cache.RedisCache) error {
+func (ts *TriggerState) Save(ctx context.Context, c *cache.RedisCache) error {
 	key := getTriggerStateKey(ts.TriggerID)
 
 	data, err := json.Marshal(ts)
@@ -50,7 +50,7 @@ func (ts *TriggerState) Save(ctx context.Context, cache *cache.RedisCache) error
 	}
 
 	// Store with no expiration - state persists until trigger is deleted
-	if err := cache.Set(ctx, key, string(data), 0); err != nil {
+	if err := c.Set(ctx, key, string(data), 0); err != nil {
 		return fmt.Errorf("failed to save trigger state: %w", err)
 	}
 
@@ -58,10 +58,10 @@ func (ts *TriggerState) Save(ctx context.Context, cache *cache.RedisCache) error
 }
 
 // LoadTriggerState loads trigger state from Redis
-func LoadTriggerState(ctx context.Context, cache *cache.RedisCache, triggerID string) (*TriggerState, error) {
+func LoadTriggerState(ctx context.Context, c *cache.RedisCache, triggerID string) (*TriggerState, error) {
 	key := getTriggerStateKey(triggerID)
 
-	data, err := cache.Get(ctx, key)
+	data, err := c.Get(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load trigger state: %w", err)
 	}
@@ -75,9 +75,9 @@ func LoadTriggerState(ctx context.Context, cache *cache.RedisCache, triggerID st
 }
 
 // DeleteTriggerState deletes trigger state from Redis
-func DeleteTriggerState(ctx context.Context, cache *cache.RedisCache, triggerID string) error {
+func DeleteTriggerState(ctx context.Context, c *cache.RedisCache, triggerID string) error {
 	key := getTriggerStateKey(triggerID)
-	return cache.Delete(ctx, key)
+	return c.Delete(ctx, key)
 }
 
 // getTriggerStateKey returns the Redis key for trigger state

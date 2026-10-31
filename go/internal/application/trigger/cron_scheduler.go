@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
-	"github.com/smilemakc/mbflow/go/internal/application/engine"
+
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
@@ -19,7 +19,7 @@ import (
 type CronScheduler struct {
 	triggerRepo  repository.TriggerRepository
 	workflowRepo repository.WorkflowRepository
-	executionMgr *engine.ExecutionManager
+	executionMgr WorkflowExecutor
 	cache        *cache.RedisCache
 
 	cron    *cron.Cron
@@ -31,7 +31,7 @@ type CronScheduler struct {
 type CronSchedulerConfig struct {
 	TriggerRepo  repository.TriggerRepository
 	WorkflowRepo repository.WorkflowRepository
-	ExecutionMgr *engine.ExecutionManager
+	ExecutionMgr WorkflowExecutor
 	Cache        *cache.RedisCache
 }
 
@@ -72,12 +72,10 @@ func (cs *CronScheduler) Start(ctx context.Context, triggers []*storagemodels.Tr
 	return nil
 }
 
-// Stop stops the cron scheduler
+// Stop stops the cron scheduler and waits for running jobs to complete.
 func (cs *CronScheduler) Stop() error {
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-
-	// Stop cron (waits for running jobs to complete)
+	// Do not hold cs.mu while waiting: running jobs take cs.mu.RLock, so
+	// waiting for them under the write lock would deadlock.
 	ctx := cs.cron.Stop()
 	<-ctx.Done()
 
@@ -119,8 +117,7 @@ func (cs *CronScheduler) addTriggerLocked(ctx context.Context, trigger *models.T
 	cs.entries[trigger.ID] = entryID
 
 	// Calculate and save next execution time
-	entry := cs.cron.Entry(entryID)
-	if err := cs.updateNextExecution(ctx, trigger.ID, entry.Next); err != nil {
+	if err := cs.updateNextExecution(ctx, trigger.ID, cs.nextRun(entryID)); err != nil {
 		fmt.Printf("failed to update next execution for trigger %s: %v\n", trigger.ID, err)
 	}
 
@@ -142,9 +139,10 @@ func (cs *CronScheduler) RemoveTrigger(ctx context.Context, triggerID string) er
 
 // parseSchedule parses trigger schedule configuration
 func (cs *CronScheduler) parseSchedule(trigger *models.Trigger) (cron.Schedule, error) {
-	if trigger.Type == models.TriggerTypeCron {
+	switch trigger.Type {
+	case models.TriggerTypeCron:
 		return cs.parseCronSchedule(trigger)
-	} else if trigger.Type == models.TriggerTypeInterval {
+	case models.TriggerTypeInterval:
 		return cs.parseIntervalSchedule(trigger)
 	}
 
@@ -160,6 +158,20 @@ func (cs *CronScheduler) parseCronSchedule(trigger *models.Trigger) (cron.Schedu
 
 	tz, _ := trigger.Config["timezone"].(string)
 	return ParseCronSchedule(scheduleStr, tz)
+}
+
+// alignedIntervalSchedule fires every Delay at instants aligned to multiples
+// of Delay (counted from the zero time). Unlike cron.ConstantDelaySchedule,
+// whose ticks depend on when the process started, every replica computes the
+// same ticks, which is what makes per-tick deduplication across replicas
+// work.
+type alignedIntervalSchedule struct {
+	Delay time.Duration
+}
+
+// Next returns the first aligned tick strictly after t.
+func (s alignedIntervalSchedule) Next(t time.Time) time.Time {
+	return t.Truncate(s.Delay).Add(s.Delay)
 }
 
 // parseIntervalSchedule parses an interval schedule
@@ -190,20 +202,57 @@ func (cs *CronScheduler) parseIntervalSchedule(trigger *models.Trigger) (cron.Sc
 		return nil, fmt.Errorf("interval must be positive")
 	}
 
-	// Use cron's ConstantDelaySchedule for fixed intervals
-	return cron.ConstantDelaySchedule{Delay: duration}, nil
+	// The scheduler has second precision: round like cron.Every does.
+	if duration < time.Second {
+		duration = time.Second
+	}
+	duration = duration.Round(time.Second)
+
+	return alignedIntervalSchedule{Delay: duration}, nil
 }
 
 // createJob creates a cron job for the trigger
 func (cs *CronScheduler) createJob(trigger *models.Trigger) cron.Job {
 	return cron.FuncJob(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-
-		if err := cs.executeTrigger(ctx, trigger); err != nil {
-			fmt.Printf("trigger %s execution failed: %v\n", trigger.ID, err)
-		}
+		cs.runTick(trigger, cs.scheduledTick(trigger.ID, time.Now()))
 	})
+}
+
+// runTick fires the trigger for one scheduled tick if this replica wins the
+// claim for that tick. It reports whether the trigger was fired.
+func (cs *CronScheduler) runTick(trigger *models.Trigger, tick time.Time) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if !claimOccurrence(ctx, cs.cache, cronClaimKey(trigger.ID, tick)) {
+		// Another replica fires this tick.
+		return false
+	}
+
+	if err := cs.executeTrigger(ctx, trigger); err != nil {
+		fmt.Printf("trigger %s execution failed: %v\n", trigger.ID, err)
+	}
+	return true
+}
+
+// scheduledTick returns the scheduled time of the tick that is running now.
+// The cron runner records it as the entry's Prev before the job can observe
+// the entry, so it is identical on every replica regardless of when the job
+// goroutine actually starts. If it is unavailable (e.g. the trigger was
+// replaced meanwhile), now rounded to the scheduler's one-second precision
+// is used.
+func (cs *CronScheduler) scheduledTick(triggerID string, now time.Time) time.Time {
+	cs.mu.RLock()
+	entryID, ok := cs.entries[triggerID]
+	cs.mu.RUnlock()
+
+	if ok {
+		prev := cs.cron.Entry(entryID).Prev
+		if !prev.IsZero() && !prev.After(now) && now.Sub(prev) < time.Minute {
+			return prev
+		}
+	}
+	return now.Round(time.Second)
 }
 
 // executeTrigger executes a workflow triggered by the cron schedule
@@ -230,8 +279,7 @@ func (cs *CronScheduler) executeTrigger(ctx context.Context, trigger *models.Tri
 	// Get next execution time
 	cs.mu.RLock()
 	if entryID, exists := cs.entries[trigger.ID]; exists {
-		entry := cs.cron.Entry(entryID)
-		state.SetNextExecution(entry.Next)
+		state.SetNextExecution(cs.nextRun(entryID))
 	}
 	cs.mu.RUnlock()
 
@@ -246,6 +294,17 @@ func (cs *CronScheduler) executeTrigger(ctx context.Context, trigger *models.Tri
 	}
 
 	return nil
+}
+
+// nextRun returns the next activation of a scheduled entry. Before the
+// scheduler is started the runner has not computed it yet, so it is derived
+// from the schedule.
+func (cs *CronScheduler) nextRun(entryID cron.EntryID) time.Time {
+	entry := cs.cron.Entry(entryID)
+	if entry.Next.IsZero() && entry.Schedule != nil {
+		return entry.Schedule.Next(time.Now())
+	}
+	return entry.Next
 }
 
 // updateNextExecution updates the next execution time in trigger state

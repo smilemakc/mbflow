@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/domain/repository"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
-	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/smilemakc/mbflow/go/internal/domain/repository"
+	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 )
 
 // Mock repositories for testing
@@ -304,110 +304,9 @@ func (m *mockWorkflowRepo) GetResourceByAlias(ctx context.Context, workflowID uu
 	return args.Get(0).(*storagemodels.WorkflowResourceModel), args.Error(1)
 }
 
-// Helper to create test Manager with minimal setup
-func createTestManager() (*Manager, error) {
-	triggerRepo := &mockTriggerRepo{}
-	workflowRepo := &mockWorkflowRepo{}
-
-	// For execution manager, pass nil since we don't actually execute workflows in these tests
-	cfg := ManagerConfig{
-		TriggerRepo:  triggerRepo,
-		WorkflowRepo: workflowRepo,
-		ExecutionMgr: nil, // Will cause validation error, but we'll handle it per test
-		Cache:        &cache.RedisCache{},
-	}
-
-	return NewManager(cfg)
-}
-
 // Compile-time interface checks
 var _ repository.TriggerRepository = (*mockTriggerRepo)(nil)
 var _ repository.WorkflowRepository = (*mockWorkflowRepo)(nil)
-
-// mockExecutionManager for testing trigger execution
-type mockExecutionManager struct {
-	mock.Mock
-}
-
-func (m *mockExecutionManager) Execute(ctx context.Context, workflowID string, input map[string]any, variables map[string]any) (string, error) {
-	args := m.Called(ctx, workflowID, input, variables)
-	return args.String(0), args.Error(1)
-}
-
-func (m *mockExecutionManager) ExecuteAsync(ctx context.Context, workflowID string, input map[string]any, variables map[string]any) (string, error) {
-	args := m.Called(ctx, workflowID, input, variables)
-	return args.String(0), args.Error(1)
-}
-
-// mockCronScheduler for testing
-type mockCronScheduler struct {
-	mock.Mock
-}
-
-func (m *mockCronScheduler) Start(ctx context.Context, triggers []*storagemodels.TriggerModel) error {
-	args := m.Called(ctx, triggers)
-	return args.Error(0)
-}
-
-func (m *mockCronScheduler) Stop() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *mockCronScheduler) AddTrigger(ctx context.Context, trigger any) error {
-	args := m.Called(ctx, trigger)
-	return args.Error(0)
-}
-
-func (m *mockCronScheduler) RemoveTrigger(ctx context.Context, triggerID string) error {
-	args := m.Called(ctx, triggerID)
-	return args.Error(0)
-}
-
-// mockEventListener for testing
-type mockEventListener struct {
-	mock.Mock
-}
-
-func (m *mockEventListener) Start(ctx context.Context, triggers []*storagemodels.TriggerModel) error {
-	args := m.Called(ctx, triggers)
-	return args.Error(0)
-}
-
-func (m *mockEventListener) Stop() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *mockEventListener) AddTrigger(ctx context.Context, trigger any) error {
-	args := m.Called(ctx, trigger)
-	return args.Error(0)
-}
-
-func (m *mockEventListener) RemoveTrigger(ctx context.Context, triggerID string) error {
-	args := m.Called(ctx, triggerID)
-	return args.Error(0)
-}
-
-// mockWebhookRegistry for testing
-type mockWebhookRegistry struct {
-	mock.Mock
-}
-
-func (m *mockWebhookRegistry) RegisterAll(ctx context.Context, triggers []*storagemodels.TriggerModel) error {
-	args := m.Called(ctx, triggers)
-	return args.Error(0)
-}
-
-func (m *mockWebhookRegistry) RegisterWebhook(ctx context.Context, trigger any) error {
-	args := m.Called(ctx, trigger)
-	return args.Error(0)
-}
-
-func (m *mockWebhookRegistry) UnregisterWebhook(ctx context.Context, triggerID string) error {
-	args := m.Called(ctx, triggerID)
-	return args.Error(0)
-}
 
 func (m *mockTriggerRepo) FindWithFilters(ctx context.Context, filters repository.TriggerFilters, limit, offset int) ([]*storagemodels.TriggerModel, error) {
 	args := m.Called(ctx, filters, limit, offset)

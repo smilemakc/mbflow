@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
 )
 
 // ==================== NewRedisCache Tests ====================
@@ -621,4 +622,45 @@ func setupCache(t *testing.T, s *miniredis.Miniredis) *RedisCache {
 	cache, err := NewRedisCache(cfg)
 	require.NoError(t, err)
 	return cache
+}
+
+// ==================== SetNX Tests ====================
+
+func TestRedisCache_SetNX(t *testing.T) {
+	s := miniredis.RunT(t)
+
+	cache := setupCache(t, s)
+	defer cache.Close()
+
+	ctx := context.Background()
+
+	ok, err := cache.SetNX(ctx, "claim", "replica-a", time.Minute)
+	require.NoError(t, err)
+	assert.True(t, ok, "first caller must win the claim")
+
+	ok, err = cache.SetNX(ctx, "claim", "replica-b", time.Minute)
+	require.NoError(t, err)
+	assert.False(t, ok, "second caller must lose the claim")
+
+	value, err := cache.Get(ctx, "claim")
+	require.NoError(t, err)
+	assert.Equal(t, "replica-a", value)
+	assert.Equal(t, time.Minute, s.TTL("claim"))
+
+	// Once the TTL elapses the key can be claimed again.
+	s.FastForward(time.Minute + time.Second)
+	ok, err = cache.SetNX(ctx, "claim", "replica-b", time.Minute)
+	require.NoError(t, err)
+	assert.True(t, ok)
+}
+
+func TestRedisCache_SetNX_Error(t *testing.T) {
+	s := miniredis.RunT(t)
+
+	cache := setupCache(t, s)
+	defer cache.Close()
+
+	s.Close()
+	_, err := cache.SetNX(context.Background(), "claim", "x", time.Minute)
+	assert.Error(t, err)
 }

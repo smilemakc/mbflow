@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 func TestParseCronSchedule(t *testing.T) {
@@ -185,8 +186,6 @@ func TestParseIntervalSchedule(t *testing.T) {
 }
 
 func TestCronScheduler_AddRemoveTrigger(t *testing.T) {
-	t.Skip("Requires full integration test setup")
-
 	cs, err := NewCronScheduler(CronSchedulerConfig{})
 	require.NoError(t, err)
 
@@ -221,16 +220,6 @@ func TestCronScheduler_AddRemoveTrigger(t *testing.T) {
 	_, exists = cs.entries[trigger.ID]
 	cs.mu.RUnlock()
 	assert.False(t, exists)
-}
-
-func TestCronScheduler_ScheduleExecution(t *testing.T) {
-	t.Skip("Requires full integration test with execution manager")
-
-	// This test would verify:
-	// 1. Cron job is scheduled correctly
-	// 2. Job executes at the right time
-	// 3. Workflow execution is triggered
-	// 4. Trigger state is updated
 }
 
 func TestCronScheduler_GracefulShutdown(t *testing.T) {
@@ -802,15 +791,17 @@ func TestCronScheduler_updateNextExecution(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("with cache - skip test if Redis not available", func(t *testing.T) {
-		// This test would require Redis mock or real Redis instance
-		// Skipping for now as it requires cache infrastructure
-		t.Skip("Requires Redis cache setup")
+	t.Run("with cache - persists next execution", func(t *testing.T) {
+		rc := setupTestRedis(t)
+		cs, err := NewCronScheduler(CronSchedulerConfig{Cache: rc})
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		nextTime := time.Now().Add(1 * time.Hour)
+		require.NoError(t, cs.updateNextExecution(ctx, "trigger-1", nextTime))
+
+		state, err := LoadTriggerState(ctx, rc, "trigger-1")
+		require.NoError(t, err)
+		assert.Equal(t, nextTime.Unix(), state.NextExecution.Unix())
 	})
 }
-
-// Note: executeTrigger and createJob functions require integration test setup
-// with ExecutionManager, TriggerRepository, and potentially Redis cache.
-// These functions are best tested in integration tests with full infrastructure.
-// They are currently at 0% and 20% coverage respectively and will remain so
-// until proper integration test infrastructure is available.

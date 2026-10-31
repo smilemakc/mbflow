@@ -7,11 +7,12 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
+
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/models"
-	"github.com/uptrace/bun"
 )
 
 type ResourceFileService struct {
@@ -161,7 +162,9 @@ func (s *ResourceFileService) GetFile(
 		return nil, nil, fmt.Errorf("storage not available: %w", err)
 	}
 
-	_, reader, err := store.Get(ctx, fileID)
+	// Read by the stored path: it works whether or not the storage manager
+	// has a metadata repository to resolve file IDs.
+	_, reader, err := store.Get(ctx, fileModel.Path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to retrieve file: %w", err)
 	}
@@ -188,12 +191,7 @@ func (s *ResourceFileService) DeleteFile(
 		return fmt.Errorf("file does not belong to this resource")
 	}
 
-	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		store, err := s.storageManager.GetStorage(fileModel.StorageID)
-		if err == nil {
-			_ = store.Delete(ctx, fileID)
-		}
-
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewDelete().Model(fileModel).WherePK().Exec(ctx); err != nil {
 			return fmt.Errorf("failed to delete file metadata: %w", err)
 		}
@@ -204,6 +202,17 @@ func (s *ResourceFileService) DeleteFile(
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Remove the content only once the metadata is gone, so a failed
+	// transaction never leaves a record pointing at deleted content. A
+	// failure here only leaks an orphaned file.
+	if store, err := s.storageManager.GetStorage(fileModel.StorageID); err == nil {
+		_ = store.Delete(ctx, fileModel.Path)
+	}
+	return nil
 }
 
 func (s *ResourceFileService) ListFiles(

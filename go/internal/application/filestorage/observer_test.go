@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // Test helper: track observer calls
@@ -233,10 +234,10 @@ func TestEventTypeFilter_ShouldNotify_NoMatch(t *testing.T) {
 }
 
 func TestEventTypeFilter_ShouldNotify_NilFilter_AllowsAll(t *testing.T) {
-	var filter FileEventFilter = nil
-
-	// Nil filter should allow all events
-	assert.True(t, filter == nil || filter.ShouldNotify(NewFileEvent(EventFileAdded, "s1", nil)))
+	// A nil filter means "all events": the manager only consults non-nil
+	// filters.
+	var filter FileEventFilter
+	assert.Nil(t, filter)
 }
 
 func TestEventTypeFilter_AllEventTypes(t *testing.T) {
@@ -306,12 +307,6 @@ func TestStorageFilter_ShouldNotify_NoMatch(t *testing.T) {
 	event := NewFileEvent(EventFileAdded, "storage-2", nil)
 
 	assert.False(t, filter.ShouldNotify(event))
-}
-
-func TestStorageFilter_ShouldNotify_NilFilter_AllowsAll(t *testing.T) {
-	var filter FileEventFilter = nil
-
-	assert.True(t, filter == nil || filter.ShouldNotify(NewFileEvent(EventFileAdded, "any-storage", nil)))
 }
 
 // ============== D. Composite Filter Tests ==============

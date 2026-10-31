@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 func TestEventListener_MatchesFilter(t *testing.T) {
@@ -177,9 +178,7 @@ func TestEventListener_GetEventChannel(t *testing.T) {
 }
 
 func TestEventListener_AddRemoveTrigger(t *testing.T) {
-	t.Skip("Requires Redis connection")
-
-	el, err := NewEventListener(EventListenerConfig{})
+	el, err := NewEventListener(EventListenerConfig{Cache: setupTestRedis(t)})
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -244,9 +243,7 @@ func TestEvent_JSONSerialization(t *testing.T) {
 }
 
 func TestEventListener_StartStop(t *testing.T) {
-	t.Skip("Requires Redis connection")
-
-	el, err := NewEventListener(EventListenerConfig{})
+	el, err := NewEventListener(EventListenerConfig{Cache: setupTestRedis(t)})
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -727,9 +724,7 @@ func TestEventListener_ModelToDomainWithLastTriggered(t *testing.T) {
 }
 
 func TestEventListener_StartWithMixedTriggers(t *testing.T) {
-	t.Skip("Requires Redis connection")
-
-	el, err := NewEventListener(EventListenerConfig{})
+	el, err := NewEventListener(EventListenerConfig{Cache: setupTestRedis(t)})
 	require.NoError(t, err)
 
 	ctx := context.Background()
