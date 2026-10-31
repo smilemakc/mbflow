@@ -30,7 +30,9 @@ func (WorkflowResourceModel) TableName() string {
 
 // BeforeInsert hook to set timestamps and defaults
 func (wr *WorkflowResourceModel) BeforeInsert(ctx any) error {
-	wr.AssignedAt = time.Now()
+	if wr.AssignedAt.IsZero() {
+		wr.AssignedAt = time.Now()
+	}
 	if wr.AccessType == "" {
 		wr.AccessType = "read"
 	}

@@ -42,7 +42,9 @@ func (UserModel) TableName() string {
 // BeforeInsert hook to set timestamps and defaults
 func (u *UserModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	u.CreatedAt = now
+	if u.CreatedAt.IsZero() {
+		u.CreatedAt = now
+	}
 	u.UpdatedAt = now
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()
@@ -104,7 +106,9 @@ func (SessionModel) TableName() string {
 // BeforeInsert hook to set timestamps
 func (s *SessionModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	s.CreatedAt = now
+	if s.CreatedAt.IsZero() {
+		s.CreatedAt = now
+	}
 	s.LastActivityAt = now
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()
@@ -150,7 +154,9 @@ func (RoleModel) TableName() string {
 // BeforeInsert hook to set timestamps and defaults
 func (r *RoleModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	r.CreatedAt = now
+	if r.CreatedAt.IsZero() {
+		r.CreatedAt = now
+	}
 	r.UpdatedAt = now
 	if r.ID == uuid.Nil {
 		r.ID = uuid.New()
@@ -201,7 +207,9 @@ func (UserRoleModel) TableName() string {
 
 // BeforeInsert hook to set timestamps
 func (ur *UserRoleModel) BeforeInsert(ctx any) error {
-	ur.AssignedAt = time.Now()
+	if ur.AssignedAt.IsZero() {
+		ur.AssignedAt = time.Now()
+	}
 	return nil
 }
 
@@ -227,7 +235,9 @@ func (AuditLogModel) TableName() string {
 
 // BeforeInsert hook to set timestamps
 func (a *AuditLogModel) BeforeInsert(ctx any) error {
-	a.CreatedAt = time.Now()
+	if a.CreatedAt.IsZero() {
+		a.CreatedAt = time.Now()
+	}
 	if a.ID == uuid.Nil {
 		a.ID = uuid.New()
 	}

@@ -32,7 +32,9 @@ func (TriggerModel) TableName() string {
 // BeforeInsert hook to set timestamps
 func (t *TriggerModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	t.CreatedAt = now
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = now
+	}
 	t.UpdatedAt = now
 	if t.ID == uuid.Nil {
 		t.ID = uuid.New()

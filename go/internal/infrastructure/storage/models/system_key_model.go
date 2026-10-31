@@ -37,7 +37,9 @@ func (SystemKeyModel) TableName() string {
 // BeforeInsert hook to set timestamps and defaults
 func (s *SystemKeyModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	s.CreatedAt = now
+	if s.CreatedAt.IsZero() {
+		s.CreatedAt = now
+	}
 	s.UpdatedAt = now
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()

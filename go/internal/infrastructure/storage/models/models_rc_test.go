@@ -1,12 +1,15 @@
 package models
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
 
 	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -1234,4 +1237,35 @@ func TestRC_NodeToStorage_NilConfigBecomesEmptyObject(t *testing.T) {
 	m := NodeToStorage(&pkgmodels.Node{ID: "n1", Name: "N", Type: "http"}, uuid.New())
 	require.NotNil(t, m.Config)
 	assert.Empty(t, m.Config)
+}
+
+func TestRC_BeforeAppendModel_RunsWriteHooks(t *testing.T) {
+	db := bun.NewDB(nil, pgdialect.New())
+	ctx := context.Background()
+
+	created := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	e := &ExecutionModel{CreatedAt: created}
+	require.NoError(t, e.BeforeAppendModel(ctx, db.NewInsert()))
+	assert.Equal(t, created, e.CreatedAt, "explicit created_at is kept")
+	assert.NotEqual(t, uuid.Nil, e.ID)
+	assert.False(t, e.UpdatedAt.IsZero())
+	assert.NotNil(t, e.InputData)
+
+	e.UpdatedAt = time.Time{}
+	require.NoError(t, e.BeforeAppendModel(ctx, db.NewUpdate()))
+	assert.False(t, e.UpdatedAt.IsZero(), "updates refresh updated_at")
+
+	// Other query kinds don't run the hooks.
+	e.UpdatedAt = time.Time{}
+	require.NoError(t, e.BeforeAppendModel(ctx, db.NewSelect()))
+	assert.True(t, e.UpdatedAt.IsZero())
+
+	self := "n1"
+	edge := &EdgeModel{FromNodeID: self, ToNodeID: self}
+	assert.ErrorIs(t, edge.BeforeAppendModel(ctx, db.NewInsert()), ErrSelfReferenceEdge)
+	assert.ErrorIs(t, edge.BeforeAppendModel(ctx, db.NewUpdate()), ErrSelfReferenceEdge)
+
+	ur := &UserRoleModel{}
+	require.NoError(t, ur.BeforeAppendModel(ctx, db.NewInsert()))
+	assert.False(t, ur.AssignedAt.IsZero())
 }
