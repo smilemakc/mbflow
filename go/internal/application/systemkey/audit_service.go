@@ -92,8 +92,19 @@ func sanitizeMap(data map[string]any) {
 			data[key] = "[REDACTED]"
 			continue
 		}
-		if nested, ok := value.(map[string]any); ok {
-			sanitizeMap(nested)
+		sanitizeValue(value)
+	}
+}
+
+// sanitizeValue redacts sensitive fields in nested objects, including
+// objects contained in arrays.
+func sanitizeValue(value any) {
+	switch v := value.(type) {
+	case map[string]any:
+		sanitizeMap(v)
+	case []any:
+		for _, item := range v {
+			sanitizeValue(item)
 		}
 	}
 }

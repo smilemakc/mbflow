@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -200,12 +201,20 @@ func (s *Service) DeleteKey(ctx context.Context, id uuid.UUID) error {
 }
 
 func generatePlainKey() (string, string, error) {
-	randomBytes := make([]byte, KeyLength)
-	if _, err := rand.Read(randomBytes); err != nil {
-		return "", "", fmt.Errorf("%w: %v", ErrKeyGenerationFailed, err)
+	// The stored prefix must be alphanumeric (DB check constraint), but the
+	// URL-safe alphabet also contains '-' and '_'; draw again until the
+	// characters that end up in the prefix are alphanumeric.
+	var encoded string
+	for {
+		randomBytes := make([]byte, KeyLength)
+		if _, err := rand.Read(randomBytes); err != nil {
+			return "", "", fmt.Errorf("%w: %v", ErrKeyGenerationFailed, err)
+		}
+		encoded = base64.RawURLEncoding.EncodeToString(randomBytes)
+		if !strings.ContainsAny(encoded[:models.ServiceKeyPrefixLength-len(models.ServiceKeyPrefix)], "-_") {
+			break
+		}
 	}
-
-	encoded := base64.RawURLEncoding.EncodeToString(randomBytes)
 
 	plainKey := models.ServiceKeyPrefix + encoded
 
