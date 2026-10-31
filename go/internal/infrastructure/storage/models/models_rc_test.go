@@ -1229,3 +1229,9 @@ func TestRC_StringArray_ErrorBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, `{"with \"quote\""}`, v)
 }
+
+func TestRC_NodeToStorage_NilConfigBecomesEmptyObject(t *testing.T) {
+	m := NodeToStorage(&pkgmodels.Node{ID: "n1", Name: "N", Type: "http"}, uuid.New())
+	require.NotNil(t, m.Config)
+	assert.Empty(t, m.Config)
+}

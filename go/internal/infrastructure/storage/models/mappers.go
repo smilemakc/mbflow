@@ -287,6 +287,13 @@ func WorkflowToStorage(w *pkgmodels.Workflow, workflowID uuid.UUID) *WorkflowMod
 
 // NodeToStorage converts a domain node to a storage node model
 func NodeToStorage(n *pkgmodels.Node, workflowID uuid.UUID) *NodeModel {
+	// config is NOT NULL in the database: store an empty object for nodes
+	// without configuration.
+	config := JSONBMap(n.Config)
+	if config == nil {
+		config = JSONBMap{}
+	}
+
 	position := JSONBMap{}
 	if n.Position != nil {
 		position["x"] = n.Position.X
@@ -299,7 +306,7 @@ func NodeToStorage(n *pkgmodels.Node, workflowID uuid.UUID) *NodeModel {
 		WorkflowID: workflowID,
 		Name:       n.Name,
 		Type:       n.Type,
-		Config:     JSONBMap(n.Config),
+		Config:     config,
 		Position:   position,
 	}
 }
