@@ -500,10 +500,15 @@ func (e *TelegramParseExecutor) extractEntities(msg map[string]any) map[string]a
 		}
 
 		entityType, _ := entityMap["type"].(string)
-		offset := int(entityMap["offset"].(float64))
-		length := int(entityMap["length"].(float64))
+		offsetVal, okOffset := entityMap["offset"].(float64)
+		lengthVal, okLength := entityMap["length"].(float64)
+		if !okOffset || !okLength {
+			continue
+		}
+		offset := int(offsetVal)
+		length := int(lengthVal)
 
-		if offset+length > len(text) {
+		if offset < 0 || length < 0 || offset+length > len(text) {
 			continue
 		}
 

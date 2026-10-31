@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/itchyny/gojq"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
@@ -139,12 +140,72 @@ func (r *ToolCallingRegistry) executeSubWorkflow(
 		return nil, fmt.Errorf("sub-workflow execution failed: %w", err)
 	}
 
-	// TODO: Применить output extractor если задан (jq)
-	// if funcDef.OutputExtractor != "" {
-	//     result = applyJQExtractor(result, funcDef.OutputExtractor)
-	// }
+	if funcDef.OutputExtractor != "" {
+		extracted, err := applyJQExtractor(ctx, result, funcDef.OutputExtractor)
+		if err != nil {
+			return nil, fmt.Errorf("output extractor failed: %w", err)
+		}
+		return extracted, nil
+	}
 
 	return result, nil
+}
+
+// applyJQExtractor применяет jq-выражение output_extractor к результату
+// sub-workflow. Результат сначала нормализуется через JSON, так как gojq
+// работает только с JSON-совместимыми типами (map[string]any, []any, float64...).
+// Одно значение возвращается как есть, несколько — как []any, ни одного — nil.
+func applyJQExtractor(ctx context.Context, result any, expression string) (any, error) {
+	query, err := gojq.Parse(expression)
+	if err != nil {
+		return nil, fmt.Errorf("invalid jq expression %q: %w", expression, err)
+	}
+	code, err := gojq.Compile(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile jq expression %q: %w", expression, err)
+	}
+
+	normalized, err := normalizeForJQ(result)
+	if err != nil {
+		return nil, err
+	}
+
+	var outputs []any
+	iter := code.RunWithContext(ctx, normalized)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, isErr := v.(error); isErr {
+			return nil, fmt.Errorf("jq evaluation error: %w", err)
+		}
+		outputs = append(outputs, v)
+	}
+
+	switch len(outputs) {
+	case 0:
+		return nil, nil
+	case 1:
+		return outputs[0], nil
+	default:
+		return outputs, nil
+	}
+}
+
+func normalizeForJQ(value any) (any, error) {
+	if value == nil {
+		return nil, nil
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize sub-workflow result: %w", err)
+	}
+	var normalized any
+	if err := json.Unmarshal(data, &normalized); err != nil {
+		return nil, fmt.Errorf("failed to normalize sub-workflow result: %w", err)
+	}
+	return normalized, nil
 }
 
 func (r *ToolCallingRegistry) executeCustomCode(
@@ -231,6 +292,11 @@ func (r *ToolCallingRegistry) ValidateFunctionDefinition(funcDef *models.Functio
 	case models.FunctionTypeSubWorkflow:
 		if funcDef.WorkflowID == "" {
 			return fmt.Errorf("workflow_id is required for sub-workflow functions")
+		}
+		if funcDef.OutputExtractor != "" {
+			if _, err := gojq.Parse(funcDef.OutputExtractor); err != nil {
+				return fmt.Errorf("invalid output_extractor: %w", err)
+			}
 		}
 
 	case models.FunctionTypeCustomCode:
