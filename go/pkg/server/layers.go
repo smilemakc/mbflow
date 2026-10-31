@@ -55,7 +55,7 @@ type AuthLayer struct {
 	ProviderManager   *auth.ProviderManager
 	ServiceKeyService *servicekey.Service
 	AuthMiddleware    *rest.AuthMiddleware
-	LoginRateLimiter  *rest.LoginRateLimiter
+	LoginRateLimiter  rest.LoginLimiter
 	EncryptionService *crypto.EncryptionService
 	RentalKeyProvider *rentalkey.Provider
 }

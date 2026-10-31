@@ -234,6 +234,10 @@ func (s *Server) initRepositories() error {
 	s.data.TriggerRepo = storage.NewTriggerRepository(s.data.DB)
 	s.data.UserRepo = storage.NewUserRepository(s.data.DB)
 	s.data.FileRepo = storage.NewFileRepository(s.data.DB)
+	if s.fileStorage.FileStorageManager != nil {
+		// Lets storages resolve file IDs and serve metadata/list/cleanup.
+		s.fileStorage.FileStorageManager.SetMetadataRepository(s.data.FileRepo)
+	}
 	s.data.AccountRepo = storage.NewAccountRepository(s.data.DB)
 	s.data.TransactionRepo = storage.NewTransactionRepository(s.data.DB)
 	s.data.ResourceRepo = storage.NewResourceRepository(s.data.DB)
@@ -301,11 +305,7 @@ func (s *Server) initAuthSystem() error {
 	})
 
 	s.auth.AuthMiddleware = rest.NewAuthMiddleware(s.auth.ProviderManager, s.auth.AuthService, s.auth.ServiceKeyService)
-	s.auth.LoginRateLimiter = rest.NewLoginRateLimiter(
-		s.config.Auth.MaxLoginAttempts,
-		time.Duration(s.config.Auth.MaxLoginAttempts)*time.Minute,
-		s.config.Auth.LockoutDuration,
-	)
+	s.auth.LoginRateLimiter = s.newLoginLimiter()
 
 	if err := s.bootstrapAdmin(); err != nil {
 		return err
@@ -322,6 +322,22 @@ func (s *Server) initAuthSystem() error {
 	)
 
 	return nil
+}
+
+// newLoginLimiter returns the login lockout policy. With Redis the counters
+// are shared by all replicas, so a lockout cannot be bypassed by hitting
+// another instance; without it they are kept per process.
+func (s *Server) newLoginLimiter() rest.LoginLimiter {
+	maxAttempts := s.config.Auth.MaxLoginAttempts
+	window := time.Duration(maxAttempts) * time.Minute
+	lockout := s.config.Auth.LockoutDuration
+
+	if s.data.RedisCache != nil {
+		s.logger.Info("Login rate limiting uses Redis (shared across replicas)")
+		return rest.NewRedisLoginLimiter(rest.NewRedisLoginRateLimiter(s.data.RedisCache.Client(), maxAttempts, window, lockout))
+	}
+	s.logger.Warn("Login rate limiting is per process: Redis is not available, lockouts are not shared across replicas")
+	return rest.NewMemoryLoginLimiter(rest.NewLoginRateLimiter(maxAttempts, window, lockout))
 }
 
 // bootstrapAdmin creates the first administrator from MBFLOW_ADMIN_EMAIL /
@@ -360,7 +376,24 @@ func (s *Server) initExecutionEngine() error {
 		registry,
 	)
 
-	s.logger.Info("Execution engine initialized")
+	execCfg := s.config.Execution
+	s.execution.ExecutionManager.SetMaxConcurrentExecutions(execCfg.MaxConcurrentExecutions)
+
+	if execCfg.HeartbeatInterval > 0 {
+		err := s.execution.ExecutionManager.StartRecovery(s.backgroundContext(), engine.RecoveryConfig{
+			HeartbeatInterval: execCfg.HeartbeatInterval,
+			StaleAfter:        execCfg.StaleAfter,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to start execution recovery: %w", err)
+		}
+	}
+
+	s.logger.Info("Execution engine initialized",
+		"max_concurrent_executions", execCfg.MaxConcurrentExecutions,
+		"heartbeat_interval", execCfg.HeartbeatInterval,
+		"stale_after", execCfg.StaleAfter,
+	)
 	return nil
 }
 

@@ -13,8 +13,11 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// Ensure ExecutionRepository implements the interface
-var _ repository.ExecutionRepository = (*ExecutionRepository)(nil)
+// Ensure ExecutionRepository implements the interfaces
+var (
+	_ repository.ExecutionRepository      = (*ExecutionRepository)(nil)
+	_ repository.ExecutionLeaseRepository = (*ExecutionRepository)(nil)
+)
 
 // ExecutionRepository implements repository.ExecutionRepository using Bun ORM
 type ExecutionRepository struct {
@@ -40,6 +43,10 @@ func (r *ExecutionRepository) Create(ctx context.Context, execution *models.Exec
 
 // Update updates an existing execution
 func (r *ExecutionRepository) Update(ctx context.Context, execution *models.ExecutionModel) error {
+	// updated_at doubles as the execution lease (see TouchExecutions); the
+	// model's hooks are not bun hooks, so set it explicitly instead of
+	// writing a zero timestamp.
+	execution.UpdatedAt = time.Now()
 	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		// Update execution record
 		_, err := tx.NewUpdate().
@@ -73,6 +80,54 @@ func (r *ExecutionRepository) Update(ctx context.Context, execution *models.Exec
 
 		return nil
 	})
+}
+
+// activeExecutionStatuses are the statuses whose execution holds a lease.
+var activeExecutionStatuses = []string{"pending", "running"}
+
+// TouchExecutions renews the lease of the given pending or running executions.
+func (r *ExecutionRepository) TouchExecutions(ctx context.Context, ids []uuid.UUID) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res, err := r.db.NewUpdate().
+		Model((*models.ExecutionModel)(nil)).
+		Set("updated_at = current_timestamp").
+		Where("id IN (?)", bun.In(ids)).
+		Where("status IN (?)", bun.In(activeExecutionStatuses)).
+		Exec(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to touch executions: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to touch executions: %w", err)
+	}
+	return int(n), nil
+}
+
+// FailStaleExecutions fails pending or running executions whose lease
+// (updated_at) expired more than staleAfter ago. A single UPDATE keeps it
+// safe to run concurrently from several replicas.
+func (r *ExecutionRepository) FailStaleExecutions(ctx context.Context, staleAfter time.Duration, errMsg string) ([]uuid.UUID, error) {
+	if staleAfter <= 0 {
+		return nil, fmt.Errorf("stale threshold must be positive, got %s", staleAfter)
+	}
+	var ids []uuid.UUID
+	err := r.db.NewUpdate().
+		Model((*models.ExecutionModel)(nil)).
+		Set("status = ?", "failed").
+		Set("error = ?", errMsg).
+		Set("completed_at = current_timestamp").
+		Set("updated_at = current_timestamp").
+		Where("status IN (?)", bun.In(activeExecutionStatuses)).
+		Where("updated_at < current_timestamp - ? * interval '1 microsecond'", staleAfter.Microseconds()).
+		Returning("id").
+		Scan(ctx, &ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fail stale executions: %w", err)
+	}
+	return ids, nil
 }
 
 // Delete deletes an execution

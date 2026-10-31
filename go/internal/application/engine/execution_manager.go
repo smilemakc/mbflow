@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,6 +40,15 @@ type ExecutionManager struct {
 	rootOnce   sync.Once
 	rootCtx    context.Context
 	rootCancel context.CancelFunc
+
+	// slots bounds concurrent executions; nil means unlimited.
+	slots atomic.Pointer[executionSlots]
+
+	// active holds persisted executions owned by this process; their lease
+	// is renewed while recovery runs (see StartRecovery).
+	active          activeExecutions
+	recoveryStarted atomic.Bool
+	recoveryWG      sync.WaitGroup
 }
 
 // runContext returns the root context for background executions. It is
@@ -112,10 +122,18 @@ func (em *ExecutionManager) Execute(
 	input map[string]any,
 	opts *ExecutionOptions,
 ) (*models.Execution, error) {
+	// Synchronous callers wait for a free slot before anything is recorded.
+	release, err := em.acquireSlot(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("waiting for an execution slot: %w", err)
+	}
+	defer release()
+
 	execution, workflow, workflowModel, err := em.prepareExecution(ctx, workflowID, input, opts, models.ExecutionStatusRunning)
 	if err != nil {
 		return nil, err
 	}
+	defer em.active.add(execution.ID)()
 
 	// Register per-execution webhook observers
 	webhookNames := em.registerWebhookObservers(execution.ID, opts)
@@ -147,10 +165,12 @@ func (em *ExecutionManager) ExecuteAsync(
 	// The goroutine below mutates execution; callers get a snapshot so they
 	// can serialize it without racing.
 	snapshot := *execution
+	untrack := em.active.add(execution.ID)
 
 	em.inflight.Add(1)
 	go func() {
 		defer em.inflight.Done()
+		defer untrack()
 
 		// Register per-execution webhook observers
 		webhookNames := em.registerWebhookObservers(execution.ID, opts)
@@ -161,6 +181,14 @@ func (em *ExecutionManager) ExecuteAsync(
 		runCtx := em.runContext()
 		bgCtx := context.WithoutCancel(runCtx)
 		defer em.recoverExecution(bgCtx, execution, true, nil)
+
+		// The execution stays pending until a slot frees up.
+		release, err := em.acquireSlot(runCtx)
+		if err != nil {
+			em.abandonQueuedExecution(bgCtx, execution, true, err)
+			return
+		}
+		defer release()
 
 		execution.Status = models.ExecutionStatusRunning
 		executionModel := storagemodels.ExecutionDomainToModel(execution)
@@ -610,6 +638,7 @@ func (em *ExecutionManager) Shutdown(ctx context.Context) error {
 	select {
 	case <-done:
 		em.rootCancel()
+		em.recoveryWG.Wait()
 		return nil
 	case <-ctx.Done():
 	}
@@ -619,7 +648,24 @@ func (em *ExecutionManager) Shutdown(ctx context.Context) error {
 	case <-done:
 	case <-time.After(5 * time.Second):
 	}
+	em.recoveryWG.Wait()
 	return fmt.Errorf("executions still running at shutdown deadline: %w", ctx.Err())
+}
+
+// abandonQueuedExecution records an execution that never got an execution
+// slot (the manager shut down while it was queued) as cancelled.
+func (em *ExecutionManager) abandonQueuedExecution(ctx context.Context, execution *models.Execution, persist bool, cause error) {
+	now := time.Now()
+	execution.Status = models.ExecutionStatusCancelled
+	execution.Error = fmt.Sprintf("execution cancelled before it started: %v", cause)
+	execution.CompletedAt = &now
+	execution.Duration = execution.CalculateDuration()
+	if persist {
+		if err := em.executionRepo.Update(ctx, storagemodels.ExecutionDomainToModel(execution)); err != nil {
+			slog.Error("failed to persist cancelled execution", "execution_id", execution.ID, "error", err)
+		}
+	}
+	em.notifyExecutionCompletion(ctx, execution, errors.New(execution.Error))
 }
 
 // recoverExecution converts a panic in a background execution into a failed

@@ -33,6 +33,25 @@ type Config struct {
 	ServiceAPI     SystemAPIConfig
 	GRPCServiceAPI GRPCServiceAPIConfig
 	Tracing        TracingConfig
+	Execution      ExecutionConfig
+}
+
+// ExecutionConfig holds workflow execution engine configuration. The zero
+// value (as in configs built in code) means no concurrency limit and no
+// crash recovery; Load applies the documented defaults.
+type ExecutionConfig struct {
+	// MaxConcurrentExecutions caps executions running at the same time in
+	// this process (MBFLOW_MAX_CONCURRENT_EXECUTIONS); further executions wait
+	// for a free slot. 0 means unlimited.
+	MaxConcurrentExecutions int
+	// HeartbeatInterval is how often the lease of running executions is
+	// renewed and abandoned executions are swept
+	// (MBFLOW_EXECUTION_HEARTBEAT_INTERVAL). 0 disables crash recovery.
+	HeartbeatInterval time.Duration
+	// StaleAfter is how old an execution lease may get before the execution
+	// is failed as interrupted (MBFLOW_EXECUTION_STALE_AFTER). 0 means three
+	// heartbeat intervals.
+	StaleAfter time.Duration
 }
 
 // ServerConfig holds server-related configuration.
@@ -148,6 +167,18 @@ type AuthConfig struct {
 	GRPCClientVersion string
 	GRPCPlatform      string
 	GRPCEnvironment   string
+
+	// GRPCInsecure disables TLS on the connection to the auth-gateway gRPC
+	// endpoint (MBFLOW_AUTH_GRPC_INSECURE). It defaults to true (plaintext)
+	// outside production and to false (TLS) in production.
+	GRPCInsecure bool
+	// GRPCTLSCAFile is an optional PEM CA bundle used to verify the
+	// auth-gateway certificate when TLS is enabled (MBFLOW_AUTH_GRPC_TLS_CA_FILE).
+	// When empty, the system root CAs are used.
+	GRPCTLSCAFile string
+	// GRPCTLSServerName optionally overrides the server name used for TLS
+	// certificate verification (MBFLOW_AUTH_GRPC_TLS_SERVER_NAME).
+	GRPCTLSServerName string
 
 	EnableFallback bool
 	FallbackMode   string
@@ -278,6 +309,9 @@ func Load() (*Config, error) {
 			GRPCClientVersion:      getEnv("MBFLOW_AUTH_CLIENT_VERSION", ""),
 			GRPCPlatform:           getEnv("MBFLOW_AUTH_PLATFORM", ""),
 			GRPCEnvironment:        getEnv("MBFLOW_AUTH_ENVIRONMENT", ""),
+			GRPCInsecure:           getEnvAsBool("MBFLOW_AUTH_GRPC_INSECURE", true),
+			GRPCTLSCAFile:          getEnv("MBFLOW_AUTH_GRPC_TLS_CA_FILE", ""),
+			GRPCTLSServerName:      getEnv("MBFLOW_AUTH_GRPC_TLS_SERVER_NAME", ""),
 			EnableFallback:         getEnvAsBool("MBFLOW_AUTH_ENABLE_FALLBACK", false),
 			FallbackMode:           getEnv("MBFLOW_AUTH_FALLBACK_MODE", "builtin"),
 		},
@@ -307,11 +341,21 @@ func Load() (*Config, error) {
 			Insecure:    getEnvAsBool("OTEL_EXPORTER_INSECURE", true),
 			SampleRate:  getEnvAsFloat("OTEL_SAMPLE_RATE", 1.0),
 		},
+		Execution: ExecutionConfig{
+			MaxConcurrentExecutions: getEnvAsInt("MBFLOW_MAX_CONCURRENT_EXECUTIONS", 100),
+			HeartbeatInterval:       getEnvAsDuration("MBFLOW_EXECUTION_HEARTBEAT_INTERVAL", 30*time.Second),
+			StaleAfter:              getEnvAsDuration("MBFLOW_EXECUTION_STALE_AFTER", 0),
+		},
 	}
 
 	// Open self-registration is opt-in for production deployments.
 	if cfg.IsProduction() && os.Getenv("MBFLOW_ALLOW_REGISTRATION") == "" {
 		cfg.Auth.AllowRegistration = false
+	}
+
+	// The auth-gateway gRPC connection uses TLS by default in production.
+	if cfg.IsProduction() && os.Getenv("MBFLOW_AUTH_GRPC_INSECURE") == "" {
+		cfg.Auth.GRPCInsecure = false
 	}
 
 	if len(parseErrors) > 0 {
@@ -375,6 +419,10 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	if err := c.validateExecution(); err != nil {
+		return err
+	}
+
 	if c.IsProduction() {
 		if err := c.validateProduction(); err != nil {
 			return err
@@ -404,6 +452,20 @@ func (c *Config) validateProduction() error {
 		if o == "*" {
 			return fmt.Errorf("wildcard CORS origin is not allowed in production")
 		}
+	}
+	return nil
+}
+
+func (c *Config) validateExecution() error {
+	e := c.Execution
+	if e.MaxConcurrentExecutions < 0 {
+		return fmt.Errorf("MBFLOW_MAX_CONCURRENT_EXECUTIONS must not be negative")
+	}
+	if e.HeartbeatInterval < 0 || e.StaleAfter < 0 {
+		return fmt.Errorf("MBFLOW_EXECUTION_HEARTBEAT_INTERVAL and MBFLOW_EXECUTION_STALE_AFTER must not be negative")
+	}
+	if e.HeartbeatInterval > 0 && e.StaleAfter > 0 && e.StaleAfter <= e.HeartbeatInterval {
+		return fmt.Errorf("MBFLOW_EXECUTION_STALE_AFTER (%s) must be greater than MBFLOW_EXECUTION_HEARTBEAT_INTERVAL (%s)", e.StaleAfter, e.HeartbeatInterval)
 	}
 	return nil
 }

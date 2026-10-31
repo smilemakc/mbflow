@@ -85,10 +85,17 @@ func (em *ExecutionManager) executeEphemeralSync(
 	defer em.unregisterWebhookObservers(webhookNames)
 	defer em.markEphemeralTerminal(execution.ID)
 
+	release, err := em.acquireSlot(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("waiting for an execution slot: %w", err)
+	}
+	defer release()
+
 	if opts.PersistExecution {
 		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow, opts.CreatedBy); err != nil {
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
+		defer em.active.add(execution.ID)()
 	}
 
 	execution.Status = models.ExecutionStatusRunning
@@ -132,11 +139,14 @@ func (em *ExecutionManager) executeEphemeralAsync(
 	pkgOpts *pkgengine.ExecutionOptions,
 	webhookNames []string,
 ) (*models.Execution, error) {
+	untrack := func() {}
 	if opts.PersistExecution {
 		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow, opts.CreatedBy); err != nil {
+			em.unregisterWebhookObservers(webhookNames)
 			em.markEphemeralTerminal(execution.ID)
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
+		untrack = em.active.add(execution.ID)
 	}
 
 	// The goroutine below mutates execution; callers get a snapshot so they
@@ -146,6 +156,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 	em.inflight.Add(1)
 	go func() {
 		defer em.inflight.Done()
+		defer untrack()
 		defer em.unregisterWebhookObservers(webhookNames)
 
 		// runCtx is cancelled when shutdown times out; bgCtx stays valid so the
@@ -155,6 +166,15 @@ func (em *ExecutionManager) executeEphemeralAsync(
 		defer em.recoverExecution(bgCtx, execution, opts.PersistExecution, func() {
 			em.markEphemeralTerminal(execution.ID)
 		})
+
+		// The execution stays pending until a slot frees up.
+		release, err := em.acquireSlot(runCtx)
+		if err != nil {
+			em.abandonQueuedExecution(bgCtx, execution, opts.PersistExecution, err)
+			em.markEphemeralTerminal(execution.ID)
+			return
+		}
+		defer release()
 
 		execution.Status = models.ExecutionStatusRunning
 

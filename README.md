@@ -88,10 +88,10 @@ Useful targets in `go/Makefile`: `make test`, `make lint` (golangci-lint v2), `m
 
 These were found while deploying and testing the full stack and are not fixed yet:
 
-- **UI placeholders.** The Monitoring page, the "System health" block on the Dashboard and the profile/notification sections of Settings show static demo data, not real metrics. Treat them as mock-ups; use `/ready`, `/metrics` and logs for real monitoring.
-- **Triggers in the UI.** The "Create trigger" dialog is a stub, and the triggers list expects a different data shape (`type: schedule`, `status`) than the API returns (`type: cron`, `enabled`). Manage triggers through the API for now.
-- **Single API replica for triggers.** Cron/interval triggers run in every API replica, so running more than one replica fires them more than once. The login lockout counters are also per process. Run one API replica, or add leader election and the Redis-based limiter, before scaling out.
-- **No execution concurrency limit or crash recovery.** Every execution runs in its own goroutine without a global cap, and executions that were running when the process was killed (not gracefully stopped) stay in `running`.
+- **UI monitoring is basic.** The Monitoring page and the Dashboard show live service health from `/health` and `/ready`, and execution figures (success rate, average duration, failures) computed in the browser from the latest 100 executions. There are no CPU, memory or queue metrics and no history charts; use `/metrics` and logs for those. The Settings profile is read-only because the API has no endpoint for users to edit their own profile.
+- **Running a trigger by hand.** The UI's "Run now" button calls `POST /api/v1/triggers/{id}/execute`, which the backend currently answers with `501 Not Implemented`; the UI shows that error. To run a workflow now, use the workflow's Run button instead.
+- **Multiple API replicas.** Cron/interval and event triggers are deduplicated across replicas: before firing, a replica claims the scheduled tick (or the event) in Redis, so each occurrence starts one execution. If Redis is unreachable the claim fails open and an occurrence may fire more than once. Login lockout counters are shared through Redis; without Redis they are kept per process.
+- **Execution limit is per replica; interrupted executions are not resumed.** `MBFLOW_MAX_CONCURRENT_EXECUTIONS` (default 100) caps executions running at once in each replica, not across the cluster. Executions interrupted by a crash are marked `failed` by any replica once their lease expires (`MBFLOW_EXECUTION_STALE_AFTER`, default 90s); they are not restarted.
 - **UI dependency advisories.** Two moderate advisories in `react-router` are fixed only in v7, which needs a migration.
 
 ## More documentation

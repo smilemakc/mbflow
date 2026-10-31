@@ -136,9 +136,11 @@ func NewRedisLoginRateLimiter(client redis.UniversalClient, maxAttempts int, win
 	}
 }
 
-// Middleware returns the rate limiting middleware
+// Middleware caps the total number of login requests per client IP, like
+// LoginRateLimiter.Middleware: the cap is maxAttempts*loginRequestsPerIPFactor
+// and its counters are kept apart from the per-account failed attempts.
 func (lrl *RedisLoginRateLimiter) Middleware() gin.HandlerFunc {
-	rl := NewRedisRateLimiter(lrl.client, lrl.keyPrefix, lrl.maxAttempts, lrl.windowDuration, lrl.lockoutDuration)
+	rl := NewRedisRateLimiter(lrl.client, lrl.keyPrefix+"ip:", lrl.maxAttempts*loginRequestsPerIPFactor, lrl.windowDuration, lrl.lockoutDuration)
 	return rl.Middleware()
 }
 
