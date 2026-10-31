@@ -13,6 +13,8 @@ type TriggerModel struct {
 
 	ID              uuid.UUID  `bun:"id,pk,type:uuid,default:uuid_generate_v4()" json:"id"`
 	WorkflowID      uuid.UUID  `bun:"workflow_id,notnull,type:uuid" json:"workflow_id" validate:"required"`
+	Name            string     `bun:"name,notnull,default:''" json:"name"`
+	Description     string     `bun:"description,notnull,default:''" json:"description,omitempty"`
 	Type            string     `bun:"type,notnull" json:"type" validate:"required,oneof=manual cron webhook event interval"`
 	Config          JSONBMap   `bun:"config,type:jsonb,notnull,default:'{}'" json:"config"`
 	Enabled         bool       `bun:"enabled,notnull,default:true" json:"enabled"`
@@ -49,6 +51,26 @@ func (t *TriggerModel) BeforeInsert(ctx any) error {
 func (t *TriggerModel) BeforeUpdate(ctx any) error {
 	t.UpdatedAt = time.Now()
 	return nil
+}
+
+// DisplayName returns the stored name, falling back to the legacy
+// config.name key used before the name column existed.
+func (t *TriggerModel) DisplayName() string {
+	if t.Name != "" {
+		return t.Name
+	}
+	n, _ := t.Config["name"].(string)
+	return n
+}
+
+// DisplayDescription returns the stored description, falling back to the
+// legacy config.description key used before the description column existed.
+func (t *TriggerModel) DisplayDescription() string {
+	if t.Description != "" {
+		return t.Description
+	}
+	d, _ := t.Config["description"].(string)
+	return d
 }
 
 // IsManual returns true if trigger is manual type

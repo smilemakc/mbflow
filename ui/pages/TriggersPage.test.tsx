@@ -123,9 +123,9 @@ describe('TriggersPage', () => {
     const user = userEvent.setup();
     const execute = vi
       .spyOn(triggerService, 'executeTrigger')
-      .mockResolvedValueOnce({ execution_id: 'exec-9' })
-      .mockResolvedValueOnce({})
-      .mockRejectedValueOnce(apiError(501, { code: 'NOT_IMPLEMENTED', message: 'trigger execution requires trigger manager integration' }));
+      .mockResolvedValueOnce({ id: 'exec-9', workflow_id: WF, status: 'pending' })
+      .mockResolvedValueOnce({} as never)
+      .mockRejectedValueOnce(apiError(400, { code: 'TRIGGER_DISABLED', message: 'trigger is disabled' }));
     render(<TriggersPage />);
     await screen.findByText('Trigger 1');
     const run = () => user.click(within(rowFor('Trigger 1')).getByRole('button', { name: 'Run now' }));
@@ -137,7 +137,7 @@ describe('TriggersPage', () => {
     await waitFor(() => expect(toasts().at(-1)).toMatchObject({ type: 'success', message: undefined }));
     await run();
     await waitFor(() =>
-      expect(toasts().at(-1)).toMatchObject({ type: 'error', message: 'trigger execution requires trigger manager integration' }),
+      expect(toasts().at(-1)).toMatchObject({ type: 'error', message: 'trigger is disabled' }),
     );
   });
 

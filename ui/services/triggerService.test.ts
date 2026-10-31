@@ -99,12 +99,12 @@ describe('triggerService', () => {
     api
       .on('POST', '/triggers/t1/enable', { data: trigger('t1', { enabled: true }) })
       .on('POST', '/triggers/t1/disable', { data: trigger('t1', { enabled: false }) })
-      .on('POST', '/triggers/t1/execute', { data: { execution_id: 'e1' } });
+      .on('POST', '/triggers/t1/execute', { data: { id: 'e1', workflow_id: 'wf-1', status: 'pending' } });
 
     expect((await triggerService.enableTrigger('t1')).enabled).toBe(true);
     expect((await triggerService.disableTrigger('t1')).enabled).toBe(false);
 
-    expect(await triggerService.executeTrigger('t1')).toEqual({ execution_id: 'e1' });
+    expect(await triggerService.executeTrigger('t1')).toEqual({ id: 'e1', workflow_id: 'wf-1', status: 'pending' });
     expect(api.last()?.data).toEqual({ input: {} });
 
     await triggerService.executeTrigger('t1', { a: 1 });

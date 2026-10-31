@@ -84,7 +84,7 @@ describe('TriggerFormModal', () => {
       name: 'Hourly report',
       description: 'Sends the report',
       type: 'cron',
-      config: { name: 'Hourly report', description: 'Sends the report', schedule: '0 9 * * 1-5', timezone: 'Europe/Berlin' },
+      config: { schedule: '0 9 * * 1-5', timezone: 'Europe/Berlin' },
       enabled: false,
     });
   });
@@ -128,7 +128,8 @@ describe('TriggerFormModal', () => {
     await user.click(screen.getByRole('button', { name: 'Create trigger' }));
 
     await waitFor(() => expect(create).toHaveBeenCalled());
-    expect(create.mock.calls[0][0]).toMatchObject({ type, workflow_id: WF, enabled: true, config: { name: 'T', ...config, input: { source: 'ui' } } });
+    expect(create.mock.calls[0][0]).toMatchObject({ type, workflow_id: WF, name: 'T', enabled: true });
+    expect(create.mock.calls[0][0].config).toEqual({ ...config, input: { source: 'ui' } });
   });
 
   it('validates per-type fields', async () => {
@@ -182,7 +183,7 @@ describe('TriggerFormModal', () => {
       name: 'Nightly',
       description: 'runs at night',
       type: 'cron',
-      config: { keep_me: 1, name: 'Nightly', description: 'runs at night', schedule: '@daily', timezone: 'UTC' },
+      config: { keep_me: 1, schedule: '@daily', timezone: 'UTC' },
       enabled: true,
     });
   });

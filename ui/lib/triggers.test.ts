@@ -173,10 +173,8 @@ describe('validateTriggerForm', () => {
 });
 
 describe('buildTriggerConfig', () => {
-  it('builds cron config with optional timezone and mirrors name/description', () => {
+  it('builds cron config with optional timezone and keeps name/description out of config', () => {
     expect(buildTriggerConfig(form({ type: 'cron', schedule: ' 0 9 * * * ', timezone: ' Europe/Berlin ', description: ' d ' }))).toEqual({
-      name: 'My trigger',
-      description: 'd',
       schedule: '0 9 * * *',
       timezone: 'Europe/Berlin',
     });
@@ -189,9 +187,8 @@ describe('buildTriggerConfig', () => {
   });
 
   it('builds webhook config only with the values that were set', () => {
-    expect(buildTriggerConfig(form({ type: 'webhook' }))).toEqual({ name: 'My trigger' });
+    expect(buildTriggerConfig(form({ type: 'webhook' }))).toEqual({});
     expect(buildTriggerConfig(form({ type: 'webhook', secret: 's3cret', ipWhitelist: '1.1.1.1\n2.2.2.0/24' }))).toEqual({
-      name: 'My trigger',
       secret: 's3cret',
       ip_whitelist: ['1.1.1.1', '2.2.2.0/24'],
     });
@@ -200,8 +197,8 @@ describe('buildTriggerConfig', () => {
   it('builds event config with source and filter', () => {
     expect(
       buildTriggerConfig(form({ type: 'event', eventType: 'order.paid', eventSource: 'shop', eventFilter: '{"plan":"pro"}' })),
-    ).toEqual({ name: 'My trigger', event_type: 'order.paid', source: 'shop', filter: { plan: 'pro' } });
-    expect(buildTriggerConfig(form({ type: 'event', eventType: 'x' }))).toEqual({ name: 'My trigger', event_type: 'x' });
+    ).toEqual({ event_type: 'order.paid', source: 'shop', filter: { plan: 'pro' } });
+    expect(buildTriggerConfig(form({ type: 'event', eventType: 'x' }))).toEqual({ event_type: 'x' });
   });
 
   it('adds default input and drops stale keys of other types while keeping unknown keys', () => {
@@ -210,7 +207,20 @@ describe('buildTriggerConfig', () => {
       secret: 'old',
       custom_flag: true,
     });
-    expect(config).toEqual({ name: 'My trigger', input: { k: 'v' }, custom_flag: true });
+    expect(config).toEqual({ input: { k: 'v' }, custom_flag: true });
+  });
+});
+
+describe('legacy config.name / config.description', () => {
+  it('drops the legacy copies from config when a trigger is saved', () => {
+    const legacy = trigger({ name: '', description: undefined, config: { name: 'Old', description: 'Old desc', schedule: '@hourly', extra: 1 } });
+    const values = triggerToForm(legacy);
+    expect(values.name).toBe('Old');
+    expect(values.description).toBe('Old desc');
+    const request = buildUpdateRequest(values, legacy);
+    expect(request).toMatchObject({ name: 'Old', description: 'Old desc', config: { schedule: '@hourly', extra: 1 } });
+    expect(request.config).not.toHaveProperty('name');
+    expect(request.config).not.toHaveProperty('description');
   });
 });
 
@@ -220,7 +230,7 @@ describe('buildCreateRequest / buildUpdateRequest', () => {
       workflow_id: WF,
       name: 'My trigger',
       type: 'interval',
-      config: { name: 'My trigger', interval: '5m' },
+      config: { interval: '5m' },
       enabled: false,
     });
     expect(buildCreateRequest(form({ type: 'manual', description: 'why' })).description).toBe('why');
@@ -233,11 +243,11 @@ describe('buildCreateRequest / buildUpdateRequest', () => {
       name: 'My trigger',
       description: '',
       type: 'cron',
-      config: { name: 'My trigger', schedule: '@daily', extra: 1 },
+      config: { schedule: '@daily', extra: 1 },
       enabled: true,
     });
     const changed = buildUpdateRequest(form({ type: 'manual' }), original);
-    expect(changed.config).toEqual({ name: 'My trigger' });
+    expect(changed.config).toEqual({});
   });
 });
 
@@ -257,7 +267,9 @@ describe('triggerToForm', () => {
       expect(values.type).toBe(t.type);
       expect(values.enabled).toBe(t.enabled);
       const request = buildUpdateRequest(values, t);
-      expect(request.config).toEqual({ name: 'Nightly', ...(t.description ? { description: t.description } : {}), ...t.config });
+      expect(request.config).toEqual(t.config);
+      expect(request.name).toBe('Nightly');
+      expect(request.description).toBe(t.description ?? '');
     }
   });
 

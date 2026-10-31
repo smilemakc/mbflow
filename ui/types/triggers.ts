@@ -31,8 +31,8 @@ export interface TriggerConfig {
   // all types: default workflow input
   input?: Record<string, unknown>;
 
-  // name/description are mirrored into config so they survive a reload
-  // (the trigger table has no dedicated columns for them).
+  // Legacy: triggers created before the backend persisted name/description
+  // (migration 020) kept them here. Read as a fallback only; never written.
   name?: string;
   description?: string;
 
@@ -50,6 +50,7 @@ export interface Trigger {
   created_at: string;
   updated_at: string;
   last_run?: string;
+  /** Next scheduled run; set by the API for enabled cron and interval triggers. */
   next_run?: string;
   metadata?: Record<string, unknown>;
 }
@@ -90,8 +91,13 @@ export interface TriggerListResponse {
   offset: number;
 }
 
-/** POST /api/v1/triggers/:id/execute */
+/**
+ * POST /api/v1/triggers/:id/execute (202 Accepted): the queued execution.
+ * Body `{input}` is merged over the trigger's default config.input.
+ */
 export interface TriggerExecutionResponse {
-  execution_id?: string;
+  id: string;
+  workflow_id: string;
+  status: string;
   [key: string]: unknown;
 }

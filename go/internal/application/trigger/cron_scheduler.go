@@ -326,13 +326,15 @@ func (cs *CronScheduler) updateNextExecution(ctx context.Context, triggerID stri
 // modelToDomain converts storage model to domain model
 func (cs *CronScheduler) modelToDomain(tm *storagemodels.TriggerModel) *models.Trigger {
 	trigger := &models.Trigger{
-		ID:         tm.ID.String(),
-		WorkflowID: tm.WorkflowID.String(),
-		Type:       models.TriggerType(tm.Type),
-		Config:     make(map[string]any),
-		Enabled:    tm.Enabled,
-		CreatedAt:  tm.CreatedAt,
-		UpdatedAt:  tm.UpdatedAt,
+		ID:          tm.ID.String(),
+		WorkflowID:  tm.WorkflowID.String(),
+		Name:        tm.DisplayName(),
+		Description: tm.DisplayDescription(),
+		Type:        models.TriggerType(tm.Type),
+		Config:      make(map[string]any),
+		Enabled:     tm.Enabled,
+		CreatedAt:   tm.CreatedAt,
+		UpdatedAt:   tm.UpdatedAt,
 	}
 
 	if tm.Config != nil {
@@ -344,6 +346,33 @@ func (cs *CronScheduler) modelToDomain(tm *storagemodels.TriggerModel) *models.T
 	}
 
 	return trigger
+}
+
+// NextRun returns the next time the scheduler fires an enabled cron or
+// interval trigger strictly after the given instant. It uses the same
+// parsing and interval alignment as the running scheduler, so every replica
+// (and the API) reports the same instant. It returns nil for disabled
+// triggers, other trigger types and unparsable schedules.
+func NextRun(triggerType string, enabled bool, config map[string]any, after time.Time) *time.Time {
+	if !enabled {
+		return nil
+	}
+	t := &models.Trigger{Type: models.TriggerType(triggerType), Config: config}
+	if t.Type != models.TriggerTypeCron && t.Type != models.TriggerTypeInterval {
+		return nil
+	}
+	if t.Config == nil {
+		return nil
+	}
+	schedule, err := (&CronScheduler{}).parseSchedule(t)
+	if err != nil {
+		return nil
+	}
+	next := schedule.Next(after)
+	if next.IsZero() {
+		return nil
+	}
+	return &next
 }
 
 // cronParser accepts standard 5-field expressions ("0 9 * * *", as used in

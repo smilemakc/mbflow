@@ -219,7 +219,13 @@ func TestHandlers_GetTrigger_Success(t *testing.T) {
 	assert.Equal(t, triggerID, result["id"])
 	assert.Equal(t, "cron", result["type"])
 	assert.Equal(t, workflowModel.ID.String(), result["workflow_id"])
-	// Note: name/description are not returned by GetTrigger since they're passed as params in CreateTrigger response only
+	// Name and description are persisted and returned on read.
+	assert.Equal(t, "Test Trigger", result["name"])
+	assert.Equal(t, "Test description", result["description"])
+	// next_run is computed for enabled cron triggers (daily at midnight).
+	nextRun, ok := result["next_run"].(string)
+	require.True(t, ok, "next_run missing: %v", result)
+	assert.Contains(t, nextRun, "T00:00:00")
 }
 
 func TestHandlers_GetTrigger_NotFound(t *testing.T) {
@@ -524,7 +530,7 @@ func TestHandlers_DisableTrigger_Success(t *testing.T) {
 
 // ========== MANUAL TRIGGER TEST ==========
 
-func TestHandlers_TriggerManual_Success(t *testing.T) {
+func TestHandlers_TriggerManual_NoExecutionManager(t *testing.T) {
 	t.Parallel()
 	_, router, workflowRepo, cleanup := setupTriggerHandlersTest(t)
 	defer cleanup()
@@ -558,8 +564,9 @@ func TestHandlers_TriggerManual_Success(t *testing.T) {
 	triggerW := testutil.MakeRequest(t, router, "POST",
 		fmt.Sprintf("/api/v1/triggers/%s/manual", triggerID), triggerReq)
 
-	// Note: Manual trigger endpoint is currently a stub and returns 501 Not Implemented
-	// This will be implemented when trigger manager integration is completed
-	testutil.AssertErrorResponse(t, triggerW, http.StatusNotImplemented,
-		"trigger execution requires trigger manager integration")
+	// These operations have no execution manager, so the run is refused
+	// instead of being silently dropped. Successful runs are covered in
+	// handlers_triggers_run_test.go.
+	testutil.AssertErrorResponse(t, triggerW, http.StatusServiceUnavailable,
+		"workflow execution is not available on this server")
 }

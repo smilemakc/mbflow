@@ -167,7 +167,7 @@ export const TriggersPage: React.FC = () => {
       const result = await triggerService.executeTrigger(trigger.id);
       toast.success(
         t.triggers.executeStarted,
-        result?.execution_id ? t.triggers.executeStartedWithId.replace('{id}', result.execution_id) : undefined,
+        result?.id ? t.triggers.executeStartedWithId.replace('{id}', result.id) : undefined,
       );
       table.refresh();
     } catch (error) {
@@ -239,7 +239,10 @@ export const TriggersPage: React.FC = () => {
               <span className="text-slate-400">-</span>
             )}
             {trigger.next_run && (
-              <div className="text-slate-500 dark:text-slate-400 mt-0.5">
+              <div
+                className="text-slate-500 dark:text-slate-400 mt-0.5"
+                title={new Date(trigger.next_run).toLocaleString()}
+              >
                 {t.triggers.table.nextRun}: {formatRelative(trigger.next_run)}
               </div>
             )}

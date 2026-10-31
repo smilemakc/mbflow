@@ -1,13 +1,14 @@
 package rest
 
 import (
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/go/internal/application/serviceapi"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 type TriggerHandlers struct {
@@ -140,7 +141,7 @@ func (h *TriggerHandlers) HandleUpdateTrigger(c *gin.Context) {
 
 	var req struct {
 		Name        string         `json:"name,omitempty"`
-		Description string         `json:"description,omitempty"`
+		Description *string        `json:"description,omitempty"`
 		Type        string         `json:"type,omitempty"`
 		Config      map[string]any `json:"config,omitempty"`
 		Enabled     *bool          `json:"enabled,omitempty"`
@@ -242,6 +243,9 @@ func (h *TriggerHandlers) HandleDisableTrigger(c *gin.Context) {
 	respondJSON(c, http.StatusOK, trigger)
 }
 
+// HandleTriggerManual runs the trigger's workflow now. The request body is
+// optional: {"input": {...}} is merged over the trigger's default
+// config.input. It responds 202 Accepted with the queued execution.
 func (h *TriggerHandlers) HandleTriggerManual(c *gin.Context) {
 	triggerID, ok := getParam(c, "id")
 	if !ok {
@@ -258,23 +262,21 @@ func (h *TriggerHandlers) HandleTriggerManual(c *gin.Context) {
 	var req struct {
 		Input map[string]any `json:"input"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		req.Input = make(map[string]any)
+	// An empty body runs the trigger with its default input.
+	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+		respondAPIError(c, ErrInvalidJSON)
+		return
 	}
 
-	trigger, err := h.ops.GetTrigger(c.Request.Context(), serviceapi.GetTriggerParams{
+	execution, err := h.ops.RunTrigger(c.Request.Context(), serviceapi.RunTriggerParams{
 		TriggerID: triggerUUID,
+		Input:     req.Input,
 	})
 	if err != nil {
-		h.logger.Error("Failed to find trigger for manual execution", "error", err, "trigger_id", triggerUUID, "request_id", GetRequestID(c))
+		h.logger.Error("Failed to run trigger", "error", err, "trigger_id", triggerUUID, "request_id", GetRequestID(c))
 		respondAPIErrorWithRequestID(c, TranslateError(err))
 		return
 	}
 
-	if !trigger.Enabled {
-		respondAPIError(c, TranslateError(models.ErrTriggerDisabled))
-		return
-	}
-
-	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "trigger execution requires trigger manager integration", http.StatusNotImplemented))
+	respondJSON(c, http.StatusAccepted, execution)
 }

@@ -9,6 +9,9 @@
  *   webhook  - config.secret (HMAC secret, optional), config.ip_whitelist (IPs / CIDRs, optional)
  *   event    - config.event_type (required), config.source, config.filter (optional)
  *   all      - config.input: default workflow input (optional)
+ *
+ * name / description are top-level fields; config.name / config.description
+ * are only read as a fallback for triggers saved by older backends.
  */
 
 import type {
@@ -53,7 +56,11 @@ export type TriggerFormErrorCode =
 
 export type TriggerFormErrors = Partial<Record<keyof TriggerFormValues, TriggerFormErrorCode>>;
 
-/** Config keys the form manages; everything else is preserved on edit. */
+/**
+ * Config keys the form manages; everything else is preserved on edit.
+ * `name` / `description` are legacy copies of the top-level fields (older
+ * backends did not persist those); saving drops them from config.
+ */
 const MANAGED_CONFIG_KEYS = [
   'name',
   'description',
@@ -95,7 +102,7 @@ const jsonText = (value: unknown): string =>
     ? JSON.stringify(value, null, 2)
     : '';
 
-/** Name shown for a trigger. Older backends only keep the name inside config. */
+/** Name shown for a trigger. Triggers saved by older backends only kept it in config. */
 export const getTriggerName = (trigger: Pick<Trigger, 'id' | 'name' | 'type' | 'config'>): string =>
   trigger.name || str(trigger.config?.name) || `${trigger.type} trigger ${trigger.id.slice(0, 8)}`;
 
@@ -255,11 +262,6 @@ export const hasErrors = (errors: TriggerFormErrors): boolean => Object.keys(err
 export const buildTriggerConfig = (values: TriggerFormValues, baseConfig?: TriggerConfig): TriggerConfig => {
   const config: TriggerConfig = { ...(baseConfig ?? {}) };
   for (const key of MANAGED_CONFIG_KEYS) delete config[key];
-
-  const name = values.name.trim();
-  const description = values.description.trim();
-  if (name) config.name = name;
-  if (description) config.description = description;
 
   switch (values.type) {
     case 'cron':

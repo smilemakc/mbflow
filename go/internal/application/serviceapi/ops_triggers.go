@@ -2,10 +2,12 @@ package serviceapi
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/smilemakc/mbflow/go/internal/application/engine"
 	"github.com/smilemakc/mbflow/go/internal/application/trigger"
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
@@ -55,7 +57,7 @@ func (o *Operations) ListTriggers(ctx context.Context, params ListTriggersParams
 
 	triggers := make([]*models.Trigger, len(triggerModels))
 	for i, tm := range triggerModels {
-		triggers[i] = triggerModelToDomain(tm, "", "")
+		triggers[i] = triggerModelToDomain(tm)
 	}
 
 	var total int
@@ -118,13 +120,15 @@ func (o *Operations) CreateTrigger(ctx context.Context, params CreateTriggerPara
 	}
 
 	triggerModel := &storagemodels.TriggerModel{
-		ID:         uuid.New(),
-		WorkflowID: workflowUUID,
-		Type:       params.Type,
-		Config:     storagemodels.JSONBMap(params.Config),
-		Enabled:    params.Enabled,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		ID:          uuid.New(),
+		WorkflowID:  workflowUUID,
+		Name:        params.Name,
+		Description: params.Description,
+		Type:        params.Type,
+		Config:      storagemodels.JSONBMap(params.Config),
+		Enabled:     params.Enabled,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	if err := o.TriggerRepo.Create(ctx, triggerModel); err != nil {
@@ -133,14 +137,17 @@ func (o *Operations) CreateTrigger(ctx context.Context, params CreateTriggerPara
 	}
 	o.syncTrigger(ctx, triggerModel.ID.String())
 
-	return triggerModelToDomain(triggerModel, params.Name, params.Description), nil
+	return triggerModelToDomain(triggerModel), nil
 }
 
 // UpdateTriggerParams contains parameters for updating a trigger.
 type UpdateTriggerParams struct {
-	TriggerID   uuid.UUID
-	Name        string
-	Description string
+	TriggerID uuid.UUID
+	// Name replaces the stored name when non-empty.
+	Name string
+	// Description replaces the stored description when non-nil (an empty
+	// string clears it).
+	Description *string
 	Type        string
 	Config      map[string]any
 	Enabled     *bool
@@ -158,6 +165,14 @@ func (o *Operations) UpdateTrigger(ctx context.Context, params UpdateTriggerPara
 			return nil, NewValidationError("INVALID_TRIGGER_TYPE", "invalid trigger type")
 		}
 		triggerModel.Type = params.Type
+	}
+
+	if params.Name != "" {
+		triggerModel.Name = params.Name
+	}
+
+	if params.Description != nil {
+		triggerModel.Description = *params.Description
 	}
 
 	if params.Config != nil {
@@ -178,7 +193,7 @@ func (o *Operations) UpdateTrigger(ctx context.Context, params UpdateTriggerPara
 	}
 	o.syncTrigger(ctx, params.TriggerID.String())
 
-	return triggerModelToDomain(triggerModel, params.Name, params.Description), nil
+	return triggerModelToDomain(triggerModel), nil
 }
 
 // DeleteTriggerParams contains parameters for deleting a trigger.
@@ -216,7 +231,7 @@ func (o *Operations) GetTrigger(ctx context.Context, params GetTriggerParams) (*
 		o.Logger.Error("Failed to find trigger", "error", err, "trigger_id", params.TriggerID)
 		return nil, models.ErrTriggerNotFound
 	}
-	return triggerModelToDomain(triggerModel, "", ""), nil
+	return triggerModelToDomain(triggerModel), nil
 }
 
 type EnableTriggerParams struct {
@@ -234,7 +249,7 @@ func (o *Operations) EnableTrigger(ctx context.Context, params EnableTriggerPara
 		return nil, models.ErrTriggerNotFound
 	}
 	o.syncTrigger(ctx, params.TriggerID.String())
-	return triggerModelToDomain(triggerModel, "", ""), nil
+	return triggerModelToDomain(triggerModel), nil
 }
 
 type DisableTriggerParams struct {
@@ -252,43 +267,108 @@ func (o *Operations) DisableTrigger(ctx context.Context, params DisableTriggerPa
 		return nil, models.ErrTriggerNotFound
 	}
 	o.syncTrigger(ctx, params.TriggerID.String())
-	return triggerModelToDomain(triggerModel, "", ""), nil
+	return triggerModelToDomain(triggerModel), nil
 }
 
-func triggerModelToDomain(tm *storagemodels.TriggerModel, name, description string) *models.Trigger {
+// timeNow is the clock used to compute next_run; tests replace it.
+var timeNow = time.Now
+
+// triggerModelToDomain converts a stored trigger to its API representation.
+// Name and description come from their columns, falling back to the legacy
+// config.name / config.description keys for triggers created before they
+// were persisted. next_run is computed for enabled cron and interval
+// triggers from the schedule, exactly as the scheduler computes it.
+func triggerModelToDomain(tm *storagemodels.TriggerModel) *models.Trigger {
 	if tm == nil {
 		return nil
 	}
 
-	trigger := &models.Trigger{
-		ID:         tm.ID.String(),
-		WorkflowID: tm.WorkflowID.String(),
-		Type:       models.TriggerType(tm.Type),
-		Config:     make(map[string]any),
-		Enabled:    tm.Enabled,
-		CreatedAt:  tm.CreatedAt,
-		UpdatedAt:  tm.UpdatedAt,
-	}
-
-	if name != "" {
-		trigger.Name = name
-	} else if n, ok := tm.Config["name"].(string); ok {
-		trigger.Name = n
-	}
-
-	if description != "" {
-		trigger.Description = description
-	} else if d, ok := tm.Config["description"].(string); ok {
-		trigger.Description = d
+	t := &models.Trigger{
+		ID:          tm.ID.String(),
+		WorkflowID:  tm.WorkflowID.String(),
+		Name:        tm.DisplayName(),
+		Description: tm.DisplayDescription(),
+		Type:        models.TriggerType(tm.Type),
+		Config:      make(map[string]any),
+		Enabled:     tm.Enabled,
+		CreatedAt:   tm.CreatedAt,
+		UpdatedAt:   tm.UpdatedAt,
+		LastRun:     tm.LastTriggeredAt,
 	}
 
 	if tm.Config != nil {
-		trigger.Config = map[string]any(tm.Config)
+		t.Config = map[string]any(tm.Config)
 	}
 
-	if tm.LastTriggeredAt != nil {
-		trigger.LastRun = tm.LastTriggeredAt
+	t.NextRun = trigger.NextRun(tm.Type, tm.Enabled, t.Config, timeNow())
+
+	return t
+}
+
+// RunTriggerParams contains parameters for running a trigger on demand.
+type RunTriggerParams struct {
+	TriggerID uuid.UUID
+	// Input is merged over the trigger's default config.input (request keys
+	// win).
+	Input map[string]any
+}
+
+// RunTrigger starts the trigger's workflow now ("Run now") and returns the
+// queued execution without waiting for it to finish.
+//
+// The execution is started through ExecutionMgr directly rather than the
+// trigger manager: the manager only exists when Redis is available and its
+// TriggerManual runs the workflow synchronously, while a manual run needs
+// neither scheduler state nor Redis and must not hold the request open for
+// the whole workflow. The execution is tagged with the trigger ID and the
+// trigger's last_run is updated, the same as for scheduled runs.
+func (o *Operations) RunTrigger(ctx context.Context, params RunTriggerParams) (*models.Execution, error) {
+	triggerModel, err := o.TriggerRepo.FindByID(ctx, params.TriggerID)
+	if err != nil || triggerModel == nil {
+		o.Logger.Error("Failed to find trigger for manual run", "error", err, "trigger_id", params.TriggerID)
+		return nil, models.ErrTriggerNotFound
+	}
+	if !triggerModel.Enabled {
+		return nil, models.ErrTriggerDisabled
+	}
+	if o.ExecutionMgr == nil {
+		return nil, &OperationError{
+			Code:       "EXECUTION_UNAVAILABLE",
+			Message:    "workflow execution is not available on this server",
+			HTTPStatus: http.StatusServiceUnavailable,
+		}
 	}
 
-	return trigger
+	opts := engine.DefaultExecutionOptions()
+	opts.TriggerID = triggerModel.ID.String()
+
+	input := mergeTriggerInput(triggerModel.Config, params.Input)
+	execution, err := o.ExecutionMgr.ExecuteAsync(ctx, triggerModel.WorkflowID.String(), input, opts)
+	if err != nil {
+		o.Logger.Error("Failed to start manual trigger run", "error", err, "trigger_id", params.TriggerID, "workflow_id", triggerModel.WorkflowID)
+		return nil, err
+	}
+
+	if err := o.TriggerRepo.MarkTriggered(ctx, triggerModel.ID); err != nil {
+		// The execution already started; last_run is informational.
+		o.Logger.Error("Failed to record trigger run", "error", err, "trigger_id", params.TriggerID)
+	}
+
+	o.Logger.Info("Trigger run started", "trigger_id", params.TriggerID, "execution_id", execution.ID, "workflow_id", triggerModel.WorkflowID)
+	return execution, nil
+}
+
+// mergeTriggerInput returns the trigger's default config.input overlaid with
+// the request input. Neither source map is modified.
+func mergeTriggerInput(config, input map[string]any) map[string]any {
+	merged := make(map[string]any)
+	if defaults, ok := config["input"].(map[string]any); ok {
+		for k, v := range defaults {
+			merged[k] = v
+		}
+	}
+	for k, v := range input {
+		merged[k] = v
+	}
+	return merged
 }
