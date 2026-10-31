@@ -150,6 +150,7 @@ func (r *WorkflowRepository) syncNodes(
 			incomingNode.ID = existing.ID // ⚡ Preserve UUID!
 			incomingNode.CreatedAt = existing.CreatedAt
 			incomingNode.WorkflowID = workflowID
+			incomingNode.UpdatedAt = time.Now()
 
 			_, err := tx.NewUpdate().
 				Model(incomingNode).
@@ -225,10 +226,11 @@ func (r *WorkflowRepository) syncEdges(
 			incomingEdge.ID = existing.ID // ⚡ Preserve UUID!
 			incomingEdge.CreatedAt = existing.CreatedAt
 			incomingEdge.WorkflowID = workflowID
+			incomingEdge.UpdatedAt = time.Now()
 
 			_, err := tx.NewUpdate().
 				Model(incomingEdge).
-				Column("from_node_id", "to_node_id", "condition", "updated_at").
+				Column("from_node_id", "to_node_id", "source_handle", "condition", "loop", "updated_at").
 				Where("id = ?", existing.ID).
 				Exec(ctx)
 			if err != nil {
@@ -521,6 +523,7 @@ func (r *WorkflowRepository) CreateNode(ctx context.Context, node *models.NodeMo
 
 // UpdateNode updates an existing node by its logical ID
 func (r *WorkflowRepository) UpdateNode(ctx context.Context, node *models.NodeModel) error {
+	node.UpdatedAt = time.Now()
 	_, err := r.db.NewUpdate().
 		Model(node).
 		Column("name", "type", "config", "position", "updated_at").
@@ -575,9 +578,10 @@ func (r *WorkflowRepository) CreateEdge(ctx context.Context, edge *models.EdgeMo
 
 // UpdateEdge updates an existing edge by its logical ID
 func (r *WorkflowRepository) UpdateEdge(ctx context.Context, edge *models.EdgeModel) error {
+	edge.UpdatedAt = time.Now()
 	_, err := r.db.NewUpdate().
 		Model(edge).
-		Column("from_node_id", "to_node_id", "condition", "updated_at").
+		Column("from_node_id", "to_node_id", "source_handle", "condition", "loop", "updated_at").
 		Where("workflow_id = ? AND edge_id = ?", edge.WorkflowID, edge.EdgeID).
 		Exec(ctx)
 	return err

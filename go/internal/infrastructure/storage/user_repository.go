@@ -39,7 +39,12 @@ func (r *UserRepository) Create(ctx context.Context, user *models.UserModel) err
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
-	_, err := r.db.NewInsert().Model(user).Exec(ctx)
+	// is_active carries a SQL default of TRUE, so bun would replace an explicit
+	// false with DEFAULT; always send the caller's value.
+	_, err := r.db.NewInsert().
+		Model(user).
+		Value("is_active", "?", user.IsActive).
+		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
@@ -645,8 +650,7 @@ func (r *UserRepository) GetUserPermissions(ctx context.Context, userID uuid.UUI
 	var permissions []string
 	err = r.db.NewSelect().
 		ColumnExpr("DISTINCT unnest(r.permissions) AS permission").
-		Table("mbflow_roles").
-		TableExpr("r").
+		TableExpr("mbflow_roles AS r").
 		Join("JOIN mbflow_user_roles ur ON ur.role_id = r.id").
 		Where("ur.user_id = ?", userID).
 		Scan(ctx, &permissions)
@@ -672,8 +676,7 @@ func (r *UserRepository) HasPermission(ctx context.Context, userID uuid.UUID, pe
 
 	// Check permission through roles
 	exists, err := r.db.NewSelect().
-		Table("mbflow_roles").
-		TableExpr("r").
+		TableExpr("mbflow_roles AS r").
 		Join("JOIN mbflow_user_roles ur ON ur.role_id = r.id").
 		Where("ur.user_id = ?", userID).
 		Where("? = ANY(r.permissions)", permission).
@@ -695,7 +698,13 @@ func (r *UserRepository) CreateAuditLog(ctx context.Context, log *models.AuditLo
 	}
 	log.CreatedAt = time.Now()
 
-	_, err := r.db.NewInsert().Model(log).Exec(ctx)
+	// PostgreSQL INET doesn't accept empty strings; store NULL for unknown IPs.
+	insertQuery := r.db.NewInsert().Model(log)
+	if log.IPAddress == "" {
+		insertQuery = insertQuery.ExcludeColumn("ip_address")
+	}
+
+	_, err := insertQuery.Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create audit log: %w", err)
 	}
