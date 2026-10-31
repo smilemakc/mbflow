@@ -19,7 +19,7 @@ import (
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
-var rcErrBoom = errors.New("boom")
+var errRCBoom = errors.New("boom")
 
 // The fakes embed the repository interface: methods that a test does not
 // expect to be called panic (nil interface), which makes unexpected calls loud.
@@ -206,7 +206,7 @@ func (r *rcExecutionRepo) FindByID(_ context.Context, id uuid.UUID) (*storagemod
 	defer r.mu.Unlock()
 	r.findByIDCalls++
 	if r.failFindByIDAfter > 0 && r.findByIDCalls >= r.failFindByIDAfter {
-		return nil, rcErrBoom
+		return nil, errRCBoom
 	}
 	if err := r.errs["FindByID"]; err != nil {
 		return nil, err
@@ -305,12 +305,6 @@ func (r *rcTriggerRepo) setErr(op string, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.errs[op] = err
-}
-
-func (r *rcTriggerRepo) put(t *storagemodels.TriggerModel) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.triggers[t.ID] = t
 }
 
 func (r *rcTriggerRepo) Create(_ context.Context, t *storagemodels.TriggerModel) error {

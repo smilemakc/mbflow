@@ -57,6 +57,7 @@ const (
 	EventTypeExecutionStarted   EventType = "execution.started"
 	EventTypeExecutionCompleted EventType = "execution.completed"
 	EventTypeExecutionFailed    EventType = "execution.failed"
+	EventTypeExecutionCancelled EventType = "execution.cancelled"
 	EventTypeWaveStarted        EventType = "wave.started"
 	EventTypeWaveCompleted      EventType = "wave.completed"
 	EventTypeNodeStarted        EventType = "node.started"

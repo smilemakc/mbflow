@@ -2,8 +2,11 @@ package serviceapi
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -313,8 +316,64 @@ type CancelExecutionParams struct {
 	ExecutionID uuid.UUID
 }
 
-func (o *Operations) CancelExecution(ctx context.Context, params CancelExecutionParams) error {
-	return NewNotImplementedError("execution cancellation not yet implemented")
+// CancelExecutionResult is the outcome of CancelExecution.
+type CancelExecutionResult struct {
+	// Execution is the execution after the cancellation.
+	Execution *models.Execution
+	// Pending is true when the execution is stored as cancelled but may still
+	// be stopping: it runs on another replica, which stops it within one
+	// execution heartbeat interval, or it did not stop within a few seconds.
+	Pending bool
+}
+
+// Error codes of CancelExecution and RetryExecution.
+const (
+	CodeExecutionNotFound       = "EXECUTION_NOT_FOUND"
+	CodeExecutionNotCancellable = "EXECUTION_NOT_CANCELLABLE"
+	CodeExecutionNotRetryable   = "EXECUTION_NOT_RETRYABLE"
+)
+
+// CancelExecution cancels a pending or running execution, wherever it runs
+// (see engine.ExecutionManager.CancelExecution). It fails with a 404 error for
+// an unknown execution and a 409 error for one that already finished.
+func (o *Operations) CancelExecution(ctx context.Context, params CancelExecutionParams) (*CancelExecutionResult, error) {
+	execModel, err := o.findExecution(ctx, params.ExecutionID)
+	if err != nil {
+		return nil, err
+	}
+	if !isActiveExecutionStatus(execModel.Status) {
+		return nil, notCancellableError(execModel.Status)
+	}
+	if o.ExecutionMgr == nil {
+		return nil, errExecutionManagerUnavailable
+	}
+
+	outcome, err := o.ExecutionMgr.CancelExecution(ctx, params.ExecutionID.String())
+	switch {
+	case errors.Is(err, engine.ErrExecutionNotCancellable):
+		// It finished (or was cancelled) between the lookup and the cancel.
+		if current, findErr := o.findExecution(ctx, params.ExecutionID); findErr == nil {
+			return nil, notCancellableError(current.Status)
+		}
+		return nil, NewConflictError(CodeExecutionNotCancellable, "execution is no longer pending or running")
+	case errors.Is(err, engine.ErrCancelUnsupported):
+		return nil, NewConflictError(CodeExecutionNotCancellable, "execution is not running on this server")
+	case err != nil:
+		o.Logger.Error("Failed to cancel execution", "error", err, "execution_id", params.ExecutionID)
+		return nil, err
+	}
+
+	execution, err := o.GetExecution(ctx, GetExecutionParams(params))
+	if err != nil {
+		return nil, err
+	}
+	if outcome == engine.CancelFinished && execution.Status != models.ExecutionStatusCancelled {
+		return nil, NewConflictError(CodeExecutionNotCancellable,
+			fmt.Sprintf("execution finished with status %s before it could be cancelled", execution.Status))
+	}
+
+	o.Logger.Info("Execution cancelled", "execution_id", params.ExecutionID, "pending", outcome == engine.CancelPending)
+	return &CancelExecutionResult{Execution: execution, Pending: outcome == engine.CancelPending}, nil
 }
 
 // RetryExecutionParams contains parameters for retrying an execution.
@@ -322,8 +381,85 @@ type RetryExecutionParams struct {
 	ExecutionID uuid.UUID
 }
 
-func (o *Operations) RetryExecution(ctx context.Context, params RetryExecutionParams) error {
-	return NewNotImplementedError("execution retry not yet implemented")
+// MetadataKeyRetryOf is the execution metadata key that links a retry to the
+// execution it retries.
+const MetadataKeyRetryOf = "retry_of"
+
+// RetryExecution starts a new asynchronous execution of a failed, timed out or
+// cancelled execution's stored workflow (its current version) with the
+// original input and variables, and returns it. Per-execution webhooks of the
+// original are not carried over. Inline executions cannot be retried, as they
+// have no stored workflow.
+func (o *Operations) RetryExecution(ctx context.Context, params RetryExecutionParams) (*models.Execution, error) {
+	execModel, err := o.findExecution(ctx, params.ExecutionID)
+	if err != nil {
+		return nil, err
+	}
+	switch models.ExecutionStatus(execModel.Status) {
+	case models.ExecutionStatusFailed, models.ExecutionStatusCancelled, models.ExecutionStatusTimeout:
+	default:
+		return nil, NewConflictError(CodeExecutionNotRetryable,
+			fmt.Sprintf("only failed, timed out or cancelled executions can be retried; execution is %s", execModel.Status))
+	}
+	if execModel.WorkflowSource == "inline" || execModel.WorkflowID == nil {
+		return nil, NewConflictError(CodeExecutionNotRetryable,
+			"inline executions have no stored workflow and cannot be retried; start a new inline execution instead")
+	}
+	if o.ExecutionMgr == nil {
+		return nil, errExecutionManagerUnavailable
+	}
+
+	opts := engine.DefaultExecutionOptions()
+	opts.Variables = copyMap(execModel.Variables)
+	opts.Metadata = map[string]any{MetadataKeyRetryOf: params.ExecutionID.String()}
+	if execModel.TriggerID != nil {
+		opts.TriggerID = execModel.TriggerID.String()
+	}
+
+	execution, err := o.ExecutionMgr.ExecuteAsync(ctx, execModel.WorkflowID.String(), copyMap(execModel.InputData), opts)
+	if err != nil {
+		o.Logger.Error("Failed to retry execution", "error", err, "execution_id", params.ExecutionID)
+		return nil, err
+	}
+
+	o.Logger.Info("Execution retried", "execution_id", params.ExecutionID, "new_execution_id", execution.ID)
+	return execution, nil
+}
+
+var errExecutionManagerUnavailable = &OperationError{
+	Code:       "EXECUTION_MANAGER_UNAVAILABLE",
+	Message:    "execution manager is not available",
+	HTTPStatus: http.StatusServiceUnavailable,
+}
+
+// findExecution loads an execution, turning a missing one into a 404 error.
+func (o *Operations) findExecution(ctx context.Context, id uuid.UUID) (*storagemodels.ExecutionModel, error) {
+	execModel, err := o.ExecutionRepo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, models.ErrExecutionNotFound) || errors.Is(err, sql.ErrNoRows) {
+			return nil, NewNotFoundError(CodeExecutionNotFound, "execution not found")
+		}
+		o.Logger.Error("Failed to find execution", "error", err, "execution_id", id)
+		return nil, err
+	}
+	return execModel, nil
+}
+
+func isActiveExecutionStatus(status string) bool {
+	return status == string(models.ExecutionStatusPending) || status == string(models.ExecutionStatusRunning)
+}
+
+func notCancellableError(status string) *OperationError {
+	return NewConflictError(CodeExecutionNotCancellable,
+		fmt.Sprintf("execution is already %s and cannot be cancelled", status))
+}
+
+func copyMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 type GetExecutionLogsParams struct {

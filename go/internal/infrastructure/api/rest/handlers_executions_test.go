@@ -550,32 +550,4 @@ func TestHandlers_GetNodeResult_ExecutionNotFound(t *testing.T) {
 	testutil.AssertErrorResponse(t, w, http.StatusNotFound, "")
 }
 
-// ========== CANCEL EXECUTION TESTS (Placeholder) ==========
-
-func TestHandlers_CancelExecution_NotImplemented(t *testing.T) {
-	t.Parallel()
-	_, router, _, cleanup := setupExecutionHandlersTest(t)
-	defer cleanup()
-
-	randomID := uuid.New().String()
-	w := testutil.MakeRequest(t, router, "POST", fmt.Sprintf("/api/v1/executions/%s/cancel", randomID), nil)
-
-	// Check if endpoint is implemented
-	// Actual behavior depends on implementation
-	assert.NotEqual(t, http.StatusNotFound, w.Code, "Cancel endpoint should exist")
-}
-
-// ========== RETRY EXECUTION TESTS (Placeholder) ==========
-
-func TestHandlers_RetryExecution_NotImplemented(t *testing.T) {
-	t.Parallel()
-	_, router, _, cleanup := setupExecutionHandlersTest(t)
-	defer cleanup()
-
-	randomID := uuid.New().String()
-	w := testutil.MakeRequest(t, router, "POST", fmt.Sprintf("/api/v1/executions/%s/retry", randomID), nil)
-
-	// Check if endpoint is implemented
-	// Actual behavior depends on implementation
-	assert.NotEqual(t, http.StatusNotFound, w.Code, "Retry endpoint should exist")
-}
+// Cancel and retry are covered in handlers_executions_cancel_test.go.

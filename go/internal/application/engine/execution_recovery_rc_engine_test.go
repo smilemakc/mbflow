@@ -114,12 +114,12 @@ func TestStartRecovery_StopsWhenContextEnds(t *testing.T) {
 
 func TestActiveExecutions_IgnoresInvalidIDs(t *testing.T) {
 	var a activeExecutions
-	untrack := a.add("not-a-uuid")
+	untrack := a.add("not-a-uuid", nil)
 	assert.Empty(t, a.list())
 	untrack()
 
 	id := uuid.NewString()
-	untrack = a.add(id)
+	untrack = a.add(id, nil)
 	assert.Equal(t, []uuid.UUID{uuid.MustParse(id)}, a.list())
 	untrack()
 	assert.Empty(t, a.list())

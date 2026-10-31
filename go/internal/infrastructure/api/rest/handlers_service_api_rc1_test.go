@@ -774,11 +774,11 @@ func TestRC1ServiceAPIExecutions(t *testing.T) {
 	}, nil)
 	assert.Equal(t, http.StatusAccepted, w.Code, w.Body.String())
 
-	// Not implemented endpoints.
+	// A completed execution can be neither cancelled nor retried.
 	w = env.rc1Svc(t, http.MethodPost, "/executions/"+execID+"/cancel", nil, nil)
-	assert.Equal(t, http.StatusNotImplemented, w.Code)
+	assert.Equal(t, http.StatusConflict, w.Code)
 	w = env.rc1Svc(t, http.MethodPost, "/executions/"+execID+"/retry", nil, nil)
-	assert.Equal(t, http.StatusNotImplemented, w.Code)
+	assert.Equal(t, http.StatusConflict, w.Code)
 
 	for _, tc := range []struct{ method, path string }{
 		{http.MethodGet, "/noparam/execution"}, {http.MethodPost, "/noparam/execute"},

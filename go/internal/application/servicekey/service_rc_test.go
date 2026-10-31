@@ -16,7 +16,7 @@ import (
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
-var rcErrRepo = errors.New("repo failure")
+var errRCRepo = errors.New("repo failure")
 
 // rcKeyRepo is an in-memory repository.ServiceKeyRepository with error injection.
 type rcKeyRepo struct {
@@ -221,9 +221,9 @@ func TestRCServiceKey_CreateExpiryAndErrors(t *testing.T) {
 	})
 	t.Run("count error", func(t *testing.T) {
 		repo := rcNewKeyRepo()
-		repo.errs["CountByUserID"] = rcErrRepo
+		repo.errs["CountByUserID"] = errRCRepo
 		_, err := rcService(repo).CreateKey(ctx, user, "n", "", admin, nil)
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("hash failure", func(t *testing.T) {
 		svc := NewService(rcNewKeyRepo(), Config{BcryptCost: 99})
@@ -236,9 +236,9 @@ func TestRCServiceKey_CreateExpiryAndErrors(t *testing.T) {
 	})
 	t.Run("repo create error", func(t *testing.T) {
 		repo := rcNewKeyRepo()
-		repo.errs["Create"] = rcErrRepo
+		repo.errs["Create"] = errRCRepo
 		_, err := rcService(repo).CreateKey(ctx, user, "n", "", admin, nil)
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 }
 
@@ -251,28 +251,28 @@ func TestRCServiceKey_RepoErrors(t *testing.T) {
 	require.NoError(t, err)
 	id := uuid.MustParse(res.Key.ID)
 
-	repo.errs["UpdateLastUsed"] = rcErrRepo
+	repo.errs["UpdateLastUsed"] = errRCRepo
 	_, err = svc.ValidateKey(ctx, res.PlainKey)
-	assert.ErrorIs(t, err, rcErrRepo)
-	repo.errs["FindByPrefix"] = rcErrRepo
+	assert.ErrorIs(t, err, errRCRepo)
+	repo.errs["FindByPrefix"] = errRCRepo
 	_, err = svc.ValidateKey(ctx, res.PlainKey)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 
-	repo.errs["Revoke"] = rcErrRepo
-	assert.ErrorIs(t, svc.RevokeKey(ctx, id), rcErrRepo)
-	repo.errs["Delete"] = rcErrRepo
-	assert.ErrorIs(t, svc.DeleteKey(ctx, id), rcErrRepo)
+	repo.errs["Revoke"] = errRCRepo
+	assert.ErrorIs(t, svc.RevokeKey(ctx, id), errRCRepo)
+	repo.errs["Delete"] = errRCRepo
+	assert.ErrorIs(t, svc.DeleteKey(ctx, id), errRCRepo)
 
-	repo.errs["FindByID"] = rcErrRepo
+	repo.errs["FindByID"] = errRCRepo
 	_, err = svc.GetByID(ctx, id)
-	assert.ErrorIs(t, err, rcErrRepo)
-	assert.ErrorIs(t, svc.RevokeKey(ctx, id), rcErrRepo)
-	assert.ErrorIs(t, svc.DeleteKey(ctx, id), rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
+	assert.ErrorIs(t, svc.RevokeKey(ctx, id), errRCRepo)
+	assert.ErrorIs(t, svc.DeleteKey(ctx, id), errRCRepo)
 
-	repo.errs["FindByUserID"] = rcErrRepo
+	repo.errs["FindByUserID"] = errRCRepo
 	_, err = svc.GetByUserID(ctx, user)
-	assert.ErrorIs(t, err, rcErrRepo)
-	repo.errs["FindAll"] = rcErrRepo
+	assert.ErrorIs(t, err, errRCRepo)
+	repo.errs["FindAll"] = errRCRepo
 	_, _, err = svc.ListAll(ctx, repository.ServiceKeyFilter{})
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 }

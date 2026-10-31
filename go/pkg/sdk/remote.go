@@ -113,7 +113,7 @@ func (c *Client) doRemote(ctx context.Context, method, path string, query url.Va
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return newAPIError(resp)

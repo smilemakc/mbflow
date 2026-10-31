@@ -32,6 +32,8 @@ type ExecutionOptions struct {
 	EnableMemoryOpts bool
 	// TriggerID links the execution to the trigger that started it (optional).
 	TriggerID string
+	// Metadata is stored with the execution (optional), e.g. retry_of.
+	Metadata map[string]any
 }
 
 // RetryPolicy defines the retry behavior for node execution.

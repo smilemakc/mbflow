@@ -16,6 +16,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/uptrace/bun"
+	"golang.org/x/term"
+
 	"github.com/smilemakc/mbflow/go/internal/application/auth"
 	"github.com/smilemakc/mbflow/go/internal/application/systemkey"
 	"github.com/smilemakc/mbflow/go/internal/config"
@@ -23,8 +26,6 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/sdk"
 	"github.com/smilemakc/mbflow/go/pkg/visualization"
-	"github.com/uptrace/bun"
-	"golang.org/x/term"
 )
 
 const (
@@ -184,10 +185,10 @@ func (c *cli) run(args []string) int {
 	if err == nil || errors.Is(err, flag.ErrHelp) {
 		return 0
 	}
-	fmt.Fprintf(c.stderr, "Error: %v\n", err)
+	_, _ = fmt.Fprintf(c.stderr, "Error: %v\n", err)
 	var ue *usageError
 	if errors.As(err, &ue) {
-		fmt.Fprint(c.stderr, usage)
+		_, _ = fmt.Fprint(c.stderr, usage)
 	}
 	return 1
 }
@@ -223,10 +224,10 @@ func (c *cli) dispatch(args []string) error {
 
 	switch command {
 	case "version":
-		fmt.Fprintf(c.stdout, "MBFlow CLI v%s\n", version)
+		_, _ = fmt.Fprintf(c.stdout, "MBFlow CLI v%s\n", version)
 		return nil
 	case "help", "-h", "--help":
-		fmt.Fprint(c.stdout, usage)
+		_, _ = fmt.Fprint(c.stdout, usage)
 		return nil
 	default:
 		return &usageError{msg: "unknown command: " + command}
@@ -297,7 +298,7 @@ func (c *cli) workflowShow(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	workflow, err := client.Workflows().Get(ctx, workflowID)
 	if err != nil {
@@ -320,10 +321,10 @@ func (c *cli) workflowShow(args []string) error {
 		if err := os.WriteFile(*output, []byte(diagram), 0o644); err != nil {
 			return fmt.Errorf("failed to write to file '%s': %w", *output, err)
 		}
-		fmt.Fprintf(c.stdout, "Diagram saved to %s\n", *output)
+		_, _ = fmt.Fprintf(c.stdout, "Diagram saved to %s\n", *output)
 		return nil
 	}
-	fmt.Fprintln(c.stdout, diagram)
+	_, _ = fmt.Fprintln(c.stdout, diagram)
 	return nil
 }
 
@@ -341,7 +342,7 @@ func (c *cli) workflowList(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	workflows, err := client.Workflows().List(ctx, nil)
 	if err != nil {
@@ -349,24 +350,24 @@ func (c *cli) workflowList(args []string) error {
 	}
 
 	if len(workflows) == 0 {
-		fmt.Fprintln(c.stdout, "No workflows found")
+		_, _ = fmt.Fprintln(c.stdout, "No workflows found")
 		return nil
 	}
 
-	fmt.Fprintf(c.stdout, "Found %d workflow(s):\n\n", len(workflows))
+	_, _ = fmt.Fprintf(c.stdout, "Found %d workflow(s):\n\n", len(workflows))
 	for _, wf := range workflows {
-		fmt.Fprintf(c.stdout, "ID:          %s\n", wf.ID)
-		fmt.Fprintf(c.stdout, "Name:        %s\n", wf.Name)
+		_, _ = fmt.Fprintf(c.stdout, "ID:          %s\n", wf.ID)
+		_, _ = fmt.Fprintf(c.stdout, "Name:        %s\n", wf.Name)
 		if wf.Description != "" {
-			fmt.Fprintf(c.stdout, "Description: %s\n", wf.Description)
+			_, _ = fmt.Fprintf(c.stdout, "Description: %s\n", wf.Description)
 		}
-		fmt.Fprintf(c.stdout, "Status:      %s\n", wf.Status)
-		fmt.Fprintf(c.stdout, "Nodes:       %d\n", len(wf.Nodes))
-		fmt.Fprintf(c.stdout, "Edges:       %d\n", len(wf.Edges))
+		_, _ = fmt.Fprintf(c.stdout, "Status:      %s\n", wf.Status)
+		_, _ = fmt.Fprintf(c.stdout, "Nodes:       %d\n", len(wf.Nodes))
+		_, _ = fmt.Fprintf(c.stdout, "Edges:       %d\n", len(wf.Edges))
 		if len(wf.Tags) > 0 {
-			fmt.Fprintf(c.stdout, "Tags:        %s\n", strings.Join(wf.Tags, ", "))
+			_, _ = fmt.Fprintf(c.stdout, "Tags:        %s\n", strings.Join(wf.Tags, ", "))
 		}
-		fmt.Fprintln(c.stdout, "---")
+		_, _ = fmt.Fprintln(c.stdout, "---")
 	}
 	return nil
 }
@@ -435,19 +436,19 @@ func (c *cli) adminCreate(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(c.stdout, "Admin user created successfully!")
+	_, _ = fmt.Fprintln(c.stdout, "Admin user created successfully!")
 	c.printUser(user.ID.String(), user.Email, user.Username, user.FullName, user.IsAdmin)
 	return nil
 }
 
 func (c *cli) printUser(id, email, username, fullName string, isAdmin bool) {
-	fmt.Fprintf(c.stdout, "  ID:       %s\n", id)
-	fmt.Fprintf(c.stdout, "  Email:    %s\n", email)
-	fmt.Fprintf(c.stdout, "  Username: %s\n", username)
+	_, _ = fmt.Fprintf(c.stdout, "  ID:       %s\n", id)
+	_, _ = fmt.Fprintf(c.stdout, "  Email:    %s\n", email)
+	_, _ = fmt.Fprintf(c.stdout, "  Username: %s\n", username)
 	if fullName != "" {
-		fmt.Fprintf(c.stdout, "  Name:     %s\n", fullName)
+		_, _ = fmt.Fprintf(c.stdout, "  Name:     %s\n", fullName)
 	}
-	fmt.Fprintf(c.stdout, "  Admin:    %v\n", isAdmin)
+	_, _ = fmt.Fprintf(c.stdout, "  Admin:    %v\n", isAdmin)
 }
 
 // createLocalUser creates a user directly in the database. Admin users also
@@ -495,7 +496,7 @@ func createLocalUser(ctx context.Context, warn io.Writer, databaseURL, email, us
 		adminRole, err := userRepo.FindRoleByName(ctx, "admin")
 		if err == nil && adminRole != nil {
 			if err := userRepo.AssignRole(ctx, user.ID, adminRole.ID, nil); err != nil {
-				fmt.Fprintf(warn, "Warning: failed to assign admin role: %v\n", err)
+				_, _ = fmt.Fprintf(warn, "Warning: failed to assign admin role: %v\n", err)
 			}
 		}
 	}
@@ -547,16 +548,16 @@ func (c *cli) systemKeyCreate(args []string) error {
 		return fmt.Errorf("failed to create system key: %w", err)
 	}
 
-	fmt.Fprintln(c.stdout, "System key created successfully!")
-	fmt.Fprintf(c.stdout, "  ID:      %s\n", result.Key.ID)
-	fmt.Fprintf(c.stdout, "  Name:    %s\n", result.Key.Name)
-	fmt.Fprintf(c.stdout, "  Service: %s\n", result.Key.ServiceName)
+	_, _ = fmt.Fprintln(c.stdout, "System key created successfully!")
+	_, _ = fmt.Fprintf(c.stdout, "  ID:      %s\n", result.Key.ID)
+	_, _ = fmt.Fprintf(c.stdout, "  Name:    %s\n", result.Key.Name)
+	_, _ = fmt.Fprintf(c.stdout, "  Service: %s\n", result.Key.ServiceName)
 	if result.Key.ExpiresAt != nil {
-		fmt.Fprintf(c.stdout, "  Expires: %s\n", result.Key.ExpiresAt.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(c.stdout, "  Expires: %s\n", result.Key.ExpiresAt.Format(time.RFC3339))
 	}
-	fmt.Fprintln(c.stdout)
-	fmt.Fprintln(c.stdout, "  Plain key (save it now, it will not be shown again):")
-	fmt.Fprintf(c.stdout, "  %s\n", result.PlainKey)
+	_, _ = fmt.Fprintln(c.stdout)
+	_, _ = fmt.Fprintln(c.stdout, "  Plain key (save it now, it will not be shown again):")
+	_, _ = fmt.Fprintf(c.stdout, "  %s\n", result.PlainKey)
 	return nil
 }
 
@@ -630,7 +631,7 @@ func (c *cli) userCreate(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(c.stdout, "User created successfully in local database!")
+	_, _ = fmt.Fprintln(c.stdout, "User created successfully in local database!")
 	c.printUser(user.ID.String(), user.Email, user.Username, user.FullName, user.IsAdmin)
 	return nil
 }
@@ -669,10 +670,10 @@ func (c *cli) createUserViaGateway(ctx context.Context, email, username, passwor
 		return errors.New("auth-gateway returned no user")
 	}
 
-	fmt.Fprintln(c.stdout, "User created successfully via auth-gateway!")
+	_, _ = fmt.Fprintln(c.stdout, "User created successfully via auth-gateway!")
 	c.printUser(result.User.ID, result.User.Email, result.User.Username, result.User.FullName, result.User.IsAdmin)
 	if result.AccessToken != "" {
-		fmt.Fprintf(c.stdout, "  Token:    %s...\n", result.AccessToken[:min(20, len(result.AccessToken))])
+		_, _ = fmt.Fprintf(c.stdout, "  Token:    %s...\n", result.AccessToken[:min(20, len(result.AccessToken))])
 	}
 	return nil
 }
@@ -681,12 +682,12 @@ func (c *cli) createUserViaGateway(ctx context.Context, email, username, passwor
 // from stdin otherwise. stdin is read through one shared buffered reader so
 // that consecutive prompts (password and confirmation) both see their line.
 func (c *cli) promptPassword(prompt string) string {
-	fmt.Fprint(c.stdout, prompt)
+	_, _ = fmt.Fprint(c.stdout, prompt)
 
 	if c.readSecret != nil {
 		secret, ok, err := c.readSecret()
 		if ok {
-			fmt.Fprintln(c.stdout) // newline after hidden input
+			_, _ = fmt.Fprintln(c.stdout) // newline after hidden input
 			if err == nil {
 				return secret
 			}

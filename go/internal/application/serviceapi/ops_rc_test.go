@@ -21,7 +21,7 @@ import (
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
-var rcErr = errors.New("rc failure")
+var errRC = errors.New("rc failure")
 
 const rcType = "rc-echo"
 
@@ -231,9 +231,9 @@ func TestRCListExecutions_ByOwner(t *testing.T) {
 func TestRCGetExecution_RepoError(t *testing.T) {
 	execRepo := new(mockExecutionRepo)
 	ops := newTestOperations(nil, execRepo, nil, nil, nil, nil, nil)
-	execRepo.On("FindByIDWithRelations", mock.Anything, mock.Anything).Return(nil, rcErr)
+	execRepo.On("FindByIDWithRelations", mock.Anything, mock.Anything).Return(nil, errRC)
 	_, err := ops.GetExecution(context.Background(), GetExecutionParams{ExecutionID: uuid.New()})
-	assert.ErrorIs(t, err, rcErr)
+	assert.ErrorIs(t, err, errRC)
 }
 
 func TestRCGetNodeResult(t *testing.T) {
@@ -288,10 +288,10 @@ func TestRCGetNodeResult(t *testing.T) {
 	require.ErrorAs(t, err, &opErr, "stored execution without workflow")
 
 	wfRepo2 := new(mockWorkflowRepo)
-	wfRepo2.On("FindByIDWithRelations", mock.Anything, wfID).Return(nil, rcErr)
+	wfRepo2.On("FindByIDWithRelations", mock.Anything, wfID).Return(nil, errRC)
 	ops.WorkflowRepo = wfRepo2
 	_, err = ops.GetNodeResult(ctx, GetNodeResultParams{ExecutionID: brokenID, NodeID: "x"})
-	assert.ErrorIs(t, err, rcErr)
+	assert.ErrorIs(t, err, errRC)
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +334,7 @@ func TestRCTriggers_OwnerListAndSyncErrors(t *testing.T) {
 	assert.Equal(t, "INVALID_TRIGGER_CONFIG", opErr.Code)
 
 	// Scheduler sync failures are logged, not returned.
-	syncer := &rcSyncer{err: rcErr}
+	syncer := &rcSyncer{err: errRC}
 	ops.TriggerSync = syncer
 	trigRepo.On("Delete", mock.Anything, id).Return(nil)
 	require.NoError(t, ops.DeleteTrigger(ctx, DeleteTriggerParams{TriggerID: id}))
@@ -432,15 +432,15 @@ func TestRCWorkflowResourceErrors(t *testing.T) {
 	id := uuid.New()
 	wfRepo.On("FindByID", mock.Anything, id).Return(&storagemodels.WorkflowModel{ID: id}, nil)
 	wfRepo.On("FindByIDWithRelations", mock.Anything, id).Return(&storagemodels.WorkflowModel{ID: id, Status: "active"}, nil)
-	wfRepo.On("AssignResource", mock.Anything, id, mock.Anything, mock.Anything).Return(rcErr)
-	wfRepo.On("GetWorkflowResources", mock.Anything, id).Return(nil, rcErr)
-	wfRepo.On("Update", mock.Anything, mock.Anything).Return(rcErr)
+	wfRepo.On("AssignResource", mock.Anything, id, mock.Anything, mock.Anything).Return(errRC)
+	wfRepo.On("GetWorkflowResources", mock.Anything, id).Return(nil, errRC)
+	wfRepo.On("Update", mock.Anything, mock.Anything).Return(errRC)
 
-	assert.ErrorIs(t, ops.AttachWorkflowResource(ctx, AttachWorkflowResourceParams{WorkflowID: id, ResourceID: uuid.New()}), rcErr)
+	assert.ErrorIs(t, ops.AttachWorkflowResource(ctx, AttachWorkflowResourceParams{WorkflowID: id, ResourceID: uuid.New()}), errRC)
 	_, err := ops.GetWorkflowResources(ctx, GetWorkflowResourcesParams{WorkflowID: id})
-	assert.ErrorIs(t, err, rcErr)
+	assert.ErrorIs(t, err, errRC)
 	_, err = ops.UnpublishWorkflow(ctx, UnpublishWorkflowParams{WorkflowID: id})
-	assert.ErrorIs(t, err, rcErr)
+	assert.ErrorIs(t, err, errRC)
 }
 
 // ---------------------------------------------------------------------------
@@ -457,7 +457,7 @@ func TestRCCredentials_GetAndErrors(t *testing.T) {
 	cred.EncryptedData = map[string]string{"api_key": "enc"}
 	credRepo.On("GetCredentials", mock.Anything, cred.ID).Return(cred, nil)
 	credRepo.On("GetCredentials", mock.Anything, "missing").Return(nil, models.ErrResourceNotFound)
-	credRepo.On("GetCredentials", mock.Anything, "broken").Return(nil, rcErr)
+	credRepo.On("GetCredentials", mock.Anything, "broken").Return(nil, errRC)
 
 	info, err := ops.GetCredential(ctx, GetCredentialParams{CredentialID: cred.ID})
 	require.NoError(t, err)
@@ -467,8 +467,8 @@ func TestRCCredentials_GetAndErrors(t *testing.T) {
 	_, err = ops.GetCredential(ctx, GetCredentialParams{CredentialID: "missing"})
 	assert.ErrorIs(t, err, models.ErrResourceNotFound)
 	_, err = ops.GetCredential(ctx, GetCredentialParams{CredentialID: "broken"})
-	assert.ErrorIs(t, err, rcErr)
-	assert.ErrorIs(t, ops.DeleteCredential(ctx, DeleteCredentialParams{CredentialID: "broken"}), rcErr)
+	assert.ErrorIs(t, err, errRC)
+	assert.ErrorIs(t, ops.DeleteCredential(ctx, DeleteCredentialParams{CredentialID: "broken"}), errRC)
 
 	// Credentials disabled (no encryption key)
 	ops.EncryptionSvc = nil

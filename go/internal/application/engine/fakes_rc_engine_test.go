@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smilemakc/mbflow/go/internal/application/observer"
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
-	"github.com/stretchr/testify/require"
 )
 
 // Test doubles for the stored-execution path. They embed the repository
@@ -123,6 +124,10 @@ type fakeLeaseRepo struct {
 	staleIDs   []uuid.UUID
 	touchErr   error
 	sweepErr   error
+
+	cancelErr    error
+	cancelledErr error
+	cancelChecks int
 }
 
 func newFakeLeaseRepo() *fakeLeaseRepo {
@@ -135,10 +140,71 @@ func (f *fakeLeaseRepo) TouchExecutions(_ context.Context, ids []uuid.UUID) (int
 	if f.touchErr != nil {
 		return 0, f.touchErr
 	}
+	n := 0
 	for _, id := range ids {
 		f.touched[id]++
+		if row, ok := f.rowByID(id); !ok || row.Status == "pending" || row.Status == "running" {
+			n++
+		}
 	}
-	return len(ids), nil
+	return n, nil
+}
+
+func (f *fakeLeaseRepo) rowByID(id uuid.UUID) (storagemodels.ExecutionModel, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	row, ok := f.rows[id]
+	return row, ok
+}
+
+// Update mimics the sticky cancellation of the real repository.
+func (f *fakeLeaseRepo) Update(ctx context.Context, m *storagemodels.ExecutionModel) error {
+	if row, ok := f.rowByID(m.ID); ok && row.Status == "cancelled" && m.Status != "cancelled" {
+		return repository.ErrExecutionAlreadyCancelled
+	}
+	return f.fakeExecutionRepo.Update(ctx, m)
+}
+
+func (f *fakeLeaseRepo) CancelExecution(_ context.Context, id uuid.UUID, errMsg string) (bool, error) {
+	if f.cancelErr != nil {
+		return false, f.cancelErr
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	row, ok := f.rows[id]
+	if !ok || (row.Status != "pending" && row.Status != "running") {
+		return false, nil
+	}
+	now := time.Now()
+	row.Status = "cancelled"
+	row.Error = errMsg
+	row.CompletedAt = &now
+	f.rows[id] = row
+	f.history[id] = append(f.history[id], row.Status)
+	return true, nil
+}
+
+func (f *fakeLeaseRepo) CancelledExecutions(_ context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	f.leaseMu.Lock()
+	f.cancelChecks++
+	err := f.cancelledErr
+	f.leaseMu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	var out []uuid.UUID
+	for _, id := range ids {
+		if row, ok := f.rowByID(id); ok && row.Status == "cancelled" {
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeLeaseRepo) cancelCheckCount() int {
+	f.leaseMu.Lock()
+	defer f.leaseMu.Unlock()
+	return f.cancelChecks
 }
 
 func (f *fakeLeaseRepo) FailStaleExecutions(_ context.Context, staleAfter time.Duration, errMsg string) ([]uuid.UUID, error) {

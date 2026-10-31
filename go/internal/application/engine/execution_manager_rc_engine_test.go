@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smilemakc/mbflow/go/internal/application/observer"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	pkgengine "github.com/smilemakc/mbflow/go/pkg/engine"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func echoExecutor() executor.Executor {

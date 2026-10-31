@@ -9,9 +9,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 type rcServiceCall struct {

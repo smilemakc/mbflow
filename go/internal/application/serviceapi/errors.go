@@ -30,3 +30,22 @@ func NewNotImplementedError(message string) *OperationError {
 		HTTPStatus: http.StatusNotImplemented,
 	}
 }
+
+// NewNotFoundError creates a new not-found error (404 Not Found).
+func NewNotFoundError(code, message string) *OperationError {
+	return &OperationError{
+		Code:       code,
+		Message:    message,
+		HTTPStatus: http.StatusNotFound,
+	}
+}
+
+// NewConflictError creates a new conflict error (409 Conflict), for requests
+// that are invalid in the resource's current state.
+func NewConflictError(code, message string) *OperationError {
+	return &OperationError{
+		Code:       code,
+		Message:    message,
+		HTTPStatus: http.StatusConflict,
+	}
+}

@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/application/observer"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 func TestSetMaxConcurrentExecutions(t *testing.T) {
@@ -134,7 +136,14 @@ func TestShutdown_CancelsQueuedExecutions(t *testing.T) {
 	assert.Equal(t, "cancelled", row.Status)
 	assert.Contains(t, row.Error, "cancelled before it started")
 	assert.NotNil(t, row.CompletedAt)
-	assert.Equal(t, "failed", f.execRepo.status(running.ID), "the running execution is interrupted")
+	runningRow, _ := f.execRepo.get(running.ID)
+	assert.Equal(t, "cancelled", runningRow.Status, "the running execution is recorded as cancelled")
+	assert.Equal(t, ShutdownCancelledError, runningRow.Error)
+	assert.NotEmpty(t, runningRow.NodeExecutions, "node executions are recorded")
+	eventually(t, func() bool {
+		return contains(f.recorder.types(running.ID), observer.EventTypeExecutionCancelled) &&
+			contains(f.recorder.types(queued.ID), observer.EventTypeExecutionCancelled)
+	}, "cancelled events are emitted")
 }
 
 func TestEphemeral_ConcurrencyLimit(t *testing.T) {

@@ -39,13 +39,14 @@ type ExecutionManager struct {
 	inflight   sync.WaitGroup
 	rootOnce   sync.Once
 	rootCtx    context.Context
-	rootCancel context.CancelFunc
+	rootCancel context.CancelCauseFunc
 
 	// slots bounds concurrent executions; nil means unlimited.
 	slots atomic.Pointer[executionSlots]
 
 	// active holds persisted executions owned by this process; their lease
-	// is renewed while recovery runs (see StartRecovery).
+	// is renewed while recovery runs (see StartRecovery), and they can be
+	// cancelled (see CancelExecution).
 	active          activeExecutions
 	recoveryStarted atomic.Bool
 	recoveryWG      sync.WaitGroup
@@ -55,7 +56,7 @@ type ExecutionManager struct {
 // initialized lazily so zero-value managers (e.g. in tests) work too.
 func (em *ExecutionManager) runContext() context.Context {
 	em.rootOnce.Do(func() {
-		em.rootCtx, em.rootCancel = context.WithCancel(context.Background())
+		em.rootCtx, em.rootCancel = context.WithCancelCause(context.Background())
 	})
 	return em.rootCtx
 }
@@ -133,7 +134,11 @@ func (em *ExecutionManager) Execute(
 	if err != nil {
 		return nil, err
 	}
-	defer em.active.add(execution.ID)()
+	// execCtx is cancelled by CancelExecution; ctx stays valid so the final
+	// state can still be persisted.
+	execCtx, cancelExec := context.WithCancelCause(ctx)
+	defer cancelExec(nil)
+	defer em.active.add(execution.ID, cancelExec)()
 
 	// Register per-execution webhook observers
 	webhookNames := em.registerWebhookObservers(execution.ID, opts)
@@ -141,9 +146,9 @@ func (em *ExecutionManager) Execute(
 
 	em.notifyExecutionStarted(ctx, execution)
 
-	execState, execErr := em.executeWorkflowDAG(ctx, execution, workflow, opts)
+	execState, execErr := em.executeWorkflowDAG(execCtx, execution, workflow, opts)
 
-	if err := em.finalizeExecution(ctx, execution, workflow, workflowModel, execState, execErr); err != nil {
+	if err := em.finalizeExecution(ctx, execCtx, execution, workflow, workflowModel, execState, execErr); err != nil {
 		return nil, err
 	}
 
@@ -165,27 +170,30 @@ func (em *ExecutionManager) ExecuteAsync(
 	// The goroutine below mutates execution; callers get a snapshot so they
 	// can serialize it without racing.
 	snapshot := *execution
-	untrack := em.active.add(execution.ID)
+
+	// execCtx is cancelled when shutdown times out or by CancelExecution;
+	// bgCtx stays valid so the final state can still be persisted.
+	runCtx := em.runContext()
+	execCtx, cancelExec := context.WithCancelCause(runCtx)
+	untrack := em.active.add(execution.ID, cancelExec)
 
 	em.inflight.Add(1)
 	go func() {
 		defer em.inflight.Done()
+		defer cancelExec(nil)
 		defer untrack()
 
 		// Register per-execution webhook observers
 		webhookNames := em.registerWebhookObservers(execution.ID, opts)
 		defer em.unregisterWebhookObservers(webhookNames)
 
-		// runCtx is cancelled when shutdown times out; bgCtx stays valid so the
-		// final state can still be persisted.
-		runCtx := em.runContext()
 		bgCtx := context.WithoutCancel(runCtx)
 		defer em.recoverExecution(bgCtx, execution, true, nil)
 
 		// The execution stays pending until a slot frees up.
-		release, err := em.acquireSlot(runCtx)
+		release, err := em.acquireSlot(execCtx)
 		if err != nil {
-			em.abandonQueuedExecution(bgCtx, execution, true, err)
+			em.abandonQueuedExecution(bgCtx, execution, true, queuedCancelCause(execCtx, err))
 			return
 		}
 		defer release()
@@ -193,15 +201,19 @@ func (em *ExecutionManager) ExecuteAsync(
 		execution.Status = models.ExecutionStatusRunning
 		executionModel := storagemodels.ExecutionDomainToModel(execution)
 		if err := em.executionRepo.Update(bgCtx, executionModel); err != nil {
+			if errors.Is(err, repository.ErrExecutionAlreadyCancelled) {
+				em.abandonQueuedExecution(bgCtx, execution, true, errCancelRequested)
+				return
+			}
 			em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to update execution status: %w", err))
 			return
 		}
 
 		em.notifyExecutionStarted(bgCtx, execution)
 
-		execState, execErr := em.executeWorkflowDAG(runCtx, execution, workflow, opts)
+		execState, execErr := em.executeWorkflowDAG(execCtx, execution, workflow, opts)
 
-		if err := em.finalizeExecution(bgCtx, execution, workflow, workflowModel, execState, execErr); err != nil {
+		if err := em.finalizeExecution(bgCtx, execCtx, execution, workflow, workflowModel, execState, execErr); err != nil {
 			em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to finalize execution: %w", err))
 			return
 		}
@@ -243,9 +255,13 @@ func (em *ExecutionManager) prepareExecution(
 		Input:          input,
 		Variables:      pkgengine.MergeVariables(workflow.Variables, opts.Variables),
 		StartedAt:      time.Now(),
+		Metadata:       opts.Metadata,
 	}
 
 	executionModel := storagemodels.ExecutionDomainToModel(execution)
+	if len(opts.Metadata) > 0 {
+		executionModel.Metadata = storagemodels.JSONBMap(opts.Metadata)
+	}
 	if opts.TriggerID != "" {
 		if triggerID, err := uuid.Parse(opts.TriggerID); err == nil {
 			executionModel.TriggerID = &triggerID
@@ -291,8 +307,11 @@ func (em *ExecutionManager) executeWorkflowDAG(
 }
 
 // finalizeExecution updates execution with results and saves to database.
+// execCtx is the context the execution ran under; it tells a cancelled
+// execution from a failed one. ctx is used to persist the result.
 func (em *ExecutionManager) finalizeExecution(
 	ctx context.Context,
+	execCtx context.Context,
 	execution *models.Execution,
 	workflow *models.Workflow,
 	workflowModel *storagemodels.WorkflowModel,
@@ -304,8 +323,13 @@ func (em *ExecutionManager) finalizeExecution(
 	execution.Duration = execution.CalculateDuration()
 
 	if execErr != nil {
-		execution.Status = models.ExecutionStatusFailed
-		execution.Error = execErr.Error()
+		if cancelled, msg := cancellationReason(execCtx); cancelled {
+			execution.Status = models.ExecutionStatusCancelled
+			execution.Error = msg
+		} else {
+			execution.Status = models.ExecutionStatusFailed
+			execution.Error = execErr.Error()
+		}
 	} else {
 		execution.Status = models.ExecutionStatusCompleted
 		execution.Output = em.getFinalOutput(execState)
@@ -313,8 +337,7 @@ func (em *ExecutionManager) finalizeExecution(
 
 	execution.NodeExecutions = em.buildNodeExecutions(execState, workflow, workflowModel)
 
-	executionModel := storagemodels.ExecutionDomainToModel(execution)
-	if err := em.executionRepo.Update(ctx, executionModel); err != nil {
+	if err := em.persistFinalState(ctx, execution); err != nil {
 		return fmt.Errorf("failed to update execution: %w", err)
 	}
 
@@ -340,12 +363,19 @@ func (em *ExecutionManager) notifyExecutionStarted(ctx context.Context, executio
 	}
 }
 
-// notifyExecutionCompletion sends execution completion event.
+// notifyExecutionCompletion sends the execution completed, failed or
+// cancelled event, depending on the execution's final status.
 func (em *ExecutionManager) notifyExecutionCompletion(ctx context.Context, execution *models.Execution, execErr error) {
 	if em.observerManager != nil {
 		duration := execution.Duration
 		eventType := observer.EventTypeExecutionCompleted
-		if execErr != nil {
+		switch {
+		case execution.Status == models.ExecutionStatusCancelled:
+			eventType = observer.EventTypeExecutionCancelled
+			if execErr == nil {
+				execErr = errors.New(execution.Error)
+			}
+		case execErr != nil:
 			eventType = observer.EventTypeExecutionFailed
 		}
 
@@ -624,8 +654,10 @@ func convertToPkgOptions(opts *ExecutionOptions) *pkgengine.ExecutionOptions {
 }
 
 // Shutdown waits for in-flight background executions to finish. If ctx expires
-// first, running executions are cancelled (and recorded as cancelled) and
-// Shutdown waits briefly for them to persist their final state.
+// first, running and queued background executions are cancelled (and recorded
+// as cancelled with ShutdownCancelledError or, if still queued, as cancelled
+// before they started) and Shutdown waits briefly for them to persist their
+// final state.
 func (em *ExecutionManager) Shutdown(ctx context.Context) error {
 	em.runContext()
 
@@ -637,13 +669,13 @@ func (em *ExecutionManager) Shutdown(ctx context.Context) error {
 
 	select {
 	case <-done:
-		em.rootCancel()
+		em.rootCancel(ErrShuttingDown)
 		em.recoveryWG.Wait()
 		return nil
 	case <-ctx.Done():
 	}
 
-	em.rootCancel()
+	em.rootCancel(ErrShuttingDown)
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
@@ -652,12 +684,16 @@ func (em *ExecutionManager) Shutdown(ctx context.Context) error {
 	return fmt.Errorf("executions still running at shutdown deadline: %w", ctx.Err())
 }
 
-// abandonQueuedExecution records an execution that never got an execution
-// slot (the manager shut down while it was queued) as cancelled.
+// abandonQueuedExecution records an execution that never started running (the
+// manager shut down or it was cancelled while queued) as cancelled.
 func (em *ExecutionManager) abandonQueuedExecution(ctx context.Context, execution *models.Execution, persist bool, cause error) {
 	now := time.Now()
 	execution.Status = models.ExecutionStatusCancelled
-	execution.Error = fmt.Sprintf("execution cancelled before it started: %v", cause)
+	if errors.Is(cause, errCancelRequested) {
+		execution.Error = CancelledExecutionError
+	} else {
+		execution.Error = fmt.Sprintf("execution cancelled before it started: %v", cause)
+	}
 	execution.CompletedAt = &now
 	execution.Duration = execution.CalculateDuration()
 	if persist {

@@ -90,7 +90,7 @@ func TestRCWorkflows_ListAndGet(t *testing.T) {
 	_, err = env.srv.ListWorkflows(ctx, &pb.ListWorkflowsRequest{UserId: "bad"})
 	assert.Equal(t, codes.InvalidArgument, rcCode(t, err))
 
-	env.workflows.setErr("FindAllWithFilters", rcErrBoom)
+	env.workflows.setErr("FindAllWithFilters", errRCBoom)
 	_, err = env.srv.ListWorkflows(ctx, &pb.ListWorkflowsRequest{})
 	assert.Equal(t, codes.Internal, rcCode(t, err))
 
@@ -164,7 +164,7 @@ func TestRCWorkflows_Create(t *testing.T) {
 	})
 	assert.Equal(t, codes.InvalidArgument, rcCode(t, err))
 
-	env.workflows.setErr("Create", rcErrBoom)
+	env.workflows.setErr("Create", errRCBoom)
 	_, err = env.srv.CreateWorkflow(context.Background(), &pb.CreateWorkflowRequest{Name: "x"})
 	assert.Equal(t, codes.Internal, rcCode(t, err))
 }
@@ -258,15 +258,15 @@ func TestRCExecutions_ListGetCancelRetry(t *testing.T) {
 	assert.Equal(t, codes.NotFound, rcCode(t, err))
 
 	_, err = env.srv.CancelExecution(ctx, &pb.CancelExecutionRequest{Id: stored.ID.String()})
-	assert.Equal(t, codes.Unimplemented, rcCode(t, err))
+	assert.Equal(t, codes.FailedPrecondition, rcCode(t, err), "a completed execution is not cancellable")
 	_, err = env.srv.CancelExecution(ctx, &pb.CancelExecutionRequest{Id: "bad"})
 	assert.Equal(t, codes.InvalidArgument, rcCode(t, err))
 	_, err = env.srv.RetryExecution(ctx, &pb.RetryExecutionRequest{Id: stored.ID.String()})
-	assert.Equal(t, codes.Unimplemented, rcCode(t, err))
+	assert.Equal(t, codes.FailedPrecondition, rcCode(t, err), "a completed execution is not retryable")
 	_, err = env.srv.RetryExecution(ctx, &pb.RetryExecutionRequest{Id: "bad"})
 	assert.Equal(t, codes.InvalidArgument, rcCode(t, err))
 
-	env.execs.setErr("List", rcErrBoom)
+	env.execs.setErr("List", errRCBoom)
 	_, err = env.srv.ListExecutions(ctx, &pb.ListExecutionsRequest{})
 	assert.Equal(t, codes.Internal, rcCode(t, err))
 }
@@ -406,7 +406,7 @@ func TestRCTriggers(t *testing.T) {
 	_, err = env.srv.DeleteTrigger(ctx, &pb.DeleteTriggerRequest{Id: "bad"})
 	assert.Equal(t, codes.InvalidArgument, rcCode(t, err))
 
-	env.triggers.setErr("List", rcErrBoom)
+	env.triggers.setErr("List", errRCBoom)
 	_, err = env.srv.ListTriggers(ctx, &pb.ListTriggersRequest{})
 	assert.Equal(t, codes.Internal, rcCode(t, err))
 }
@@ -468,7 +468,7 @@ func TestRCCredentials(t *testing.T) {
 	_, err = env.srv.DeleteCredential(ctx, &pb.DeleteCredentialRequest{Id: id})
 	assert.Equal(t, codes.NotFound, rcCode(t, err))
 
-	env.creds.setErr("List", rcErrBoom)
+	env.creds.setErr("List", errRCBoom)
 	_, err = env.srv.ListCredentials(ctx, &pb.ListCredentialsRequest{UserId: user})
 	assert.Equal(t, codes.Internal, rcCode(t, err))
 }
@@ -518,7 +518,7 @@ func TestRCListAuditLog(t *testing.T) {
 	assert.Nil(t, env.audit.lastFilter.ImpersonatedUserID)
 	assert.Equal(t, 100, env.audit.lastFilter.Limit, "limit is capped")
 
-	env.audit.err = rcErrBoom
+	env.audit.err = errRCBoom
 	_, err = env.srv.ListAuditLog(ctx, &pb.ListAuditLogRequest{})
 	assert.Equal(t, codes.Internal, rcCode(t, err))
 }

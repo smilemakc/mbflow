@@ -9,12 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/pkg/engine"
-	"github.com/smilemakc/mbflow/go/pkg/executor"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/smilemakc/mbflow/go/pkg/engine"
+	"github.com/smilemakc/mbflow/go/pkg/executor"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // rcFailingManager is an executor.Manager whose Register always fails.

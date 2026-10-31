@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/internal/domain/repository"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/domain/repository"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
-var rcErrRepo = errors.New("repo failure")
+var errRCRepo = errors.New("repo failure")
 
 // rcRentalRepo is an in-memory repository.RentalKeyRepository.
 type rcRentalRepo struct {
@@ -268,9 +269,9 @@ func TestRCAdminService_CreateKeyErrors(t *testing.T) {
 	_, err = admin.CreateKey(ctx, &CreateKeyRequest{OwnerID: "o", Name: "n", Provider: models.LLMProviderTypeOpenAI, PlainAPIKey: "k", ProvisionerType: "weird"})
 	assert.ErrorContains(t, err, "invalid provisioner type")
 
-	repo.errs["Create"] = rcErrRepo
+	repo.errs["Create"] = errRCRepo
 	_, err = admin.CreateKey(ctx, &CreateKeyRequest{OwnerID: "o", Name: "n", Provider: models.LLMProviderTypeOpenAI, PlainAPIKey: "k"})
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 }
 
 func TestRCAdminService_UpdateRotateDeleteList(t *testing.T) {
@@ -305,9 +306,9 @@ func TestRCAdminService_UpdateRotateDeleteList(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "renamed", same.Name)
 
-	repo.errs["Update"] = rcErrRepo
+	repo.errs["Update"] = errRCRepo
 	_, err = admin.UpdateKey(ctx, key.ID, &UpdateKeyRequest{})
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 	delete(repo.errs, "Update")
 
 	// Rotate
@@ -375,9 +376,9 @@ func TestRCProvider_GetAPIKeyForExecution(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrMonthlyTokenLimitExceeded)
 	key.TokensThisMonth = 0
 
-	repo.errs["Decrypt"] = rcErrRepo
+	repo.errs["Decrypt"] = errRCRepo
 	_, err = p.GetAPIKeyForExecution(ctx, key.ID, "owner-1")
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 	assert.ErrorContains(t, err, "failed to decrypt API key")
 }
 
@@ -418,9 +419,9 @@ func TestRCProvider_UsageAndQueries(t *testing.T) {
 	assert.InDelta(t, 0.75, sum.TotalCost, 1e-9)
 	assert.Equal(t, int64(11), sum.TotalUsage.PromptTokens)
 
-	repo.errs["Summary"] = rcErrRepo
+	repo.errs["Summary"] = errRCRepo
 	_, err = p.GetUsageSummary(ctx, k1.ID)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 
 	got, err := p.GetKey(ctx, k1.ID)
 	require.NoError(t, err)

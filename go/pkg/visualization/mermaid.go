@@ -53,7 +53,7 @@ func (r *MermaidRenderer) Render(workflow *models.Workflow, opts *RenderOptions)
 			}
 			sort.Strings(keys)
 			for _, key := range keys {
-				sb.WriteString(fmt.Sprintf("    %s: \"%s\"\n", key, opts.ThemeVariables[key]))
+				sb.WriteString(fmt.Sprintf("    %s: \"%s\"\n", key, opts.ThemeVariables[key])) //nolint:gocritic // Mermaid quoting, not Go quoting
 			}
 		}
 

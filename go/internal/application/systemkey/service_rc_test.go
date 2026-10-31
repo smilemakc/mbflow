@@ -17,7 +17,7 @@ import (
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
-var rcErrRepo = errors.New("repo failure")
+var errRCRepo = errors.New("repo failure")
 
 // rcKeyRepo is an in-memory repository.SystemKeyRepository with error injection.
 type rcKeyRepo struct {
@@ -194,9 +194,9 @@ func TestRCSystemKey_CreateExpiryAndErrors(t *testing.T) {
 	})
 	t.Run("count error", func(t *testing.T) {
 		repo := rcNewKeyRepo()
-		repo.errs["Count"] = rcErrRepo
+		repo.errs["Count"] = errRCRepo
 		_, err := rcService(repo).CreateKey(ctx, "n", "", "svc", admin, nil)
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("limit reached", func(t *testing.T) {
 		repo := rcNewKeyRepo()
@@ -215,9 +215,9 @@ func TestRCSystemKey_CreateExpiryAndErrors(t *testing.T) {
 	})
 	t.Run("repo create error", func(t *testing.T) {
 		repo := rcNewKeyRepo()
-		repo.errs["Create"] = rcErrRepo
+		repo.errs["Create"] = errRCRepo
 		_, err := rcService(repo).CreateKey(ctx, "n", "", "svc", admin, nil)
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 }
 
@@ -229,31 +229,31 @@ func TestRCSystemKey_RepoErrors(t *testing.T) {
 	require.NoError(t, err)
 	id := uuid.MustParse(res.Key.ID)
 
-	repo.errs["UpdateLastUsed"] = rcErrRepo
+	repo.errs["UpdateLastUsed"] = errRCRepo
 	_, err = svc.ValidateKey(ctx, res.PlainKey)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 
-	repo.errs["FindByPrefix"] = rcErrRepo
+	repo.errs["FindByPrefix"] = errRCRepo
 	_, err = svc.ValidateKey(ctx, res.PlainKey)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 
-	repo.errs["Revoke"] = rcErrRepo
-	assert.ErrorIs(t, svc.RevokeKey(ctx, id), rcErrRepo)
-	repo.errs["Delete"] = rcErrRepo
-	assert.ErrorIs(t, svc.DeleteKey(ctx, id), rcErrRepo)
+	repo.errs["Revoke"] = errRCRepo
+	assert.ErrorIs(t, svc.RevokeKey(ctx, id), errRCRepo)
+	repo.errs["Delete"] = errRCRepo
+	assert.ErrorIs(t, svc.DeleteKey(ctx, id), errRCRepo)
 
 	assert.ErrorIs(t, svc.RevokeKey(ctx, uuid.New()), models.ErrSystemKeyNotFound)
 	assert.ErrorIs(t, svc.DeleteKey(ctx, uuid.New()), models.ErrSystemKeyNotFound)
 
-	repo.errs["FindByID"] = rcErrRepo
+	repo.errs["FindByID"] = errRCRepo
 	_, err = svc.GetByID(ctx, id)
-	assert.ErrorIs(t, err, rcErrRepo)
-	assert.ErrorIs(t, svc.RevokeKey(ctx, id), rcErrRepo)
-	assert.ErrorIs(t, svc.DeleteKey(ctx, id), rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
+	assert.ErrorIs(t, svc.RevokeKey(ctx, id), errRCRepo)
+	assert.ErrorIs(t, svc.DeleteKey(ctx, id), errRCRepo)
 
-	repo.errs["FindAll"] = rcErrRepo
+	repo.errs["FindAll"] = errRCRepo
 	_, _, err = svc.ListAll(ctx, repository.SystemKeyFilter{})
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 }
 
 // ---------------------------------------------------------------------------
@@ -337,9 +337,9 @@ func TestRCAuditService_LogAction(t *testing.T) {
 	require.NoError(t, svc.LogAction(ctx, "sys-1", "billing", "a", "r", nil, nil, "POST", "/", &raw, "ip", 400))
 	assert.Equal(t, "not json", *repo.entries[2].RequestBody)
 
-	repo.err = rcErrRepo
+	repo.err = errRCRepo
 	err := svc.LogAction(ctx, "sys-1", "billing", "a", "r", nil, nil, "GET", "/", nil, "ip", 200)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 }
 
 func TestRCAuditService_ListAndCleanup(t *testing.T) {
@@ -360,9 +360,9 @@ func TestRCAuditService_ListAndCleanup(t *testing.T) {
 	assert.Equal(t, int64(7), deleted)
 	assert.WithinDuration(t, time.Now().AddDate(0, 0, -10), repo.before, time.Minute)
 
-	repo.err = rcErrRepo
+	repo.err = errRCRepo
 	_, _, err = svc.ListLogs(ctx, repository.ServiceAuditLogFilter{})
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 	_, err = svc.Cleanup(ctx)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 }

@@ -249,7 +249,7 @@ func TestRC_BeforeInsertHooks_SetDefaults(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Behaviour helpers
+// Behavior helpers
 // ---------------------------------------------------------------------------
 
 func TestRC_BillingAccount_Predicates(t *testing.T) {

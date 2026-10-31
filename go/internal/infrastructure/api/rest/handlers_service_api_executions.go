@@ -178,10 +178,46 @@ func (h *ServiceAPIExecutionHandlers) StartEphemeralExecution(c *gin.Context) {
 	respondJSON(c, status, execution)
 }
 
+// CancelExecution cancels a pending or running execution: 200 with the
+// cancelled execution, or 202 while it is still stopping on another replica.
 func (h *ServiceAPIExecutionHandlers) CancelExecution(c *gin.Context) {
-	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "execution cancellation not yet implemented", http.StatusNotImplemented))
+	executionID, ok := getParam(c, "id")
+	if !ok {
+		return
+	}
+	execUUID, err := uuid.Parse(executionID)
+	if err != nil {
+		respondAPIError(c, ErrInvalidID)
+		return
+	}
+
+	result, err := h.ops.CancelExecution(c.Request.Context(), serviceapi.CancelExecutionParams{ExecutionID: execUUID})
+	if err != nil {
+		respondAPIErrorWithRequestID(c, TranslateError(err))
+		return
+	}
+
+	respondJSON(c, cancelResponseStatus(result), result.Execution)
 }
 
+// RetryExecution starts a new execution of a failed or cancelled one and
+// returns it with 202.
 func (h *ServiceAPIExecutionHandlers) RetryExecution(c *gin.Context) {
-	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "execution retry not yet implemented", http.StatusNotImplemented))
+	executionID, ok := getParam(c, "id")
+	if !ok {
+		return
+	}
+	execUUID, err := uuid.Parse(executionID)
+	if err != nil {
+		respondAPIError(c, ErrInvalidID)
+		return
+	}
+
+	execution, err := h.ops.RetryExecution(c.Request.Context(), serviceapi.RetryExecutionParams{ExecutionID: execUUID})
+	if err != nil {
+		respondAPIErrorWithRequestID(c, TranslateError(err))
+		return
+	}
+
+	respondJSON(c, http.StatusAccepted, execution)
 }

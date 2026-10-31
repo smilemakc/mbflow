@@ -102,10 +102,12 @@ func TestRC2_Executions_RunGetListAndNodeResults(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, rc2Do(t, rb, http.MethodGet, "/np/exq?execution_id=bad", nil).Code, "malformed IDs are left to the handler")
 	assert.Equal(t, http.StatusNoContent, rc2Do(t, rb, http.MethodGet, "/np/exq", nil).Code)
 
-	// Not implemented endpoints.
+	// A completed execution can be neither cancelled nor retried.
 	for _, p := range []string{"/cancel", "/retry"} {
-		assert.Equal(t, http.StatusNotImplemented, rc2Do(t, ra, http.MethodPost, "/api/v1/executions/"+execID+p, nil).Code, p)
+		assert.Equal(t, http.StatusConflict, rc2Do(t, ra, http.MethodPost, "/api/v1/executions/"+execID+p, nil).Code, p)
 	}
+
+	// Not implemented endpoints.
 	for _, p := range []string{"/watch", "/stream"} {
 		assert.Equal(t, http.StatusNotImplemented, rc2Do(t, ra, http.MethodGet, "/api/v1/executions/"+execID+p, nil).Code, p)
 	}
@@ -241,9 +243,10 @@ func TestRC2_Triggers_CRUDAndOwnership(t *testing.T) {
 	assert.Empty(t, rc2ListIDs(t, rb, "/api/v1/triggers"))
 	assert.Equal(t, http.StatusBadRequest, rc2Do(t, ra, http.MethodGet, "/api/v1/triggers?workflow_id=bad", nil).Code)
 
-	// Manual execution of an enabled trigger is not implemented yet.
+	// Manual execution validates its body (runs are covered in
+	// handlers_triggers_run_test.go).
 	w = rc2Do(t, ra, http.MethodPost, base+"/execute", "not json")
-	assert.Equal(t, http.StatusNotImplemented, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Equal(t, http.StatusBadRequest, rc2Do(t, ra, http.MethodPost, "/api/v1/triggers/bad/execute", nil).Code)
 	assert.Equal(t, http.StatusNotFound, rc2Do(t, raw, http.MethodPost, "/api/v1/triggers/"+uuid.NewString()+"/execute", nil).Code)
 

@@ -18,7 +18,11 @@ func mapError(err error) error {
 
 	var opErr *serviceapi.OperationError
 	if errors.As(err, &opErr) {
-		return status.Errorf(httpStatusToGRPCCode(opErr.HTTPStatus), "%s", opErr.Message)
+		code := httpStatusToGRPCCode(opErr.HTTPStatus)
+		if failedPreconditionCodes[opErr.Code] {
+			code = codes.FailedPrecondition
+		}
+		return status.Errorf(code, "%s", opErr.Message)
 	}
 
 	switch {
@@ -43,6 +47,14 @@ func mapError(err error) error {
 	default:
 		return status.Errorf(codes.Internal, "internal error")
 	}
+}
+
+// failedPreconditionCodes are 409 operation errors caused by the resource's
+// state rather than by an existing resource; gRPC reports them as
+// FailedPrecondition instead of AlreadyExists.
+var failedPreconditionCodes = map[string]bool{
+	serviceapi.CodeExecutionNotCancellable: true,
+	serviceapi.CodeExecutionNotRetryable:   true,
 }
 
 func httpStatusToGRPCCode(httpStatus int) codes.Code {

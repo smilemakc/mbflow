@@ -13,9 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 const rcAPIKey = "rc-test-key"
@@ -343,7 +344,7 @@ func (f *rcFakeAPI) serveTriggers(w http.ResponseWriter, r *http.Request, parts 
 				rcWriteAPIError(w, http.StatusBadRequest, "TRIGGER_DISABLED", "trigger is disabled")
 				return
 			}
-			// Mirrors the current server behaviour.
+			// Mirrors the current server behavior.
 			rcWriteAPIError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "trigger execution requires trigger manager integration")
 		default:
 			rcWriteAPIError(w, http.StatusNotFound, "NOT_FOUND", "route not found")

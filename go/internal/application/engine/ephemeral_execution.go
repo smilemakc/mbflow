@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	pkgengine "github.com/smilemakc/mbflow/go/pkg/engine"
 	"github.com/smilemakc/mbflow/go/pkg/models"
@@ -91,17 +92,26 @@ func (em *ExecutionManager) executeEphemeralSync(
 	}
 	defer release()
 
+	// execCtx is cancelled by CancelExecution (persisted executions only);
+	// ctx stays valid so the final state can still be persisted.
+	execCtx, cancelExec := context.WithCancelCause(ctx)
+	defer cancelExec(nil)
+
 	if opts.PersistExecution {
 		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow, opts.CreatedBy); err != nil {
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
-		defer em.active.add(execution.ID)()
+		defer em.active.add(execution.ID, cancelExec)()
 	}
 
 	execution.Status = models.ExecutionStatusRunning
 
 	if opts.PersistExecution {
 		if err := em.updateEphemeralExecution(ctx, execution); err != nil {
+			if errors.Is(err, repository.ErrExecutionAlreadyCancelled) {
+				em.abandonQueuedExecution(ctx, execution, true, errCancelRequested)
+				return execution, errCancelRequested
+			}
 			return nil, fmt.Errorf("failed to persist ephemeral execution status: %w", err)
 		}
 	}
@@ -116,12 +126,12 @@ func (em *ExecutionManager) executeEphemeralSync(
 		execution.Variables,
 	)
 
-	execErr := dagExecutor.Execute(ctx, execState, pkgOpts)
+	execErr := dagExecutor.Execute(execCtx, execState, pkgOpts)
 
-	em.finalizeEphemeralExecution(execution, execState, opts.Workflow, execErr)
+	em.finalizeEphemeralExecution(execCtx, execution, execState, opts.Workflow, execErr)
 
 	if opts.PersistExecution {
-		if err := em.updateEphemeralExecution(ctx, execution); err != nil {
+		if err := em.persistFinalState(ctx, execution); err != nil {
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
 	}
@@ -139,14 +149,21 @@ func (em *ExecutionManager) executeEphemeralAsync(
 	pkgOpts *pkgengine.ExecutionOptions,
 	webhookNames []string,
 ) (*models.Execution, error) {
+	// execCtx is cancelled when shutdown times out or by CancelExecution
+	// (persisted executions only); bgCtx stays valid so the final state can
+	// still be persisted.
+	runCtx := em.runContext()
+	execCtx, cancelExec := context.WithCancelCause(runCtx)
+
 	untrack := func() {}
 	if opts.PersistExecution {
 		if err := em.createEphemeralExecution(ctx, execution, opts.Workflow, opts.CreatedBy); err != nil {
+			cancelExec(nil)
 			em.unregisterWebhookObservers(webhookNames)
 			em.markEphemeralTerminal(execution.ID)
 			return nil, fmt.Errorf("failed to persist ephemeral execution: %w", err)
 		}
-		untrack = em.active.add(execution.ID)
+		untrack = em.active.add(execution.ID, cancelExec)
 	}
 
 	// The goroutine below mutates execution; callers get a snapshot so they
@@ -156,21 +173,19 @@ func (em *ExecutionManager) executeEphemeralAsync(
 	em.inflight.Add(1)
 	go func() {
 		defer em.inflight.Done()
+		defer cancelExec(nil)
 		defer untrack()
 		defer em.unregisterWebhookObservers(webhookNames)
 
-		// runCtx is cancelled when shutdown times out; bgCtx stays valid so the
-		// final state can still be persisted.
-		runCtx := em.runContext()
 		bgCtx := context.WithoutCancel(runCtx)
 		defer em.recoverExecution(bgCtx, execution, opts.PersistExecution, func() {
 			em.markEphemeralTerminal(execution.ID)
 		})
 
 		// The execution stays pending until a slot frees up.
-		release, err := em.acquireSlot(runCtx)
+		release, err := em.acquireSlot(execCtx)
 		if err != nil {
-			em.abandonQueuedExecution(bgCtx, execution, opts.PersistExecution, err)
+			em.abandonQueuedExecution(bgCtx, execution, opts.PersistExecution, queuedCancelCause(execCtx, err))
 			em.markEphemeralTerminal(execution.ID)
 			return
 		}
@@ -180,6 +195,11 @@ func (em *ExecutionManager) executeEphemeralAsync(
 
 		if opts.PersistExecution {
 			if err := em.updateEphemeralExecution(bgCtx, execution); err != nil {
+				if errors.Is(err, repository.ErrExecutionAlreadyCancelled) {
+					em.abandonQueuedExecution(bgCtx, execution, true, errCancelRequested)
+					em.markEphemeralTerminal(execution.ID)
+					return
+				}
 				em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to update execution status: %w", err))
 				em.markEphemeralTerminal(execution.ID)
 				return
@@ -196,12 +216,12 @@ func (em *ExecutionManager) executeEphemeralAsync(
 			execution.Variables,
 		)
 
-		execErr := dagExecutor.Execute(runCtx, execState, pkgOpts)
+		execErr := dagExecutor.Execute(execCtx, execState, pkgOpts)
 
-		em.finalizeEphemeralExecution(execution, execState, opts.Workflow, execErr)
+		em.finalizeEphemeralExecution(execCtx, execution, execState, opts.Workflow, execErr)
 
 		if opts.PersistExecution {
-			if err := em.updateEphemeralExecution(bgCtx, execution); err != nil {
+			if err := em.persistFinalState(bgCtx, execution); err != nil {
 				em.notifyExecutionError(bgCtx, execution, fmt.Errorf("failed to update execution: %w", err))
 				em.markEphemeralTerminal(execution.ID)
 				return
@@ -216,6 +236,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 }
 
 func (em *ExecutionManager) finalizeEphemeralExecution(
+	execCtx context.Context,
 	execution *models.Execution,
 	execState *pkgengine.ExecutionState,
 	workflow *models.Workflow,
@@ -232,6 +253,10 @@ func (em *ExecutionManager) finalizeEphemeralExecution(
 			execution.Status = models.ExecutionStatusFailed
 		}
 		execution.Error = execErr.Error()
+		if cancelled, msg := cancellationReason(execCtx); cancelled {
+			execution.Status = models.ExecutionStatusCancelled
+			execution.Error = msg
+		}
 	} else {
 		execution.Status = models.ExecutionStatusCompleted
 		execution.Output = em.getFinalOutput(execState)

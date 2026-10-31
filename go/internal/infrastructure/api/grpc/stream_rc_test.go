@@ -111,7 +111,7 @@ func TestRCStream_RequestValidation(t *testing.T) {
 	err = env.srv.StreamExecutionEvents(&pb.StreamExecutionEventsRequest{ExecutionId: uuid.NewString()}, s)
 	assert.Equal(t, codes.NotFound, rcCode(t, err))
 
-	env.execs.setErr("FindByID", rcErrBoom)
+	env.execs.setErr("FindByID", errRCBoom)
 	err = env.srv.StreamExecutionEvents(&pb.StreamExecutionEventsRequest{ExecutionId: uuid.NewString()}, s)
 	assert.Equal(t, codes.Internal, rcCode(t, err))
 }
@@ -220,7 +220,7 @@ func TestRCStream_PersistedErrors(t *testing.T) {
 	t.Run("events load failure", func(t *testing.T) {
 		env := rcNewEnv()
 		id := rcPersistedExecution(env, "running")
-		env.execs.setErr("GetEvents", rcErrBoom)
+		env.execs.setErr("GetEvents", errRCBoom)
 		err := env.srv.StreamExecutionEvents(&pb.StreamExecutionEventsRequest{ExecutionId: id.String()}, rcNewStream(context.Background()))
 		assert.Equal(t, codes.Internal, rcCode(t, err))
 	})
