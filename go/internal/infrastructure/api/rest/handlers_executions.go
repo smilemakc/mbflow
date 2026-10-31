@@ -233,7 +233,7 @@ func (h *ExecutionHandlers) HandleGetLogs(c *gin.Context) {
 
 func (h *ExecutionHandlers) HandleGetNodeResult(c *gin.Context) {
 	executionID := c.Param("id")
-	nodeID := c.Param("nodeId")
+	nodeID := paramFirst(c, "node_id", "nodeId")
 
 	if executionID == "" || nodeID == "" {
 		respondAPIError(c, ErrMissingParameter)

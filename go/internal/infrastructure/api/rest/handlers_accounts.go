@@ -95,6 +95,12 @@ func (h *AccountHandlers) Deposit(c *gin.Context) {
 	}
 
 	existingTx, err := h.transactionRepo.GetByIdempotencyKey(c.Request.Context(), req.IdempotencyKey)
+	if err == nil && existingTx != nil && existingTx.AccountID != account.ID {
+		// Idempotency keys are unique across all accounts: a key used by
+		// another account must not reveal that account's transaction.
+		respondError(c, http.StatusConflict, "idempotency key already used")
+		return
+	}
 	if err == nil && existingTx != nil {
 		h.logger.Info("Duplicate deposit detected, returning existing transaction",
 			"idempotency_key", req.IdempotencyKey,
@@ -254,7 +260,7 @@ func (h *AccountHandlers) GetTransaction(c *gin.Context) {
 
 	transaction, err := h.transactionRepo.GetByID(c.Request.Context(), transactionID)
 	if err != nil {
-		if err == models.ErrTransactionNotFound {
+		if err == models.ErrTransactionNotFound || err == models.ErrInvalidID {
 			respondError(c, http.StatusNotFound, "transaction not found")
 			return
 		}

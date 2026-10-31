@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -117,6 +118,11 @@ func (h *FileHandlers) handleMultipartUpload(c *gin.Context) {
 	executionID := c.PostForm("execution_id")
 	tagsStr := c.PostForm("tags")
 
+	if !validStorageID(storageID) {
+		respondError(c, http.StatusBadRequest, "invalid storage_id")
+		return
+	}
+
 	if !h.authorizeAttachment(c, workflowID, executionID) {
 		return
 	}
@@ -135,7 +141,7 @@ func (h *FileHandlers) handleMultipartUpload(c *gin.Context) {
 	// Detect MIME type
 	buffer := make([]byte, 512)
 	n, _ := file.Read(buffer)
-	mimeType := http.DetectContentType(buffer[:n])
+	mimeType := baseMimeType(http.DetectContentType(buffer[:n]))
 	file.Seek(0, 0) // Reset reader
 
 	// Validate MIME type
@@ -228,6 +234,10 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 	if storageID == "" {
 		storageID = "default"
 	}
+	if !validStorageID(storageID) {
+		respondError(c, http.StatusBadRequest, "invalid storage_id")
+		return
+	}
 
 	accessScope := req.AccessScope
 	if accessScope == "" {
@@ -294,7 +304,9 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 		}
 	}
 
-	// Validate MIME type
+	// Validate MIME type (parameters such as charset are not part of the
+	// allow-list key).
+	req.MimeType = baseMimeType(req.MimeType)
 	if !models.IsMimeTypeAllowed(req.MimeType) {
 		respondError(c, http.StatusBadRequest, fmt.Sprintf("MIME type not allowed: %s", req.MimeType))
 		return
@@ -442,10 +454,12 @@ func (h *FileHandlers) HandleDeleteFile(c *gin.Context) {
 		return
 	}
 
-	// Delete from storage
+	// Delete the content by its stored path (the storage cannot resolve
+	// file IDs without a metadata repository, which would leave the content
+	// orphaned on disk).
 	store, err := h.storageManager.GetStorage(fileModel.StorageID)
 	if err == nil {
-		_ = store.Delete(c.Request.Context(), fileID)
+		_ = store.Delete(c.Request.Context(), fileModel.Path)
 	}
 
 	// Delete from database
@@ -660,6 +674,33 @@ func (h *FileHandlers) modelToResponse(model *storagemodels.FileModel) map[strin
 	}
 
 	return resp
+}
+
+// validStorageID reports whether a client-supplied storage ID is safe. The ID
+// becomes part of the on-disk storage path, so separators and dot segments
+// must be rejected to prevent path traversal outside the storage root.
+func validStorageID(id string) bool {
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// baseMimeType strips parameters (e.g. "; charset=utf-8") from a media type.
+// http.DetectContentType and servers report text types with a charset, which
+// would otherwise never match the MIME allow-list.
+func baseMimeType(mimeType string) string {
+	if mediaType, _, err := mime.ParseMediaType(mimeType); err == nil {
+		return mediaType
+	}
+	return strings.TrimSpace(mimeType)
 }
 
 func min(a, b int) int {

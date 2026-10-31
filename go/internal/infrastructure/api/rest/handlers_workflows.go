@@ -460,7 +460,7 @@ func (h *WorkflowHandlers) HandleUnpublishWorkflow(c *gin.Context) {
 //	@Accept			json
 //	@Produce		text/plain
 //	@Param			workflow_id		path		string	true	"Workflow ID"								format(uuid)
-//	@Param			format			query		string	false	"Diagram format (mermaid, dot, ascii)"		default(mermaid)
+//	@Param			format			query		string	false	"Diagram format (mermaid, ascii)"		default(mermaid)
 //	@Param			direction		query		string	false	"Diagram direction (TB, LR, BT, RL)"		default(TB)
 //	@Param			show_config		query		bool	false	"Show node configuration in diagram"		default(true)
 //	@Param			show_conditions	query		bool	false	"Show edge conditions in diagram"			default(true)
@@ -495,6 +495,10 @@ func (h *WorkflowHandlers) HandleGetWorkflowDiagram(c *gin.Context) {
 	}
 
 	format := c.DefaultQuery("format", "mermaid")
+	if format != "mermaid" && format != "ascii" {
+		respondAPIError(c, NewAPIError("INVALID_FORMAT", "format must be mermaid or ascii", http.StatusBadRequest))
+		return
+	}
 	direction := c.DefaultQuery("direction", "TB")
 	showConfig := c.DefaultQuery("show_config", "true") == "true"
 	showConditions := c.DefaultQuery("show_conditions", "true") == "true"

@@ -141,7 +141,7 @@ func (h *NodeHandlers) HandleListNodes(c *gin.Context) {
 // HandleGetNode handles GET /api/v1/workflows/{workflow_id}/nodes/{nodeId}
 func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
-	nodeID := c.Param("nodeId")
+	nodeID := paramFirst(c, "node_id", "nodeId")
 
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
@@ -190,7 +190,7 @@ func (h *NodeHandlers) HandleGetNode(c *gin.Context) {
 // HandleUpdateNode handles PUT /api/v1/workflows/{workflow_id}/nodes/{nodeId}
 func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
-	nodeID := c.Param("nodeId")
+	nodeID := paramFirst(c, "node_id", "nodeId")
 
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
@@ -275,7 +275,7 @@ func (h *NodeHandlers) HandleUpdateNode(c *gin.Context) {
 // HandleDeleteNode handles DELETE /api/v1/workflows/{workflow_id}/nodes/{nodeId}
 func (h *NodeHandlers) HandleDeleteNode(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
-	nodeID := c.Param("nodeId")
+	nodeID := paramFirst(c, "node_id", "nodeId")
 
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
