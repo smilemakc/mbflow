@@ -17,7 +17,7 @@ cp .env.example .env.local   # optional, adjust values
 npm run dev                  # http://localhost:3435
 ```
 
-The Vite dev server proxies `/api` and `/ws` to `VITE_BACKEND_URL`
+The Vite dev server proxies `/api`, `/ws` and the `/health` and `/ready` probes to `VITE_BACKEND_URL`
 (default `http://localhost:8585`), so the browser only ever talks to the dev server:
 
 ```bash
@@ -32,6 +32,13 @@ VITE_BACKEND_URL=http://localhost:8585 npm run dev
 | `npm run typecheck` | Run the TypeScript compiler (`tsc --noEmit`)   |
 | `npm run build`     | Type-check, then build static assets to `dist/`|
 | `npm run preview`   | Serve the production build locally             |
+| `npm test`          | Run the unit and component tests once (Vitest, jsdom) |
+| `npm run test:watch`| Run the tests in watch mode                    |
+| `npm run test:coverage` | Run the tests with V8 coverage; fails below 90% for the covered set (see `vitest.config.ts`) |
+
+Tests live next to the code as `*.test.ts(x)`. They never reach the network:
+`test/setup.ts` makes unmocked HTTP requests fail, and `test/apiMock.ts` routes
+requests of the shared axios client to in-memory handlers.
 
 Production builds strip `console.log/debug/info` calls and `debugger` statements
 (`console.warn`/`console.error` are kept) and split vendor libraries into separate chunks.

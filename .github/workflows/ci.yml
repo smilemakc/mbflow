@@ -103,6 +103,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Test with coverage gate
+        run: npm run test:coverage
+
       - name: Build
         run: npx vite build
 

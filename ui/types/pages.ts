@@ -47,13 +47,13 @@ export const PAGES_METADATA: Record<PageType, PageMetadata> = {
     id: PageType.MONITORING,
     path: '/monitoring',
     title: 'Monitoring',
-    description: 'Real-time infrastructure performance and error tracking',
+    description: 'Backend health and recent execution activity',
   },
   [PageType.SETTINGS]: {
     id: PageType.SETTINGS,
     path: '/settings',
     title: 'Settings',
-    description: 'User profile, notifications, and preferences',
+    description: 'User profile, password and preferences',
   },
   [PageType.RESOURCES]: {
     id: PageType.RESOURCES,
