@@ -209,8 +209,32 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		entry.SetTTL(time.Duration(ttl) * time.Second)
 	}
 
-	// Store file
-	stored, err := storage.Store(ctx, entry, reader)
+	// Link the file to the run that produced it and record its owner, so
+	// the returned file_id resolves for later get/delete/metadata actions.
+	var opts filestorage.RecordOptions
+	if execCtx, ok := executor.GetExecutionContext(ctx); ok && execCtx != nil {
+		if execCtx.WorkflowID != "" {
+			workflowID := execCtx.WorkflowID
+			entry.WorkflowID = &workflowID
+		}
+		if execCtx.ExecutionID != "" {
+			executionID := execCtx.ExecutionID
+			entry.ExecutionID = &executionID
+		}
+		if execCtx.NodeID != "" {
+			nodeID := execCtx.NodeID
+			entry.SourceNodeID = &nodeID
+		}
+		opts.CreatedBy = execCtx.OwnerID
+	}
+
+	// Store file (and its metadata record when the storage supports it)
+	var stored *models.FileEntry
+	if recorder, ok := storage.(filestorage.RecordingStorage); ok {
+		stored, err = recorder.StoreRecorded(ctx, entry, reader, opts)
+	} else {
+		stored, err = storage.Store(ctx, entry, reader)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to store file: %w", err)
 	}

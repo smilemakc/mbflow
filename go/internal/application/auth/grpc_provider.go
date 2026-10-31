@@ -199,7 +199,9 @@ func (p *GRPCProvider) Authenticate(ctx context.Context, creds *Credentials) (*P
 	}, nil
 }
 
-// ValidateToken validates a JWT token
+// ValidateToken validates a JWT token by asking the remote auth service, which
+// is therefore also responsible for revocation; mbflow sessions are not
+// consulted.
 func (p *GRPCProvider) ValidateToken(ctx context.Context, token string) (*JWTClaims, error) {
 	if !p.available {
 		logger.Error("gRPC auth: ValidateToken - provider not available")

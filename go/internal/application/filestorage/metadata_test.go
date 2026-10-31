@@ -28,6 +28,28 @@ type memRepo struct {
 	lastQuery *storage.FileQuery
 
 	updateErr, deleteErr, queryErr, expiredErr error
+	// createErrs are returned by successive Create calls (nil = success).
+	createErrs []error
+	creates    int
+}
+
+func (r *memRepo) Create(_ context.Context, f *storagemodels.FileModel) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.creates++
+	if len(r.createErrs) > 0 {
+		err := r.createErrs[0]
+		r.createErrs = r.createErrs[1:]
+		if err != nil {
+			return err
+		}
+	}
+	if f.ID == uuid.Nil {
+		f.ID = uuid.New()
+	}
+	cp := *f
+	r.files[f.ID] = &cp
+	return nil
 }
 
 func newMemRepo() *memRepo {

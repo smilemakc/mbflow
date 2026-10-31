@@ -26,6 +26,18 @@ func NewService(repo repository.CredentialsRepository, encryption *crypto.Encryp
 // GetDecrypted retrieves a credential and decrypts its data
 // This method should be used by executors to access credential values
 func (s *Service) GetDecrypted(ctx context.Context, resourceID string) (*models.CredentialsResource, error) {
+	cred, err := s.decrypt(ctx, resourceID)
+	if err != nil {
+		return nil, err
+	}
+	s.recordUsage(resourceID)
+	return cred, nil
+}
+
+// decrypt loads and decrypts a credential without counting it as used, so
+// that requests rejected after decryption (wrong type, missing field) do not
+// inflate the usage counter.
+func (s *Service) decrypt(ctx context.Context, resourceID string) (*models.CredentialsResource, error) {
 	cred, err := s.repo.GetCredentials(ctx, resourceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credential: %w", err)
@@ -43,18 +55,20 @@ func (s *Service) GetDecrypted(ctx context.Context, resourceID string) (*models.
 	}
 
 	cred.DecryptedData = decrypted
+	return cred, nil
+}
 
-	// Increment usage counter (non-blocking)
+// recordUsage increments the usage counter of a credential that was handed
+// out (non-blocking).
+func (s *Service) recordUsage(resourceID string) {
 	go func() {
 		_ = s.repo.IncrementUsageCount(context.Background(), resourceID)
 	}()
-
-	return cred, nil
 }
 
 // GetAPIKey retrieves an API key credential and returns the key value
 func (s *Service) GetAPIKey(ctx context.Context, resourceID string) (string, error) {
-	cred, err := s.GetDecrypted(ctx, resourceID)
+	cred, err := s.decrypt(ctx, resourceID)
 	if err != nil {
 		return "", err
 	}
@@ -63,12 +77,13 @@ func (s *Service) GetAPIKey(ctx context.Context, resourceID string) (string, err
 		return "", fmt.Errorf("credential %s is not an API key", resourceID)
 	}
 
+	s.recordUsage(resourceID)
 	return cred.GetAPIKey(), nil
 }
 
 // GetBasicAuth retrieves basic auth credentials
 func (s *Service) GetBasicAuth(ctx context.Context, resourceID string) (username, password string, err error) {
-	cred, err := s.GetDecrypted(ctx, resourceID)
+	cred, err := s.decrypt(ctx, resourceID)
 	if err != nil {
 		return "", "", err
 	}
@@ -77,13 +92,14 @@ func (s *Service) GetBasicAuth(ctx context.Context, resourceID string) (username
 		return "", "", fmt.Errorf("credential %s is not basic auth", resourceID)
 	}
 
+	s.recordUsage(resourceID)
 	username, password = cred.GetBasicAuth()
 	return username, password, nil
 }
 
 // GetOAuth2 retrieves OAuth2 credentials
 func (s *Service) GetOAuth2(ctx context.Context, resourceID string) (*models.OAuth2Credential, error) {
-	cred, err := s.GetDecrypted(ctx, resourceID)
+	cred, err := s.decrypt(ctx, resourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,12 +108,13 @@ func (s *Service) GetOAuth2(ctx context.Context, resourceID string) (*models.OAu
 		return nil, fmt.Errorf("credential %s is not OAuth2", resourceID)
 	}
 
+	s.recordUsage(resourceID)
 	return cred.GetOAuth2(), nil
 }
 
 // GetServiceAccountJSON retrieves service account JSON
 func (s *Service) GetServiceAccountJSON(ctx context.Context, resourceID string) (string, error) {
-	cred, err := s.GetDecrypted(ctx, resourceID)
+	cred, err := s.decrypt(ctx, resourceID)
 	if err != nil {
 		return "", err
 	}
@@ -106,12 +123,13 @@ func (s *Service) GetServiceAccountJSON(ctx context.Context, resourceID string) 
 		return "", fmt.Errorf("credential %s is not a service account", resourceID)
 	}
 
+	s.recordUsage(resourceID)
 	return cred.GetServiceAccountJSON(), nil
 }
 
 // GetCustomValue retrieves a custom field value from a credential
 func (s *Service) GetCustomValue(ctx context.Context, resourceID, fieldName string) (string, error) {
-	cred, err := s.GetDecrypted(ctx, resourceID)
+	cred, err := s.decrypt(ctx, resourceID)
 	if err != nil {
 		return "", err
 	}
@@ -121,6 +139,7 @@ func (s *Service) GetCustomValue(ctx context.Context, resourceID, fieldName stri
 		return "", fmt.Errorf("field %q not found in credential %s", fieldName, resourceID)
 	}
 
+	s.recordUsage(resourceID)
 	return value, nil
 }
 

@@ -196,8 +196,11 @@ func (pm *ProviderManager) ValidateToken(ctx context.Context, token string) (*JW
 			return claims, nil
 		}
 
-		// If not expired error and fallback enabled, try fallback
-		if pm.enableFallback && !errors.Is(err, ErrExpiredToken) {
+		// If not expired error and fallback enabled, try fallback. A token
+		// whose signature verified but whose session is revoked (or could
+		// not be checked) belongs to the primary provider: falling back
+		// would only replace that answer with an unrelated error.
+		if pm.enableFallback && !errors.Is(err, ErrExpiredToken) && !isSessionError(err) {
 			if fbProvider, fbOk := pm.providers[pm.fallbackType]; fbOk && fbProvider.IsAvailable() {
 				return fbProvider.ValidateToken(ctx, token)
 			}
@@ -213,6 +216,11 @@ func (pm *ProviderManager) ValidateToken(ctx context.Context, token string) (*JW
 	}
 
 	return nil, ErrNoProvidersAvailable
+}
+
+// isSessionError reports whether err is a built-in session check failure.
+func isSessionError(err error) bool {
+	return errors.Is(err, ErrSessionRevoked) || errors.Is(err, ErrSessionUnavailable) || errors.Is(err, ErrAccountInactive)
 }
 
 // RefreshToken refreshes a token using the appropriate provider

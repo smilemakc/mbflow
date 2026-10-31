@@ -8,15 +8,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/config"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
-	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
+	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 )
 
-var rcErrRepo = errors.New("repo failure")
+var errRCRepo = errors.New("repo failure")
 
 // rcUserRepo is an in-memory repository.UserRepository with error injection.
 type rcUserRepo struct {
@@ -236,6 +237,11 @@ func (r *rcUserRepo) CreateSession(ctx context.Context, session *models.SessionM
 }
 
 func (r *rcUserRepo) FindSessionByToken(ctx context.Context, token string) (*models.SessionModel, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if err := r.err("FindSessionByToken"); err != nil {
+		return nil, err
+	}
 	for _, s := range r.sessions {
 		if s.Token == token {
 			return s, nil
@@ -549,31 +555,31 @@ func TestRCService_RegisterValidation(t *testing.T) {
 	})
 	t.Run("exists check fails", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
-		repo.errs["ExistsByEmail"] = rcErrRepo
+		repo.errs["ExistsByEmail"] = errRCRepo
 		_, err := svc.Register(ctx, &RegisterRequest{Email: "a@b.c", Password: rcGoodPassword})
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("create fails", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
-		repo.errs["Create"] = rcErrRepo
+		repo.errs["Create"] = errRCRepo
 		_, err := svc.Register(ctx, &RegisterRequest{Email: "a@b.c", Password: rcGoodPassword})
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("roles lookup fails", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
-		repo.errs["GetUserRoles"] = rcErrRepo
+		repo.errs["GetUserRoles"] = errRCRepo
 		_, err := svc.Register(ctx, &RegisterRequest{Email: "a@b.c", Password: rcGoodPassword})
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("session create fails", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
-		repo.errs["CreateSession"] = rcErrRepo
+		repo.errs["CreateSession"] = errRCRepo
 		_, err := svc.Register(ctx, &RegisterRequest{Email: "a@b.c", Password: rcGoodPassword})
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("billing account failure is not fatal", func(t *testing.T) {
 		svc, _, acct := rcNewService(t)
-		acct.err = rcErrRepo
+		acct.err = errRCRepo
 		_, err := svc.Register(ctx, &RegisterRequest{Email: "a@b.c", Password: rcGoodPassword})
 		assert.NoError(t, err)
 	})
@@ -597,9 +603,9 @@ func TestRCService_LoginFailures(t *testing.T) {
 
 	t.Run("lookup error", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
-		repo.errs["FindByEmail"] = rcErrRepo
+		repo.errs["FindByEmail"] = errRCRepo
 		_, err := svc.Login(ctx, &LoginRequest{Email: "x@y.z"}, "", "")
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("unknown user", func(t *testing.T) {
 		svc, _, _ := rcNewService(t)
@@ -640,18 +646,18 @@ func TestRCService_LoginFailures(t *testing.T) {
 	t.Run("token generation fails", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
 		rcSeedUser(t, svc, repo, "tg@x.y")
-		repo.errs["CreateSession"] = rcErrRepo
+		repo.errs["CreateSession"] = errRCRepo
 		_, err := svc.Login(ctx, &LoginRequest{Email: "tg@x.y", Password: rcGoodPassword}, "", "")
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 }
 
 func TestRCService_LogoutErrors(t *testing.T) {
 	svc, repo, _ := rcNewService(t)
-	repo.errs["DeleteSession"] = rcErrRepo
-	repo.errs["DeleteSessionsByUserID"] = rcErrRepo
-	assert.ErrorIs(t, svc.Logout(context.Background(), "t"), rcErrRepo)
-	assert.ErrorIs(t, svc.LogoutAll(context.Background(), uuid.New()), rcErrRepo)
+	repo.errs["DeleteSession"] = errRCRepo
+	repo.errs["DeleteSessionsByUserID"] = errRCRepo
+	assert.ErrorIs(t, svc.Logout(context.Background(), "t"), errRCRepo)
+	assert.ErrorIs(t, svc.LogoutAll(context.Background(), uuid.New()), errRCRepo)
 }
 
 func TestRCService_RefreshTokenFailures(t *testing.T) {
@@ -659,16 +665,16 @@ func TestRCService_RefreshTokenFailures(t *testing.T) {
 
 	t.Run("lookup error", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
-		repo.errs["FindSessionByRefreshToken"] = rcErrRepo
+		repo.errs["FindSessionByRefreshToken"] = errRCRepo
 		_, err := svc.RefreshToken(ctx, "r")
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("user lookup error", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
 		repo.sessions[uuid.New()] = &models.SessionModel{UserID: uuid.New(), RefreshToken: "r"}
-		repo.errs["FindByID"] = rcErrRepo
+		repo.errs["FindByID"] = errRCRepo
 		_, err := svc.RefreshToken(ctx, "r")
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 	t.Run("user gone removes session", func(t *testing.T) {
 		svc, repo, _ := rcNewService(t)
@@ -683,19 +689,19 @@ func TestRCService_RefreshTokenFailures(t *testing.T) {
 		u := rcSeedUser(t, svc, repo, "r@x.y")
 		sid := uuid.New()
 		repo.sessions[sid] = &models.SessionModel{ID: sid, UserID: u.ID, RefreshToken: "r"}
-		repo.errs["DeleteSessionByID"] = rcErrRepo
+		repo.errs["DeleteSessionByID"] = errRCRepo
 		_, err := svc.RefreshToken(ctx, "r")
-		assert.ErrorIs(t, err, rcErrRepo)
+		assert.ErrorIs(t, err, errRCRepo)
 	})
 }
 
 func TestRCService_GetCurrentUserRepoError(t *testing.T) {
 	svc, repo, _ := rcNewService(t)
-	repo.errs["FindByIDWithRoles"] = rcErrRepo
+	repo.errs["FindByIDWithRoles"] = errRCRepo
 	_, err := svc.GetCurrentUser(context.Background(), uuid.NewString())
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 	_, err = svc.GetUser(context.Background(), uuid.New())
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 }
 
 func TestRCService_ChangePassword(t *testing.T) {
@@ -716,10 +722,10 @@ func TestRCService_ChangePassword(t *testing.T) {
 	_, err = svc.Login(ctx, &LoginRequest{Email: "cp@x.y", Password: "N3wPassword!"}, "", "")
 	assert.NoError(t, err)
 
-	repo.errs["Update"] = rcErrRepo
-	assert.ErrorIs(t, svc.ChangePassword(ctx, u.ID, "N3wPassword!", "An0therPass"), rcErrRepo)
-	repo.errs["FindByID"] = rcErrRepo
-	assert.ErrorIs(t, svc.ChangePassword(ctx, u.ID, "x", "y"), rcErrRepo)
+	repo.errs["Update"] = errRCRepo
+	assert.ErrorIs(t, svc.ChangePassword(ctx, u.ID, "N3wPassword!", "An0therPass"), errRCRepo)
+	repo.errs["FindByID"] = errRCRepo
+	assert.ErrorIs(t, svc.ChangePassword(ctx, u.ID, "x", "y"), errRCRepo)
 }
 
 func rcRepeat(b byte, n int) []byte {
@@ -753,18 +759,18 @@ func TestRCService_CreateUserAndEnsureAdmin(t *testing.T) {
 	_, err = svc.CreateUser(ctx, &RegisterRequest{Email: "w@x.y", Password: "Aa1" + string(rcRepeat('x', 80))}, false)
 	assert.Error(t, err)
 
-	repo.errs["Create"] = rcErrRepo
+	repo.errs["Create"] = errRCRepo
 	_, err = svc.CreateUser(ctx, &RegisterRequest{Email: "c@x.y", Password: rcGoodPassword}, false)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 	_, err = svc.EnsureAdmin(ctx, "c@x.y", rcGoodPassword)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 	delete(repo.errs, "Create")
 
-	repo.errs["ExistsByEmail"] = rcErrRepo
+	repo.errs["ExistsByEmail"] = errRCRepo
 	_, err = svc.CreateUser(ctx, &RegisterRequest{Email: "c@x.y", Password: rcGoodPassword}, false)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 	_, err = svc.EnsureAdmin(ctx, "c@x.y", rcGoodPassword)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 }
 
 // rcRaceRepo reports that the email does not exist on the first check but
@@ -837,32 +843,32 @@ func TestRCService_UserAdministrationErrors(t *testing.T) {
 	svc, repo, _ := rcNewService(t)
 	u := rcSeedUser(t, svc, repo, "u@x.y")
 
-	repo.errs["Count"] = rcErrRepo
+	repo.errs["Count"] = errRCRepo
 	_, _, err := svc.ListUsers(ctx, 10, 0)
-	assert.ErrorIs(t, err, rcErrRepo)
-	repo.errs["FindAll"] = rcErrRepo
+	assert.ErrorIs(t, err, errRCRepo)
+	repo.errs["FindAll"] = errRCRepo
 	_, _, err = svc.ListUsers(ctx, 10, 0)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 
-	repo.errs["ExistsByUsername"] = rcErrRepo
+	repo.errs["ExistsByUsername"] = errRCRepo
 	_, err = svc.UpdateUser(ctx, u.ID, u.Email, "changed", "", true, false)
-	assert.ErrorIs(t, err, rcErrRepo)
-	repo.errs["ExistsByEmail"] = rcErrRepo
+	assert.ErrorIs(t, err, errRCRepo)
+	repo.errs["ExistsByEmail"] = errRCRepo
 	_, err = svc.UpdateUser(ctx, u.ID, "changed@x.y", u.Username, "", true, false)
-	assert.ErrorIs(t, err, rcErrRepo)
-	repo.errs["Update"] = rcErrRepo
+	assert.ErrorIs(t, err, errRCRepo)
+	repo.errs["Update"] = errRCRepo
 	_, err = svc.UpdateUser(ctx, u.ID, u.Email, u.Username, "", true, false)
-	assert.ErrorIs(t, err, rcErrRepo)
-	assert.ErrorIs(t, svc.ResetUserPassword(ctx, u.ID, "Res3tPassword"), rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
+	assert.ErrorIs(t, svc.ResetUserPassword(ctx, u.ID, "Res3tPassword"), errRCRepo)
 
-	repo.errs["Delete"] = rcErrRepo
-	assert.ErrorIs(t, svc.DeleteUser(ctx, u.ID), rcErrRepo)
+	repo.errs["Delete"] = errRCRepo
+	assert.ErrorIs(t, svc.DeleteUser(ctx, u.ID), errRCRepo)
 
-	repo.errs["FindByID"] = rcErrRepo
+	repo.errs["FindByID"] = errRCRepo
 	_, err = svc.UpdateUser(ctx, u.ID, "", "", "", true, false)
-	assert.ErrorIs(t, err, rcErrRepo)
-	assert.ErrorIs(t, svc.DeleteUser(ctx, u.ID), rcErrRepo)
-	assert.ErrorIs(t, svc.ResetUserPassword(ctx, u.ID, "x"), rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
+	assert.ErrorIs(t, svc.DeleteUser(ctx, u.ID), errRCRepo)
+	assert.ErrorIs(t, svc.ResetUserPassword(ctx, u.ID, "x"), errRCRepo)
 }
 
 func TestRCService_Roles(t *testing.T) {
@@ -899,12 +905,12 @@ func TestRCService_Roles(t *testing.T) {
 	ok, _ = svc.HasPermission(ctx, u.ID, "workflows:delete")
 	assert.False(t, ok)
 
-	repo.errs["FindAllRoles"] = rcErrRepo
-	repo.errs["GetUserRoles"] = rcErrRepo
+	repo.errs["FindAllRoles"] = errRCRepo
+	repo.errs["GetUserRoles"] = errRCRepo
 	_, err = svc.ListRoles(ctx)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 	_, err = svc.GetUserRoles(ctx, u.ID)
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 }
 
 func TestRCBuiltinProvider(t *testing.T) {

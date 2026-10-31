@@ -82,14 +82,20 @@ func (r *WorkflowRepository) Create(ctx context.Context, workflow *models.Workfl
 // - Existing nodes (by node_id): preserve UUID, update fields
 // - New nodes: create with new UUID
 // - Missing nodes: delete from DB
+//
+// Every successful Update increments the stored version by one (atomically in
+// SQL, so concurrent saves never reuse a number); the caller's Version field is
+// ignored and replaced with the new value.
 func (r *WorkflowRepository) Update(ctx context.Context, workflow *models.WorkflowModel) error {
 	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		// 1. Update workflow metadata
+		// 1. Update workflow metadata and bump the version
 		workflow.UpdatedAt = time.Now()
 		_, err := tx.NewUpdate().
 			Model(workflow).
-			Column("name", "description", "version", "status", "variables", "metadata", "updated_at").
+			Column("name", "description", "status", "variables", "metadata", "updated_at").
+			Set("version = w.version + 1").
 			Where("id = ?", workflow.ID).
+			Returning("version").
 			Exec(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to update workflow: %w", err)

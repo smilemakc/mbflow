@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/itchyny/gojq"
+
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 

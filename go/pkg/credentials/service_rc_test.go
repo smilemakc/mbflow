@@ -14,7 +14,7 @@ import (
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
-var rcErrRepo = errors.New("repo failure")
+var errRCRepo = errors.New("repo failure")
 
 type rcAccessLog struct {
 	resourceID, action, actorID, actorType string
@@ -51,7 +51,7 @@ func (r *rcCredRepo) GetCredentials(ctx context.Context, id string) (*models.Cre
 	defer r.mu.Unlock()
 	c, ok := r.creds[id]
 	if !ok {
-		return nil, rcErrRepo
+		return nil, errRCRepo
 	}
 	cp := *c
 	return &cp, nil
@@ -143,7 +143,7 @@ func TestRCGetDecrypted(t *testing.T) {
 	e.rcAwaitUsage(t, "c1")
 
 	_, err = e.svc.GetDecrypted(ctx, "missing")
-	assert.ErrorIs(t, err, rcErrRepo)
+	assert.ErrorIs(t, err, errRCRepo)
 
 	expired := e.add(t, "old", models.CredentialTypeCustom, map[string]string{"a": "1"})
 	past := time.Now().Add(-time.Minute)
@@ -222,19 +222,24 @@ func TestRCTypedAccessors(t *testing.T) {
 	_, err = e.svc.GetCustomValue(ctx, "missing", "x")
 	assert.Error(t, err)
 
-	// Every successful decryption above (10, including type mismatches, which
-	// are detected after decryption) increments usage asynchronously.
-	for i := 0; i < 10; i++ {
+	// Only the 5 successful accesses above increment usage (asynchronously);
+	// type mismatches and missing fields are rejected and not counted.
+	for i := 0; i < 5; i++ {
 		select {
 		case <-e.repo.usageCh:
 		case <-time.After(5 * time.Second):
 			t.Fatal("missing usage increment")
 		}
 	}
+	select {
+	case id := <-e.repo.usageCh:
+		t.Fatalf("unexpected usage increment for %s", id)
+	case <-time.After(50 * time.Millisecond):
+	}
 	e.repo.mu.Lock()
 	defer e.repo.mu.Unlock()
-	assert.Equal(t, 4, e.repo.usage["api"])
-	assert.Equal(t, 4, e.repo.usage["basic"])
+	assert.Equal(t, 1, e.repo.usage["api"])
+	assert.Equal(t, 2, e.repo.usage["basic"])
 	assert.Equal(t, 1, e.repo.usage["oauth"])
 	assert.Equal(t, 1, e.repo.usage["sa"])
 	assert.Zero(t, e.repo.usage["missing"])
@@ -252,6 +257,6 @@ func TestRCLogWorkflowUsage(t *testing.T) {
 	assert.Equal(t, "wf-1", entry.metadata["workflow_id"])
 	assert.Equal(t, "ex-1", entry.metadata["execution_id"])
 
-	e.repo.logErr = rcErrRepo
-	assert.ErrorIs(t, e.svc.LogWorkflowUsage(ctx, "c1", "wf", "ex"), rcErrRepo)
+	e.repo.logErr = errRCRepo
+	assert.ErrorIs(t, e.svc.LogWorkflowUsage(ctx, "c1", "wf", "ex"), errRCRepo)
 }

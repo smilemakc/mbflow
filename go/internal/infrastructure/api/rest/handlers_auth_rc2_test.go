@@ -208,8 +208,14 @@ func (e *rc2AuthEnv) token(t *testing.T, user *pkgmodels.User, mutate func(*conf
 	if mutate != nil {
 		mutate(&cfg)
 	}
-	tok, _, err := auth.NewJWTService(&cfg).GenerateAccessToken(user)
+	tok, exp, err := auth.NewJWTService(&cfg).GenerateAccessToken(user)
 	require.NoError(t, err)
+	// Built-in access tokens are only valid while their session exists, so
+	// register the forged token as an issued session.
+	userID, _ := uuid.Parse(user.ID)
+	require.NoError(t, e.repo.CreateSession(context.Background(), &models.SessionModel{
+		ID: uuid.New(), UserID: userID, Token: tok, ExpiresAt: exp,
+	}))
 	return tok
 }
 
@@ -294,8 +300,15 @@ func TestRC2_Auth_SessionEndpoints(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	w = env.do(t, http.MethodPost, "/api/v1/auth/password", token, map[string]string{"old_password": "Password123!", "new_password": "NewPassword123!"})
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	_, err := env.svc.Login(context.Background(), &auth.LoginRequest{Email: "dave@example.com", Password: "NewPassword123!"}, "", "")
-	assert.NoError(t, err, "new password works")
+
+	// The password change revoked every session, including the caller's.
+	w = env.do(t, http.MethodGet, "/api/v1/auth/me", token, nil)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "session revoked")
+
+	res, err := env.svc.Login(context.Background(), &auth.LoginRequest{Email: "dave@example.com", Password: "NewPassword123!"}, "", "")
+	require.NoError(t, err, "new password works")
+	token = res.AccessToken
 
 	// Logout failure and success.
 	env.repo.fail["DeleteSession"] = assert.AnError
@@ -305,6 +318,8 @@ func TestRC2_Auth_SessionEndpoints(t *testing.T) {
 	w = env.do(t, http.MethodPost, "/api/v1/auth/logout", token, nil)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "logged out successfully", rc2DecodeMap(t, w)["message"])
+	w = env.do(t, http.MethodGet, "/api/v1/auth/me", token, nil)
+	assert.Equal(t, http.StatusUnauthorized, w.Code, "logout revokes the access token")
 
 	// A valid token for a user that no longer exists.
 	ghost := env.token(t, &pkgmodels.User{ID: uuid.NewString(), Email: "ghost@example.com"}, nil)

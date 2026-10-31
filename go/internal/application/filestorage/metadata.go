@@ -25,6 +25,7 @@ var (
 // MetadataRepository is the subset of the file metadata repository the
 // storage manager needs. *storagerepo.FileRepository implements it.
 type MetadataRepository interface {
+	Create(ctx context.Context, file *storagemodels.FileModel) error
 	Update(ctx context.Context, file *storagemodels.FileModel) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	FindByID(ctx context.Context, id uuid.UUID) (*storagemodels.FileModel, error)

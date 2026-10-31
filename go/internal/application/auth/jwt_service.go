@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -63,6 +65,9 @@ func (s *JWTService) GenerateAccessToken(user *models.User) (string, time.Time, 
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			NotBefore: jwt.NewNumericDate(time.Now()),
+			// A unique ID keeps tokens issued to the same user within the
+			// same second distinct (sessions are keyed by token).
+			ID: uuid.NewString(),
 		},
 		UserID:   user.ID,
 		Email:    user.Email,

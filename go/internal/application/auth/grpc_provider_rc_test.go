@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/smilemakc/auth-gateway/packages/go-sdk/proto"
-	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -28,6 +27,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
 )
 
 // rcFakeGateway is an in-memory auth-gateway gRPC server.
