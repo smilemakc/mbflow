@@ -24,6 +24,21 @@ func (em *ExecutionManager) ExecuteEphemeral(ctx context.Context, opts *Ephemera
 		return nil, fmt.Errorf("invalid workflow: %w", err)
 	}
 
+	// Resources (and decrypted credentials) are loaded before anything is
+	// recorded, so a credential the caller may not use is rejected up front.
+	secrets := pkgengine.NewSecretRedactor()
+	refs := ephemeralResourceRefs(opts.Workflow, opts.CredentialIDs)
+	ownerID := ephemeralOwnerID(opts)
+	if len(refs) > 0 && ownerID == "" {
+		return nil, fmt.Errorf("%w: credentials and resources of an inline execution require an owner: "+
+			"run it as an authenticated user, or set workflow.created_by to the owner's user ID", ErrResourceUnavailable)
+	}
+	resources, err := em.loadResources(ctx, refs, ownerID, opts.Workflow, secrets)
+	if err != nil {
+		return nil, err
+	}
+	rt := &ephemeralRuntime{resources: resources, secrets: secrets}
+
 	execution := em.buildEphemeralExecution(opts)
 
 	redactor := NewEventRedactor()
@@ -43,9 +58,44 @@ func (em *ExecutionManager) ExecuteEphemeral(ctx context.Context, opts *Ephemera
 	pkgOpts := convertEphemeralToPkgOptions(opts)
 
 	if opts.Mode == "sync" {
-		return em.executeEphemeralSync(ctx, execution, opts, dagExecutor, pkgOpts, webhookNames)
+		return em.executeEphemeralSync(ctx, execution, opts, rt, dagExecutor, pkgOpts, webhookNames)
 	}
-	return em.executeEphemeralAsync(ctx, execution, opts, dagExecutor, pkgOpts, webhookNames)
+	return em.executeEphemeralAsync(ctx, execution, opts, rt, dagExecutor, pkgOpts, webhookNames)
+}
+
+// ephemeralRuntime carries what an inline execution loaded before it started.
+type ephemeralRuntime struct {
+	resources map[string]any
+	secrets   *pkgengine.SecretRedactor
+}
+
+// newState returns the execution state of an inline execution with its
+// resources and secrets attached.
+func (rt *ephemeralRuntime) newState(execution *models.Execution, workflow *models.Workflow) *pkgengine.ExecutionState {
+	execState := pkgengine.NewExecutionState(
+		execution.ID,
+		workflow.ID,
+		workflow,
+		execution.Input,
+		execution.Variables,
+	)
+	if rt != nil {
+		if rt.resources != nil {
+			execState.Resources = rt.resources
+		}
+		execState.Secrets = rt.secrets
+	}
+	return execState
+}
+
+// ephemeralOwnerID returns the user an inline execution runs as: the caller
+// recorded by the API, else the workflow's created_by (service API callers
+// acting on behalf of a user).
+func ephemeralOwnerID(opts *EphemeralExecutionOptions) string {
+	if opts.CreatedBy != nil && *opts.CreatedBy != uuid.Nil {
+		return opts.CreatedBy.String()
+	}
+	return opts.Workflow.CreatedBy
 }
 
 func (em *ExecutionManager) buildEphemeralExecution(opts *EphemeralExecutionOptions) *models.Execution {
@@ -79,6 +129,7 @@ func (em *ExecutionManager) executeEphemeralSync(
 	ctx context.Context,
 	execution *models.Execution,
 	opts *EphemeralExecutionOptions,
+	rt *ephemeralRuntime,
 	dagExecutor *pkgengine.DAGExecutor,
 	pkgOpts *pkgengine.ExecutionOptions,
 	webhookNames []string,
@@ -118,15 +169,9 @@ func (em *ExecutionManager) executeEphemeralSync(
 
 	em.notifyExecutionStarted(ctx, execution)
 
-	execState := pkgengine.NewExecutionState(
-		execution.ID,
-		opts.Workflow.ID,
-		opts.Workflow,
-		execution.Input,
-		execution.Variables,
-	)
+	execState := rt.newState(execution, opts.Workflow)
 
-	execErr := dagExecutor.Execute(execCtx, execState, pkgOpts)
+	execErr := execState.Secrets.Error(dagExecutor.Execute(execCtx, execState, pkgOpts))
 
 	em.finalizeEphemeralExecution(execCtx, execution, execState, opts.Workflow, execErr)
 
@@ -145,6 +190,7 @@ func (em *ExecutionManager) executeEphemeralAsync(
 	ctx context.Context,
 	execution *models.Execution,
 	opts *EphemeralExecutionOptions,
+	rt *ephemeralRuntime,
 	dagExecutor *pkgengine.DAGExecutor,
 	pkgOpts *pkgengine.ExecutionOptions,
 	webhookNames []string,
@@ -208,15 +254,9 @@ func (em *ExecutionManager) executeEphemeralAsync(
 
 		em.notifyExecutionStarted(bgCtx, execution)
 
-		execState := pkgengine.NewExecutionState(
-			execution.ID,
-			opts.Workflow.ID,
-			opts.Workflow,
-			execution.Input,
-			execution.Variables,
-		)
+		execState := rt.newState(execution, opts.Workflow)
 
-		execErr := dagExecutor.Execute(execCtx, execState, pkgOpts)
+		execErr := execState.Secrets.Error(dagExecutor.Execute(execCtx, execState, pkgOpts))
 
 		em.finalizeEphemeralExecution(execCtx, execution, execState, opts.Workflow, execErr)
 
@@ -263,6 +303,7 @@ func (em *ExecutionManager) finalizeEphemeralExecution(
 	}
 
 	execution.NodeExecutions = buildEphemeralNodeExecutions(execState, workflow)
+	redactExecution(execution, execState)
 }
 
 func buildEphemeralNodeExecutions(execState *pkgengine.ExecutionState, workflow *models.Workflow) []*models.NodeExecution {

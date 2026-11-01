@@ -31,6 +31,10 @@ type ExecutionManager struct {
 	observerManager   *observer.ObserverManager
 	ephemeralRegistry *EphemeralStreamRegistry
 
+	// Credential support (see SetCredentialDecryption).
+	credDecrypter credentialDecrypter
+	credUsage     credentialUsageRecorder
+
 	// notPersisted holds IDs of running ephemeral executions that have no
 	// database record; their events must not reach storage observers.
 	notPersisted sync.Map
@@ -289,9 +293,11 @@ func (em *ExecutionManager) executeWorkflowDAG(
 		execution.Variables,
 	)
 
+	execState.Secrets = pkgengine.NewSecretRedactor()
+
 	// Load and validate workflow resources
 	if len(workflow.Resources) > 0 {
-		resourceMap, err := em.loadAndValidateResources(ctx, workflow)
+		resourceMap, err := em.loadAndValidateResources(ctx, workflow, execState.Secrets)
 		if err != nil {
 			return execState, err
 		}
@@ -303,7 +309,8 @@ func (em *ExecutionManager) executeWorkflowDAG(
 
 	execErr := em.dagExecutor.Execute(ctx, execState, pkgOpts)
 
-	return execState, execErr
+	// The error reaches the API, storage and observers: never with secrets.
+	return execState, execState.Secrets.Error(execErr)
 }
 
 // finalizeExecution updates execution with results and saves to database.
@@ -336,6 +343,7 @@ func (em *ExecutionManager) finalizeExecution(
 	}
 
 	execution.NodeExecutions = em.buildNodeExecutions(execState, workflow, workflowModel)
+	redactExecution(execution, execState)
 
 	if err := em.persistFinalState(ctx, execution); err != nil {
 		return fmt.Errorf("failed to update execution: %w", err)
@@ -511,38 +519,14 @@ func (em *ExecutionManager) buildNodeExecutions(
 	return nodeExecs
 }
 
-// loadAndValidateResources loads workflow resources and validates ownership.
+// loadAndValidateResources loads workflow resources and validates that the
+// workflow owner owns them; decrypted credential values are added to secrets.
 func (em *ExecutionManager) loadAndValidateResources(
 	ctx context.Context,
 	workflow *models.Workflow,
+	secrets *pkgengine.SecretRedactor,
 ) (map[string]any, error) {
-	resourceMap := make(map[string]any)
-
-	for _, wr := range workflow.Resources {
-		resource, err := em.resourceRepo.GetByID(ctx, wr.ResourceID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load resource %s (alias: %s): %w", wr.ResourceID, wr.Alias, err)
-		}
-
-		if workflow.CreatedBy != "" && resource.GetOwnerID() != workflow.CreatedBy {
-			return nil, fmt.Errorf("resource access denied: resource %s (alias: %s) owner does not match workflow owner",
-				wr.ResourceID, wr.Alias)
-		}
-
-		if resource.GetStatus() != models.ResourceStatusActive {
-			return nil, fmt.Errorf("resource %s (alias: %s) is not active (status: %s)",
-				wr.ResourceID, wr.Alias, resource.GetStatus())
-		}
-
-		resourceMap[wr.Alias] = map[string]any{
-			"id":          resource.GetID(),
-			"name":        resource.GetName(),
-			"type":        string(resource.GetType()),
-			"access_type": wr.AccessType,
-		}
-	}
-
-	return resourceMap, nil
+	return em.loadResources(ctx, workflow.Resources, workflow.CreatedBy, workflow, secrets)
 }
 
 // registerWebhookObservers creates and registers per-execution webhook observers.

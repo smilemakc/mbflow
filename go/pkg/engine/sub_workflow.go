@@ -124,7 +124,7 @@ func (de *DAGExecutor) executeSubWorkflow(
 
 			if result.Status == "completed" {
 				newCompleted := atomic.AddInt64(&completed, 1)
-				de.safeNotify(ctx, ExecutionEvent{
+				de.safeNotify(ctx, execState, ExecutionEvent{
 					Type:                  EventTypeSubWorkflowItemCompleted,
 					ExecutionID:           execState.ExecutionID,
 					WorkflowID:            execState.WorkflowID,
@@ -139,7 +139,7 @@ func (de *DAGExecutor) executeSubWorkflow(
 				})
 			} else if result.Status == "failed" {
 				newFailed := atomic.AddInt64(&failed, 1)
-				de.safeNotify(ctx, ExecutionEvent{
+				de.safeNotify(ctx, execState, ExecutionEvent{
 					Type:                  EventTypeSubWorkflowItemFailed,
 					ExecutionID:           execState.ExecutionID,
 					WorkflowID:            execState.WorkflowID,
@@ -163,7 +163,7 @@ func (de *DAGExecutor) executeSubWorkflow(
 			}
 
 			// Progress event
-			de.safeNotify(ctx, ExecutionEvent{
+			de.safeNotify(ctx, execState, ExecutionEvent{
 				Type:                 EventTypeSubWorkflowProgress,
 				ExecutionID:          execState.ExecutionID,
 				WorkflowID:           execState.WorkflowID,
@@ -265,6 +265,7 @@ func (de *DAGExecutor) executeSubWorkflowItem(
 	idx := index
 	childState.ItemIndex = &idx
 	childState.Resources = parentState.Resources
+	childState.Secrets = parentState.Secrets
 
 	// Apply per-item timeout
 	execCtx := ctx

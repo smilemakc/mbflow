@@ -253,6 +253,51 @@ response is `202 Accepted` with the queued execution (`id`, `status`, ...).
 Reads return `next_run` for enabled cron and interval triggers, computed from
 the schedule the same way the scheduler computes it.
 
+### Using credentials in nodes
+
+Store a secret once as an encrypted credential (requires `MBFLOW_ENCRYPTION_KEY`,
+a base64-encoded 32-byte key), attach it to a workflow under an alias, and
+reference its fields in node configs as `{{resource.<alias>.<field>}}`:
+
+```bash
+# 1. Create the credential (the response never contains the key)
+curl -X POST /api/v1/credentials/api-key \
+  -d '{"name": "anthropic", "provider": "anthropic", "api_key": "sk-ant-..."}'
+# -> {"id": "<credential-id>", ...}
+
+# 2. Attach it to the workflow as "anthropic"
+curl -X POST /api/v1/workflows/<workflow-id>/resources \
+  -d '{"resource_id": "<credential-id>", "alias": "anthropic"}'
+
+# 3. Use it in a node, e.g. llm: "api_key": "{{resource.anthropic.api_key}}"
+#    or http: "headers": {"Authorization": "Bearer {{resource.anthropic.api_key}}"}
+```
+
+| Credential type | Fields |
+|-----------------|--------|
+| `api_key` | `api_key` |
+| `basic_auth` | `username`, `password` |
+| `oauth2` | `client_id`, `client_secret`, `access_token`, `refresh_token`, `token_url`, `scopes` |
+| `service_account` | `json_key` |
+| `custom` | its own keys (also under `fields.<key>`; keys named `id`, `name`, `type`, `access_type`, `credential_type`, `provider` are only reachable there) |
+
+Values are decrypted when the execution starts, only if the workflow owner
+owns the credential; each execution increments the credential's `usage_count`.
+An inline run (`POST /api/v1/executions/ephemeral`) lists the credentials in
+`credential_ids`; the alias is taken from the inline workflow's
+`resources: [{"resource_id": "<credential-id>", "alias": "anthropic"}]`, otherwise
+it is the credential ID. Inline runs may only use the caller's own credentials
+(service API callers set `workflow.created_by` to the owner).
+
+Decrypted values (except OAuth2 `token_url` and `scopes`) are replaced by
+`***` in everything the execution stores or emits: node `config`,
+`resolved_config`, `input`, `output` and `error`, the execution's output and
+error, and all events (event log, WebSocket, webhooks, logs). Nodes themselves
+still receive the real values. Values shorter than 4 characters are not
+redacted, and transformed forms of a secret (e.g. base64) are not recognised.
+Without an encryption key, an execution whose nodes reference a credential
+fails with `credential decryption is not available`.
+
 ## SDK Usage
 
 ### Remote Mode (Connect to API Server)

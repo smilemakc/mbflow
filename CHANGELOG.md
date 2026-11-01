@@ -31,6 +31,7 @@
 - **Model write hooks run.** IDs, defaults, `updated_at` and the edge self-reference check are now applied on every write.
 - **Remote SDK.** The `pkg/sdk` remote mode calls the real REST routes instead of stubs.
 - **File storage metadata.** Listing, metadata, tags, cleanup of expired files and files stored by workflow nodes now go through the file metadata repository.
+- **Credentials in nodes.** Credentials attached to a workflow (or passed as `credential_ids` to an inline run, which now works and checks that the caller owns them) resolve in templates as `{{resource.<alias>.<field>}}`, e.g. an llm node's `api_key`. Decrypted values are redacted (`***`) from stored node configs, inputs, outputs, errors, execution results and all events.
 
 ### Security fixes
 
