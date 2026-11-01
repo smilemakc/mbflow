@@ -65,7 +65,11 @@ func run(args []string, getenv func(string) string, out io.Writer) error {
 		logger.Error("failed to connect to database", slog.String("error", err.Error()))
 		return err
 	}
-	defer storage.Close(db)
+	defer func() {
+		if cerr := storage.Close(db); cerr != nil {
+			logger.Error("failed to close database", slog.String("error", cerr.Error()))
+		}
+	}()
 
 	migrator, err := storage.NewMigrator(db, migrations.FS)
 	if err != nil {

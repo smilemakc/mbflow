@@ -458,7 +458,7 @@ func createLocalUser(ctx context.Context, warn io.Writer, databaseURL, email, us
 	if err != nil {
 		return nil, err
 	}
-	defer storage.Close(db)
+	defer func() { _ = storage.Close(db) }()
 
 	userRepo := storage.NewUserRepository(db)
 
@@ -529,7 +529,7 @@ func (c *cli) systemKeyCreate(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer storage.Close(db)
+	defer func() { _ = storage.Close(db) }()
 
 	creatorID, err := resolveCreatorID(ctx, storage.NewUserRepository(db), *createdByEmail)
 	if err != nil {
@@ -649,7 +649,7 @@ func (c *cli) createUserViaGateway(ctx context.Context, email, username, passwor
 	if err != nil {
 		return fmt.Errorf("failed to create gRPC provider: %w", err)
 	}
-	defer provider.Close()
+	defer func() { _ = provider.Close() }()
 
 	if !provider.IsAvailable() {
 		return errors.New("gRPC auth provider is not available")

@@ -285,7 +285,7 @@ func (r *RentalKeyRepositoryImpl) GetDecryptedAPIKey(ctx context.Context, resour
 }
 
 // RotateAPIKey replaces the API key with a new one
-func (r *RentalKeyRepositoryImpl) RotateAPIKey(ctx context.Context, resourceID string, newPlainAPIKey string) error {
+func (r *RentalKeyRepositoryImpl) RotateAPIKey(ctx context.Context, resourceID, newPlainAPIKey string) error {
 	resID, err := uuid.Parse(resourceID)
 	if err != nil {
 		return pkgmodels.ErrInvalidID
@@ -359,7 +359,7 @@ func (r *RentalKeyRepositoryImpl) RecordUsage(ctx context.Context, resourceID st
 }
 
 // GetUsageHistory retrieves usage history with pagination
-func (r *RentalKeyRepositoryImpl) GetUsageHistory(ctx context.Context, resourceID string, limit int, offset int) ([]*pkgmodels.RentalKeyUsageRecord, error) {
+func (r *RentalKeyRepositoryImpl) GetUsageHistory(ctx context.Context, resourceID string, limit, offset int) ([]*pkgmodels.RentalKeyUsageRecord, error) {
 	resID, err := uuid.Parse(resourceID)
 	if err != nil {
 		return nil, pkgmodels.ErrInvalidID
@@ -391,7 +391,7 @@ func (r *RentalKeyRepositoryImpl) GetUsageHistory(ctx context.Context, resourceI
 }
 
 // GetUsageHistoryByTimeRange retrieves usage history for a time range
-func (r *RentalKeyRepositoryImpl) GetUsageHistoryByTimeRange(ctx context.Context, resourceID string, from, to string) ([]*pkgmodels.RentalKeyUsageRecord, error) {
+func (r *RentalKeyRepositoryImpl) GetUsageHistoryByTimeRange(ctx context.Context, resourceID, from, to string) ([]*pkgmodels.RentalKeyUsageRecord, error) {
 	resID, err := uuid.Parse(resourceID)
 	if err != nil {
 		return nil, pkgmodels.ErrInvalidID

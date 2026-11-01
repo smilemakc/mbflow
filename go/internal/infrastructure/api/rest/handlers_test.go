@@ -276,11 +276,6 @@ func TestValidateWorkflowRequest(t *testing.T) {
 						t.Error("expected name validation error")
 					}
 				}
-				if nodes, ok := tt.workflow["nodes"].([]map[string]any); ok {
-					if len(nodes) == 0 && tt.errorMsg == "node" {
-						// Expected: node validation
-					}
-				}
 			}
 		})
 	}

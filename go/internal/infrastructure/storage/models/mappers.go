@@ -365,9 +365,10 @@ func WorkflowFromStorage(sw *WorkflowModel) *pkgmodels.Workflow {
 	var tags []string
 	if metadata != nil {
 		// Try both []string and []any for compatibility
-		if tagsVal, ok := metadata["tags"].([]string); ok {
+		switch tagsVal := metadata["tags"].(type) {
+		case []string:
 			tags = tagsVal
-		} else if tagsVal, ok := metadata["tags"].([]any); ok {
+		case []any:
 			tags = make([]string, len(tagsVal))
 			for i, t := range tagsVal {
 				if tagStr, ok := t.(string); ok {

@@ -67,11 +67,12 @@ func NewProvider(ctx context.Context, cfg Config) (*Provider, error) {
 
 	// Create sampler based on sample rate
 	var sampler sdktrace.Sampler
-	if cfg.SampleRate >= 1.0 {
+	switch {
+	case cfg.SampleRate >= 1.0:
 		sampler = sdktrace.AlwaysSample()
-	} else if cfg.SampleRate <= 0 {
+	case cfg.SampleRate <= 0:
 		sampler = sdktrace.NeverSample()
-	} else {
+	default:
 		sampler = sdktrace.TraceIDRatioBased(cfg.SampleRate)
 	}
 

@@ -104,7 +104,7 @@ func (h *FileHandlers) handleMultipartUpload(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Get form values
 	storageID := c.PostForm("storage_id")
@@ -143,7 +143,10 @@ func (h *FileHandlers) handleMultipartUpload(c *gin.Context) {
 	buffer := make([]byte, 512)
 	n, _ := file.Read(buffer)
 	mimeType := baseMimeType(http.DetectContentType(buffer[:n]))
-	file.Seek(0, 0) // Reset reader
+	if _, err := file.Seek(0, io.SeekStart); err != nil { // Reset reader
+		respondError(c, http.StatusInternalServerError, "failed to read uploaded file")
+		return
+	}
 
 	// Validate MIME type
 	if !models.IsMimeTypeAllowed(mimeType) {
@@ -278,7 +281,7 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 			respondError(c, http.StatusBadRequest, "failed to download file from URL")
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			respondError(c, http.StatusBadRequest, fmt.Sprintf("failed to download file: HTTP %d", resp.StatusCode))
@@ -401,10 +404,10 @@ func (h *FileHandlers) HandleGetFile(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "failed to retrieve file")
 		return
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Set headers for download using metadata from DB
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileModel.Name))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileModel.Name))
 	c.Header("Content-Type", fileModel.MimeType)
 
 	// Stream file
@@ -702,11 +705,4 @@ func baseMimeType(mimeType string) string {
 		return mediaType
 	}
 	return strings.TrimSpace(mimeType)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

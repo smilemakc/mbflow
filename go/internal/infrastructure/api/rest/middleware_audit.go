@@ -42,16 +42,19 @@ func (m *AuditMiddleware) RecordAction() gin.HandlerFunc {
 		if !exists {
 			return
 		}
-		systemKeyID := systemKeyIDVal.(string)
+		systemKeyID, ok := systemKeyIDVal.(string)
+		if !ok {
+			return
+		}
 
-		serviceNameVal, _ := c.Get(ContextKeyServiceName)
-		serviceName := serviceNameVal.(string)
+		serviceName := c.GetString(ContextKeyServiceName)
 
 		var impersonatedUserID *string
-		if isImpersonated, exists := c.Get(ContextKeyImpersonated); exists && isImpersonated.(bool) {
+		if c.GetBool(ContextKeyImpersonated) {
 			if userIDVal, exists := c.Get(ContextKeyUserID); exists {
-				userID := userIDVal.(string)
-				impersonatedUserID = &userID
+				if userID, ok := userIDVal.(string); ok {
+					impersonatedUserID = &userID
+				}
 			}
 		}
 

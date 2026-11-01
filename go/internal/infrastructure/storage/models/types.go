@@ -120,7 +120,7 @@ type StringArray []string
 
 // Value implements the driver.Valuer interface for database serialization
 func (a StringArray) Value() (driver.Value, error) {
-	if a == nil || len(a) == 0 {
+	if len(a) == 0 {
 		return "{}", nil
 	}
 	// Format as PostgreSQL array literal: {"val1","val2"}

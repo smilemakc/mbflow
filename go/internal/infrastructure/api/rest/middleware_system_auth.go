@@ -53,11 +53,12 @@ func (m *SystemAuthMiddleware) RequireSystemAccess() gin.HandlerFunc {
 
 		key, err := m.systemKeyService.ValidateKey(c.Request.Context(), token)
 		if err != nil {
-			if errors.Is(err, models.ErrSystemKeyRevoked) {
+			switch {
+			case errors.Is(err, models.ErrSystemKeyRevoked):
 				respondError(c, http.StatusUnauthorized, "system key has been revoked")
-			} else if errors.Is(err, models.ErrSystemKeyExpired) {
+			case errors.Is(err, models.ErrSystemKeyExpired):
 				respondError(c, http.StatusUnauthorized, "system key has expired")
-			} else {
+			default:
 				respondError(c, http.StatusUnauthorized, "invalid system key")
 			}
 			c.Abort()

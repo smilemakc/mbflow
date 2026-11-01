@@ -73,11 +73,7 @@ func (r *CredentialsRepositoryImpl) CreateCredentials(ctx context.Context, cred 
 		cred.UpdatedAt = resourceModel.UpdatedAt
 
 		// Log creation
-		if err := r.logAccessInTx(ctx, tx, resourceModel.ID.String(), "created", cred.OwnerID, "user", nil); err != nil {
-			return err
-		}
-
-		return nil
+		return r.logAccessInTx(ctx, tx, resourceModel.ID.String(), "created", cred.OwnerID, "user", nil)
 	})
 }
 
