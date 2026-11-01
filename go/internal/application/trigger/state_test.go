@@ -5,31 +5,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/internal/config"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
 )
 
+// setupTestRedis returns a cache backed by an in-process miniredis server.
 func setupTestRedis(t *testing.T) *cache.RedisCache {
-	// Create a test Redis cache using the existing constructor
-	cfg := config.RedisConfig{
-		URL:      "redis://localhost:6379",
-		Password: "",
-		DB:       1, // Use test database
-		PoolSize: 10,
-	}
+	t.Helper()
+	rc, _ := setupTestRedisServer(t)
+	return rc
+}
 
-	redisCache, err := cache.NewRedisCache(cfg)
-	if err != nil {
-		t.Skip("Redis not available for testing")
-	}
-
-	// Clean test database
-	ctx := context.Background()
-	redisCache.Client().FlushDB(ctx)
-
-	return redisCache
+// setupTestRedisServer is setupTestRedis that also returns the server, for
+// tests that inspect keys or simulate an outage.
+func setupTestRedisServer(t *testing.T) (*cache.RedisCache, *miniredis.Miniredis) {
+	t.Helper()
+	mr := miniredis.RunT(t)
+	rc, err := cache.NewRedisCache(config.RedisConfig{URL: "redis://" + mr.Addr(), PoolSize: 4})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = rc.Close() })
+	return rc, mr
 }
 
 func TestNewTriggerState(t *testing.T) {
@@ -64,8 +63,6 @@ func TestTriggerState_SetNextExecution(t *testing.T) {
 }
 
 func TestTriggerState_SaveAndLoad(t *testing.T) {
-	t.Skip("Requires Redis connection - run with integration tests")
-
 	cache := setupTestRedis(t)
 	ctx := context.Background()
 	triggerID := "test-trigger-456"
@@ -89,8 +86,6 @@ func TestTriggerState_SaveAndLoad(t *testing.T) {
 }
 
 func TestDeleteTriggerState(t *testing.T) {
-	t.Skip("Requires Redis connection - run with integration tests")
-
 	cache := setupTestRedis(t)
 	ctx := context.Background()
 	triggerID := "test-trigger-789"
@@ -115,4 +110,14 @@ func TestGetTriggerStateKey(t *testing.T) {
 
 	key := getTriggerStateKey(triggerID)
 	assert.Equal(t, expected, key)
+}
+
+func TestLoadTriggerState_CorruptValue(t *testing.T) {
+	rc, mr := setupTestRedisServer(t)
+	require.NoError(t, mr.Set(getTriggerStateKey("t"), "{not json"))
+	_, err := LoadTriggerState(context.Background(), rc, "t")
+	assert.ErrorContains(t, err, "failed to unmarshal trigger state")
+
+	mr.SetError("ERR redis unavailable")
+	assert.ErrorContains(t, NewTriggerState("t").Save(context.Background(), rc), "failed to save trigger state")
 }

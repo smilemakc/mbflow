@@ -46,9 +46,12 @@ export interface EdgeApiResponse {
 export interface ExecutionApiResponse {
     id: string;
     workflow_id: string;
-    status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+    workflow_name?: string;
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout';
     started_at: string;
     completed_at?: string;
+    duration?: number;      // milliseconds
+    triggered_by?: string;
     input: Record<string, any>;
     output: Record<string, any>;
     error?: string;
@@ -231,9 +234,12 @@ export function executionFromApi(api: ExecutionApiResponse) {
     return {
         id: api.id,
         workflow_id: api.workflow_id,
+        workflow_name: api.workflow_name,
         status: api.status,
         started_at: api.started_at,
         completed_at: api.completed_at,
+        duration: api.duration,
+        triggered_by: api.triggered_by,
         input: api.input || {},
         output: api.output || {},
         error: api.error,

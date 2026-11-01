@@ -38,7 +38,9 @@ func (WorkflowModel) TableName() string {
 // BeforeInsert hook to set timestamps
 func (w *WorkflowModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	w.CreatedAt = now
+	if w.CreatedAt.IsZero() {
+		w.CreatedAt = now
+	}
 	w.UpdatedAt = now
 	if w.ID == uuid.Nil {
 		w.ID = uuid.New()

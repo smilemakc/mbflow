@@ -268,7 +268,7 @@ func (s *Server) setupAPIv1Routes() {
 }
 
 func (s *Server) setupAuthRoutes(apiV1 *gin.RouterGroup) {
-	authHandlers := rest.NewAuthHandlers(s.auth.AuthService, s.auth.ProviderManager, s.auth.LoginRateLimiter)
+	authHandlers := rest.NewAuthHandlersWithLimiter(s.auth.AuthService, s.auth.ProviderManager, s.auth.LoginRateLimiter)
 
 	authGroup := apiV1.Group("/auth")
 	{
@@ -289,7 +289,7 @@ func (s *Server) setupAuthRoutes(apiV1 *gin.RouterGroup) {
 }
 
 func (s *Server) setupAdminRoutes(apiV1 *gin.RouterGroup) {
-	authHandlers := rest.NewAuthHandlers(s.auth.AuthService, s.auth.ProviderManager, s.auth.LoginRateLimiter)
+	authHandlers := rest.NewAuthHandlersWithLimiter(s.auth.AuthService, s.auth.ProviderManager, s.auth.LoginRateLimiter)
 
 	adminGroup := apiV1.Group("/admin")
 	adminGroup.Use(s.auth.AuthMiddleware.RequireAdmin())

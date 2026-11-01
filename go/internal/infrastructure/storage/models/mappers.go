@@ -89,15 +89,16 @@ func TriggerModelToDomain(tm *TriggerModel) *pkgmodels.Trigger {
 	}
 
 	trigger := &pkgmodels.Trigger{
-		ID:         tm.ID.String(),
-		WorkflowID: tm.WorkflowID.String(),
-		Name:       "", // TriggerModel doesn't have Name field
-		Type:       pkgmodels.TriggerType(tm.Type),
-		Config:     config,
-		Enabled:    tm.Enabled,
-		CreatedAt:  tm.CreatedAt,
-		UpdatedAt:  tm.UpdatedAt,
-		LastRun:    tm.LastTriggeredAt,
+		ID:          tm.ID.String(),
+		WorkflowID:  tm.WorkflowID.String(),
+		Name:        tm.DisplayName(),
+		Description: tm.DisplayDescription(),
+		Type:        pkgmodels.TriggerType(tm.Type),
+		Config:      config,
+		Enabled:     tm.Enabled,
+		CreatedAt:   tm.CreatedAt,
+		UpdatedAt:   tm.UpdatedAt,
+		LastRun:     tm.LastTriggeredAt,
 	}
 
 	return trigger
@@ -110,6 +111,8 @@ func TriggerDomainToModel(t *pkgmodels.Trigger) *TriggerModel {
 	}
 
 	tm := &TriggerModel{
+		Name:            t.Name,
+		Description:     t.Description,
 		Type:            string(t.Type),
 		Config:          JSONBMap(t.Config),
 		Enabled:         t.Enabled,
@@ -287,6 +290,13 @@ func WorkflowToStorage(w *pkgmodels.Workflow, workflowID uuid.UUID) *WorkflowMod
 
 // NodeToStorage converts a domain node to a storage node model
 func NodeToStorage(n *pkgmodels.Node, workflowID uuid.UUID) *NodeModel {
+	// config is NOT NULL in the database: store an empty object for nodes
+	// without configuration.
+	config := JSONBMap(n.Config)
+	if config == nil {
+		config = JSONBMap{}
+	}
+
 	position := JSONBMap{}
 	if n.Position != nil {
 		position["x"] = n.Position.X
@@ -299,7 +309,7 @@ func NodeToStorage(n *pkgmodels.Node, workflowID uuid.UUID) *NodeModel {
 		WorkflowID: workflowID,
 		Name:       n.Name,
 		Type:       n.Type,
-		Config:     JSONBMap(n.Config),
+		Config:     config,
 		Position:   position,
 	}
 }
@@ -486,6 +496,7 @@ func WorkflowModelToDomain(wm *WorkflowModel) *pkgmodels.Workflow {
 		ID:          wm.ID.String(),
 		Name:        wm.Name,
 		Description: wm.Description,
+		Version:     wm.Version,
 		Status:      pkgmodels.WorkflowStatus(wm.Status),
 		Variables:   make(map[string]any),
 		Metadata:    make(map[string]any),
@@ -632,6 +643,10 @@ func ExecutionModelToDomain(exm *ExecutionModel) *pkgmodels.Execution {
 		exec.Error = exm.Error
 	}
 
+	if len(exm.Metadata) > 0 {
+		exec.Metadata = exm.Metadata
+	}
+
 	if len(exm.NodeExecutions) > 0 {
 		exec.NodeExecutions = make([]*pkgmodels.NodeExecution, len(exm.NodeExecutions))
 		for i, ne := range exm.NodeExecutions {
@@ -655,6 +670,10 @@ func ExecutionDomainToModel(exec *pkgmodels.Execution) *ExecutionModel {
 		Variables:  JSONBMap(exec.Variables),
 		StartedAt:  &exec.StartedAt,
 		Error:      exec.Error,
+	}
+
+	if len(exec.Metadata) > 0 {
+		exm.Metadata = JSONBMap(exec.Metadata)
 	}
 
 	if exec.ID != "" {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
 	"github.com/smilemakc/mbflow/go/internal/config"
 )
 
@@ -68,6 +69,13 @@ func (c *RedisCache) Health(ctx context.Context) error {
 // Set sets a key-value pair with optional TTL.
 func (c *RedisCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
 	return c.client.Set(ctx, key, value, ttl).Err()
+}
+
+// SetNX sets key to value with the given TTL only if the key does not exist
+// yet. It reports whether the key was set, which makes it usable as a
+// lightweight distributed claim/lock: exactly one caller wins per key.
+func (c *RedisCache) SetNX(ctx context.Context, key string, value any, ttl time.Duration) (bool, error) {
+	return c.client.SetNX(ctx, key, value, ttl).Result()
 }
 
 // Get retrieves a value by key.

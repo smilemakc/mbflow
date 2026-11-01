@@ -96,7 +96,13 @@ func (p *GatewayProvider) Authenticate(ctx context.Context, creds *Credentials) 
 	return p.processOAuthToken(ctx, token)
 }
 
-// ValidateToken validates an access token using OIDC provider
+// ValidateToken validates an access token using OIDC provider.
+//
+// Revocation: unlike built-in tokens (see Service.ValidateToken), gateway/OIDC
+// access tokens are not tied to an mbflow session and are accepted until they
+// expire. Logging out of mbflow does not revoke them; revocation is the
+// identity provider's job (short token lifetimes, or its own revocation /
+// introspection, which this provider does not call).
 func (p *GatewayProvider) ValidateToken(ctx context.Context, token string) (*JWTClaims, error) {
 	if !p.available {
 		return nil, ErrProviderNotConfigured

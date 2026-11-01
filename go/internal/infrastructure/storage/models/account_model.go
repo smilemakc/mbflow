@@ -34,7 +34,9 @@ func (BillingAccountModel) TableName() string {
 // BeforeInsert hook to set timestamps and defaults
 func (b *BillingAccountModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	b.CreatedAt = now
+	if b.CreatedAt.IsZero() {
+		b.CreatedAt = now
+	}
 	b.UpdatedAt = now
 	if b.ID == uuid.Nil {
 		b.ID = uuid.New()
@@ -99,7 +101,9 @@ func (TransactionModel) TableName() string {
 
 // BeforeInsert hook to set timestamps and defaults
 func (t *TransactionModel) BeforeInsert(ctx any) error {
-	t.CreatedAt = time.Now()
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = time.Now()
+	}
 	if t.ID == uuid.Nil {
 		t.ID = uuid.New()
 	}

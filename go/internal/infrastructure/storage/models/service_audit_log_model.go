@@ -35,7 +35,9 @@ func (ServiceAuditLogModel) TableName() string {
 
 // BeforeInsert hook to set timestamps and defaults
 func (s *ServiceAuditLogModel) BeforeInsert(ctx any) error {
-	s.CreatedAt = time.Now()
+	if s.CreatedAt.IsZero() {
+		s.CreatedAt = time.Now()
+	}
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()
 	}

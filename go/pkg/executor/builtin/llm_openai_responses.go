@@ -258,19 +258,21 @@ func (p *OpenAIResponsesProvider) buildHistory(req *models.LLMRequest) []map[str
 	return items
 }
 
-// buildResponseFormat builds the response format for structured outputs.
+// buildResponseFormat builds text.format for structured outputs. Unlike Chat
+// Completions, the Responses API expects the schema fields directly inside
+// the format object rather than nested under "json_schema".
 func (p *OpenAIResponsesProvider) buildResponseFormat(format *models.LLMResponseFormat) map[string]any {
 	result := map[string]any{
 		"type": format.Type,
 	}
 
 	if format.Type == "json_schema" && format.JSONSchema != nil {
-		result["json_schema"] = map[string]any{
-			"name":        format.JSONSchema.Name,
-			"description": format.JSONSchema.Description,
-			"schema":      format.JSONSchema.Schema,
-			"strict":      format.JSONSchema.Strict,
+		result["name"] = format.JSONSchema.Name
+		if format.JSONSchema.Description != "" {
+			result["description"] = format.JSONSchema.Description
 		}
+		result["schema"] = format.JSONSchema.Schema
+		result["strict"] = format.JSONSchema.Strict
 	}
 
 	return result

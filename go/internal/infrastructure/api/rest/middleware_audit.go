@@ -2,6 +2,7 @@ package rest
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -63,18 +64,24 @@ func (m *AuditMiddleware) RecordAction() gin.HandlerFunc {
 
 		clientIP := c.ClientIP()
 		status := c.Writer.Status()
+		method := c.Request.Method
+		path := c.Request.URL.Path
+		// The request context is cancelled once the handler returns and the
+		// gin context is recycled for the next request, so the background
+		// write must not touch either of them.
+		ctx := context.WithoutCancel(c.Request.Context())
 
 		go func() {
 			if err := m.auditService.LogAction(
-				c.Request.Context(),
+				ctx,
 				systemKeyID,
 				serviceName,
 				action,
 				resourceType,
 				resourceID,
 				impersonatedUserID,
-				c.Request.Method,
-				c.Request.URL.Path,
+				method,
+				path,
 				body,
 				clientIP,
 				status,

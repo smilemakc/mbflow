@@ -10,11 +10,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
+	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/uptrace/bun"
 )
 
-// Ensure ExecutionRepository implements the interface
-var _ repository.ExecutionRepository = (*ExecutionRepository)(nil)
+// Ensure ExecutionRepository implements the interfaces
+var (
+	_ repository.ExecutionRepository      = (*ExecutionRepository)(nil)
+	_ repository.ExecutionLeaseRepository = (*ExecutionRepository)(nil)
+)
 
 // ExecutionRepository implements repository.ExecutionRepository using Bun ORM
 type ExecutionRepository struct {
@@ -40,16 +44,30 @@ func (r *ExecutionRepository) Create(ctx context.Context, execution *models.Exec
 
 // Update updates an existing execution
 func (r *ExecutionRepository) Update(ctx context.Context, execution *models.ExecutionModel) error {
+	// updated_at doubles as the execution lease (see TouchExecutions); the
+	// model's hooks are not bun hooks, so set it explicitly instead of
+	// writing a zero timestamp.
+	execution.UpdatedAt = time.Now()
 	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		// Update execution record
-		_, err := tx.NewUpdate().
+		// Update execution record. Cancellation is sticky (see
+		// repository.ExecutionLeaseRepository): a cancelled execution may only
+		// be stored as cancelled again.
+		q := tx.NewUpdate().
 			Model(execution).
 			Column("status", "output_data", "error", "completed_at", "variables", "updated_at").
 			Column("workflow_source").
-			Where("id = ?", execution.ID).
-			Exec(ctx)
+			Where("id = ?", execution.ID)
+		if execution.Status != statusCancelled {
+			q = q.Where("status <> ?", statusCancelled)
+		}
+		res, err := q.Exec(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to update execution: %w", err)
+		}
+		if execution.Status != statusCancelled {
+			if err := checkNotCancelled(ctx, tx, execution.ID, res); err != nil {
+				return err
+			}
 		}
 
 		// Delete existing node executions
@@ -73,6 +91,121 @@ func (r *ExecutionRepository) Update(ctx context.Context, execution *models.Exec
 
 		return nil
 	})
+}
+
+// activeExecutionStatuses are the statuses whose execution holds a lease.
+var activeExecutionStatuses = []string{"pending", "running"}
+
+// TouchExecutions renews the lease of the given pending or running executions.
+func (r *ExecutionRepository) TouchExecutions(ctx context.Context, ids []uuid.UUID) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res, err := r.db.NewUpdate().
+		Model((*models.ExecutionModel)(nil)).
+		Set("updated_at = current_timestamp").
+		Where("id IN (?)", bun.In(ids)).
+		Where("status IN (?)", bun.In(activeExecutionStatuses)).
+		Exec(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to touch executions: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to touch executions: %w", err)
+	}
+	return int(n), nil
+}
+
+// FailStaleExecutions fails pending or running executions whose lease
+// (updated_at) expired more than staleAfter ago. A single UPDATE keeps it
+// safe to run concurrently from several replicas.
+func (r *ExecutionRepository) FailStaleExecutions(ctx context.Context, staleAfter time.Duration, errMsg string) ([]uuid.UUID, error) {
+	if staleAfter <= 0 {
+		return nil, fmt.Errorf("stale threshold must be positive, got %s", staleAfter)
+	}
+	var ids []uuid.UUID
+	err := r.db.NewUpdate().
+		Model((*models.ExecutionModel)(nil)).
+		Set("status = ?", "failed").
+		Set("error = ?", errMsg).
+		Set("completed_at = current_timestamp").
+		Set("updated_at = current_timestamp").
+		Where("status IN (?)", bun.In(activeExecutionStatuses)).
+		Where("updated_at < current_timestamp - ? * interval '1 microsecond'", staleAfter.Microseconds()).
+		Returning("id").
+		Scan(ctx, &ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fail stale executions: %w", err)
+	}
+	return ids, nil
+}
+
+const statusCancelled = "cancelled"
+
+// checkNotCancelled returns repository.ErrExecutionAlreadyCancelled when an
+// update matched no row because the execution is cancelled.
+func checkNotCancelled(ctx context.Context, tx bun.Tx, id uuid.UUID, res sql.Result) error {
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to update execution: %w", err)
+	}
+	if n > 0 {
+		return nil
+	}
+	cancelled, err := tx.NewSelect().
+		Model((*models.ExecutionModel)(nil)).
+		Where("id = ?", id).
+		Where("status = ?", statusCancelled).
+		Exists(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to update execution: %w", err)
+	}
+	if cancelled {
+		return repository.ErrExecutionAlreadyCancelled
+	}
+	return nil
+}
+
+// CancelExecution cancels a pending or running execution with a single
+// conditional UPDATE, so concurrent cancels and finalizations from several
+// replicas cannot both win.
+func (r *ExecutionRepository) CancelExecution(ctx context.Context, id uuid.UUID, errMsg string) (bool, error) {
+	res, err := r.db.NewUpdate().
+		Model((*models.ExecutionModel)(nil)).
+		Set("status = ?", statusCancelled).
+		Set("error = ?", errMsg).
+		Set("completed_at = current_timestamp").
+		Set("updated_at = current_timestamp").
+		Where("id = ?", id).
+		Where("status IN (?)", bun.In(activeExecutionStatuses)).
+		Exec(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to cancel execution: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to cancel execution: %w", err)
+	}
+	return n > 0, nil
+}
+
+// CancelledExecutions returns the given executions that are cancelled.
+func (r *ExecutionRepository) CancelledExecutions(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var cancelled []uuid.UUID
+	err := r.db.NewSelect().
+		Model((*models.ExecutionModel)(nil)).
+		Column("id").
+		Where("id IN (?)", bun.In(ids)).
+		Where("status = ?", statusCancelled).
+		Scan(ctx, &cancelled)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find cancelled executions: %w", err)
+	}
+	return cancelled, nil
 }
 
 // Delete deletes an execution
@@ -109,7 +242,7 @@ func (r *ExecutionRepository) FindByID(ctx context.Context, id uuid.UUID) (*mode
 		Scan(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("execution not found: %s", id)
+			return nil, fmt.Errorf("%w: %s", pkgmodels.ErrExecutionNotFound, id)
 		}
 		return nil, fmt.Errorf("failed to find execution: %w", err)
 	}
@@ -126,7 +259,7 @@ func (r *ExecutionRepository) FindByIDWithRelations(ctx context.Context, id uuid
 		Scan(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("execution not found: %s", id)
+			return nil, fmt.Errorf("%w: %s", pkgmodels.ErrExecutionNotFound, id)
 		}
 		return nil, fmt.Errorf("failed to find execution with relations: %w", err)
 	}

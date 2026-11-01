@@ -36,7 +36,9 @@ func (EdgeModel) TableName() string {
 // BeforeInsert hook to set timestamps and validate
 func (e *EdgeModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	e.CreatedAt = now
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = now
+	}
 	e.UpdatedAt = now
 	if e.ID == uuid.Nil {
 		e.ID = uuid.New()

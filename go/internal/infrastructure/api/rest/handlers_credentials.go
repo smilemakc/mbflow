@@ -398,7 +398,7 @@ func (h *CredentialsHandlers) GetCredential(c *gin.Context) {
 
 	cred, err := h.credRepo.GetCredentials(c.Request.Context(), credentialID)
 	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
+		if isCredentialNotFound(err) {
 			respondError(c, http.StatusNotFound, "credential not found")
 			return
 		}
@@ -432,7 +432,7 @@ func (h *CredentialsHandlers) GetCredentialSecrets(c *gin.Context) {
 
 	cred, err := h.credRepo.GetCredentials(c.Request.Context(), credentialID)
 	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
+		if isCredentialNotFound(err) {
 			respondError(c, http.StatusNotFound, "credential not found")
 			return
 		}
@@ -503,7 +503,7 @@ func (h *CredentialsHandlers) UpdateCredential(c *gin.Context) {
 
 	cred, err := h.credRepo.GetCredentials(c.Request.Context(), credentialID)
 	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
+		if isCredentialNotFound(err) {
 			respondError(c, http.StatusNotFound, "credential not found")
 			return
 		}
@@ -553,7 +553,7 @@ func (h *CredentialsHandlers) DeleteCredential(c *gin.Context) {
 
 	cred, err := h.credRepo.GetCredentials(c.Request.Context(), credentialID)
 	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
+		if isCredentialNotFound(err) {
 			respondError(c, http.StatusNotFound, "credential not found")
 			return
 		}
@@ -626,4 +626,10 @@ func (h *CredentialsHandlers) toResponse(cred *models.CredentialsResource) Crede
 		UpdatedAt:      cred.UpdatedAt,
 		Fields:         fields,
 	}
+}
+
+// isCredentialNotFound reports whether err means the requested credential does
+// not exist. A malformed ID cannot name an existing credential either.
+func isCredentialNotFound(err error) bool {
+	return errors.Is(err, models.ErrResourceNotFound) || errors.Is(err, models.ErrInvalidID)
 }

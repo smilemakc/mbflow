@@ -139,3 +139,15 @@ func getQueryInt(c *gin.Context, name string, defaultValue int) int {
 	value := c.Query(name)
 	return parseIntQuery(value, defaultValue)
 }
+
+// paramFirst returns the first non-empty path parameter among names. Routes
+// name some parameters in snake_case (node_id, edge_id) while older routers
+// used camelCase (nodeId, edgeId); both are accepted.
+func paramFirst(c *gin.Context, names ...string) string {
+	for _, name := range names {
+		if value := c.Param(name); value != "" {
+			return value
+		}
+	}
+	return ""
+}

@@ -303,32 +303,6 @@ func TestGetExecution_ShouldHandleMissingWorkflow_Gracefully(t *testing.T) {
 	require.NotNil(t, result)
 }
 
-// --- CancelExecution ---
-
-func TestCancelExecution_ShouldReturnNotImplementedError(t *testing.T) {
-	ops := newTestOperations(nil, nil, nil, nil, nil, nil, nil)
-
-	err := ops.CancelExecution(context.Background(), CancelExecutionParams{ExecutionID: uuid.New()})
-
-	require.Error(t, err)
-	var opErr *OperationError
-	require.ErrorAs(t, err, &opErr)
-	assert.Equal(t, "NOT_IMPLEMENTED", opErr.Code)
-}
-
-// --- RetryExecution ---
-
-func TestRetryExecution_ShouldReturnNotImplementedError(t *testing.T) {
-	ops := newTestOperations(nil, nil, nil, nil, nil, nil, nil)
-
-	err := ops.RetryExecution(context.Background(), RetryExecutionParams{ExecutionID: uuid.New()})
-
-	require.Error(t, err)
-	var opErr *OperationError
-	require.ErrorAs(t, err, &opErr)
-	assert.Equal(t, "NOT_IMPLEMENTED", opErr.Code)
-}
-
 // --- GetExecutionLogs ---
 
 func TestGetExecutionLogs_ShouldReturnLogs_WhenEventsExist(t *testing.T) {

@@ -26,6 +26,11 @@ export default defineConfig(({mode}) => {
                     target: backendUrl,
                     changeOrigin: true,
                 },
+                // Backend health probes live at the server root
+                '^/(health|ready)$': {
+                    target: backendUrl,
+                    changeOrigin: true,
+                },
                 '/ws': {
                     target: wsBackendUrl,
                     ws: true,

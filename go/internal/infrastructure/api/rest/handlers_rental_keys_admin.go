@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -190,7 +189,7 @@ func (h *RentalKeyAdminHandlers) GetRentalKey(c *gin.Context) {
 
 	key, err := h.adminService.GetKey(c.Request.Context(), keyID)
 	if err != nil {
-		if errors.Is(err, models.ErrRentalKeyNotFound) || errors.Is(err, models.ErrResourceNotFound) {
+		if isRentalKeyNotFound(err) {
 			respondError(c, http.StatusNotFound, "rental key not found")
 			return
 		}
@@ -236,7 +235,7 @@ func (h *RentalKeyAdminHandlers) UpdateRentalKey(c *gin.Context) {
 
 	key, err := h.adminService.UpdateKey(c.Request.Context(), keyID, updateReq)
 	if err != nil {
-		if errors.Is(err, models.ErrRentalKeyNotFound) || errors.Is(err, models.ErrResourceNotFound) {
+		if isRentalKeyNotFound(err) {
 			respondError(c, http.StatusNotFound, "rental key not found")
 			return
 		}
@@ -274,7 +273,7 @@ func (h *RentalKeyAdminHandlers) RotateRentalKeyAPIKey(c *gin.Context) {
 
 	err := h.adminService.RotateKey(c.Request.Context(), keyID, req.NewAPIKey)
 	if err != nil {
-		if errors.Is(err, models.ErrRentalKeyNotFound) || errors.Is(err, models.ErrResourceNotFound) {
+		if isRentalKeyNotFound(err) {
 			respondError(c, http.StatusNotFound, "rental key not found")
 			return
 		}
@@ -307,7 +306,7 @@ func (h *RentalKeyAdminHandlers) DeleteRentalKey(c *gin.Context) {
 
 	err := h.adminService.DeleteKey(c.Request.Context(), keyID)
 	if err != nil {
-		if errors.Is(err, models.ErrRentalKeyNotFound) || errors.Is(err, models.ErrResourceNotFound) {
+		if isRentalKeyNotFound(err) {
 			respondError(c, http.StatusNotFound, "rental key not found")
 			return
 		}

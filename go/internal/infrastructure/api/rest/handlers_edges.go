@@ -30,8 +30,12 @@ func NewEdgeHandlers(workflowRepo repository.WorkflowRepository, log *logger.Log
 // detectCycle checks if adding a new edge would create a cycle using DFS
 func detectCycle(edges []*storagemodels.EdgeModel, newFrom, newTo string) bool {
 	// Build adjacency list including the new edge
+	// Loop edges are intentional back-edges and are not part of the DAG.
 	adj := make(map[string][]string)
 	for _, e := range edges {
+		if len(e.Loop) > 0 {
+			continue
+		}
 		adj[e.FromNodeID] = append(adj[e.FromNodeID], e.ToNodeID)
 	}
 	// Add the new edge
@@ -264,7 +268,7 @@ func (h *EdgeHandlers) HandleListEdges(c *gin.Context) {
 // HandleGetEdge handles GET /api/v1/workflows/{workflow_id}/edges/{edgeId}
 func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
-	edgeID := c.Param("edgeId")
+	edgeID := paramFirst(c, "edge_id", "edgeId")
 
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
@@ -313,7 +317,7 @@ func (h *EdgeHandlers) HandleGetEdge(c *gin.Context) {
 // HandleUpdateEdge handles PUT /api/v1/workflows/{workflow_id}/edges/{edgeId}
 func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
-	edgeID := c.Param("edgeId")
+	edgeID := paramFirst(c, "edge_id", "edgeId")
 
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")
@@ -463,7 +467,7 @@ func (h *EdgeHandlers) HandleUpdateEdge(c *gin.Context) {
 // HandleDeleteEdge handles DELETE /api/v1/workflows/{workflow_id}/edges/{edgeId}
 func (h *EdgeHandlers) HandleDeleteEdge(c *gin.Context) {
 	workflowID := c.Param("workflow_id")
-	edgeID := c.Param("edgeId")
+	edgeID := paramFirst(c, "edge_id", "edgeId")
 
 	if workflowID == "" {
 		respondError(c, http.StatusBadRequest, "workflow ID is required")

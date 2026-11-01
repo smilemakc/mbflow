@@ -22,3 +22,6 @@ docs/internal
 *.njsproj
 *.sln
 *.sw?
+
+# Test coverage output
+coverage

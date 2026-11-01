@@ -96,13 +96,18 @@ func (s *ServiceAPIServer) CancelExecution(ctx context.Context, req *pb.CancelEx
 		return nil, status.Errorf(codes.InvalidArgument, "invalid execution ID")
 	}
 
-	if err := s.ops.CancelExecution(ctx, serviceapi.CancelExecutionParams{
+	result, err := s.ops.CancelExecution(ctx, serviceapi.CancelExecutionParams{
 		ExecutionID: execUUID,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, mapError(err)
 	}
 
-	return &pb.ExecutionResponse{}, nil
+	// The execution's status is cancelled either way; with several replicas
+	// it may still be stopping for up to one heartbeat interval.
+	return &pb.ExecutionResponse{
+		Execution: toProtoExecution(result.Execution),
+	}, nil
 }
 
 func (s *ServiceAPIServer) RetryExecution(ctx context.Context, req *pb.RetryExecutionRequest) (*pb.ExecutionResponse, error) {
@@ -111,11 +116,14 @@ func (s *ServiceAPIServer) RetryExecution(ctx context.Context, req *pb.RetryExec
 		return nil, status.Errorf(codes.InvalidArgument, "invalid execution ID")
 	}
 
-	if err := s.ops.RetryExecution(ctx, serviceapi.RetryExecutionParams{
+	execution, err := s.ops.RetryExecution(ctx, serviceapi.RetryExecutionParams{
 		ExecutionID: execUUID,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, mapError(err)
 	}
 
-	return &pb.ExecutionResponse{}, nil
+	return &pb.ExecutionResponse{
+		Execution: toProtoExecution(execution),
+	}, nil
 }

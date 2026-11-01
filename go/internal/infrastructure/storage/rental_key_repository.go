@@ -172,7 +172,7 @@ func (r *RentalKeyRepositoryImpl) GetRentalKeysByProvider(ctx context.Context, o
 	err = r.db.NewSelect().
 		Model(&resourceModels).
 		Relation("RentalKey", func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Where("rrk.provider = ?", string(provider))
+			return q.Where("rental_key.provider = ?", string(provider))
 		}).
 		Where("r.owner_id = ? AND r.deleted_at IS NULL", ownerUUID).
 		Where("r.type = ?", string(pkgmodels.ResourceTypeRentalKey)).
@@ -510,7 +510,7 @@ func (r *RentalKeyRepositoryImpl) GetAllRentalKeys(ctx context.Context, filter r
 
 	// Apply filters
 	if filter.Provider != nil {
-		query = query.Where("rrk.provider = ?", string(*filter.Provider))
+		query = query.Where("rental_key.provider = ?", string(*filter.Provider))
 	}
 	if filter.Status != nil {
 		query = query.Where("r.status = ?", string(*filter.Status))
@@ -524,7 +524,7 @@ func (r *RentalKeyRepositoryImpl) GetAllRentalKeys(ctx context.Context, filter r
 	if filter.CreatedBy != nil {
 		creatorUUID, err := uuid.Parse(*filter.CreatedBy)
 		if err == nil {
-			query = query.Where("rrk.created_by = ?", creatorUUID)
+			query = query.Where("rental_key.created_by = ?", creatorUUID)
 		}
 	}
 

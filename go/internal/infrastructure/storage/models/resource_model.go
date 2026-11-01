@@ -39,7 +39,9 @@ func (ResourceModel) TableName() string {
 // BeforeInsert hook to set timestamps and defaults
 func (r *ResourceModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	r.CreatedAt = now
+	if r.CreatedAt.IsZero() {
+		r.CreatedAt = now
+	}
 	r.UpdatedAt = now
 	if r.ID == uuid.Nil {
 		r.ID = uuid.New()
@@ -144,7 +146,9 @@ func (PricingPlanModel) TableName() string {
 
 // BeforeInsert hook to set timestamps and defaults
 func (p *PricingPlanModel) BeforeInsert(ctx any) error {
-	p.CreatedAt = time.Now()
+	if p.CreatedAt.IsZero() {
+		p.CreatedAt = time.Now()
+	}
 	if p.ID == uuid.Nil {
 		p.ID = uuid.New()
 	}

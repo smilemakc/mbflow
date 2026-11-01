@@ -12,11 +12,23 @@ import (
 type AuthHandlers struct {
 	authService     *auth.Service
 	providerManager *auth.ProviderManager
-	rateLimiter     *LoginRateLimiter
+	rateLimiter     LoginLimiter
 }
 
-// NewAuthHandlers creates new authentication handlers
+// NewAuthHandlers creates new authentication handlers backed by the
+// per-process login limiter (nil disables login lockout).
 func NewAuthHandlers(authService *auth.Service, pm *auth.ProviderManager, rateLimiter *LoginRateLimiter) *AuthHandlers {
+	var limiter LoginLimiter
+	if rateLimiter != nil {
+		limiter = NewMemoryLoginLimiter(rateLimiter)
+	}
+	return NewAuthHandlersWithLimiter(authService, pm, limiter)
+}
+
+// NewAuthHandlersWithLimiter creates authentication handlers with any login
+// lockout policy, e.g. a Redis-backed one shared by all replicas (nil
+// disables login lockout).
+func NewAuthHandlersWithLimiter(authService *auth.Service, pm *auth.ProviderManager, rateLimiter LoginLimiter) *AuthHandlers {
 	return &AuthHandlers{
 		authService:     authService,
 		providerManager: pm,
@@ -96,7 +108,7 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 	attemptKey := LoginAttemptKey(clientIP, req.Email)
 
 	// Check if this client is locked out for this account
-	if h.rateLimiter != nil && h.rateLimiter.IsBlocked(attemptKey) {
+	if h.rateLimiter != nil && h.rateLimiter.IsBlocked(c.Request.Context(), attemptKey) {
 		respondErrorWithDetails(c, http.StatusTooManyRequests, "too many login attempts", "RATE_LIMIT_EXCEEDED", map[string]any{
 			"retry_after": 900, // 15 minutes
 		})
@@ -145,11 +157,11 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 
 	if err != nil {
 		if h.rateLimiter != nil {
-			h.rateLimiter.RecordFailedAttempt(attemptKey)
+			h.rateLimiter.RecordFailedAttempt(c.Request.Context(), attemptKey)
 		}
 
 		if err == auth.ErrInvalidCredentials && h.rateLimiter != nil {
-			remaining := h.rateLimiter.GetRemainingAttempts(attemptKey)
+			remaining := h.rateLimiter.RemainingAttempts(c.Request.Context(), attemptKey)
 			apiErr := TranslateError(err)
 			if apiErr.Details == nil {
 				apiErr.Details = make(map[string]any)
@@ -165,7 +177,7 @@ func (h *AuthHandlers) HandleLogin(c *gin.Context) {
 
 	// Reset rate limit on successful login
 	if h.rateLimiter != nil {
-		h.rateLimiter.RecordSuccessfulLogin(attemptKey)
+		h.rateLimiter.RecordSuccessfulLogin(c.Request.Context(), attemptKey)
 	}
 
 	respondJSON(c, http.StatusOK, authResult)

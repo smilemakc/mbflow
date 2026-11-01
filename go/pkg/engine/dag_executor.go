@@ -231,6 +231,10 @@ func (de *DAGExecutor) executeNodeRecovering(
 			err = fmt.Errorf("node panicked: %v", r)
 			slog.Error("recovered panic in node execution",
 				"node_id", node.ID, "node_type", node.Type, "panic", r, "stack", string(debug.Stack()))
+			// Record the failure so the node is not left "running".
+			execState.SetNodeError(node.ID, err)
+			execState.SetNodeStatus(node.ID, models.NodeExecutionStatusFailed)
+			execState.SetNodeEndTime(node.ID, time.Now())
 		}
 	}()
 	return de.executeNode(ctx, execState, node, opts)
@@ -493,7 +497,7 @@ func (de *DAGExecutor) safeNotify(ctx context.Context, event ExecutionEvent) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Notifier panicked: %v\n", r)
+			slog.Error("recovered panic in execution notifier", "event_type", event.Type, "panic", r)
 		}
 	}()
 

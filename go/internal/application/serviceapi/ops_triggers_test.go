@@ -18,7 +18,7 @@ import (
 // --- triggerModelToDomain ---
 
 func TestTriggerModelToDomain_ShouldReturnNil_WhenNilInput(t *testing.T) {
-	result := triggerModelToDomain(nil, "", "")
+	result := triggerModelToDomain(nil)
 
 	assert.Nil(t, result)
 }
@@ -34,6 +34,8 @@ func TestTriggerModelToDomain_ShouldMapFields_WhenValidModel(t *testing.T) {
 		ID:              trigID,
 		WorkflowID:      wfID,
 		Type:            "cron",
+		Name:            "My Trigger",
+		Description:     "Runs hourly",
 		Config:          storagemodels.JSONBMap{"expression": "0 * * * *"},
 		Enabled:         true,
 		LastTriggeredAt: &lastTriggered,
@@ -42,7 +44,7 @@ func TestTriggerModelToDomain_ShouldMapFields_WhenValidModel(t *testing.T) {
 	}
 
 	// Act
-	result := triggerModelToDomain(tm, "My Trigger", "Runs hourly")
+	result := triggerModelToDomain(tm)
 
 	// Assert
 	require.NotNil(t, result)
@@ -56,7 +58,7 @@ func TestTriggerModelToDomain_ShouldMapFields_WhenValidModel(t *testing.T) {
 	assert.Equal(t, "0 * * * *", result.Config["expression"])
 }
 
-func TestTriggerModelToDomain_ShouldUseConfigName_WhenNameParamEmpty(t *testing.T) {
+func TestTriggerModelToDomain_ShouldUseConfigName_WhenNameColumnEmpty(t *testing.T) {
 	tm := &storagemodels.TriggerModel{
 		ID:         uuid.New(),
 		WorkflowID: uuid.New(),
@@ -66,23 +68,24 @@ func TestTriggerModelToDomain_ShouldUseConfigName_WhenNameParamEmpty(t *testing.
 		UpdatedAt:  time.Now(),
 	}
 
-	result := triggerModelToDomain(tm, "", "")
+	result := triggerModelToDomain(tm)
 
 	assert.Equal(t, "Config Name", result.Name)
 	assert.Equal(t, "Config Desc", result.Description)
 }
 
-func TestTriggerModelToDomain_ShouldPreferParamName_OverConfigName(t *testing.T) {
+func TestTriggerModelToDomain_ShouldPreferStoredName_OverConfigName(t *testing.T) {
 	tm := &storagemodels.TriggerModel{
 		ID:         uuid.New(),
 		WorkflowID: uuid.New(),
+		Name:       "Explicit Name",
 		Type:       "manual",
 		Config:     storagemodels.JSONBMap{"name": "Config Name"},
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
 
-	result := triggerModelToDomain(tm, "Explicit Name", "")
+	result := triggerModelToDomain(tm)
 
 	assert.Equal(t, "Explicit Name", result.Name)
 }
@@ -97,7 +100,7 @@ func TestTriggerModelToDomain_ShouldHandleNilLastTriggeredAt(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	}
 
-	result := triggerModelToDomain(tm, "", "")
+	result := triggerModelToDomain(tm)
 
 	assert.Nil(t, result.LastRun)
 }

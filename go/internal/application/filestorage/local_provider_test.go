@@ -8,12 +8,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // ============== A. Initialization Tests ==============
@@ -228,7 +230,9 @@ func TestLocalProvider_Store_SanitizeFilename_PathTraversal(t *testing.T) {
 			fullPath := filepath.Join(dir, path)
 			absPath, _ := filepath.Abs(fullPath)
 			absBase, _ := filepath.Abs(dir)
-			assert.True(t, filepath.HasPrefix(absPath, absBase), "File should be within base directory")
+			rel, err := filepath.Rel(absBase, absPath)
+			require.NoError(t, err)
+			assert.False(t, strings.HasPrefix(rel, ".."), "File should be within base directory")
 		})
 	}
 }
@@ -606,7 +610,7 @@ func TestLocalProvider_Delete_CleanupEmptyDirs(t *testing.T) {
 	require.NoError(t, err)
 
 	// Parent directory should be cleaned up if empty
-	_, err = os.Stat(parentDir)
+	_, _ = os.Stat(parentDir)
 	// Directory may or may not exist depending on cleanup logic
 	// Just verify file is gone
 	_, err = os.Stat(fullPath)

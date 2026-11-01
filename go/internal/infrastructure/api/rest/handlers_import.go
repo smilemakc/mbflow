@@ -15,6 +15,7 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
+	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // ImportHandlers provides HTTP handlers for workflow import/export endpoints.
@@ -216,24 +217,19 @@ func (h *ImportHandlers) saveWorkflow(c *gin.Context, result *importer.ImportRes
 	workflowModel.Edges = make([]*storagemodels.EdgeModel, 0, len(workflow.Edges))
 	for _, edge := range workflow.Edges {
 		edgeModel := &storagemodels.EdgeModel{
-			ID:         uuid.New(),
-			EdgeID:     edge.ID,
-			WorkflowID: workflowModel.ID,
-			FromNodeID: edge.From,
-			ToNodeID:   edge.To,
-			CreatedAt:  now,
-			UpdatedAt:  now,
+			ID:           uuid.New(),
+			EdgeID:       edge.ID,
+			WorkflowID:   workflowModel.ID,
+			FromNodeID:   edge.From,
+			ToNodeID:     edge.To,
+			SourceHandle: edge.SourceHandle,
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		}
 		if edge.Condition != "" {
 			edgeModel.Condition = storagemodels.JSONBMap{
 				"expression": edge.Condition,
 			}
-		}
-		if edge.SourceHandle != "" {
-			if edgeModel.Condition == nil {
-				edgeModel.Condition = storagemodels.JSONBMap{}
-			}
-			edgeModel.Condition["source_handle"] = edge.SourceHandle
 		}
 		workflowModel.Edges = append(workflowModel.Edges, edgeModel)
 	}
@@ -309,41 +305,11 @@ func (h *ImportHandlers) HandleExportWorkflow(c *gin.Context) {
 	// Convert to domain model
 	workflow := storagemodels.WorkflowModelToDomain(workflowModel)
 
-	// Get trigger if exists
-	var trigger *struct {
-		Name        string
-		Description string
-		Type        string
-		Enabled     bool
-		Config      map[string]any
-		Metadata    map[string]any
-	}
-
+	// Get trigger if exists (the importer stores name/description in config)
+	var trigger *exportTrigger
 	triggers, err := h.triggerRepo.FindByWorkflowID(c.Request.Context(), workflowUUID)
 	if err == nil && len(triggers) > 0 {
-		tm := triggers[0]
-		name := ""
-		description := ""
-		if n, ok := tm.Config["name"].(string); ok {
-			name = n
-		}
-		if d, ok := tm.Config["description"].(string); ok {
-			description = d
-		}
-		trigger = &struct {
-			Name        string
-			Description string
-			Type        string
-			Enabled     bool
-			Config      map[string]any
-			Metadata    map[string]any
-		}{
-			Name:        name,
-			Description: description,
-			Type:        tm.Type,
-			Enabled:     tm.Enabled,
-			Config:      map[string]any(tm.Config),
-		}
+		trigger = newExportTrigger(triggers[0])
 	}
 
 	// Check format parameter
@@ -359,10 +325,58 @@ func (h *ImportHandlers) HandleExportWorkflow(c *gin.Context) {
 	}
 }
 
-// exportYAML exports the workflow in YAML format.
-func (h *ImportHandlers) exportYAML(c *gin.Context, workflow any, trigger any) {
-	// Build YAML export structure
-	yamlData, err := h.buildYAMLExport(workflow, trigger)
+// exportTrigger is the trigger representation used by workflow exports.
+type exportTrigger struct {
+	Name        string
+	Description string
+	Type        string
+	Enabled     bool
+	Config      map[string]any
+	Metadata    map[string]any
+}
+
+func newExportTrigger(tm *storagemodels.TriggerModel) *exportTrigger {
+	t := &exportTrigger{
+		Type:    tm.Type,
+		Enabled: tm.Enabled,
+		Config:  map[string]any(tm.Config),
+	}
+	if n, ok := tm.Config["name"].(string); ok {
+		t.Name = n
+	}
+	if d, ok := tm.Config["description"].(string); ok {
+		t.Description = d
+	}
+	return t
+}
+
+// toDomain converts the export trigger to a domain trigger for the YAML
+// exporter. The name/description keys the importer adds to the config are
+// emitted as dedicated fields instead.
+func (t *exportTrigger) toDomain() *pkgmodels.Trigger {
+	if t == nil {
+		return nil
+	}
+	config := make(map[string]any, len(t.Config))
+	for k, v := range t.Config {
+		if k == "name" || k == "description" {
+			continue
+		}
+		config[k] = v
+	}
+	return &pkgmodels.Trigger{
+		Name:        t.Name,
+		Description: t.Description,
+		Type:        pkgmodels.TriggerType(t.Type),
+		Enabled:     t.Enabled,
+		Config:      config,
+		Metadata:    t.Metadata,
+	}
+}
+
+// exportYAML exports the workflow in the YAML format accepted by the importer.
+func (h *ImportHandlers) exportYAML(c *gin.Context, workflow *pkgmodels.Workflow, trigger *exportTrigger) {
+	yamlData, err := h.importer.ExportToYAML(workflow, trigger.toDomain())
 	if err != nil {
 		h.logger.Error("Failed to build YAML export", "error", err, "request_id", GetRequestID(c))
 		respondAPIError(c, NewAPIError("EXPORT_ERROR", "Failed to export workflow", http.StatusInternalServerError))
@@ -375,7 +389,7 @@ func (h *ImportHandlers) exportYAML(c *gin.Context, workflow any, trigger any) {
 }
 
 // exportJSON exports the workflow in JSON format.
-func (h *ImportHandlers) exportJSON(c *gin.Context, workflow any, trigger any) {
+func (h *ImportHandlers) exportJSON(c *gin.Context, workflow *pkgmodels.Workflow, trigger *exportTrigger) {
 	export := gin.H{
 		"workflow": workflow,
 	}
@@ -385,113 +399,6 @@ func (h *ImportHandlers) exportJSON(c *gin.Context, workflow any, trigger any) {
 
 	c.Header("Content-Disposition", "attachment; filename=workflow.json")
 	c.JSON(http.StatusOK, export)
-}
-
-// buildYAMLExport builds the YAML export data using the importer.
-func (h *ImportHandlers) buildYAMLExport(workflowInterface any, triggerInterface any) ([]byte, error) {
-	// Type assertion to get the actual workflow
-	workflow, ok := workflowInterface.(*struct {
-		ID          string
-		Name        string
-		Description string
-		Version     int
-		Status      string
-		Tags        []string
-		Nodes       any
-		Edges       any
-		Variables   map[string]any
-		Metadata    map[string]any
-	})
-	if !ok {
-		// Try alternative type - models.Workflow
-		return h.buildYAMLFromModels(workflowInterface, triggerInterface)
-	}
-
-	// Build YAML structure manually
-	_ = workflow
-	return h.buildYAMLFromModels(workflowInterface, triggerInterface)
-}
-
-// buildYAMLFromModels builds YAML from models.Workflow.
-func (h *ImportHandlers) buildYAMLFromModels(workflowInterface any, triggerInterface any) ([]byte, error) {
-	// Use the importer's export functionality
-	// First need to convert back to models.Workflow
-
-	// For now, return a simple YAML structure
-	// The actual implementation would use the importer
-	var yamlBuilder strings.Builder
-
-	yamlBuilder.WriteString("# MBFlow Workflow Configuration v1.0\n")
-	yamlBuilder.WriteString("# Exported workflow\n\n")
-
-	// Use reflection or type switch to build YAML
-	// This is a simplified version
-	switch w := workflowInterface.(type) {
-	case map[string]any:
-		return h.buildYAMLFromMap(w, triggerInterface)
-	default:
-		// Try to use the importer directly with type assertion
-		if wf, ok := workflowInterface.(interface {
-			GetID() string
-			GetName() string
-		}); ok {
-			_ = wf
-		}
-	}
-
-	return []byte(yamlBuilder.String()), nil
-}
-
-// buildYAMLFromMap builds YAML from a map representation.
-func (h *ImportHandlers) buildYAMLFromMap(workflow map[string]any, trigger any) ([]byte, error) {
-	var yamlBuilder strings.Builder
-
-	yamlBuilder.WriteString("# MBFlow Workflow Configuration v1.0\n\n")
-	yamlBuilder.WriteString("metadata:\n")
-
-	if name, ok := workflow["name"].(string); ok {
-		yamlBuilder.WriteString(fmt.Sprintf("  name: %q\n", name))
-	}
-	if desc, ok := workflow["description"].(string); ok && desc != "" {
-		yamlBuilder.WriteString(fmt.Sprintf("  description: %q\n", desc))
-	}
-	if version, ok := workflow["version"].(int); ok {
-		yamlBuilder.WriteString(fmt.Sprintf("  version: %d\n", version))
-	}
-
-	// Variables
-	if vars, ok := workflow["variables"].(map[string]any); ok && len(vars) > 0 {
-		yamlBuilder.WriteString("\nvariables:\n")
-		for k, v := range vars {
-			yamlBuilder.WriteString(fmt.Sprintf("  %s: %q\n", k, fmt.Sprintf("%v", v)))
-		}
-	}
-
-	// Nodes
-	if nodes, ok := workflow["nodes"].([]any); ok && len(nodes) > 0 {
-		yamlBuilder.WriteString("\nnodes:\n")
-		for _, n := range nodes {
-			if node, ok := n.(map[string]any); ok {
-				yamlBuilder.WriteString(fmt.Sprintf("  - id: %s\n", node["id"]))
-				yamlBuilder.WriteString(fmt.Sprintf("    name: %q\n", node["name"]))
-				yamlBuilder.WriteString(fmt.Sprintf("    type: %s\n", node["type"]))
-			}
-		}
-	}
-
-	// Edges
-	if edges, ok := workflow["edges"].([]any); ok && len(edges) > 0 {
-		yamlBuilder.WriteString("\nedges:\n")
-		for _, e := range edges {
-			if edge, ok := e.(map[string]any); ok {
-				yamlBuilder.WriteString(fmt.Sprintf("  - id: %s\n", edge["id"]))
-				yamlBuilder.WriteString(fmt.Sprintf("    from: %s\n", edge["from"]))
-				yamlBuilder.WriteString(fmt.Sprintf("    to: %s\n", edge["to"]))
-			}
-		}
-	}
-
-	return []byte(yamlBuilder.String()), nil
 }
 
 // HandleGetSupportedTypes handles GET /api/v1/workflows/import/types

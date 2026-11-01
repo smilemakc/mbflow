@@ -89,15 +89,15 @@ func New(opts ...Option) (*Server, error) {
 	}
 
 	if err := s.initComponents(); err != nil {
-		return nil, fmt.Errorf("failed to initialize components: %w", err)
+		return nil, s.abortInit(fmt.Errorf("failed to initialize components: %w", err))
 	}
 
 	if err := s.setupRoutes(); err != nil {
-		return nil, fmt.Errorf("failed to setup routes: %w", err)
+		return nil, s.abortInit(fmt.Errorf("failed to setup routes: %w", err))
 	}
 
 	if err := s.setupGRPCServer(); err != nil {
-		return nil, fmt.Errorf("failed to setup gRPC server: %w", err)
+		return nil, s.abortInit(fmt.Errorf("failed to setup gRPC server: %w", err))
 	}
 
 	s.httpServer = &http.Server{
@@ -111,6 +111,17 @@ func New(opts ...Option) (*Server, error) {
 	}
 
 	return s, nil
+}
+
+// abortInit releases whatever New already started (database pool, Redis,
+// trigger manager, background loops) before returning err.
+func (s *Server) abortInit(err error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if shutdownErr := s.Shutdown(ctx); shutdownErr != nil {
+		s.logger.Error("Cleanup after failed initialization", "error", shutdownErr)
+	}
+	return err
 }
 
 // Run starts the server and blocks until a shutdown signal is received
@@ -208,6 +219,10 @@ func (s *Server) shutdown(ctx context.Context) error {
 		case <-ctx.Done():
 			s.serviceAPI.GRPCServerInstance.Stop()
 			record(ctx.Err())
+		}
+		// The listener stays open if Serve was never called (e.g. New without Run).
+		if s.serviceAPI.GRPCListener != nil {
+			_ = s.serviceAPI.GRPCListener.Close()
 		}
 		s.logger.Info("gRPC Service API server stopped")
 	}

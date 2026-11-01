@@ -50,16 +50,18 @@ func NewProvider(ctx context.Context, cfg Config) (*Provider, error) {
 		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
 
-	// Create resource with service information
+	// Create resource with service information. The service attributes are
+	// schemaless so that merging them into resource.Default() (whose schema URL
+	// follows the SDK's semconv version) cannot fail with a schema URL conflict.
 	res, err := resource.Merge(
 		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
+		resource.NewSchemaless(
 			semconv.ServiceName(cfg.ServiceName),
 			semconv.ServiceVersion("1.0.0"),
 		),
 	)
 	if err != nil {
+		_ = exporter.Shutdown(ctx)
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 

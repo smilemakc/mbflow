@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
-	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
+	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 )
 
 // TestNewManager_Success tests successful manager creation

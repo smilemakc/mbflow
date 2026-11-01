@@ -131,23 +131,11 @@ func (h *WebhookHandlers) HandleWebhookGet(c *gin.Context) {
 	c.JSON(http.StatusOK, webhookInfo)
 }
 
-// getSourceIP extracts the client IP address from the request
+// getSourceIP returns the client IP used for the trigger's IP whitelist.
+//
+// It relies on gin's ClientIP, which honors X-Forwarded-For / X-Real-IP only
+// when the request comes from a configured trusted proxy. Reading those
+// headers directly would let any client spoof a whitelisted address.
 func getSourceIP(c *gin.Context) string {
-	// Check X-Forwarded-For header
-	if xff := c.GetHeader("X-Forwarded-For"); xff != "" {
-		// Take the first IP in the list
-		ips := strings.Split(xff, ",")
-		if len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
-		}
-	}
-
-	// Check X-Real-IP header
-	if xri := c.GetHeader("X-Real-IP"); xri != "" {
-		return xri
-	}
-
-	// Fall back to RemoteAddr
-	ip := c.ClientIP()
-	return ip
+	return c.ClientIP()
 }

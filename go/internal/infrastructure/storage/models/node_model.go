@@ -36,7 +36,9 @@ func (NodeModel) TableName() string {
 // BeforeInsert hook to set timestamps
 func (n *NodeModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	n.CreatedAt = now
+	if n.CreatedAt.IsZero() {
+		n.CreatedAt = now
+	}
 	n.UpdatedAt = now
 	if n.ID == uuid.Nil {
 		n.ID = uuid.New()

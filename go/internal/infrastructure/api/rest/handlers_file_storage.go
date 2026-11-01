@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
@@ -31,6 +33,28 @@ func NewFileStorageHandlers(
 	}
 }
 
+// authorizeResource loads the resource and verifies the caller owns it. It
+// writes the error response and returns false otherwise. Malformed IDs are
+// reported as not found rather than as server errors.
+func (h *FileStorageHandlers) authorizeResource(c *gin.Context, resourceID, userID string) bool {
+	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
+	if err != nil {
+		if errors.Is(err, models.ErrResourceNotFound) || errors.Is(err, models.ErrInvalidID) {
+			respondError(c, http.StatusNotFound, "resource not found")
+			return false
+		}
+		h.logger.Error("Failed to get resource", "error", err, "resource_id", resourceID)
+		respondError(c, http.StatusInternalServerError, "failed to get resource")
+		return false
+	}
+
+	if resource.GetOwnerID() != userID {
+		respondError(c, http.StatusForbidden, "access denied")
+		return false
+	}
+	return true
+}
+
 func (h *FileStorageHandlers) UploadFile(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
@@ -43,19 +67,7 @@ func (h *FileStorageHandlers) UploadFile(c *gin.Context) {
 		return
 	}
 
-	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
-	if err != nil {
-		if err == models.ErrResourceNotFound {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to get resource", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to get resource")
-		return
-	}
-
-	if resource.GetOwnerID() != userID {
-		respondError(c, http.StatusForbidden, "access denied")
+	if !h.authorizeResource(c, resourceID, userID) {
 		return
 	}
 
@@ -68,7 +80,7 @@ func (h *FileStorageHandlers) UploadFile(c *gin.Context) {
 
 	buffer := make([]byte, 512)
 	n, _ := file.Read(buffer)
-	mimeType := http.DetectContentType(buffer[:n])
+	mimeType := baseMimeType(http.DetectContentType(buffer[:n]))
 	file.Seek(0, 0)
 
 	if !models.IsMimeTypeAllowed(mimeType) {
@@ -127,19 +139,7 @@ func (h *FileStorageHandlers) ListFiles(c *gin.Context) {
 		return
 	}
 
-	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
-	if err != nil {
-		if err == models.ErrResourceNotFound {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to get resource", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to get resource")
-		return
-	}
-
-	if resource.GetOwnerID() != userID {
-		respondError(c, http.StatusForbidden, "access denied")
+	if !h.authorizeResource(c, resourceID, userID) {
 		return
 	}
 
@@ -193,20 +193,12 @@ func (h *FileStorageHandlers) GetFileMetadata(c *gin.Context) {
 	if !ok {
 		return
 	}
-
-	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
-	if err != nil {
-		if err == models.ErrResourceNotFound {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to get resource", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to get resource")
+	if _, err := uuid.Parse(fileID); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid file ID")
 		return
 	}
 
-	if resource.GetOwnerID() != userID {
-		respondError(c, http.StatusForbidden, "access denied")
+	if !h.authorizeResource(c, resourceID, userID) {
 		return
 	}
 
@@ -259,20 +251,12 @@ func (h *FileStorageHandlers) DownloadFile(c *gin.Context) {
 	if !ok {
 		return
 	}
-
-	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
-	if err != nil {
-		if errors.Is(err, models.ErrResourceNotFound) {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to get resource", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to get resource")
+	if _, err := uuid.Parse(fileID); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid file ID")
 		return
 	}
 
-	if resource.GetOwnerID() != userID {
-		respondError(c, http.StatusForbidden, "access denied")
+	if !h.authorizeResource(c, resourceID, userID) {
 		return
 	}
 
@@ -318,20 +302,12 @@ func (h *FileStorageHandlers) DeleteFile(c *gin.Context) {
 	if !ok {
 		return
 	}
-
-	resource, err := h.resourceRepo.GetByID(c.Request.Context(), resourceID)
-	if err != nil {
-		if err == models.ErrResourceNotFound {
-			respondError(c, http.StatusNotFound, "resource not found")
-			return
-		}
-		h.logger.Error("Failed to get resource", "error", err, "resource_id", resourceID)
-		respondError(c, http.StatusInternalServerError, "failed to get resource")
+	if _, err := uuid.Parse(fileID); err != nil {
+		respondError(c, http.StatusBadRequest, "invalid file ID")
 		return
 	}
 
-	if resource.GetOwnerID() != userID {
-		respondError(c, http.StatusForbidden, "access denied")
+	if !h.authorizeResource(c, resourceID, userID) {
 		return
 	}
 

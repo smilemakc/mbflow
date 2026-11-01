@@ -28,6 +28,14 @@ var (
 	ErrRegistrationDisabled   = errors.New("registration is disabled")
 	ErrRoleNotFound           = errors.New("role not found")
 	ErrCannotDeleteSystemRole = errors.New("cannot delete system role")
+
+	// ErrSessionRevoked is returned by ValidateToken for a correctly signed,
+	// unexpired access token whose session no longer exists (logout, password
+	// change, admin deactivation, ...).
+	ErrSessionRevoked = errors.New("session has been revoked")
+	// ErrSessionUnavailable is returned by ValidateToken when the session
+	// store cannot be queried. Validation fails closed.
+	ErrSessionUnavailable = errors.New("session store unavailable")
 )
 
 // Service handles authentication and authorization operations
@@ -37,6 +45,7 @@ type Service struct {
 	jwtService      *JWTService
 	passwordService *PasswordService
 	config          *config.AuthConfig
+	sessions        *sessionCache
 }
 
 // NewService creates a new auth service
@@ -51,6 +60,7 @@ func NewService(
 		jwtService:      NewJWTService(cfg),
 		passwordService: NewPasswordService(cfg.MinPasswordLength),
 		config:          cfg,
+		sessions:        newSessionCache(defaultSessionCacheTTL, defaultSessionCacheMax),
 	}
 }
 
@@ -193,9 +203,13 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest, ipAddress, userA
 	return result, nil
 }
 
-// Logout invalidates a user session
+// Logout invalidates a user session. The access token stops being accepted by
+// ValidateToken immediately on this replica, and within the session cache TTL
+// on other replicas.
 func (s *Service) Logout(ctx context.Context, token string) error {
-	if err := s.userRepo.DeleteSession(ctx, token); err != nil {
+	err := s.userRepo.DeleteSession(ctx, token)
+	s.sessions.evictToken(token)
+	if err != nil {
 		return fmt.Errorf("failed to delete session: %w", err)
 	}
 	return nil
@@ -203,10 +217,21 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 
 // LogoutAll invalidates all sessions for a user
 func (s *Service) LogoutAll(ctx context.Context, userID uuid.UUID) error {
-	if err := s.userRepo.DeleteSessionsByUserID(ctx, userID); err != nil {
+	err := s.userRepo.DeleteSessionsByUserID(ctx, userID)
+	s.sessions.evictUser(userID.String())
+	if err != nil {
 		return fmt.Errorf("failed to delete all sessions: %w", err)
 	}
 	return nil
+}
+
+// revokeUserSessions revokes every session of a user as a side effect of a
+// security-relevant change. A failure is logged rather than returned because
+// the primary change has already been applied.
+func (s *Service) revokeUserSessions(ctx context.Context, userID uuid.UUID, reason string) {
+	if err := s.LogoutAll(ctx, userID); err != nil {
+		slog.Warn("failed to revoke user sessions", "user_id", userID.String(), "reason", reason, "error", err)
+	}
 }
 
 // RefreshToken refreshes an access token using a refresh token
@@ -228,27 +253,63 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthR
 	if user == nil || !user.IsActive {
 		// Delete the invalid session
 		_ = s.userRepo.DeleteSessionByID(ctx, session.ID)
+		s.sessions.evictToken(session.Token)
 		return nil, ErrInvalidRefreshToken
 	}
 
-	// Delete old session
+	// Delete old session; its access token is revoked along with it.
 	if err := s.userRepo.DeleteSessionByID(ctx, session.ID); err != nil {
 		return nil, fmt.Errorf("failed to delete old session: %w", err)
 	}
+	s.sessions.evictToken(session.Token)
 
 	// Generate new tokens
 	return s.generateTokens(ctx, user, session.IPAddress, session.UserAgent)
 }
 
-// ValidateToken validates an access token and returns the claims
+// ValidateToken validates an access token and returns the claims.
+//
+// Besides the signature and expiry, the token must still have a session: every
+// built-in access token is stored verbatim in its session row (unique, indexed
+// column), so "session row with this token exists" is exactly "not revoked".
+// Keying revocation on the token rather than on a new sid/jti claim means
+// tokens issued before this check existed are covered too (they already have
+// a session row), and the JWT does not grow towards the 500-character limit of
+// mbflow_sessions.token.
+//
+// Positive answers are cached in-process for a short TTL so that a request
+// burst costs one session lookup (and one last-activity write) per token per
+// TTL instead of one per request.
 func (s *Service) ValidateToken(ctx context.Context, token string) (*JWTClaims, error) {
 	claims, err := s.jwtService.ValidateAccessToken(token)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update session activity
+	hit, gen := s.sessions.lookup(token)
+	if hit {
+		return claims, nil
+	}
+
+	session, err := s.userRepo.FindSessionByToken(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrSessionUnavailable, err)
+	}
+	if session == nil || session.UserID.String() != claims.UserID {
+		return nil, ErrSessionRevoked
+	}
+	if session.User != nil && !session.User.IsActive {
+		return nil, ErrAccountInactive
+	}
+
+	// Update session activity (at most once per cache TTL per token).
 	_ = s.userRepo.UpdateSessionActivity(ctx, token)
+
+	var tokenExpiry time.Time
+	if claims.ExpiresAt != nil {
+		tokenExpiry = claims.ExpiresAt.Time
+	}
+	s.sessions.store(token, claims.UserID, tokenExpiry, gen)
 
 	return claims, nil
 }
@@ -304,7 +365,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassw
 	}
 
 	// Invalidate all sessions (security measure)
-	_ = s.userRepo.DeleteSessionsByUserID(ctx, userID)
+	s.revokeUserSessions(ctx, userID, "password_changed")
 
 	return nil
 }
@@ -567,12 +628,20 @@ func (s *Service) UpdateUser(ctx context.Context, userID uuid.UUID, email, usern
 		user.Username = username
 	}
 
+	// Access tokens carry is_admin, so a deactivation or an admin-flag change
+	// must revoke existing sessions to take effect before the tokens expire.
+	revoke := (user.IsActive && !isActive) || user.IsAdmin != isAdmin
+
 	user.FullName = fullName
 	user.IsActive = isActive
 	user.IsAdmin = isAdmin
 
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	if revoke {
+		s.revokeUserSessions(ctx, userID, "user_access_changed")
 	}
 
 	return s.toDomainUser(user), nil
@@ -589,7 +658,7 @@ func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	}
 
 	// Delete all sessions
-	_ = s.userRepo.DeleteSessionsByUserID(ctx, userID)
+	s.revokeUserSessions(ctx, userID, "user_deleted")
 
 	// Soft delete user
 	if err := s.userRepo.Delete(ctx, userID); err != nil {
@@ -627,7 +696,7 @@ func (s *Service) ResetUserPassword(ctx context.Context, userID uuid.UUID, newPa
 	}
 
 	// Invalidate all sessions
-	_ = s.userRepo.DeleteSessionsByUserID(ctx, userID)
+	s.revokeUserSessions(ctx, userID, "password_reset")
 
 	return nil
 }
@@ -676,9 +745,15 @@ func (s *Service) AssignRoleToUser(ctx context.Context, userID, roleID uuid.UUID
 	return s.userRepo.AssignRole(ctx, userID, roleID, assignedBy)
 }
 
-// RemoveRoleFromUser removes a role from a user
+// RemoveRoleFromUser removes a role from a user. Access tokens carry the
+// user's role names, so the user's sessions are revoked to make the removal
+// effective immediately.
 func (s *Service) RemoveRoleFromUser(ctx context.Context, userID, roleID uuid.UUID) error {
-	return s.userRepo.RemoveRole(ctx, userID, roleID)
+	if err := s.userRepo.RemoveRole(ctx, userID, roleID); err != nil {
+		return err
+	}
+	s.revokeUserSessions(ctx, userID, "role_removed")
+	return nil
 }
 
 // GetUserRoles retrieves all roles for a user

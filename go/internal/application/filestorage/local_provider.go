@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
@@ -24,7 +25,7 @@ type LocalProvider struct {
 // NewLocalProvider creates a new local storage provider
 func NewLocalProvider(basePath string) (*LocalProvider, error) {
 	// Create base directory if it doesn't exist
-	if err := os.MkdirAll(basePath, 0755); err != nil {
+	if err := os.MkdirAll(basePath, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
@@ -54,7 +55,7 @@ func (p *LocalProvider) Store(ctx context.Context, entry *models.FileEntry, read
 
 	// Create directory structure
 	dir := filepath.Dir(fullPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -63,7 +64,7 @@ func (p *LocalProvider) Store(ctx context.Context, entry *models.FileEntry, read
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Copy content and calculate checksum
 	hasher := sha256.New()
@@ -72,7 +73,7 @@ func (p *LocalProvider) Store(ctx context.Context, entry *models.FileEntry, read
 	size, err := io.Copy(writer, reader)
 	if err != nil {
 		// Clean up on error
-		os.Remove(fullPath)
+		_ = os.Remove(fullPath)
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -163,7 +164,9 @@ func (p *LocalProvider) cleanupEmptyDirs(dir string) {
 		if err != nil || len(entries) > 0 {
 			break
 		}
-		os.Remove(dir)
+		if err := os.Remove(dir); err != nil {
+			break
+		}
 		dir = filepath.Dir(dir)
 	}
 }

@@ -68,11 +68,16 @@ func (s *ServiceAPIServer) UpdateTrigger(ctx context.Context, req *pb.UpdateTrig
 	}
 
 	params := serviceapi.UpdateTriggerParams{
-		TriggerID:   triggerUUID,
-		Name:        req.Name,
-		Description: req.Description,
-		Type:        req.Type,
-		Config:      structToMap(req.Config),
+		TriggerID: triggerUUID,
+		Name:      req.Name,
+		Type:      req.Type,
+		Config:    structToMap(req.Config),
+	}
+	// proto3 strings carry no presence: an empty description leaves the
+	// stored one unchanged.
+	if req.Description != "" {
+		description := req.Description
+		params.Description = &description
 	}
 	if req.Enabled != nil {
 		enabled := *req.Enabled

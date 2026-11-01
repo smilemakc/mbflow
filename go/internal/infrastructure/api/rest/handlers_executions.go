@@ -233,7 +233,7 @@ func (h *ExecutionHandlers) HandleGetLogs(c *gin.Context) {
 
 func (h *ExecutionHandlers) HandleGetNodeResult(c *gin.Context) {
 	executionID := c.Param("id")
-	nodeID := c.Param("nodeId")
+	nodeID := paramFirst(c, "node_id", "nodeId")
 
 	if executionID == "" || nodeID == "" {
 		respondAPIError(c, ErrMissingParameter)
@@ -356,12 +356,77 @@ func (h *ExecutionHandlers) HandleRunEphemeralExecution(c *gin.Context) {
 	respondJSON(c, status, execution)
 }
 
+// HandleCancelExecution cancels a pending or running execution
+//
+//	@Summary		Cancel execution
+//	@Description	Cancels a pending or running execution. Returns 200 with the cancelled execution once it has stopped, or 202 when it is recorded as cancelled but still stopping on another server replica (it stops within one execution heartbeat interval).
+//	@Tags			executions
+//	@Produce		json
+//	@Param			id	path		string				true	"Execution ID"	format(uuid)
+//	@Success		200	{object}	models.Execution	"Cancelled execution"
+//	@Success		202	{object}	models.Execution	"Cancellation recorded, execution still stopping"
+//	@Failure		400	{object}	APIError			"Invalid execution ID"
+//	@Failure		404	{object}	APIError			"Execution not found"
+//	@Failure		409	{object}	APIError			"Execution already finished (EXECUTION_NOT_CANCELLABLE)"
+//	@Failure		500	{object}	APIError			"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/executions/{id}/cancel [post]
 func (h *ExecutionHandlers) HandleCancelExecution(c *gin.Context) {
-	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "execution cancellation not yet implemented", http.StatusNotImplemented))
+	execUUID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		respondAPIError(c, ErrInvalidID)
+		return
+	}
+
+	result, err := h.ops.CancelExecution(c.Request.Context(), serviceapi.CancelExecutionParams{ExecutionID: execUUID})
+	if err != nil {
+		h.logger.Error("Failed to cancel execution", "error", err, "execution_id", execUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
+		return
+	}
+
+	respondJSON(c, cancelResponseStatus(result), result.Execution)
 }
 
+// HandleRetryExecution retries a failed or cancelled execution
+//
+//	@Summary		Retry execution
+//	@Description	Starts a new asynchronous execution of a failed, timed out or cancelled execution's workflow with the original input and variables. The new execution's metadata.retry_of holds the original execution ID. Inline executions cannot be retried.
+//	@Tags			executions
+//	@Produce		json
+//	@Param			id	path		string				true	"Execution ID"	format(uuid)
+//	@Success		202	{object}	models.Execution	"New execution"
+//	@Failure		400	{object}	APIError			"Invalid execution ID"
+//	@Failure		404	{object}	APIError			"Execution or workflow not found"
+//	@Failure		409	{object}	APIError			"Execution is not retryable (EXECUTION_NOT_RETRYABLE)"
+//	@Failure		500	{object}	APIError			"Internal server error"
+//	@Security		BearerAuth
+//	@Router			/executions/{id}/retry [post]
 func (h *ExecutionHandlers) HandleRetryExecution(c *gin.Context) {
-	respondAPIError(c, NewAPIError("NOT_IMPLEMENTED", "execution retry not yet implemented", http.StatusNotImplemented))
+	execUUID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		respondAPIError(c, ErrInvalidID)
+		return
+	}
+
+	execution, err := h.ops.RetryExecution(c.Request.Context(), serviceapi.RetryExecutionParams{ExecutionID: execUUID})
+	if err != nil {
+		h.logger.Error("Failed to retry execution", "error", err, "execution_id", execUUID, "request_id", GetRequestID(c))
+		respondAPIErrorWithRequestID(c, TranslateError(err))
+		return
+	}
+
+	h.logger.Info("Execution retried", "execution_id", execUUID, "new_execution_id", execution.ID, "request_id", GetRequestID(c))
+	respondJSON(c, http.StatusAccepted, execution)
+}
+
+// cancelResponseStatus is 200 when the execution has stopped and 202 when it
+// is still stopping.
+func cancelResponseStatus(result *serviceapi.CancelExecutionResult) int {
+	if result.Pending {
+		return http.StatusAccepted
+	}
+	return http.StatusOK
 }
 
 func (h *ExecutionHandlers) HandleWatchExecution(c *gin.Context) {

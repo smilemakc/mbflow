@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"time"
@@ -14,81 +15,89 @@ import (
 	"github.com/smilemakc/mbflow/go/migrations"
 )
 
-var (
-	command     string
-	databaseURL string
-)
-
-func init() {
-	flag.StringVar(&command, "command", "up", "Migration command: init, up, down, status, reset")
-	flag.StringVar(&databaseURL, "database-url", "", "PostgreSQL database URL (overrides MBFLOW_DATABASE_URL / DATABASE_URL env vars)")
-}
-
 func main() {
-	flag.Parse()
-
 	// Load .env file if exists
 	_ = godotenv.Load()
 
-	// Setup logger
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	slog.SetDefault(logger)
-
-	// Get database URL
-	dbURL := databaseURL
-	if dbURL == "" {
-		dbURL = os.Getenv("MBFLOW_DATABASE_URL")
-	}
-	if dbURL == "" {
-		dbURL = os.Getenv("DATABASE_URL")
-	}
-	if dbURL == "" {
-		slog.Error("MBFLOW_DATABASE_URL (or DATABASE_URL) is required")
+	if err := run(os.Args[1:], os.Getenv, os.Stdout); err != nil {
 		os.Exit(1)
 	}
+}
 
-	// Create database connection
+// run parses args (without the program name), connects to the database and
+// executes the migration command. Progress and errors are logged to out.
+func run(args []string, getenv func(string) string, out io.Writer) error {
+	logger := slog.New(slog.NewTextHandler(out, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
+
+	fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
+	fs.SetOutput(out)
+	command := fs.String("command", "up", "Migration command: init, up, down, status, reset")
+	databaseURL := fs.String("database-url", "", "PostgreSQL database URL (overrides MBFLOW_DATABASE_URL / DATABASE_URL env vars)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	dbURL := *databaseURL
+	if dbURL == "" {
+		dbURL = getenv("MBFLOW_DATABASE_URL")
+	}
+	if dbURL == "" {
+		dbURL = getenv("DATABASE_URL")
+	}
+	if dbURL == "" {
+		err := fmt.Errorf("MBFLOW_DATABASE_URL (or DATABASE_URL) is required")
+		logger.Error(err.Error())
+		return err
+	}
+
 	cfg := &storage.Config{
 		DSN:             dbURL,
 		MaxOpenConns:    5, // Lower for migrations
 		MaxIdleConns:    2,
 		ConnMaxLifetime: time.Hour,
 		ConnMaxIdleTime: 10 * time.Minute,
-		Debug:           os.Getenv("DEBUG") == "true",
+		Debug:           getenv("DEBUG") == "true",
 	}
 
 	db, err := storage.NewDB(cfg)
 	if err != nil {
-		slog.Error("failed to connect to database", slog.String("error", err.Error()))
-		os.Exit(1)
+		logger.Error("failed to connect to database", slog.String("error", err.Error()))
+		return err
 	}
 	defer storage.Close(db)
 
-	// Create migrator
 	migrator, err := storage.NewMigrator(db, migrations.FS)
 	if err != nil {
-		slog.Error("failed to create migrator", slog.String("error", err.Error()))
-		os.Exit(1)
+		logger.Error("failed to create migrator", slog.String("error", err.Error()))
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Execute command
-	if err := executeCommand(ctx, migrator, command); err != nil {
-		slog.Error("migration command failed",
-			slog.String("command", command),
+	if err := executeCommand(ctx, migrator, *command); err != nil {
+		logger.Error("migration command failed",
+			slog.String("command", *command),
 			slog.String("error", err.Error()),
 		)
-		os.Exit(1)
+		return err
 	}
 
-	slog.Info("migration command completed successfully", slog.String("command", command))
+	logger.Info("migration command completed successfully", slog.String("command", *command))
+	return nil
 }
 
-func executeCommand(ctx context.Context, migrator *storage.Migrator, cmd string) error {
+// migrationRunner is the part of *storage.Migrator the commands use.
+type migrationRunner interface {
+	Init(ctx context.Context) error
+	Up(ctx context.Context) error
+	Down(ctx context.Context) error
+	Status(ctx context.Context) error
+	Reset(ctx context.Context) error
+}
+
+func executeCommand(ctx context.Context, migrator migrationRunner, cmd string) error {
 	switch cmd {
 	case "init":
 		return migrator.Init(ctx)

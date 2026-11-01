@@ -19,7 +19,7 @@ type Manager struct {
 	// Dependencies
 	triggerRepo  repository.TriggerRepository
 	workflowRepo repository.WorkflowRepository
-	executionMgr *engine.ExecutionManager
+	executionMgr WorkflowExecutor
 	cache        *cache.RedisCache
 
 	// Trigger handlers
@@ -38,7 +38,7 @@ type Manager struct {
 type ManagerConfig struct {
 	TriggerRepo  repository.TriggerRepository
 	WorkflowRepo repository.WorkflowRepository
-	ExecutionMgr *engine.ExecutionManager
+	ExecutionMgr WorkflowExecutor
 	Cache        *cache.RedisCache
 }
 
@@ -51,6 +51,9 @@ func NewManager(cfg ManagerConfig) (*Manager, error) {
 		return nil, fmt.Errorf("workflow repository is required")
 	}
 	if cfg.ExecutionMgr == nil {
+		return nil, fmt.Errorf("execution manager is required")
+	}
+	if em, ok := cfg.ExecutionMgr.(*engine.ExecutionManager); ok && em == nil {
 		return nil, fmt.Errorf("execution manager is required")
 	}
 	if cfg.Cache == nil {

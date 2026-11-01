@@ -1,194 +1,203 @@
 import React from 'react';
-import {Activity, AlertTriangle, Cpu, Download, Filter, HardDrive, Search, Server, Terminal} from 'lucide-react';
-import {Button} from '@/components/ui';
+import { useNavigate } from 'react-router-dom';
+import { Activity, AlertTriangle, CheckCircle2, Clock, Loader2, PlayCircle, RefreshCw, XCircle } from 'lucide-react';
+import { Button } from '@/components/ui';
+import { HealthPanel } from '@/components/system/HealthPanel';
+import { useSystemOverview } from '@/hooks/useSystemOverview';
+import { formatDuration, formatPercent, formatTimeAgo, type ExecutionStatusName } from '@/lib/executionStats';
+import { useTranslation } from '@/store/translations';
 
-export const MonitoringPage: React.FC = () => {
-    return (
-        <div className="flex-1 h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 md:p-8">
-            <div className="max-w-7xl mx-auto space-y-6">
+const REFRESH_MS = 30_000;
 
-                {/* Header */}
-                <div className="flex justify-between items-end">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">System Monitoring</h1>
-                        <p className="text-slate-500 dark:text-slate-400 mt-1">Real-time infrastructure performance and
-                            error tracking.</p>
-                    </div>
-                    <div className="flex space-x-3">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            icon={<Filter size={16}/>}
-                        >
-                            Filter
-                        </Button>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            icon={<Download size={16}/>}
-                        >
-                            Export Logs
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Live Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <MetricCard
-                        title="CPU Usage"
-                        value="42%"
-                        subtext="8 Cores Active"
-                        icon={<Cpu size={20}/>}
-                        color="blue"
-                        graph={[20, 35, 45, 40, 42, 48, 42]}
-                    />
-                    <MetricCard
-                        title="Memory Usage"
-                        value="3.2 GB"
-                        subtext="of 8.0 GB Total"
-                        icon={<HardDrive size={20}/>}
-                        color="purple"
-                        graph={[60, 62, 61, 65, 64, 63, 62]}
-                    />
-                    <MetricCard
-                        title="Active Workers"
-                        value="12/16"
-                        subtext="4 Idle"
-                        icon={<Server size={20}/>}
-                        color="green"
-                        graph={[10, 10, 12, 12, 11, 12, 12]}
-                    />
-                </div>
-
-                {/* Main Content Area */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                    {/* Error Log / Events */}
-                    <div
-                        className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col h-[600px]">
-                        <div
-                            className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                            <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center">
-                                <Terminal size={16} className="mr-2 text-slate-500"/>
-                                System Event Log
-                            </h3>
-                            <div className="relative">
-                                <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400"/>
-                                <input
-                                    type="text"
-                                    placeholder="Search logs..."
-                                    className="pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:border-blue-500 text-slate-700 dark:text-slate-300 w-48"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs">
-                            {MOCK_LOGS.map((log, i) => (
-                                <div key={i}
-                                     className={`flex items-start p-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
-                                         log.level === 'error' ? 'bg-red-50 dark:bg-red-900/10' : ''
-                                     }`}>
-                                    <span className="text-slate-400 w-24 shrink-0">{log.time}</span>
-                                    <span className={`w-16 font-bold shrink-0 ${
-                                        log.level === 'info' ? 'text-blue-500' :
-                                            log.level === 'warn' ? 'text-orange-500' :
-                                                'text-red-500'
-                                    }`}>{log.level.toUpperCase()}</span>
-                                    <span className="text-slate-700 dark:text-slate-300 break-all">{log.msg}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Health Status */}
-                    <div
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-5 space-y-6">
-                        <div>
-                            <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
-                                <Activity size={18} className="mr-2 text-slate-400"/>
-                                Service Health
-                            </h3>
-                            <div className="space-y-3">
-                                <ServiceStatus name="API Gateway" status="operational" uptime="99.99%"/>
-                                <ServiceStatus name="Workflow Engine" status="operational" uptime="99.95%"/>
-                                <ServiceStatus name="Database (Primary)" status="operational" uptime="99.99%"/>
-                                <ServiceStatus name="Redis Cache" status="degraded" uptime="98.50%"/>
-                                <ServiceStatus name="Notification Svc" status="operational" uptime="100%"/>
-                            </div>
-                        </div>
-
-                        <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                            <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-2">Incidents</h3>
-                            <div
-                                className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900/30 rounded-lg p-3">
-                                <div className="flex items-start">
-                                    <AlertTriangle size={16}
-                                                   className="text-yellow-600 dark:text-yellow-500 mt-0.5 mr-2 shrink-0"/>
-                                    <div>
-                                        <h4 className="text-sm font-bold text-yellow-800 dark:text-yellow-500">High
-                                            Latency Detected</h4>
-                                        <p className="text-xs text-yellow-700 dark:text-yellow-400/80 mt-1">Redis cache
-                                            response time 200ms. Investigating.</p>
-                                        <p className="text-[10px] text-yellow-600/60 mt-2">Started 15 mins ago</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    );
+const STATUS_COLORS: Record<ExecutionStatusName, string> = {
+  completed: 'bg-green-500',
+  failed: 'bg-red-500',
+  timeout: 'bg-orange-500',
+  cancelled: 'bg-slate-400',
+  running: 'bg-blue-500',
+  pending: 'bg-yellow-400',
 };
 
-const MetricCard = ({title, value, subtext, icon, color, graph}: any) => (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-        <div className="flex justify-between items-start mb-4">
-            <div>
-                <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{title}</h3>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{value}</div>
-                <div className="text-xs text-slate-400 mt-0.5">{subtext}</div>
-            </div>
-            <div
-                className={`p-2 bg-${color}-50 dark:bg-${color}-900/20 text-${color}-600 dark:text-${color}-400 rounded-lg`}>
-                {icon}
-            </div>
-        </div>
-        {/* Mock Mini Graph */}
-        <div className="flex items-end space-x-1 h-8">
-            {graph.map((h: number, i: number) => (
-                <div
-                    key={i}
-                    className={`flex-1 bg-${color}-100 dark:bg-${color}-900/40 rounded-sm`}
-                    style={{height: `${h}%`}}
-                ></div>
-            ))}
-        </div>
-    </div>
-);
+export const MonitoringPage: React.FC = () => {
+  const t = useTranslation();
+  const s = t.system;
+  const navigate = useNavigate();
+  const { health, stats, loading, error, refresh } = useSystemOverview({ sampleSize: 100, refreshMs: REFRESH_MS });
 
-const ServiceStatus = ({name, status, uptime}: any) => (
-    <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center">
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-                status === 'operational' ? 'bg-green-500' :
-                    status === 'degraded' ? 'bg-yellow-500' : 'bg-red-500'
-            }`}></div>
-            <span className="text-slate-700 dark:text-slate-300">{name}</span>
-        </div>
-        <span className="text-slate-400 text-xs font-mono">{uptime}</span>
-    </div>
-);
+  const timeLabels = { justNow: s.justNow, minutesAgo: s.minutesAgo, hoursAgo: s.hoursAgo, daysAgo: s.daysAgo };
+  const statuses = Object.keys(STATUS_COLORS) as ExecutionStatusName[];
 
-const MOCK_LOGS = [
-    {time: '10:42:01.320', level: 'info', msg: 'Worker-01 connected successfully.'},
-    {time: '10:42:05.112', level: 'info', msg: 'Job #8492 started processing.'},
-    {time: '10:42:08.540', level: 'warn', msg: 'API Rate limit approaching (90%).'},
-    {time: '10:42:12.001', level: 'info', msg: 'Job #8492 completed in 6.8s.'},
-    {time: '10:43:45.220', level: 'error', msg: 'Connection timeout: PostgreSQL pool full.'},
-    {time: '10:43:45.350', level: 'info', msg: 'Retrying connection (Attempt 1/3)...'},
-    {time: '10:43:46.002', level: 'info', msg: 'Connection established.'},
-    {time: '10:44:10.100', level: 'info', msg: 'Scheduled maintenance check completed.'},
-    {time: '10:44:15.550', level: 'warn', msg: 'High memory usage detected on Worker-03.'},
-    {time: '10:45:00.000', level: 'info', msg: 'Cron trigger [DailyCleanup] fired.'},
-];
+  return (
+    <div className="flex-1 h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex justify-between items-end gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{s.title}</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">{s.subtitle}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {health && (
+              <span className="text-xs text-slate-400">
+                {s.lastChecked.replace('{time}', health.checkedAt.toLocaleTimeString())}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refresh()}
+              disabled={loading}
+              icon={loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+            >
+              {s.refresh}
+            </Button>
+          </div>
+        </div>
+
+        {/* Execution metrics computed from the latest executions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard title={s.active} value={stats ? String(stats.active) : '-'} icon={<PlayCircle size={20} />} tone="blue" />
+          <MetricCard
+            title={s.failed}
+            value={stats ? String(stats.byStatus.failed + stats.byStatus.timeout) : '-'}
+            icon={<XCircle size={20} />}
+            tone="red"
+          />
+          <MetricCard
+            title={s.successRate}
+            value={stats ? formatPercent(stats.successRate) : '-'}
+            icon={<CheckCircle2 size={20} />}
+            tone="green"
+          />
+          <MetricCard
+            title={s.avgDuration}
+            value={stats ? formatDuration(stats.avgDurationMs) : '-'}
+            icon={<Clock size={20} />}
+            tone="purple"
+          />
+        </div>
+
+        {stats && stats.sampleSize > 0 && (
+          <p className="text-xs text-slate-400 -mt-2">
+            {s.sampleNote.replace('{n}', String(stats.sampleSize)).replace('{total}', String(stats.total))}
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Status breakdown */}
+            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-5">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
+                <Activity size={18} className="mr-2 text-slate-400" />
+                {s.statusBreakdown}
+              </h3>
+              {error ? (
+                <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+                  {s.executionsError}: {error}
+                </p>
+              ) : !stats ? (
+                <p className="text-sm text-slate-400">{s.checking}</p>
+              ) : stats.sampleSize === 0 ? (
+                <p className="text-sm text-slate-400">{s.noExecutions}</p>
+              ) : (
+                <>
+                  <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    {statuses.map((status) =>
+                      stats.byStatus[status] > 0 ? (
+                        <div
+                          key={status}
+                          className={STATUS_COLORS[status]}
+                          style={{ width: `${(stats.byStatus[status] / stats.sampleSize) * 100}%` }}
+                          title={`${s.statuses[status]}: ${stats.byStatus[status]}`}
+                        />
+                      ) : null,
+                    )}
+                  </div>
+                  <ul className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                    {statuses.map((status) => (
+                      <li key={status} className="flex items-center justify-between rounded-lg bg-slate-50 dark:bg-slate-800/50 px-3 py-2">
+                        <span className="flex items-center text-slate-600 dark:text-slate-300">
+                          <span className={`w-2 h-2 rounded-full mr-2 ${STATUS_COLORS[status]}`} aria-hidden="true" />
+                          {s.statuses[status]}
+                        </span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-100" data-testid={`count-${status}`}>
+                          {stats.byStatus[status]}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+
+            {/* Recent failures */}
+            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+              <h3 className="p-4 border-b border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                <AlertTriangle size={16} className="mr-2 text-slate-500" />
+                {s.recentFailures}
+              </h3>
+              {stats && stats.recentFailures.length > 0 ? (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {stats.recentFailures.map((execution) => (
+                    <li key={execution.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/executions/${execution.id}`)}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      >
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium text-slate-800 dark:text-slate-200">
+                            {execution.workflow_name || execution.workflow_id}
+                          </span>
+                          <span className="text-xs text-slate-400">{formatTimeAgo(execution.started_at, timeLabels)}</span>
+                        </div>
+                        {execution.error && (
+                          <p className="mt-1 text-xs font-mono text-red-600 dark:text-red-400 break-all line-clamp-2">
+                            {execution.error}
+                          </p>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="p-4 text-sm text-slate-400">{stats ? s.noFailures : s.checking}</p>
+              )}
+            </section>
+          </div>
+
+          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-5 h-fit">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
+              <Activity size={18} className="mr-2 text-slate-400" />
+              {s.health}
+            </h3>
+            <HealthPanel health={health} />
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TONES = {
+  blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+  red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+  green: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
+  purple: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+} as const;
+
+const MetricCard: React.FC<{ title: string; value: string; icon: React.ReactNode; tone: keyof typeof TONES }> = ({
+  title,
+  value,
+  icon,
+  tone,
+}) => (
+  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+    <div className="flex justify-between items-start">
+      <div>
+        <h3 className="text-slate-500 dark:text-slate-400 text-sm font-medium">{title}</h3>
+        <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{value}</div>
+      </div>
+      <div className={`p-2 rounded-lg ${TONES[tone]}`}>{icon}</div>
+    </div>
+  </div>
+);

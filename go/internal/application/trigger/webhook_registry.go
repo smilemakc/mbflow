@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/application/engine"
+
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
@@ -22,7 +22,7 @@ import (
 type WebhookRegistry struct {
 	triggerRepo  repository.TriggerRepository
 	workflowRepo repository.WorkflowRepository
-	executionMgr *engine.ExecutionManager
+	executionMgr WorkflowExecutor
 	cache        *cache.RedisCache
 
 	webhooks map[string]*models.Trigger // triggerID -> trigger
@@ -33,7 +33,7 @@ type WebhookRegistry struct {
 type WebhookRegistryConfig struct {
 	TriggerRepo  repository.TriggerRepository
 	WorkflowRepo repository.WorkflowRepository
-	ExecutionMgr *engine.ExecutionManager
+	ExecutionMgr WorkflowExecutor
 	Cache        *cache.RedisCache
 }
 

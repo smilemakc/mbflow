@@ -47,10 +47,19 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Test
+      - name: Test with coverage gate
         # Tests use embedded PostgreSQL (works on GitHub runners as non-root).
-        # -short skips tests that need external network access.
-        run: go test -short -race -count=1 ./...
+        # -short skips tests that need external network access. The script
+        # fails the job if total coverage drops below 90%.
+        run: scripts/coverage.sh 90 -race
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: go/coverage.out
+          if-no-files-found: ignore
 
   golangci-lint:
     name: golangci-lint
@@ -93,6 +102,9 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit
+
+      - name: Test with coverage gate
+        run: npm run test:coverage
 
       - name: Build
         run: npx vite build

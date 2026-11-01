@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"github.com/smilemakc/mbflow/go/internal/application/engine"
+
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/cache"
 	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
@@ -20,22 +20,25 @@ import (
 type EventListener struct {
 	triggerRepo  repository.TriggerRepository
 	workflowRepo repository.WorkflowRepository
-	executionMgr *engine.ExecutionManager
+	executionMgr WorkflowExecutor
 	cache        *cache.RedisCache
 
 	pubsub      *redis.PubSub
 	triggers    map[string][]*models.Trigger // eventType -> triggers
 	mu          sync.RWMutex
+	ctx         context.Context // context passed to Start
+	started     bool            // Start was called
+	stopped     bool            // Stop was called
+	isRunning   bool            // listen goroutine is running
 	stopChan    chan struct{}
 	stoppedChan chan struct{}
-	isRunning   bool
 }
 
 // EventListenerConfig holds configuration for event listener
 type EventListenerConfig struct {
 	TriggerRepo  repository.TriggerRepository
 	WorkflowRepo repository.WorkflowRepository
-	ExecutionMgr *engine.ExecutionManager
+	ExecutionMgr WorkflowExecutor
 	Cache        *cache.RedisCache
 }
 
@@ -68,26 +71,36 @@ func (el *EventListener) Start(ctx context.Context, triggers []*storagemodels.Tr
 		}
 	}
 
-	// Subscribe to event channels
-	if len(el.triggers) > 0 {
-		channels := el.getChannels()
-		el.pubsub = el.cache.Client().Subscribe(ctx, channels...)
+	el.ctx = ctx
+	el.started = true
 
-		// Start listening in background
-		el.isRunning = true
-		go el.listen(ctx)
-	} else {
-		// No triggers, close stoppedChan immediately so Stop() doesn't hang
-		close(el.stoppedChan)
+	// Subscribe to event channels. Without event triggers the subscription
+	// is created lazily by the first AddTrigger.
+	if len(el.triggers) > 0 {
+		el.subscribeLocked(ctx, el.getChannels()...)
 	}
 
 	return nil
 }
 
+// subscribeLocked opens the pub/sub connection on the given channels and
+// starts the listen goroutine (must hold lock).
+func (el *EventListener) subscribeLocked(ctx context.Context, channels ...string) {
+	el.pubsub = el.cache.Client().Subscribe(ctx, channels...)
+	el.isRunning = true
+	go el.listen(ctx, el.pubsub.Channel())
+}
+
 // Stop stops the event listener
 func (el *EventListener) Stop() error {
 	el.mu.Lock()
+	if el.stopped {
+		el.mu.Unlock()
+		return nil
+	}
+	el.stopped = true
 	isRunning := el.isRunning
+	pubsub := el.pubsub
 	el.mu.Unlock()
 
 	// Only close stopChan if listener is running
@@ -96,9 +109,10 @@ func (el *EventListener) Stop() error {
 	}
 
 	// Close pub/sub connection
-	if el.pubsub != nil {
-		if err := el.pubsub.Close(); err != nil {
-			return fmt.Errorf("failed to close pub/sub: %w", err)
+	var closeErr error
+	if pubsub != nil {
+		if err := pubsub.Close(); err != nil {
+			closeErr = fmt.Errorf("failed to close pub/sub: %w", err)
 		}
 	}
 
@@ -107,7 +121,7 @@ func (el *EventListener) Stop() error {
 		<-el.stoppedChan
 	}
 
-	return nil
+	return closeErr
 }
 
 // AddTrigger adds a new event trigger
@@ -131,12 +145,18 @@ func (el *EventListener) addTriggerLocked(ctx context.Context, trigger *models.T
 
 	el.triggers[eventType] = append(el.triggers[eventType], trigger)
 
-	// If listener is already running, subscribe to new channel
-	if el.pubsub != nil {
-		channel := el.getEventChannel(eventType)
+	channel := el.getEventChannel(eventType)
+	switch {
+	case el.pubsub != nil:
+		// Listener is already running: subscribe to the new channel.
 		if err := el.pubsub.Subscribe(ctx, channel); err != nil {
 			return fmt.Errorf("failed to subscribe to channel %s: %w", channel, err)
 		}
+	case el.started && !el.stopped:
+		// Started without event triggers: this is the first one, so open
+		// the subscription now. Use the Start context so the listener lives
+		// as long as the manager, not as long as this (request) context.
+		el.subscribeLocked(el.ctx, channel)
 	}
 
 	return nil
@@ -174,16 +194,18 @@ func (el *EventListener) RemoveTrigger(ctx context.Context, triggerID string) er
 }
 
 // listen listens for events from Redis pub/sub
-func (el *EventListener) listen(ctx context.Context) {
+func (el *EventListener) listen(ctx context.Context, ch <-chan *redis.Message) {
 	defer close(el.stoppedChan)
-
-	ch := el.pubsub.Channel()
 
 	for {
 		select {
 		case <-el.stopChan:
 			return
-		case msg := <-ch:
+		case msg, ok := <-ch:
+			if !ok {
+				// Pub/sub connection closed.
+				return
+			}
 			if msg == nil {
 				continue
 			}
@@ -196,15 +218,17 @@ func (el *EventListener) listen(ctx context.Context) {
 			}
 
 			// Handle event
-			el.handleEvent(ctx, event)
+			el.handleEvent(ctx, event, eventDedupID(event, msg.Payload))
 		}
 	}
 }
 
-// handleEvent handles an incoming event
-func (el *EventListener) handleEvent(ctx context.Context, event Event) {
+// handleEvent handles an incoming event. dedupID identifies the event across
+// replicas (see eventDedupID); every replica subscribed to the channel
+// receives the event, and only the one that claims (trigger, event) fires.
+func (el *EventListener) handleEvent(ctx context.Context, event Event, dedupID string) {
 	el.mu.RLock()
-	triggers := el.triggers[event.Type]
+	triggers := append([]*models.Trigger(nil), el.triggers[event.Type]...)
 	el.mu.RUnlock()
 
 	for _, trigger := range triggers {
@@ -214,15 +238,25 @@ func (el *EventListener) handleEvent(ctx context.Context, event Event) {
 		}
 
 		// Execute workflow in background
-		go func(t *models.Trigger) {
-			execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-
-			if err := el.executeTrigger(execCtx, t, event.Data); err != nil {
-				fmt.Printf("trigger %s execution failed: %v\n", t.ID, err)
-			}
-		}(trigger)
+		go el.fire(trigger, event, dedupID)
 	}
+}
+
+// fire executes the trigger for an event if this replica wins the claim for
+// the (trigger, event) pair. It reports whether the trigger was fired.
+func (el *EventListener) fire(t *models.Trigger, event Event, dedupID string) bool {
+	execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if !claimOccurrence(execCtx, el.cache, eventClaimKey(t.ID, dedupID)) {
+		// Another replica handles this event for this trigger.
+		return false
+	}
+
+	if err := el.executeTrigger(execCtx, t, event.Data); err != nil {
+		fmt.Printf("trigger %s execution failed: %v\n", t.ID, err)
+	}
+	return true
 }
 
 // matchesFilter checks if event matches trigger filter
@@ -336,6 +370,9 @@ func (el *EventListener) modelToDomain(tm *storagemodels.TriggerModel) *models.T
 
 // Event represents an event published to Redis
 type Event struct {
+	// ID uniquely identifies the event; replicas use it to make sure each
+	// trigger fires once per event. PublishEvent assigns one when empty.
+	ID        string         `json:"id,omitempty"`
 	Type      string         `json:"type"`
 	Source    string         `json:"source"`
 	Data      map[string]any `json:"data"`
@@ -343,8 +380,11 @@ type Event struct {
 }
 
 // PublishEvent publishes an event to Redis
-func PublishEvent(ctx context.Context, cache *cache.RedisCache, event Event) error {
+func PublishEvent(ctx context.Context, c *cache.RedisCache, event Event) error {
 	event.Timestamp = time.Now()
+	if event.ID == "" {
+		event.ID = uuid.NewString()
+	}
 
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -352,7 +392,7 @@ func PublishEvent(ctx context.Context, cache *cache.RedisCache, event Event) err
 	}
 
 	channel := fmt.Sprintf("mbflow:events:%s", event.Type)
-	if err := cache.Client().Publish(ctx, channel, string(data)).Err(); err != nil {
+	if err := c.Client().Publish(ctx, channel, string(data)).Err(); err != nil {
 		return fmt.Errorf("failed to publish event: %w", err)
 	}
 

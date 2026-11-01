@@ -2,7 +2,10 @@ package sdk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -249,30 +252,167 @@ func (w *WorkflowAPI) deleteEmbedded(ctx context.Context, workflowID string) err
 	return errWorkflowPersistenceNotAvailable
 }
 
-// Remote mode implementations
+// Remote mode implementations.
+//
+// These call the MBFlow REST API (see pkg/server/routes.go):
+//
+//	POST   /api/v1/workflows
+//	GET    /api/v1/workflows/{id}
+//	GET    /api/v1/workflows?limit=&offset=&status=
+//	PUT    /api/v1/workflows/{id}
+//	DELETE /api/v1/workflows/{id}
+//
+// The API does not store workflow tags or accept a status on create/update
+// (status changes go through publish/unpublish), so ListOptions.Tags is
+// applied client-side and Workflow.Status/Tags are not sent.
+
+// remoteNode mirrors rest.NodeRequest.
+type remoteNode struct {
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Type     string         `json:"type"`
+	Config   map[string]any `json:"config,omitempty"`
+	Position map[string]any `json:"position,omitempty"`
+}
+
+// remoteEdge mirrors rest.EdgeRequest.
+type remoteEdge struct {
+	ID           string             `json:"id"`
+	From         string             `json:"from"`
+	To           string             `json:"to"`
+	SourceHandle string             `json:"source_handle,omitempty"`
+	Condition    map[string]any     `json:"condition,omitempty"`
+	Loop         *models.LoopConfig `json:"loop,omitempty"`
+}
+
+// remoteResource mirrors rest.ResourceRequest.
+type remoteResource struct {
+	ResourceID string `json:"resource_id"`
+	Alias      string `json:"alias"`
+	AccessType string `json:"access_type,omitempty"`
+}
+
+// remoteWorkflowRequest is the body accepted by the create and update endpoints.
+type remoteWorkflowRequest struct {
+	Name        string           `json:"name,omitempty"`
+	Description string           `json:"description,omitempty"`
+	Variables   map[string]any   `json:"variables,omitempty"`
+	Metadata    map[string]any   `json:"metadata,omitempty"`
+	Nodes       []remoteNode     `json:"nodes,omitempty"`
+	Edges       []remoteEdge     `json:"edges,omitempty"`
+	Resources   []remoteResource `json:"resources,omitempty"`
+}
+
+func toRemoteWorkflowRequest(workflow *models.Workflow, withResources bool) *remoteWorkflowRequest {
+	req := &remoteWorkflowRequest{
+		Name:        workflow.Name,
+		Description: workflow.Description,
+		Variables:   workflow.Variables,
+		Metadata:    workflow.Metadata,
+		Nodes:       make([]remoteNode, 0, len(workflow.Nodes)),
+		Edges:       make([]remoteEdge, 0, len(workflow.Edges)),
+	}
+	for _, n := range workflow.Nodes {
+		if n == nil {
+			continue
+		}
+		rn := remoteNode{ID: n.ID, Name: n.Name, Type: n.Type, Config: n.Config}
+		if n.Position != nil {
+			rn.Position = map[string]any{"x": n.Position.X, "y": n.Position.Y}
+		}
+		req.Nodes = append(req.Nodes, rn)
+	}
+	for _, e := range workflow.Edges {
+		if e == nil {
+			continue
+		}
+		re := remoteEdge{ID: e.ID, From: e.From, To: e.To, SourceHandle: e.SourceHandle, Loop: e.Loop}
+		if e.Condition != "" {
+			// The server stores conditions as {"expression": "..."}.
+			re.Condition = map[string]any{"expression": e.Condition}
+		}
+		req.Edges = append(req.Edges, re)
+	}
+	if withResources && len(workflow.Resources) > 0 {
+		req.Resources = make([]remoteResource, 0, len(workflow.Resources))
+		for _, r := range workflow.Resources {
+			req.Resources = append(req.Resources, remoteResource{ResourceID: r.ResourceID, Alias: r.Alias, AccessType: r.AccessType})
+		}
+	}
+	return req
+}
+
 func (w *WorkflowAPI) createRemote(ctx context.Context, workflow *models.Workflow) (*models.Workflow, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	var out models.Workflow
+	if err := w.client.doRemote(ctx, http.MethodPost, "/api/v1/workflows", nil, toRemoteWorkflowRequest(workflow, false), &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (w *WorkflowAPI) getRemote(ctx context.Context, workflowID string) (*models.Workflow, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	var out models.Workflow
+	if err := w.client.doRemote(ctx, http.MethodGet, "/api/v1/workflows/"+pathEscape(workflowID), nil, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (w *WorkflowAPI) listRemote(ctx context.Context, opts *ListOptions) ([]*models.Workflow, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	query := url.Values{}
+	if opts != nil {
+		setPagination(query, opts.Limit, opts.Offset)
+		if opts.Status != "" {
+			query.Set("status", opts.Status)
+		}
+	}
+
+	var raw map[string]json.RawMessage
+	if err := w.client.doRemote(ctx, http.MethodGet, "/api/v1/workflows", query, nil, &raw); err != nil {
+		return nil, err
+	}
+	workflows, err := decodeListEnvelope[*models.Workflow](raw, "workflows")
+	if err != nil {
+		return nil, err
+	}
+
+	if opts == nil || len(opts.Tags) == 0 {
+		return workflows, nil
+	}
+	filtered := make([]*models.Workflow, 0, len(workflows))
+	for _, wf := range workflows {
+		if wf != nil && hasAllTags(wf.Tags, opts.Tags) {
+			filtered = append(filtered, wf)
+		}
+	}
+	return filtered, nil
+}
+
+// hasAllTags reports whether have contains every tag in want.
+func hasAllTags(have, want []string) bool {
+	set := make(map[string]struct{}, len(have))
+	for _, t := range have {
+		set[t] = struct{}{}
+	}
+	for _, t := range want {
+		if _, ok := set[t]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (w *WorkflowAPI) updateRemote(ctx context.Context, workflow *models.Workflow) (*models.Workflow, error) {
-	// TODO: Implement HTTP API call
-	return nil, fmt.Errorf("remote mode not implemented yet")
+	var out models.Workflow
+	path := "/api/v1/workflows/" + pathEscape(workflow.ID)
+	if err := w.client.doRemote(ctx, http.MethodPut, path, nil, toRemoteWorkflowRequest(workflow, true), &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (w *WorkflowAPI) deleteRemote(ctx context.Context, workflowID string) error {
-	// TODO: Implement HTTP API call
-	return fmt.Errorf("remote mode not implemented yet")
+	return w.client.doRemote(ctx, http.MethodDelete, "/api/v1/workflows/"+pathEscape(workflowID), nil, nil, nil)
 }
 
 // DAG validation helpers

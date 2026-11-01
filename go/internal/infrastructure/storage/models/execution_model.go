@@ -45,7 +45,9 @@ func (ExecutionModel) TableName() string {
 // BeforeInsert hook to set timestamps
 func (e *ExecutionModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	e.CreatedAt = now
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = now
+	}
 	e.UpdatedAt = now
 	if e.ID == uuid.Nil {
 		e.ID = uuid.New()

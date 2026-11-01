@@ -2,8 +2,11 @@ package auth
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	authgateway "github.com/smilemakc/auth-gateway/packages/go-sdk"
@@ -12,6 +15,7 @@ import (
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -33,8 +37,45 @@ type GRPCProvider struct {
 	timeout   time.Duration
 }
 
-// NewGRPCProvider creates a new gRPC auth provider using auth-gateway SDK
+// NewGRPCProvider creates a new gRPC auth provider using auth-gateway SDK.
+//
+// Transport security is controlled by cfg.GRPCInsecure: when false, the
+// connection uses TLS, verified against cfg.GRPCTLSCAFile (or the system
+// roots when empty) and, optionally, cfg.GRPCTLSServerName.
 func NewGRPCProvider(cfg *config.AuthConfig) (*GRPCProvider, error) {
+	return newGRPCProvider(cfg)
+}
+
+// grpcTransportCredentials builds the transport credentials for the
+// auth-gateway connection from the configuration.
+func grpcTransportCredentials(cfg *config.AuthConfig) (credentials.TransportCredentials, error) {
+	if cfg.GRPCInsecure {
+		return insecure.NewCredentials(), nil
+	}
+
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		ServerName: cfg.GRPCTLSServerName,
+	}
+
+	if cfg.GRPCTLSCAFile != "" {
+		pem, err := os.ReadFile(cfg.GRPCTLSCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA file %q: %w", cfg.GRPCTLSCAFile, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(pem) {
+			return nil, fmt.Errorf("no valid certificates found in CA file %q", cfg.GRPCTLSCAFile)
+		}
+		tlsConfig.RootCAs = pool
+	}
+
+	return credentials.NewTLS(tlsConfig), nil
+}
+
+// newGRPCProvider creates the provider; extraDialOptions are appended to the
+// dial options (used by tests to inject an in-memory dialer).
+func newGRPCProvider(cfg *config.AuthConfig, extraDialOptions ...grpc.DialOption) (*GRPCProvider, error) {
 	timeout := cfg.GRPCTimeout
 	if timeout == 0 {
 		timeout = 10 * time.Second
@@ -68,15 +109,20 @@ func NewGRPCProvider(cfg *config.AuthConfig) (*GRPCProvider, error) {
 		metadata["x-environment"] = cfg.GRPCEnvironment
 	}
 
+	transportCreds, err := grpcTransportCredentials(cfg)
+	if err != nil {
+		return provider, fmt.Errorf("failed to configure gRPC transport security: %w", err)
+	}
+
+	dialOptions := append([]grpc.DialOption{grpc.WithTransportCredentials(transportCreds)}, extraDialOptions...)
+
 	// Create SDK client
 	client, err := authgateway.NewGRPCClient(authgateway.GRPCConfig{
 		Address:     cfg.GRPCAddress,
-		Insecure:    true, // TODO: make configurable
+		Insecure:    cfg.GRPCInsecure,
 		DialTimeout: timeout,
-		DialOptions: []grpc.DialOption{
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		},
-		Metadata: metadata,
+		DialOptions: dialOptions,
+		Metadata:    metadata,
 	})
 	if err != nil {
 		return provider, fmt.Errorf("failed to create gRPC client: %w", err)
@@ -87,6 +133,7 @@ func NewGRPCProvider(cfg *config.AuthConfig) (*GRPCProvider, error) {
 
 	logger.Info("gRPC auth provider initialized (using SDK)",
 		"address", cfg.GRPCAddress,
+		"tls", !cfg.GRPCInsecure,
 		"app_id", cfg.GRPCApplicationID,
 		"client_name", cfg.GRPCClientName,
 		"environment", cfg.GRPCEnvironment)
@@ -152,7 +199,9 @@ func (p *GRPCProvider) Authenticate(ctx context.Context, creds *Credentials) (*P
 	}, nil
 }
 
-// ValidateToken validates a JWT token
+// ValidateToken validates a JWT token by asking the remote auth service, which
+// is therefore also responsible for revocation; mbflow sessions are not
+// consulted.
 func (p *GRPCProvider) ValidateToken(ctx context.Context, token string) (*JWTClaims, error) {
 	if !p.available {
 		logger.Error("gRPC auth: ValidateToken - provider not available")

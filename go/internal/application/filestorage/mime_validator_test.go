@@ -3,9 +3,10 @@ package filestorage
 import (
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // File signatures for MIME detection tests

@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -291,19 +292,25 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 
 		var body io.Reader
 		if bodyData, ok := args["body"]; ok {
-			bodyJSON, err := json.Marshal(bodyData)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			var bodyBytes []byte
+			if s, isString := bodyData.(string); isString {
+				bodyBytes = []byte(s)
+			} else {
+				bodyJSON, err := json.Marshal(bodyData)
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal request body: %w", err)
+				}
+				bodyBytes = bodyJSON
 			}
-			body = http.NoBody
-			if len(bodyJSON) > 0 {
-				body = io.NopCloser(http.NoBody)
-			}
+			body = bytes.NewReader(bodyBytes)
 		}
 
 		req, err := http.NewRequest(method, url, body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
 		}
 
 		if headers, ok := args["headers"].(map[string]any); ok {

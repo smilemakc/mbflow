@@ -87,7 +87,7 @@ func (h *ServiceAPITriggerHandlers) UpdateTrigger(c *gin.Context) {
 
 	var req struct {
 		Name        string         `json:"name,omitempty"`
-		Description string         `json:"description,omitempty"`
+		Description *string        `json:"description,omitempty"`
 		Type        string         `json:"type,omitempty"`
 		Config      map[string]any `json:"config,omitempty"`
 		Enabled     *bool          `json:"enabled,omitempty"`

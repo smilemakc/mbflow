@@ -45,7 +45,9 @@ func (FileModel) TableName() string {
 // BeforeInsert hook to set timestamps
 func (f *FileModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	f.CreatedAt = now
+	if f.CreatedAt.IsZero() {
+		f.CreatedAt = now
+	}
 	f.UpdatedAt = now
 	if f.ID == uuid.Nil {
 		f.ID = uuid.New()
@@ -93,7 +95,9 @@ func (StorageConfigModel) TableName() string {
 // BeforeInsert hook to set timestamps
 func (s *StorageConfigModel) BeforeInsert(ctx any) error {
 	now := time.Now()
-	s.CreatedAt = now
+	if s.CreatedAt.IsZero() {
+		s.CreatedAt = now
+	}
 	s.UpdatedAt = now
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()

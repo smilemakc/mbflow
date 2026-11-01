@@ -135,6 +135,15 @@ Configuration is managed through environment variables. See `.env.example` for a
 | `MBFLOW_LOG_FORMAT`         | Log format (json/text)            | json                   |
 | `MBFLOW_DB_MAX_CONNECTIONS` | Maximum database connections      | 20                     |
 | `MBFLOW_API_KEYS`           | Comma-separated API keys          | -                      |
+| `MBFLOW_MAX_CONCURRENT_EXECUTIONS` | Executions running at once per process; more wait as `pending` (0 = unlimited) | 100 |
+| `MBFLOW_EXECUTION_HEARTBEAT_INTERVAL` | How often running executions renew their lease, abandoned ones are swept and cancellations made on other replicas are applied (0 disables crash recovery) | 30s |
+| `MBFLOW_EXECUTION_STALE_AFTER` | Lease age after which a `pending`/`running` execution is marked failed as interrupted | 3x heartbeat |
+
+Executions left `running` by a process that crashed are marked `failed` with
+"execution interrupted: server stopped while it was running" once their lease
+expires; any replica sharing the database does this, including at startup.
+With Redis configured, login lockout counters are stored in Redis and shared
+by all replicas; without it they are kept per process.
 
 ### Authentication Configuration
 
@@ -171,7 +180,21 @@ MBFLOW_AUTH_CLIENT_NAME=mbflow
 MBFLOW_AUTH_CLIENT_VERSION=1.0.0
 MBFLOW_AUTH_PLATFORM=kubernetes
 MBFLOW_AUTH_ENVIRONMENT=production
+
+# Transport security for the auth-gateway connection
+MBFLOW_AUTH_GRPC_INSECURE=false                       # plaintext when true
+MBFLOW_AUTH_GRPC_TLS_CA_FILE=/etc/mbflow/gateway-ca.pem   # optional, system roots if empty
+MBFLOW_AUTH_GRPC_TLS_SERVER_NAME=auth.internal        # optional SNI / cert name override
 ```
+
+`MBFLOW_AUTH_GRPC_INSECURE` defaults to `true` (plaintext gRPC) when
+`MBFLOW_ENV` is not `production`, which keeps local development working
+against an auth-gateway without certificates. In production it defaults to
+`false`, so the connection uses TLS (minimum TLS 1.2) and verifies the
+gateway certificate against `MBFLOW_AUTH_GRPC_TLS_CA_FILE` or, if unset, the
+system root CAs. Set `MBFLOW_AUTH_GRPC_INSECURE=true` explicitly only when the
+gateway is reachable over a trusted private network; tokens and passwords are
+sent over this connection.
 
 #### OAuth2/OIDC Gateway
 
@@ -203,6 +226,8 @@ MBFLOW_AUTH_REDIRECT_URL=http://localhost:8585/auth/callback
 - `POST /api/v1/workflows/:id/execute` - Execute workflow (async; poll the execution or use the WebSocket)
 - `POST /api/v1/executions/ephemeral` - Run an inline workflow (`mode: sync|async`)
 - `GET /api/v1/executions/:id` - Get execution
+- `POST /api/v1/executions/:id/cancel` - Cancel a `pending`/`running` execution (200 once stopped; 202 if it is still stopping on another replica, which happens within one heartbeat interval; 409 if already finished)
+- `POST /api/v1/executions/:id/retry` - Re-run a `failed`/`cancelled`/`timeout` stored-workflow execution with its original input and variables (202 with the new execution, whose `metadata.retry_of` is the original ID; 409 otherwise)
 - `POST /api/v1/triggers` - Create trigger
 - `POST /api/v1/webhooks/:trigger_id` - Call a webhook trigger
 
@@ -221,6 +246,12 @@ delete) take effect immediately; executions started by a trigger record its
 | `webhook` | `{"secret": "...", "ip_whitelist": [...], "input": {...}}`, all optional. Call `POST /api/v1/webhooks/<trigger_id>`. |
 
 Invalid schedules are rejected with `400 INVALID_TRIGGER_CONFIG`.
+
+`POST /api/v1/triggers/:id/execute` runs an enabled trigger now: the optional
+body `{"input": {...}}` is merged over the trigger's `config.input`, and the
+response is `202 Accepted` with the queued execution (`id`, `status`, ...).
+Reads return `next_run` for enabled cron and interval triggers, computed from
+the schedule the same way the scheduler computes it.
 
 ## SDK Usage
 

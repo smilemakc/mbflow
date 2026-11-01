@@ -52,6 +52,7 @@ The database schema implements a complete workflow orchestration system with Eve
 7. **triggers** - Workflow trigger configurations
    - UUID primary key
    - Type: manual, cron, webhook, event, interval
+   - Name and description (migration 020)
    - JSONB config (cron expression, webhook URL, etc.)
    - Enabled flag for activation control
    - Last triggered timestamp

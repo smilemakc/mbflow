@@ -147,7 +147,7 @@ func (h *RentalKeyHandlers) GetRentalKey(c *gin.Context) {
 
 	key, err := h.provider.GetKey(c.Request.Context(), keyID)
 	if err != nil {
-		if errors.Is(err, models.ErrRentalKeyNotFound) || errors.Is(err, models.ErrResourceNotFound) {
+		if isRentalKeyNotFound(err) {
 			respondError(c, http.StatusNotFound, "rental key not found")
 			return
 		}
@@ -181,7 +181,7 @@ func (h *RentalKeyHandlers) GetRentalKeyUsage(c *gin.Context) {
 	// Verify ownership
 	key, err := h.provider.GetKey(c.Request.Context(), keyID)
 	if err != nil {
-		if errors.Is(err, models.ErrRentalKeyNotFound) || errors.Is(err, models.ErrResourceNotFound) {
+		if isRentalKeyNotFound(err) {
 			respondError(c, http.StatusNotFound, "rental key not found")
 			return
 		}
@@ -239,7 +239,7 @@ func (h *RentalKeyHandlers) GetRentalKeyUsageSummary(c *gin.Context) {
 	// Verify ownership
 	key, err := h.provider.GetKey(c.Request.Context(), keyID)
 	if err != nil {
-		if errors.Is(err, models.ErrRentalKeyNotFound) || errors.Is(err, models.ErrResourceNotFound) {
+		if isRentalKeyNotFound(err) {
 			respondError(c, http.StatusNotFound, "rental key not found")
 			return
 		}
@@ -325,4 +325,12 @@ func (h *RentalKeyHandlers) toUsageRecordResponse(record *models.RentalKeyUsageR
 		ResponseTimeMs: record.ResponseTimeMs,
 		CreatedAt:      record.CreatedAt,
 	}
+}
+
+// isRentalKeyNotFound reports whether err means the requested rental key does
+// not exist. A malformed ID cannot name an existing key either.
+func isRentalKeyNotFound(err error) bool {
+	return errors.Is(err, models.ErrRentalKeyNotFound) ||
+		errors.Is(err, models.ErrResourceNotFound) ||
+		errors.Is(err, models.ErrInvalidID)
 }

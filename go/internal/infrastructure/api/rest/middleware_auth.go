@@ -79,12 +79,7 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		// Otherwise validate as JWT token
 		claims, err := m.providerManager.ValidateToken(c.Request.Context(), token)
 		if err != nil {
-			if errors.Is(err, auth.ErrExpiredToken) {
-				respondError(c, http.StatusUnauthorized, "token expired")
-			} else {
-				respondError(c, http.StatusUnauthorized, "invalid token")
-			}
-			c.Abort()
+			respondTokenError(c, err)
 			return
 		}
 
@@ -97,6 +92,24 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// respondTokenError aborts the request for an access token that failed
+// validation. A revoked session (logout, password change, deactivation) is a
+// plain 401; a session store outage is a 503 so clients keep their tokens and
+// retry instead of treating it as a logout.
+func respondTokenError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, auth.ErrExpiredToken):
+		respondError(c, http.StatusUnauthorized, "token expired")
+	case errors.Is(err, auth.ErrSessionRevoked), errors.Is(err, auth.ErrAccountInactive):
+		respondError(c, http.StatusUnauthorized, "session revoked")
+	case errors.Is(err, auth.ErrSessionUnavailable):
+		respondError(c, http.StatusServiceUnavailable, "authentication temporarily unavailable")
+	default:
+		respondError(c, http.StatusUnauthorized, "invalid token")
+	}
+	c.Abort()
 }
 
 // OptionalAuth middleware that allows unauthenticated requests but sets user context if authenticated
@@ -139,8 +152,7 @@ func (m *AuthMiddleware) RequireAdmin() gin.HandlerFunc {
 
 		claims, err := m.providerManager.ValidateToken(c.Request.Context(), token)
 		if err != nil {
-			respondError(c, http.StatusUnauthorized, "invalid token")
-			c.Abort()
+			respondTokenError(c, err)
 			return
 		}
 
@@ -174,8 +186,7 @@ func (m *AuthMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
 
 		claims, err := m.providerManager.ValidateToken(c.Request.Context(), token)
 		if err != nil {
-			respondError(c, http.StatusUnauthorized, "invalid token")
-			c.Abort()
+			respondTokenError(c, err)
 			return
 		}
 
@@ -232,8 +243,7 @@ func (m *AuthMiddleware) RequirePermission(permission string) gin.HandlerFunc {
 
 		claims, err := m.providerManager.ValidateToken(c.Request.Context(), token)
 		if err != nil {
-			respondError(c, http.StatusUnauthorized, "invalid token")
-			c.Abort()
+			respondTokenError(c, err)
 			return
 		}
 

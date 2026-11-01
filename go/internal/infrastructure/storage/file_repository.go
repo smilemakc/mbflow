@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -144,16 +145,10 @@ func (r *FileRepository) FindByQuery(ctx context.Context, query *FileQuery) ([]*
 		}
 	}
 
-	// Ordering
-	orderBy := "created_at"
-	if query.OrderBy != "" {
-		orderBy = query.OrderBy
-	}
-	orderDir := "DESC"
-	if query.OrderDir != "" {
-		orderDir = query.OrderDir
-	}
-	q = q.Order(fmt.Sprintf("%s %s", orderBy, orderDir))
+	// Ordering. OrderBy/OrderDir come straight from API query parameters, so
+	// only whitelisted values may reach the SQL text.
+	orderBy, orderDir := fileOrderClause(query.OrderBy, query.OrderDir)
+	q = q.OrderExpr(orderBy + " " + orderDir)
 
 	// Pagination
 	if query.Limit > 0 {
@@ -168,6 +163,30 @@ func (r *FileRepository) FindByQuery(ctx context.Context, query *FileQuery) ([]*
 		return nil, fmt.Errorf("failed to find files: %w", err)
 	}
 	return files, nil
+}
+
+// fileOrderColumns are the columns FindByQuery may sort by.
+var fileOrderColumns = map[string]string{
+	"created_at": "f.created_at",
+	"updated_at": "f.updated_at",
+	"name":       "f.name",
+	"size":       "f.size",
+	"mime_type":  "f.mime_type",
+	"expires_at": "f.expires_at",
+}
+
+// fileOrderClause maps user-supplied ordering to a safe column and direction,
+// falling back to "created_at DESC" for unknown values.
+func fileOrderClause(orderBy, orderDir string) (string, string) {
+	column, ok := fileOrderColumns[strings.ToLower(strings.TrimSpace(orderBy))]
+	if !ok {
+		column = fileOrderColumns["created_at"]
+	}
+	dir := "DESC"
+	if strings.EqualFold(strings.TrimSpace(orderDir), "ASC") {
+		dir = "ASC"
+	}
+	return column, dir
 }
 
 // CountByQuery counts files matching the query
