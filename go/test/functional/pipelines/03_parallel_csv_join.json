@@ -1,0 +1,133 @@
+{
+  "description": "Complex, no LLM: two CSV datasets fetched in parallel, parsed, joined by country code with jq, report and threshold branch.",
+  "workflow": {
+    "name": "FT03 parallel CSV join",
+    "nodes": [
+      {
+        "id": "fetch_gdp",
+        "name": "Fetch GDP CSV",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://raw.githubusercontent.com/datasets/gdp/main/data/gdp.csv"
+        }
+      },
+      {
+        "id": "fetch_codes",
+        "name": "Fetch country codes CSV",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://raw.githubusercontent.com/datasets/country-codes/main/data/country-codes.csv"
+        }
+      },
+      {
+        "id": "gdp_rows",
+        "name": "Parse GDP",
+        "type": "csv_to_json",
+        "config": {
+          "input_key": "body"
+        }
+      },
+      {
+        "id": "code_rows",
+        "name": "Parse codes",
+        "type": "csv_to_json",
+        "config": {
+          "input_key": "body"
+        }
+      },
+      {
+        "id": "join",
+        "name": "GDP by region",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": "(.code_rows.result | map({key: .[\"ISO3166-1-Alpha-3\"], value: .[\"Region Name\"]}) | map(select(.key != \"\" and .value != \"\")) | from_entries) as $region | (.gdp_rows.result | map(.Year | tonumber) | max) as $y | [.gdp_rows.result[] | select((.Year | tonumber) == $y and $region[.[\"Country Code\"]] != null)] | group_by($region[.[\"Country Code\"]]) | map({region: $region[.[0][\"Country Code\"]], countries: length, gdp_trillion: ((map(.Value | tonumber) | add) / 1e12 * 100 | round / 100), top: (max_by(.Value | tonumber) | .[\"Country Name\"])}) | sort_by(-.gdp_trillion) | {year: $y, regions: .}"
+        }
+      },
+      {
+        "id": "check",
+        "name": "Leader above 20T?",
+        "type": "conditional",
+        "config": {
+          "condition": "input.regions[0].gdp_trillion > 20"
+        }
+      },
+      {
+        "id": "report",
+        "name": "Report",
+        "type": "transform",
+        "config": {
+          "type": "template",
+          "template": "In {{input.year}} the largest regional economy was {{input.regions[0].region}} ({{input.regions[0].gdp_trillion}} trillion USD, led by {{input.regions[0].top}})."
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "fetch_gdp",
+        "to": "gdp_rows"
+      },
+      {
+        "id": "e2",
+        "from": "fetch_codes",
+        "to": "code_rows"
+      },
+      {
+        "id": "e3",
+        "from": "gdp_rows",
+        "to": "join"
+      },
+      {
+        "id": "e4",
+        "from": "code_rows",
+        "to": "join"
+      },
+      {
+        "id": "e5",
+        "from": "join",
+        "to": "check"
+      },
+      {
+        "id": "e6",
+        "from": "check",
+        "to": "report",
+        "source_handle": "true"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "regional GDP",
+      "input": {},
+      "expect": {
+        "nodes": {
+          "gdp_rows": "completed",
+          "code_rows": "completed",
+          "report": "completed"
+        },
+        "output": [
+          {
+            "node": "join",
+            "path": "regions",
+            "op": "len_gte",
+            "value": 4
+          },
+          {
+            "node": "join",
+            "path": "year",
+            "op": "gte",
+            "value": 2020
+          },
+          {
+            "path": "value",
+            "op": "contains",
+            "value": "the largest regional economy was"
+          }
+        ]
+      }
+    }
+  ]
+}

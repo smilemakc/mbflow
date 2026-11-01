@@ -1,0 +1,234 @@
+{
+  "description": "Complex LLM: dataset -> jq -> Claude structured output (JSON schema) -> jq -> conditional -> second Claude call on one branch -> merge.",
+  "requires": [
+    "anthropic"
+  ],
+  "workflow": {
+    "name": "FT06 LLM structured routing",
+    "nodes": [
+      {
+        "id": "fetch",
+        "name": "Fetch countries",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://raw.githubusercontent.com/mledoze/countries/master/countries.json"
+        }
+      },
+      {
+        "id": "pick",
+        "name": "Pick countries",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": "{subregion: \"{{input.subregion}}\", countries: ([.body[] | select(.subregion == \"{{input.subregion}}\") | {name: .name.common, capital: (.capital // [] | first), area, latlng}] | sort_by(-.area) | .[:5])}"
+        }
+      },
+      {
+        "id": "classify",
+        "name": "Classify climate",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 1200,
+          "temperature": 0,
+          "instruction": "You are a geography assistant. Use only well-known facts.",
+          "prompt": "For each country below give its dominant climate and one short fun fact.\n{{input.countries}}",
+          "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+              "name": "climate_report",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "countries": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "climate": {
+                          "type": "string",
+                          "enum": [
+                            "tropical",
+                            "temperate",
+                            "arid",
+                            "polar",
+                            "mixed"
+                          ]
+                        },
+                        "fun_fact": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "climate",
+                        "fun_fact"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "countries"
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "count",
+        "name": "Count tropical",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": "{subregion: \"{{input.subregion}}\", classified: (.content.countries | length), tropical: [.content.countries[] | select(.climate == \"tropical\") | .name]}"
+        }
+      },
+      {
+        "id": "has_tropical",
+        "name": "Any tropical?",
+        "type": "conditional",
+        "config": {
+          "condition": "len(input.tropical) > 0"
+        }
+      },
+      {
+        "id": "pitch",
+        "name": "Beach trip pitch",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 200,
+          "prompt": "Write one upbeat sentence recommending a beach holiday in: {{input.tropical}}."
+        }
+      },
+      {
+        "id": "no_beach",
+        "name": "No beach",
+        "type": "transform",
+        "config": {
+          "type": "template",
+          "template": "No tropical countries among the largest in {{input.subregion}}."
+        }
+      },
+      {
+        "id": "join",
+        "name": "Merge",
+        "type": "merge",
+        "config": {
+          "merge_strategy": "all"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "fetch",
+        "to": "pick"
+      },
+      {
+        "id": "e2",
+        "from": "pick",
+        "to": "classify"
+      },
+      {
+        "id": "e3",
+        "from": "classify",
+        "to": "count"
+      },
+      {
+        "id": "e4",
+        "from": "count",
+        "to": "has_tropical"
+      },
+      {
+        "id": "e5",
+        "from": "has_tropical",
+        "to": "pitch",
+        "source_handle": "true"
+      },
+      {
+        "id": "e6",
+        "from": "has_tropical",
+        "to": "no_beach",
+        "source_handle": "false"
+      },
+      {
+        "id": "e7",
+        "from": "pitch",
+        "to": "join"
+      },
+      {
+        "id": "e8",
+        "from": "no_beach",
+        "to": "join"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "South-Eastern Asia is tropical",
+      "input": {
+        "subregion": "South-Eastern Asia"
+      },
+      "expect": {
+        "nodes": {
+          "classify": "completed",
+          "pitch": "completed",
+          "no_beach": "skipped"
+        },
+        "output": [
+          {
+            "node": "count",
+            "path": "classified",
+            "op": "eq",
+            "value": 5
+          },
+          {
+            "node": "count",
+            "path": "tropical",
+            "op": "len_gte",
+            "value": 3
+          },
+          {
+            "path": "pitch.content",
+            "op": "nonempty"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Northern Europe is not tropical",
+      "input": {
+        "subregion": "Northern Europe"
+      },
+      "expect": {
+        "nodes": {
+          "pitch": "skipped",
+          "no_beach": "completed"
+        },
+        "output": [
+          {
+            "node": "count",
+            "path": "tropical",
+            "op": "len",
+            "value": 0
+          },
+          {
+            "path": "no_beach",
+            "op": "eq",
+            "value": "No tropical countries among the largest in Northern Europe."
+          }
+        ]
+      }
+    }
+  ]
+}
