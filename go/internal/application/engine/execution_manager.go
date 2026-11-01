@@ -66,6 +66,12 @@ func (em *ExecutionManager) runContext() context.Context {
 	return em.rootCtx
 }
 
+// DAGExecutor returns the executor that runs workflow graphs; it also runs
+// workflows called as LLM tools.
+func (em *ExecutionManager) DAGExecutor() *pkgengine.DAGExecutor {
+	return em.dagExecutor
+}
+
 // NewExecutionManager creates a new execution manager.
 func NewExecutionManager(
 	executorManager executor.Manager,

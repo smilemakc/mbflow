@@ -376,6 +376,14 @@ func (s *Server) initExecutionEngine() error {
 		registry,
 	)
 
+	// LLM nodes run workflows called as tools ("sub_workflow" functions)
+	// with the same engine.
+	if llmExec, err := s.execution.ExecutorManager.Get("llm"); err == nil {
+		if llm, ok := llmExec.(*builtin.LLMExecutor); ok {
+			llm.SetWorkflowExecutor(s.execution.ExecutionManager.DAGExecutor())
+		}
+	}
+
 	// Credentials attached to workflows resolve to their decrypted values in
 	// templates ({{resource.<alias>.api_key}}); needs the encryption service,
 	// which initEncryptionServices sets up earlier.

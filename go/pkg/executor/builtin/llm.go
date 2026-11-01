@@ -43,6 +43,12 @@ func (e *LLMExecutor) SetToolCallingRegistry(registry *ToolCallingRegistry) {
 	e.toolCallingRegistry = registry
 }
 
+// SetWorkflowExecutor sets what runs workflows called as tools
+// ("sub_workflow" functions). Without it such tools fail.
+func (e *LLMExecutor) SetWorkflowExecutor(exec WorkflowExecutor) {
+	e.toolRegistry().SetWorkflowExecutor(exec)
+}
+
 // toolRegistry returns the tool calling registry, creating one without
 // built-in functions when none is set.
 func (e *LLMExecutor) toolRegistry() *ToolCallingRegistry {
