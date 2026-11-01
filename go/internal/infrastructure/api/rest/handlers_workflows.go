@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -207,14 +209,38 @@ type NodeRequest struct {
 }
 
 type EdgeRequest struct {
-	ID           string         `json:"id" binding:"required,max=100"`
-	From         string         `json:"from" binding:"required,max=100"`
-	To           string         `json:"to" binding:"required,max=100"`
-	SourceHandle string         `json:"source_handle,omitempty"`
-	Condition    map[string]any `json:"condition,omitempty"`
+	ID           string        `json:"id" binding:"required,max=100"`
+	From         string        `json:"from" binding:"required,max=100"`
+	To           string        `json:"to" binding:"required,max=100"`
+	SourceHandle string        `json:"source_handle,omitempty"`
+	Condition    EdgeCondition `json:"condition,omitempty"`
 	Loop         *struct {
 		MaxIterations int `json:"max_iterations"`
 	} `json:"loop,omitempty"`
+}
+
+// EdgeCondition is an edge condition in a workflow request. It accepts the
+// expression as a string, as GET returns it and as the single-edge routes take
+// it, or as an object {"expression": "..."}, the stored form.
+type EdgeCondition map[string]any
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (c *EdgeCondition) UnmarshalJSON(data []byte) error {
+	var expression string
+	if err := json.Unmarshal(data, &expression); err == nil {
+		if expression == "" {
+			*c = nil
+		} else {
+			*c = EdgeCondition{"expression": expression}
+		}
+		return nil
+	}
+	var object map[string]any
+	if err := json.Unmarshal(data, &object); err != nil {
+		return fmt.Errorf("condition must be an expression string or an object with \"expression\": %w", err)
+	}
+	*c = object
+	return nil
 }
 
 // toNodeInputs converts request nodes; nil stays nil (meaning "unchanged").
