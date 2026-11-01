@@ -63,9 +63,12 @@
 - Against the real Anthropic API, LLM nodes with `temperature` or `top_p` failed on current Claude models (`temperature` is deprecated for this model). The provider now sends sampling parameters only to older models that accept them.
 - Anthropic structured output (`response_format` `json_schema`) failed on Claude Opus 5.5, Sonnet 5.5 and Fable 5.1, which reject forced `tool_choice`. It now uses native structured outputs (`output_config.format`); objects get `additionalProperties: false` and unsupported constraints are dropped. Older models without structured outputs keep the forced-tool path.
 - In the Anthropic tool-calling loop, the assistant turn is now sent back exactly as returned, so thinking blocks stay in front of the tool calls they led to.
+- LLM tools of type `sub_workflow` (an agent calling another workflow) always failed with "workflow executor not configured". They now run the workflow with the execution engine; the workflow must belong to the same owner, inherits the caller's credentials, and tool workflows nest at most 5 deep.
+- Creating or updating a workflow rejected edge conditions given as strings, the form `GET` returns, so a workflow with conditional edges could not be saved back after reading it. Both the string and `{"expression": "..."}` are accepted.
+- The condition cache had a data race between concurrent condition evaluations.
 
 ### Tests and CI
 
 - Go statement coverage went from 50% to 96.9%. CI fails below 90% (`go/scripts/coverage.sh`, `make test-cover`).
-- `go/test/functional` runs pipelines (third-party APIs, branching, sub-workflows, LLM summary, structured output, tool-calling agent) against a running stack.
+- `go/test/functional` runs 13 pipelines against a running stack: third-party APIs, branching, sub-workflows, and LLM pipelines (summary, structured output, tool-calling agents including one whose tool is a workflow, map-reduce over child workflows, a revision loop, routing by edge conditions, parallel fan-in, failure handling). They pass on Claude Haiku 5.5, Sonnet 5.5 and Opus 5.5.
 - The UI has Vitest + Testing Library tests with a 90% gate on the tested modules (`npm run test:coverage`).

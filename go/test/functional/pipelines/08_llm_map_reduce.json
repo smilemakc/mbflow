@@ -1,0 +1,121 @@
+{
+  "description": "Map-reduce with an LLM: a child workflow asks Claude about one country (structured output) and pairs the answer with the dataset; the parent runs it for 5 countries in parallel, scores the answers with jq and has Claude write a summary.",
+  "requires": ["anthropic"],
+  "dry_run": false,
+  "children": {
+    "quiz": {
+      "name": "FT08 child: country quiz",
+      "nodes": [
+        {
+          "id": "ask",
+          "name": "Ask Claude",
+          "type": "llm",
+          "config": {
+            "provider": "anthropic",
+            "model": "${llm_model}",
+            "api_key": "{{resource.anthropic.api_key}}",
+            "max_tokens": 2048,
+            "instruction": "You are a geography expert. Answer from general knowledge.",
+            "prompt": "Country: {{input.item.name.common}}. Give its constitutional capital, whether it is landlocked, and the hemisphere (north or south of the equator) that contains most of its territory.",
+            "response_format": {
+              "type": "json_schema",
+              "json_schema": {
+                "name": "country_facts",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "capital": {"type": "string"},
+                    "landlocked": {"type": "boolean"},
+                    "hemisphere": {"type": "string", "enum": ["north", "south"]}
+                  },
+                  "required": ["capital", "landlocked", "hemisphere"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "pair",
+          "name": "Pair with dataset",
+          "type": "transform",
+          "config": {
+            "type": "jq",
+            "filter": "{name: .item.name.common, answer: .content, truth: {capitals: .item.capital, landlocked: .item.landlocked, hemisphere: (if .item.latlng[0] >= 0 then \"north\" else \"south\" end)}}"
+          }
+        }
+      ],
+      "edges": [{"id": "e1", "from": "ask", "to": "pair"}]
+    }
+  },
+  "workflow": {
+    "name": "FT08 LLM map-reduce",
+    "nodes": [
+      {
+        "id": "fetch",
+        "name": "Fetch countries",
+        "type": "http",
+        "config": {"method": "GET", "url": "https://raw.githubusercontent.com/mledoze/countries/master/countries.json"}
+      },
+      {
+        "id": "pick",
+        "name": "Pick countries",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": "{items: ([.body[] | select(.subregion == \"{{input.subregion}}\")] | sort_by(.name.common) | .[:{{input.limit}}])}"
+        }
+      },
+      {
+        "id": "quiz",
+        "name": "Quiz per country",
+        "type": "sub_workflow",
+        "config": {"workflow_id": "${child:quiz}", "for_each": "input.items", "max_parallelism": 5}
+      },
+      {
+        "id": "score",
+        "name": "Score answers",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": "[.items[].output] as $r | {total: ($r | length), failed: .summary.failed, landlocked_correct: ([$r[] | select(.answer.landlocked == .truth.landlocked)] | length), hemisphere_correct: ([$r[] | select(.answer.hemisphere == .truth.hemisphere)] | length), capital_correct: ([$r[] | select(.answer.capital as $c | .truth.capitals | index($c))] | length), landlocked_countries: [$r[] | select(.answer.landlocked) | .name], results: $r}"
+        }
+      },
+      {
+        "id": "summary",
+        "name": "Summarize",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 2048,
+          "prompt": "Here are quiz results comparing a model's answers with a dataset: {{input.results}}. In two sentences, say how many of {{input.total}} capitals matched and name every landlocked country."
+        }
+      }
+    ],
+    "edges": [
+      {"id": "e1", "from": "fetch", "to": "pick"},
+      {"id": "e2", "from": "pick", "to": "quiz"},
+      {"id": "e3", "from": "quiz", "to": "score"},
+      {"id": "e4", "from": "score", "to": "summary"}
+    ]
+  },
+  "cases": [
+    {
+      "name": "South America",
+      "input": {"subregion": "South America", "limit": 5},
+      "expect": {
+        "nodes": {"quiz": "completed", "score": "completed", "summary": "completed"},
+        "output": [
+          {"node": "score", "path": "total", "op": "eq", "value": 5},
+          {"node": "score", "path": "failed", "op": "eq", "value": 0},
+          {"node": "score", "path": "landlocked_correct", "op": "eq", "value": 5},
+          {"node": "score", "path": "landlocked_countries", "op": "eq", "value": ["Bolivia"]},
+          {"node": "score", "path": "hemisphere_correct", "op": "gte", "value": 4},
+          {"node": "score", "path": "capital_correct", "op": "gte", "value": 4},
+          {"path": "content", "op": "contains", "value": "Bolivia"}
+        ]
+      }
+    }
+  ]
+}

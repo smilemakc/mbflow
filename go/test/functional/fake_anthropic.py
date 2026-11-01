@@ -31,11 +31,13 @@ SAMPLING_OK = ("claude-3", "claude-opus-4-0", "claude-opus-4-1", "claude-opus-4-
 
 def invalid(body):
     model = body.get("model") or ""
+    if "no-such-model" in model:
+        return 404, "not_found_error", f"model: {model}"
     for param in ("temperature", "top_p", "top_k"):
         if param in body and not model.startswith(SAMPLING_OK):
-            return f"`{param}` is deprecated for this model."
+            return 400, "invalid_request_error", f"`{param}` is deprecated for this model."
     if (body.get("tool_choice") or {}).get("type") in ("tool", "any") and model.startswith(NO_FORCED_TOOLS):
-        return 'tool_choice: type "tool" and "any" are not supported for this model.'
+        return 400, "invalid_request_error", 'tool_choice: type "tool" and "any" are not supported for this model.'
     return None
 
 
@@ -109,7 +111,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(401, {"type": "error", "error": {"type": "authentication_error", "message": "invalid x-api-key"}})
         problem = invalid(body)
         if problem:
-            return self.reply(400, {"type": "error", "error": {"type": "invalid_request_error", "message": problem}})
+            status, kind, message = problem
+            return self.reply(status, {"type": "error", "error": {"type": kind, "message": message}})
         result = respond(body)
         result.update({"id": "msg_fake", "type": "message", "role": "assistant", "model": body.get("model")})
         self.reply(200, result)

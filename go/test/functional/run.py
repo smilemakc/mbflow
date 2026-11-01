@@ -15,7 +15,8 @@ Set MBFLOW_LLM_BASE_URL to send llm nodes to a stand-in API instead
 (dry run, see fake_anthropic.py).
 
 Pipelines that list "anthropic" in "requires" are skipped when
-ANTHROPIC_API_KEY is not set. The key is stored as an encrypted credential
+ANTHROPIC_API_KEY is not set, and pipelines with "dry_run": false (their
+checks depend on what a real model knows) are skipped in dry runs. The key is stored as an encrypted credential
 and attached to those workflows as the resource alias "anthropic", so
 nodes use it as {{resource.anthropic.api_key}}; it never appears in a
 workflow definition or execution input.
@@ -23,6 +24,7 @@ workflow definition or execution input.
 import glob
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -146,16 +148,33 @@ def check(ex, expect):
         if got != want:
             err = nodes.get(node_id, {}).get("error")
             problems.append(f"node {node_id}: status {got!r} != {want!r} {('(' + err + ')') if err else ''}")
+    for node_id, unwanted in (expect.get("not_nodes") or {}).items():
+        if nodes.get(node_id, {}).get("status") == unwanted:
+            problems.append(f"node {node_id}: status must not be {unwanted!r}")
+    if expect.get("events"):
+        _, body = api("GET", f"/executions/{ex['id']}/logs")
+        counts = {}
+        for entry in (body or {}).get("logs") or []:
+            counts[entry.get("event_type")] = counts.get(entry.get("event_type"), 0) + 1
+        for event_type, want in expect["events"].items():
+            if counts.get(event_type, 0) != want:
+                problems.append(f"{counts.get(event_type, 0)} {event_type} events != {want}")
+    if "error_contains" in expect and expect["error_contains"] not in (ex.get("error") or ""):
+        problems.append(f"error {ex.get('error')!r} does not contain {expect['error_contains']!r}")
     for rule in expect.get("output") or []:
         source = ex.get("output")
         if "node" in rule:
             source = nodes.get(rule["node"], {}).get("output")
+        op, want = rule.get("op", "eq"), rule.get("value")
         try:
             got = get_path(source, rule["path"])
         except (KeyError, IndexError, ValueError):
-            problems.append(f"{rule.get('node', 'output')}.{rule['path']}: missing")
+            if op != "missing":
+                problems.append(f"{rule.get('node', 'output')}.{rule['path']}: missing")
             continue
-        op, want = rule.get("op", "eq"), rule.get("value")
+        if op == "missing":
+            problems.append(f"{rule.get('node', 'output')}.{rule['path']} should be absent: got {json.dumps(got, ensure_ascii=False)[:200]}")
+            continue
         ok = {
             "eq": lambda: got == want,
             "contains": lambda: isinstance(got, (str, list)) and want in got,
@@ -167,6 +186,7 @@ def check(ex, expect):
             "type": lambda: type(got).__name__ == want,
             "nonempty": lambda: bool(got),
             "in": lambda: got in want,
+            "regex": lambda: isinstance(got, str) and re.search(want, got) is not None,
         }[op]()
         if not ok:
             problems.append(f"{rule.get('node', 'output')}.{rule['path']} {op} {want!r}: got {json.dumps(got, ensure_ascii=False)[:200]}")
@@ -197,6 +217,9 @@ def main(filters):
             continue
         if "anthropic" in spec.get("requires", []) and not credential_id:
             results.append((name, "SKIP", ["ANTHROPIC_API_KEY not set"], 0))
+            continue
+        if LLM_BASE_URL and spec.get("dry_run") is False:
+            results.append((name, "SKIP", ["needs a real model (dry run)"], 0))
             continue
         started = time.time()
         problems = []

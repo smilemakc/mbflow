@@ -1,0 +1,124 @@
+{
+  "description": "Fan-out / fan-in: two READMEs fetched and summarized by Claude in parallel (structured output), then a third Claude call with two parents compares them.",
+  "requires": ["anthropic"],
+  "dry_run": false,
+  "workflow": {
+    "name": "FT12 LLM parallel compare",
+    "nodes": [
+      {
+        "id": "fetch_go",
+        "name": "Fetch Go README",
+        "type": "http",
+        "config": {"method": "GET", "url": "https://raw.githubusercontent.com/golang/go/master/README.md"}
+      },
+      {
+        "id": "fetch_rust",
+        "name": "Fetch Rust README",
+        "type": "http",
+        "config": {"method": "GET", "url": "https://raw.githubusercontent.com/rust-lang/rust/master/README.md"}
+      },
+      {
+        "id": "sum_go",
+        "name": "Profile Go",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 2048,
+          "prompt": "Describe the project from this README.\n\n{{input.body}}",
+          "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+              "name": "project",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "language": {"type": "string", "description": "Name of the programming language"},
+                  "license": {"type": "string", "description": "License name as stated, or unknown"},
+                  "one_liner": {"type": "string"}
+                },
+                "required": ["language", "license", "one_liner"]
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "sum_rust",
+        "name": "Profile Rust",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 2048,
+          "prompt": "Describe the project from this README.\n\n{{input.body}}",
+          "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+              "name": "project",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "language": {"type": "string", "description": "Name of the programming language"},
+                  "license": {"type": "string", "description": "License name as stated, or unknown"},
+                  "one_liner": {"type": "string"}
+                },
+                "required": ["language", "license", "one_liner"]
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "compare",
+        "name": "Compare",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 2048,
+          "prompt": "Project A: {{input.sum_go.content}}\nProject B: {{input.sum_rust.content}}\nIn at most three sentences, compare the two projects and name both languages.",
+          "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+              "name": "comparison",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "languages": {"type": "array", "items": {"type": "string"}},
+                  "comparison": {"type": "string"}
+                },
+                "required": ["languages", "comparison"]
+              }
+            }
+          }
+        }
+      }
+    ],
+    "edges": [
+      {"id": "e1", "from": "fetch_go", "to": "sum_go"},
+      {"id": "e2", "from": "fetch_rust", "to": "sum_rust"},
+      {"id": "e3", "from": "sum_go", "to": "compare"},
+      {"id": "e4", "from": "sum_rust", "to": "compare"}
+    ]
+  },
+  "cases": [
+    {
+      "name": "Go vs Rust",
+      "input": {},
+      "expect": {
+        "nodes": {"sum_go": "completed", "sum_rust": "completed", "compare": "completed"},
+        "output": [
+          {"node": "sum_go", "path": "content.language", "op": "icontains", "value": "go"},
+          {"node": "sum_rust", "path": "content.language", "op": "icontains", "value": "rust"},
+          {"node": "sum_go", "path": "content.license", "op": "icontains", "value": "bsd"},
+          {"path": "content.languages", "op": "len", "value": 2},
+          {"path": "content.comparison", "op": "icontains", "value": "rust"}
+        ]
+      }
+    }
+  ]
+}

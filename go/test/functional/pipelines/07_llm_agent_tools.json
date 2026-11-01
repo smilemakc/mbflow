@@ -56,22 +56,27 @@
   },
   "cases": [
     {
-      "name": "count animals starting with c",
+      "name": "count animals starting with h",
       "input": {
         "url": "https://raw.githubusercontent.com/dariusk/corpora/master/data/animals/common.json",
-        "letter": "c"
+        "letter": "h"
       },
       "expect": {
         "output": [
           {
             "path": "content",
-            "op": "contains",
-            "value": "14"
+            "op": "regex",
+            "value": "^\\W*6\\b"
           },
           {
             "path": "content",
             "op": "icontains",
-            "value": "capybara"
+            "value": "hippopotamus"
+          },
+          {
+            "path": "content",
+            "op": "icontains",
+            "value": "hedgehog"
           },
           {
             "path": "tool_executions",
