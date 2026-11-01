@@ -122,11 +122,10 @@ export const LLMNodeConfigComponent: React.FC<Props> = ({config, nodeId, onChang
                     onChange={(e) => handleProviderChange(e.target.value as LLMNodeConfig['provider'])}
                     className={selectClasses}
                 >
-                    <option value="openai">OpenAI</option>
+                    <option value="openai">OpenAI (Chat Completions)</option>
+                    <option value="openai-responses">OpenAI (Responses API)</option>
                     <option value="anthropic">Anthropic</option>
-                    <option value="google">Google</option>
-                    <option value="azure">Azure</option>
-                    <option value="ollama">Ollama</option>
+                    <option value="gemini">Google Gemini</option>
                 </select>
             </div>
 
