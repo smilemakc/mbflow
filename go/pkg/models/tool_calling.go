@@ -1,5 +1,7 @@
 package models
 
+import "encoding/json"
+
 // ToolCallMode определяет режим работы tool calling
 type ToolCallMode string
 
@@ -36,6 +38,10 @@ type LLMMessage struct {
 	ToolCallID string         `json:"tool_call_id,omitempty"` // ID tool call для role="tool"
 	Name       string         `json:"name,omitempty"`         // Имя функции для role="tool"
 	Metadata   map[string]any `json:"metadata,omitempty"`
+	// ProviderContent holds an assistant turn exactly as the provider returned
+	// it, for providers that need it sent back unchanged (Anthropic thinking
+	// blocks before a tool call). It is not part of the node output.
+	ProviderContent json.RawMessage `json:"-"`
 }
 
 // FunctionType тип функции для tool calling

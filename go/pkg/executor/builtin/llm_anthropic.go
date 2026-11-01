@@ -90,6 +90,12 @@ func (p *AnthropicProvider) Execute(ctx context.Context, req *models.LLMRequest)
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
+	var raw struct {
+		Content json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(respBody, &raw); err == nil {
+		apiResp.RawContent = raw.Content
+	}
 	return p.convertResponse(&apiResp, req, structuredTool), nil
 }
 
@@ -116,11 +122,15 @@ func (p *AnthropicProvider) buildRequestBody(req *models.LLMRequest) (map[string
 		messages = []map[string]any{{"role": "user", "content": p.userContent(req, req.Prompt)}}
 	}
 
-	if req.Temperature > 0 {
-		body["temperature"] = req.Temperature
-	}
-	if req.TopP > 0 {
-		body["top_p"] = req.TopP
+	// Current models reject sampling parameters with a 400, so they are sent
+	// only to the older models that accept them.
+	if anthropicAcceptsSampling(req.Model) {
+		if req.Temperature > 0 {
+			body["temperature"] = req.Temperature
+		}
+		if req.TopP > 0 {
+			body["top_p"] = req.TopP
+		}
 	}
 	if len(req.StopSequences) > 0 {
 		body["stop_sequences"] = req.StopSequences
@@ -135,12 +145,19 @@ func (p *AnthropicProvider) buildRequestBody(req *models.LLMRequest) (map[string
 		})
 	}
 
-	// Structured output: a JSON schema is enforced by forcing a tool whose
-	// input is the schema (when the request has no tools of its own); plain
-	// JSON is requested through the system prompt.
+	// Structured output: a JSON schema is enforced with output_config.format
+	// (the model's answer is the JSON text). Older models without structured
+	// outputs get a forced tool whose input is the schema instead; current
+	// models reject forced tool_choice. An older model whose request has tools
+	// of its own is asked for JSON through the system prompt.
 	structuredTool := ""
 	if f := req.ResponseFormat; f != nil {
 		switch {
+		case f.Type == "json_schema" && f.JSONSchema != nil && f.JSONSchema.Schema != nil && anthropicSupportsOutputFormat(req.Model):
+			body["output_config"] = map[string]any{"format": map[string]any{
+				"type":   "json_schema",
+				"schema": anthropicOutputSchema(f.JSONSchema.Schema),
+			}}
 		case f.Type == "json_schema" && f.JSONSchema != nil && len(tools) == 0:
 			structuredTool = f.JSONSchema.Name
 			if structuredTool == "" {
@@ -194,6 +211,98 @@ func anthropicInputSchema(schema map[string]any) map[string]any {
 	return schema
 }
 
+// anthropicLegacyModel reports whether model belongs to a family released
+// before the current API surface (sampling parameters, no native structured
+// outputs). Unknown names count as current models.
+func anthropicLegacyModel(model string, prefixes ...string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(model, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// anthropicAcceptsSampling reports whether model accepts temperature and
+// top_p. Claude Opus 4.7 and later, and every Claude 5 model, return a 400 for
+// them (Haiku 5.5 and Sonnet 5.5 for any non-default value).
+func anthropicAcceptsSampling(model string) bool {
+	return anthropicLegacyModel(model,
+		"claude-instant", "claude-2", "claude-3",
+		"claude-opus-4-0", "claude-opus-4-1", "claude-opus-4-5", "claude-opus-4-6", "claude-opus-4-2025",
+		"claude-sonnet-4", "claude-haiku-4",
+	)
+}
+
+// anthropicSupportsOutputFormat reports whether model supports structured
+// outputs (output_config.format). The Claude 3 family, Opus 4 and Sonnet 4
+// do not.
+func anthropicSupportsOutputFormat(model string) bool {
+	return !anthropicLegacyModel(model,
+		"claude-instant", "claude-2", "claude-3",
+		"claude-opus-4-0", "claude-opus-4-2025", "claude-sonnet-4-0", "claude-sonnet-4-2025",
+	)
+}
+
+// anthropicUnsupportedSchemaKeys are JSON schema constraints structured
+// outputs reject; they are dropped (the SDKs do the same and validate them
+// client-side).
+var anthropicUnsupportedSchemaKeys = map[string]bool{
+	"minimum": true, "maximum": true, "exclusiveMinimum": true, "exclusiveMaximum": true,
+	"multipleOf": true, "minLength": true, "maxLength": true,
+}
+
+// anthropicOutputSchema returns a copy of schema in the shape structured
+// outputs require: every object has additionalProperties: false and
+// unsupported constraints are removed. The node's schema is not modified.
+func anthropicOutputSchema(schema map[string]any) map[string]any {
+	out := make(map[string]any, len(schema)+1)
+	for k, v := range schema {
+		switch {
+		case anthropicUnsupportedSchemaKeys[k]:
+			continue
+		case k == "properties" || k == "$defs" || k == "definitions" || k == "patternProperties":
+			// Maps of name -> schema.
+			if named, ok := v.(map[string]any); ok {
+				copied := make(map[string]any, len(named))
+				for name, sub := range named {
+					copied[name] = anthropicOutputSubschema(sub)
+				}
+				out[k] = copied
+				continue
+			}
+			out[k] = v
+		case k == "items" || k == "not" || k == "additionalProperties" || k == "anyOf" || k == "allOf" || k == "oneOf" || k == "prefixItems":
+			out[k] = anthropicOutputSubschema(v)
+		default:
+			out[k] = v
+		}
+	}
+	if _, ok := out["properties"]; ok || out["type"] == "object" {
+		if _, set := out["additionalProperties"]; !set {
+			out["additionalProperties"] = false
+		}
+	}
+	return out
+}
+
+// anthropicOutputSubschema normalizes a schema or a list of schemas; other
+// values (such as additionalProperties: false) are kept as they are.
+func anthropicOutputSubschema(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		return anthropicOutputSchema(t)
+	case []any:
+		out := make([]any, len(t))
+		for i, item := range t {
+			out[i] = anthropicOutputSubschema(item)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
 // buildHistory converts req.Messages (auto tool-calling mode). System messages
 // form the system prompt, the attachments of the request go to the first user
 // message, and results of the calls of one turn are sent together.
@@ -216,6 +325,12 @@ func (p *AnthropicProvider) buildHistory(req *models.LLMRequest) (system []strin
 				system = append(system, msg.Content)
 			}
 		case "assistant":
+			if len(msg.ProviderContent) > 0 {
+				// Sent back exactly as returned: thinking blocks must
+				// precede the tool calls they led to, signatures intact.
+				messages = append(messages, map[string]any{"role": "assistant", "content": msg.ProviderContent})
+				continue
+			}
 			var content []map[string]any
 			if msg.Content != "" {
 				content = append(content, map[string]any{"type": "text", "text": msg.Content})
@@ -338,7 +453,8 @@ func (p *AnthropicProvider) convertResponse(resp *anthropicMessageResponse, req 
 			CompletionTokens: resp.Usage.OutputTokens,
 			TotalTokens:      resp.Usage.InputTokens + resp.Usage.OutputTokens,
 		},
-		ToolCalls: toolCalls,
+		ToolCalls:       toolCalls,
+		ProviderContent: resp.RawContent,
 	}
 }
 
@@ -364,6 +480,8 @@ type anthropicMessageResponse struct {
 	Content    []anthropicContentBlock `json:"content"`
 	StopReason string                  `json:"stop_reason"`
 	Usage      anthropicUsage          `json:"usage"`
+	// RawContent is the content array as received, used to send the turn back.
+	RawContent json.RawMessage `json:"-"`
 }
 
 type anthropicContentBlock struct {

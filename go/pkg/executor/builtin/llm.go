@@ -1180,6 +1180,8 @@ func (e *LLMExecutor) executeWithToolCalling(
 			Role:      "assistant",
 			Content:   response.Content,
 			ToolCalls: response.ToolCalls,
+			// Keeps the turn's thinking blocks in front of its tool calls.
+			ProviderContent: response.ProviderContent,
 		}
 		messages = append(messages, assistantMsg)
 

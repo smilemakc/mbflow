@@ -60,6 +60,9 @@
 - The `anthropic` LLM provider was accepted but not implemented. It now uses the Messages API with tools and structured output.
 - The UI offered LLM providers the backend does not support, and its JSON response mode was ignored.
 - Webhook executions stored callers' `Authorization`, `Cookie` and API-key headers in plain text.
+- Against the real Anthropic API, LLM nodes with `temperature` or `top_p` failed on current Claude models (`temperature` is deprecated for this model). The provider now sends sampling parameters only to older models that accept them.
+- Anthropic structured output (`response_format` `json_schema`) failed on Claude Opus 5.5, Sonnet 5.5 and Fable 5.1, which reject forced `tool_choice`. It now uses native structured outputs (`output_config.format`); objects get `additionalProperties: false` and unsupported constraints are dropped. Older models without structured outputs keep the forced-tool path.
+- In the Anthropic tool-calling loop, the assistant turn is now sent back exactly as returned, so thinking blocks stay in front of the tool calls they led to.
 
 ### Tests and CI
 

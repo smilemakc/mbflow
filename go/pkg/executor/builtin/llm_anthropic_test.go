@@ -66,8 +66,8 @@ func TestAnthropicProvider_TextRequest(t *testing.T) {
 	assert.Equal(t, "claude-test", body["model"])
 	assert.EqualValues(t, anthropicDefaultMaxTokens, body["max_tokens"])
 	assert.Equal(t, "Be brief", body["system"])
-	assert.EqualValues(t, 0.2, body["temperature"])
-	assert.EqualValues(t, 0.9, body["top_p"])
+	assert.NotContains(t, body, "temperature", "current models reject sampling parameters")
+	assert.NotContains(t, body, "top_p")
 	assert.Equal(t, []any{"END"}, body["stop_sequences"])
 	assert.NotContains(t, body, "tools")
 
@@ -174,10 +174,120 @@ func TestAnthropicProvider_History(t *testing.T) {
 	assert.Equal(t, []any{map[string]any{"type": "text", "text": "thanks"}}, last["content"])
 }
 
+func TestAnthropicProvider_ThinkingRoundTrip(t *testing.T) {
+	turn := `[{"type":"thinking","thinking":"","signature":"sig-1"},{"type":"text","text":"Fetching."},{"type":"tool_use","id":"toolu_1","name":"http_request","input":{"url":"https://example.com"}}]`
+	srv := rcNewRecordingServer(t, 200, `{"id":"m","model":"claude-haiku-5-5","content":`+turn+`,"stop_reason":"tool_use","usage":{}}`)
+	p, _ := NewAnthropicProvider("k", srv.URL)
+
+	resp, err := p.Execute(context.Background(), &models.LLMRequest{Model: "claude-haiku-5-5", Prompt: "go"})
+	require.NoError(t, err)
+	assert.JSONEq(t, turn, string(resp.ProviderContent), "the turn is kept as returned")
+	assert.Equal(t, "Fetching.", resp.Content)
+	require.Len(t, resp.ToolCalls, 1)
+
+	_, err = p.Execute(context.Background(), &models.LLMRequest{
+		Model: "claude-haiku-5-5",
+		Messages: []models.LLMMessage{
+			{Role: "user", Content: "go"},
+			{Role: "assistant", Content: resp.Content, ToolCalls: resp.ToolCalls, ProviderContent: resp.ProviderContent},
+			{Role: "tool", ToolCallID: "toolu_1", Content: "ok"},
+		},
+	})
+	require.NoError(t, err)
+	msgs := srv.lastBody()["messages"].([]any)
+	require.Len(t, msgs, 3)
+	sent, _ := json.Marshal(msgs[1].(map[string]any)["content"])
+	assert.JSONEq(t, turn, string(sent), "thinking blocks go back before the tool call, signature intact")
+	assert.Equal(t, "toolu_1", msgs[2].(map[string]any)["content"].([]any)[0].(map[string]any)["tool_use_id"])
+}
+
+func TestAnthropicModelCapabilities(t *testing.T) {
+	for model, want := range map[string]bool{
+		"claude-3-5-sonnet-latest": true, "claude-sonnet-4-5": true, "claude-haiku-4-5": true,
+		"claude-opus-4-6": true, "claude-opus-4-1": true, "claude-opus-4-20250514": true,
+		"claude-opus-4-7": false, "claude-opus-4-8": false, "claude-haiku-5-5": false,
+		"claude-sonnet-5-5": false, "claude-opus-5-5": false, "claude-fable-5-1": false, "claude-next": false,
+	} {
+		assert.Equal(t, want, anthropicAcceptsSampling(model), "sampling: %s", model)
+	}
+	for model, want := range map[string]bool{
+		"claude-3-haiku-20240307": false, "claude-opus-4-0": false, "claude-sonnet-4-20250514": false,
+		"claude-haiku-4-5": true, "claude-opus-4-1": true, "claude-haiku-5-5": true, "claude-next": true,
+	} {
+		assert.Equal(t, want, anthropicSupportsOutputFormat(model), "output format: %s", model)
+	}
+}
+
+func TestAnthropicProvider_SamplingOnOlderModels(t *testing.T) {
+	srv := rcNewRecordingServer(t, 200, anthropicTextResponse)
+	p, _ := NewAnthropicProvider("k", srv.URL)
+	_, err := p.Execute(context.Background(), &models.LLMRequest{Model: "claude-sonnet-4-5", Prompt: "p", Temperature: 0.2, TopP: 0.9})
+	require.NoError(t, err)
+	body := srv.lastBody()
+	assert.EqualValues(t, 0.2, body["temperature"])
+	assert.EqualValues(t, 0.9, body["top_p"])
+}
+
 func TestAnthropicProvider_StructuredOutput(t *testing.T) {
 	schema := map[string]any{"type": "object", "properties": map[string]any{"score": map[string]any{"type": "number"}}}
 
-	t.Run("json_schema forces a tool", func(t *testing.T) {
+	t.Run("json_schema uses output_config.format", func(t *testing.T) {
+		srv := rcNewRecordingServer(t, 200, `{
+		  "id": "m", "model": "claude-haiku-5-5",
+		  "content": [{"type": "thinking", "thinking": "", "signature": "sig"}, {"type": "text", "text": "{\"score\": 7}"}],
+		  "stop_reason": "end_turn", "usage": {}
+		}`)
+		p, _ := NewAnthropicProvider("k", srv.URL)
+		nested := map[string]any{"type": "object", "properties": map[string]any{
+			"score":   map[string]any{"type": "number", "minimum": 0, "maximum": 10},
+			"minimum": map[string]any{"type": "string", "maxLength": 3},
+			"tags": map[string]any{"type": "array", "items": map[string]any{
+				"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}}}},
+			"open": map[string]any{"type": "object", "additionalProperties": true},
+		}}
+		resp, err := p.Execute(context.Background(), &models.LLMRequest{
+			Model: "claude-haiku-5-5", Prompt: "rate",
+			ResponseFormat: &models.LLMResponseFormat{Type: "json_schema", JSONSchema: &models.LLMJSONSchema{Name: "rating", Schema: nested}},
+		})
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"score":7}`, resp.Content)
+		assert.Equal(t, "stop", resp.FinishReason)
+
+		body := srv.lastBody()
+		assert.NotContains(t, body, "tool_choice", "current models reject forced tool use")
+		assert.NotContains(t, body, "tools")
+		format := body["output_config"].(map[string]any)["format"].(map[string]any)
+		assert.Equal(t, "json_schema", format["type"])
+		sent := format["schema"].(map[string]any)
+		assert.Equal(t, false, sent["additionalProperties"])
+		props := sent["properties"].(map[string]any)
+		assert.Equal(t, map[string]any{"type": "number"}, props["score"], "unsupported constraints are dropped")
+		assert.Equal(t, map[string]any{"type": "string"}, props["minimum"], "a property named like a constraint is kept")
+		item := props["tags"].(map[string]any)["items"].(map[string]any)
+		assert.Equal(t, false, item["additionalProperties"], "nested objects are closed too")
+		assert.Equal(t, true, props["open"].(map[string]any)["additionalProperties"], "an explicit value is left for the API to judge")
+
+		_, mutated := nested["additionalProperties"]
+		assert.False(t, mutated, "the node's schema is not modified")
+		assert.Contains(t, nested["properties"].(map[string]any)["score"], "minimum")
+	})
+
+	t.Run("json_schema with tools uses output_config.format", func(t *testing.T) {
+		srv := rcNewRecordingServer(t, 200, anthropicTextResponse)
+		p, _ := NewAnthropicProvider("k", srv.URL)
+		_, err := p.Execute(context.Background(), &models.LLMRequest{
+			Model: "claude-opus-5-5", Prompt: "rate", Instruction: "base",
+			Tools:          []models.LLMTool{{Function: models.LLMFunctionTool{Name: "lookup"}}},
+			ResponseFormat: &models.LLMResponseFormat{Type: "json_schema", JSONSchema: &models.LLMJSONSchema{Name: "rating", Schema: schema}},
+		})
+		require.NoError(t, err)
+		body := srv.lastBody()
+		assert.Contains(t, body, "output_config")
+		assert.NotContains(t, body, "tool_choice")
+		assert.Equal(t, "base", body["system"])
+	})
+
+	t.Run("legacy model: json_schema forces a tool", func(t *testing.T) {
 		srv := rcNewRecordingServer(t, 200, `{
 		  "id": "m", "model": "claude-test",
 		  "content": [{"type": "tool_use", "id": "x", "name": "rating", "input": {"score": 7}}],
@@ -185,7 +295,7 @@ func TestAnthropicProvider_StructuredOutput(t *testing.T) {
 		}`)
 		p, _ := NewAnthropicProvider("k", srv.URL)
 		resp, err := p.Execute(context.Background(), &models.LLMRequest{
-			Model: "claude-test", Prompt: "rate",
+			Model: "claude-3-5-haiku-latest", Prompt: "rate",
 			ResponseFormat: &models.LLMResponseFormat{Type: "json_schema", JSONSchema: &models.LLMJSONSchema{Name: "rating", Schema: schema}},
 		})
 		require.NoError(t, err)
@@ -200,11 +310,11 @@ func TestAnthropicProvider_StructuredOutput(t *testing.T) {
 		assert.NotEmpty(t, tool["description"])
 	})
 
-	t.Run("json_schema without a name", func(t *testing.T) {
+	t.Run("legacy model: json_schema without a name", func(t *testing.T) {
 		srv := rcNewRecordingServer(t, 200, anthropicTextResponse)
 		p, _ := NewAnthropicProvider("k", srv.URL)
 		_, err := p.Execute(context.Background(), &models.LLMRequest{
-			Model: "claude-test", Prompt: "rate",
+			Model: "claude-3-5-haiku-latest", Prompt: "rate",
 			ResponseFormat: &models.LLMResponseFormat{Type: "json_schema", JSONSchema: &models.LLMJSONSchema{Description: "d", Schema: schema}},
 		})
 		require.NoError(t, err)
@@ -213,11 +323,11 @@ func TestAnthropicProvider_StructuredOutput(t *testing.T) {
 		assert.Equal(t, "d", body["tools"].([]any)[0].(map[string]any)["description"])
 	})
 
-	t.Run("json_schema with tools uses the system prompt", func(t *testing.T) {
+	t.Run("legacy model: json_schema with tools uses the system prompt", func(t *testing.T) {
 		srv := rcNewRecordingServer(t, 200, anthropicTextResponse)
 		p, _ := NewAnthropicProvider("k", srv.URL)
 		_, err := p.Execute(context.Background(), &models.LLMRequest{
-			Model: "claude-test", Prompt: "rate", Instruction: "base",
+			Model: "claude-3-5-haiku-latest", Prompt: "rate", Instruction: "base",
 			Tools:          []models.LLMTool{{Function: models.LLMFunctionTool{Name: "lookup"}}},
 			ResponseFormat: &models.LLMResponseFormat{Type: "json_schema", JSONSchema: &models.LLMJSONSchema{Name: "rating", Schema: schema}},
 		})
@@ -343,4 +453,21 @@ func TestResponseFormatConfig(t *testing.T) {
 		"provider": "anthropic", "model": "m", "prompt": "p", "api_key": "k", "response_format": "yaml",
 	})
 	require.ErrorContains(t, err, "invalid response_format type")
+}
+
+func TestAnthropicOutputSchema_Combinators(t *testing.T) {
+	got := anthropicOutputSchema(map[string]any{
+		"anyOf": []any{
+			map[string]any{"type": "object", "properties": map[string]any{"a": map[string]any{"type": "integer", "multipleOf": 2}}},
+			map[string]any{"type": "null"},
+		},
+		"$defs":      map[string]any{"item": map[string]any{"type": "object"}},
+		"properties": "not a map",
+	})
+	alts := got["anyOf"].([]any)
+	assert.Equal(t, false, alts[0].(map[string]any)["additionalProperties"])
+	assert.Equal(t, map[string]any{"type": "integer"}, alts[0].(map[string]any)["properties"].(map[string]any)["a"])
+	assert.Equal(t, map[string]any{"type": "null"}, alts[1])
+	assert.Equal(t, false, got["$defs"].(map[string]any)["item"].(map[string]any)["additionalProperties"])
+	assert.Equal(t, "not a map", got["properties"])
 }
