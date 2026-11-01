@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/domain/repository"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/go/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
+
+	"github.com/smilemakc/mbflow/go/internal/domain/repository"
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/go/testutil"
 )
 
 func setupTriggerRepoTest(t *testing.T) (repository.TriggerRepository, bun.IDB, func()) {

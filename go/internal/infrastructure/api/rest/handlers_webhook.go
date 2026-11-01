@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smilemakc/mbflow/go/internal/application/trigger"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 )

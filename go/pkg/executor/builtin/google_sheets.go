@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
+
+	"github.com/smilemakc/mbflow/go/pkg/executor"
 )
 
 // GoogleSheetsExecutor executes operations with Google Sheets API.

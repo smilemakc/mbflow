@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // TestTriggerAPI_Create_ValidationError tests that Create validates trigger

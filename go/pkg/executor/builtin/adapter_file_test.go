@@ -8,10 +8,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // Mock Storage implementation for adapter tests

@@ -286,7 +286,7 @@ func (c *Client) initializeRemote() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.Timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create health check request: %w", err)
 	}
@@ -351,7 +351,7 @@ func (c *Client) Health(ctx context.Context) (*HealthStatus, error) {
 
 	case ModeRemote:
 		// Check remote API health
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create health check request: %w", err)
 		}

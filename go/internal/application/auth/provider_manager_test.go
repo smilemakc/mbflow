@@ -5,11 +5,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/internal/config"
-	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
+	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // MockAuthProvider is a mock implementation of AuthProvider interface

@@ -7,11 +7,12 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/extra/bundebug"
+
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 )
 
 // Config holds database configuration
@@ -124,7 +125,7 @@ func Ping(ctx context.Context, db *bun.DB) error {
 
 // Stats returns database connection statistics
 func Stats(db *bun.DB) sql.DBStats {
-	return db.DB.Stats()
+	return db.Stats()
 }
 
 // WithTransaction executes a function within a database transaction

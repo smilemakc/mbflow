@@ -319,7 +319,7 @@ func normalizeEphemeralExecutionParams(params *EphemeralExecutionParams) error {
 	return nil
 }
 
-// CancelExecutionParams contains parameters for cancelling an execution.
+// CancelExecutionParams contains parameters for canceling an execution.
 type CancelExecutionParams struct {
 	ExecutionID uuid.UUID
 }

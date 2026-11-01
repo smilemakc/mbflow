@@ -106,7 +106,7 @@ func (e *RSSParserExecutor) Execute(ctx context.Context, config map[string]any, 
 	includeContent := e.GetBoolDefault(config, "includeContent", false)
 
 	// Fetch RSS feed
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

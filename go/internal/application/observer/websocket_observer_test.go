@@ -10,10 +10,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/smilemakc/mbflow/go/internal/config"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 )
 
 func TestNewWebSocketHub(t *testing.T) {

@@ -5,9 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/internal/application/template"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/application/template"
 )
 
 // mockExecutorForWrapper is a simple mock executor for testing the wrapper

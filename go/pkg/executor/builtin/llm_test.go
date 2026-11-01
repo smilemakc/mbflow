@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smilemakc/mbflow/go/internal/application/template"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // MockLLMProvider is a mock LLM provider for testing.
@@ -1141,7 +1142,8 @@ func TestLLMExecutor_AutoMode_MultipleIterations(t *testing.T) {
 		ExecuteFn: func(ctx context.Context, req *models.LLMRequest) (*models.LLMResponse, error) {
 			callCount++
 
-			if callCount == 1 {
+			switch callCount {
+			case 1:
 				// First iteration: request weather
 				return &models.LLMResponse{
 					Content:      "",
@@ -1160,7 +1162,7 @@ func TestLLMExecutor_AutoMode_MultipleIterations(t *testing.T) {
 					},
 					CreatedAt: time.Now(),
 				}, nil
-			} else if callCount == 2 {
+			case 2:
 				// Second iteration: request time
 				return &models.LLMResponse{
 					Content:      "",

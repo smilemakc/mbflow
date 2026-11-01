@@ -294,7 +294,7 @@ Line2",25`
 		var sb strings.Builder
 		sb.WriteString("id,name,value\n")
 		for i := 0; i < 1000; i++ {
-			sb.WriteString(fmt.Sprintf("%d,name%d,value%d\n", i, i, i))
+			fmt.Fprintf(&sb, "%d,name%d,value%d\n", i, i, i)
 		}
 
 		output, err := executor.Execute(ctx, config, sb.String())

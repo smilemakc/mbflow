@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/application/auth"
 	"github.com/smilemakc/mbflow/go/internal/application/servicekey"
 	"github.com/smilemakc/mbflow/go/pkg/models"

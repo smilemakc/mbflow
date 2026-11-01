@@ -243,7 +243,7 @@ func (r *Resolver) resolveField(value any, field string) any {
 
 	// Try reflection for structs
 	v := reflect.ValueOf(value)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 

@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
+
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
-	"github.com/uptrace/bun"
 )
 
 // Ensure ExecutionRepository implements the interfaces

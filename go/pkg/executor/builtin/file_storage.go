@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
@@ -119,7 +120,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		}
 	} else if fileURL := e.GetStringDefault(config, "file_url", ""); fileURL != "" {
 		// Download from URL
-		dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
+		dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("invalid file URL: %w", err)
 		}

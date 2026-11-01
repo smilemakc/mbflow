@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	storagemodels "github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // TestWorkflowModelToDomain_Nil tests conversion of nil workflow

@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/internal/application/template"
-	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/application/template"
+	"github.com/smilemakc/mbflow/go/pkg/executor"
 )
 
 func TestTransformExecutor_Passthrough(t *testing.T) {

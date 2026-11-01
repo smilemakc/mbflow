@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func TestNewProvider_Disabled(t *testing.T) {
@@ -164,6 +163,8 @@ func TestProvider_TracerInterface(t *testing.T) {
 	var p *Provider
 	tracer := p.Tracer()
 
-	// Ensure the tracer implements the interface
-	var _ trace.Tracer = tracer
+	// A nil provider still hands out a usable (no-op) tracer.
+	require.NotNil(t, tracer)
+	_, span := tracer.Start(context.Background(), "op")
+	span.End()
 }

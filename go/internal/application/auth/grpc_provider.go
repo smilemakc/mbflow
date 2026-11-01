@@ -11,12 +11,13 @@ import (
 
 	authgateway "github.com/smilemakc/auth-gateway/packages/go-sdk"
 	"github.com/smilemakc/auth-gateway/packages/go-sdk/proto"
-	"github.com/smilemakc/mbflow/go/internal/config"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
-	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
+	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 var (

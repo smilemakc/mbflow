@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage"
@@ -263,7 +264,7 @@ func (h *FileHandlers) handleJSONUpload(c *gin.Context) {
 		}
 	} else {
 		// Download from URL
-		dlReq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, req.FileURL, nil)
+		dlReq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, req.FileURL, http.NoBody)
 		if err != nil {
 			respondError(c, http.StatusBadRequest, "invalid file URL")
 			return

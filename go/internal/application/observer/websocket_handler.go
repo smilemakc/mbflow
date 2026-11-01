@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 )
 

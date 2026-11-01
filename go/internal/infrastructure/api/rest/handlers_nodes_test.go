@@ -8,12 +8,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage"
 	"github.com/smilemakc/mbflow/go/testutil"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func setupNodeHandlersTest(t *testing.T) (*NodeHandlers, *gin.Engine, *storage.WorkflowRepository, func()) {

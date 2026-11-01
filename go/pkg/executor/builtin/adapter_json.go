@@ -144,7 +144,7 @@ func (e *JsonToStringExecutor) Execute(ctx context.Context, config map[string]an
 	sortKeys := e.GetBoolDefault(config, "sort_keys", false)
 
 	// Sort keys if requested
-	var data any = input
+	var data = input
 	if sortKeys {
 		data = e.sortMapKeys(input)
 	}

@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
+
 	"github.com/smilemakc/mbflow/go/internal/config"
 	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
-	"golang.org/x/oauth2"
 )
 
 var (

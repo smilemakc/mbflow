@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 )
 

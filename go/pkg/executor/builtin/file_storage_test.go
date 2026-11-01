@@ -13,10 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // mockStorage implements filestorage.Storage for testing

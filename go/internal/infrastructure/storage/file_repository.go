@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/uptrace/bun"
+
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 )
 
 // FileRepository handles file database operations

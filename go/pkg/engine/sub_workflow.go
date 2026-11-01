@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
@@ -122,7 +123,8 @@ func (de *DAGExecutor) executeSubWorkflow(
 			result := de.executeSubWorkflowItem(cancelCtx, execState, node, childWF, cfg, idx, len(items), itm, opts)
 			results[idx] = result
 
-			if result.Status == "completed" {
+			switch result.Status {
+			case "completed":
 				newCompleted := atomic.AddInt64(&completed, 1)
 				de.safeNotify(ctx, execState, ExecutionEvent{
 					Type:                  EventTypeSubWorkflowItemCompleted,
@@ -137,7 +139,7 @@ func (de *DAGExecutor) executeSubWorkflow(
 					SubWorkflowItemExecID: result.ExecutionID,
 					DurationMs:            result.DurationMs,
 				})
-			} else if result.Status == "failed" {
+			case "failed":
 				newFailed := atomic.AddInt64(&failed, 1)
 				de.safeNotify(ctx, execState, ExecutionEvent{
 					Type:                  EventTypeSubWorkflowItemFailed,

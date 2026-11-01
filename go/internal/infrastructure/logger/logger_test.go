@@ -8,9 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
 )
 
 // ==================== New() Tests ====================
