@@ -28,7 +28,7 @@ func TestAddHTTPNode(t *testing.T) {
 	if node.Config["method"] != "GET" {
 		t.Errorf("method = %v", node.Config["method"])
 	}
-	headers := node.Config["headers"].(map[string]string)
+	headers := node.Config["headers"].(map[string]any)
 	if headers["Authorization"] != "Bearer token" {
 		t.Errorf("Authorization header = %v", headers["Authorization"])
 	}

@@ -52,11 +52,12 @@ func writeConstBlock(buf *bytes.Buffer, cb *ConstBlockDecl) {
 		if c.Doc != "" {
 			buf.WriteString(c.Doc)
 		}
-		if c.Type != "" && c.Value != "" {
+		switch {
+		case c.Type != "" && c.Value != "":
 			fmt.Fprintf(buf, "\t%s %s = %s", c.Name, c.Type, c.Value)
-		} else if c.Value != "" {
+		case c.Value != "":
 			fmt.Fprintf(buf, "\t%s = %s", c.Name, c.Value)
-		} else {
+		default:
 			fmt.Fprintf(buf, "\t%s", c.Name)
 		}
 		if c.Comment != "" {

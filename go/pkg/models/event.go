@@ -23,6 +23,7 @@ const (
 	EventTypeExecutionCompleted = "execution.completed"
 	EventTypeExecutionFailed    = "execution.failed"
 	EventTypeExecutionCancelled = "execution.cancelled"
+	EventTypeExecutionTimeout   = "execution.timeout"
 	EventTypeExecutionPaused    = "execution.paused"
 	EventTypeExecutionResumed   = "execution.resumed"
 
@@ -48,7 +49,7 @@ const (
 func (e *Event) IsExecutionEvent() bool {
 	switch e.EventType {
 	case EventTypeExecutionStarted, EventTypeExecutionCompleted, EventTypeExecutionFailed,
-		EventTypeExecutionCancelled, EventTypeExecutionPaused, EventTypeExecutionResumed:
+		EventTypeExecutionCancelled, EventTypeExecutionTimeout, EventTypeExecutionPaused, EventTypeExecutionResumed:
 		return true
 	}
 	return false

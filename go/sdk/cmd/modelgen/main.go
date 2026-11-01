@@ -8,6 +8,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
@@ -17,15 +18,15 @@ import (
 
 func main() {
 	verify := flag.Bool("verify", false, "Check generated files are up-to-date (exit 1 if stale)")
-	sourceDir := flag.String("source-dir", "", "Path to pkg/models/ directory")
-	outputDir := flag.String("output-dir", "", "Path to sdk/go/models/ directory")
+	sourceDir := flag.String("source-dir", "", "Path to go/pkg/models/ directory")
+	outputDir := flag.String("output-dir", "", "Path to go/sdk/models/ directory")
 	flag.Parse()
 
 	// Auto-detect paths relative to this source file's location.
 	if *sourceDir == "" || *outputDir == "" {
 		base := detectBaseDir()
 		if *sourceDir == "" {
-			*sourceDir = filepath.Join(base, "..", "..", "..", "..", "pkg", "models")
+			*sourceDir = filepath.Join(base, "..", "..", "..", "pkg", "models")
 		}
 		if *outputDir == "" {
 			*outputDir = filepath.Join(base, "..", "..", "models")
@@ -57,14 +58,14 @@ func main() {
 				hasError = true
 				continue
 			}
-			if string(existing) != string(output) {
+			if !bytes.Equal(existing, output) {
 				fmt.Fprintf(os.Stderr, "STALE: %s differs from generated output\n", outPath)
 				hasError = true
 			} else {
 				fmt.Printf("ok: %s\n", rule.OutputFile)
 			}
 		} else {
-			if err := os.WriteFile(outPath, output, 0644); err != nil {
+			if err := os.WriteFile(outPath, output, 0o644); err != nil {
 				fmt.Fprintf(os.Stderr, "error writing %s: %v\n", outPath, err)
 				os.Exit(1)
 			}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
@@ -74,15 +75,14 @@ func ParseSourceFile(path string, rule FileRule) (*ParsedFile, error) {
 	pf := &ParsedFile{}
 
 	for _, decl := range file.Decls {
-		switch d := decl.(type) {
-		case *ast.GenDecl:
+		// Functions and methods (*ast.FuncDecl) are skipped.
+		if d, ok := decl.(*ast.GenDecl); ok {
 			switch d.Tok {
 			case token.TYPE:
 				pf.extractTypes(fset, d, rule)
 			case token.CONST:
 				pf.extractConsts(fset, d, file, rule)
 			}
-			// *ast.FuncDecl — skip all functions/methods
 		}
 	}
 
@@ -255,7 +255,9 @@ func formatCommentGroup(cg *ast.CommentGroup) string {
 
 func renderExpr(fset *token.FileSet, expr ast.Expr) string {
 	var buf bytes.Buffer
-	printer.Fprint(&buf, fset, expr)
+	if err := printer.Fprint(&buf, fset, expr); err != nil {
+		return fmt.Sprintf("/* %v */", err)
+	}
 	return buf.String()
 }
 

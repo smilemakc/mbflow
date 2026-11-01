@@ -8,7 +8,7 @@ import (
 
 // DecodeResponse reads and decodes a JSON response body into the target type.
 func DecodeResponse[T any](body io.ReadCloser) (*T, error) {
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	var result T
 	if err := json.NewDecoder(body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
@@ -18,7 +18,7 @@ func DecodeResponse[T any](body io.ReadCloser) (*T, error) {
 
 // DecodeListResponse decodes a list response with format {"<key>": [...], "total": N}.
 func DecodeListResponse[T any](body io.ReadCloser, key string) ([]*T, int, error) {
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	var raw map[string]json.RawMessage
 	if err := json.NewDecoder(body).Decode(&raw); err != nil {
 		return nil, 0, fmt.Errorf("decode list response: %w", err)
@@ -31,7 +31,8 @@ func DecodeListResponse[T any](body io.ReadCloser, key string) ([]*T, int, error
 	}
 	var total int
 	if data, ok := raw["total"]; ok {
-		json.Unmarshal(data, &total)
+		// "total" is optional; a malformed value leaves it 0.
+		_ = json.Unmarshal(data, &total)
 	}
 	return items, total, nil
 }
@@ -46,13 +47,15 @@ type ErrorInfo struct {
 
 // ParseErrorResponse reads and parses an error response body.
 func ParseErrorResponse(statusCode int, body io.ReadCloser) *ErrorInfo {
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	var resp struct {
 		Code    string         `json:"code"`
 		Message string         `json:"message"`
 		Details map[string]any `json:"details"`
 	}
-	json.NewDecoder(body).Decode(&resp)
+	// A body that is not JSON leaves Code and Message empty; the status code
+	// still describes the error.
+	_ = json.NewDecoder(body).Decode(&resp)
 	return &ErrorInfo{
 		StatusCode: statusCode,
 		Code:       resp.Code,
