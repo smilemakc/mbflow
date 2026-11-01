@@ -208,7 +208,7 @@ func (e *FunctionCallExecutor) parseToolCall(funcInput *models.FunctionCallInput
 }
 
 // parseFunctionField parses the function field.
-func (e *FunctionCallExecutor) parseFunctionField(funcInput *models.FunctionCallInput, parent map[string]any, function map[string]any) error {
+func (e *FunctionCallExecutor) parseFunctionField(funcInput *models.FunctionCallInput, parent, function map[string]any) error {
 	name, ok := function["name"].(string)
 	if !ok {
 		return fmt.Errorf("function name is required")
@@ -325,7 +325,7 @@ func (e *FunctionCallExecutor) registerBuiltInFunctions() {
 		if err != nil {
 			return nil, fmt.Errorf("request failed: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		respBody, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 		if err != nil {

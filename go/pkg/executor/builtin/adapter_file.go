@@ -73,7 +73,7 @@ func (e *FileToBytesExecutor) Execute(ctx context.Context, config map[string]any
 	if err != nil {
 		return nil, fmt.Errorf("file_to_bytes: failed to read file: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Read all bytes
 	content, err := io.ReadAll(reader)
@@ -296,7 +296,7 @@ func (e *BytesToFileExecutor) extractBytes(input any) ([]byte, error) {
 		// Try to decode as base64 first
 		if decoded, err := base64.StdEncoding.DecodeString(v); err == nil {
 			// Check if it looks like base64
-			if len(v) > 0 && len(v)%4 == 0 {
+			if v != "" && len(v)%4 == 0 {
 				return decoded, nil
 			}
 		}

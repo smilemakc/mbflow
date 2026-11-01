@@ -301,10 +301,11 @@ func (e *LLMExecutor) parseConfig(config map[string]any) (*models.LLMRequest, er
 	if background, ok := config["background"].(bool); ok {
 		req.Background = background
 	}
-	if maxToolCalls, ok := config["max_tool_calls"].(int); ok {
+	switch maxToolCalls := config["max_tool_calls"].(type) {
+	case int:
 		req.MaxToolCalls = maxToolCalls
-	} else if maxToolCallsFloat, ok := config["max_tool_calls"].(float64); ok {
-		req.MaxToolCalls = int(maxToolCallsFloat)
+	case float64:
+		req.MaxToolCalls = int(maxToolCalls)
 	}
 	if store, ok := config["store"].(bool); ok {
 		req.Store = &store
@@ -917,10 +918,11 @@ func (e *LLMExecutor) parseHostedTools(toolsConfig []any) ([]models.LLMHostedToo
 			if vectorStoreIDs, ok := toolMap["vector_store_ids"].([]any); ok {
 				tool.VectorStoreIDs = e.toStringSlice(vectorStoreIDs)
 			}
-			if maxResults, ok := toolMap["max_num_results"].(int); ok {
+			switch maxResults := toolMap["max_num_results"].(type) {
+			case int:
 				tool.MaxNumResults = maxResults
-			} else if maxResultsFloat, ok := toolMap["max_num_results"].(float64); ok {
-				tool.MaxNumResults = int(maxResultsFloat)
+			case float64:
+				tool.MaxNumResults = int(maxResults)
 			}
 			if rankingOptions, ok := toolMap["ranking_options"].(map[string]any); ok {
 				tool.RankingOptions = rankingOptions
@@ -949,21 +951,24 @@ func (e *LLMExecutor) parseToolCallConfig(config map[string]any) (*models.ToolCa
 		tc.Mode = models.ToolCallModeAuto
 	}
 
-	if maxIter, ok := config["max_iterations"].(float64); ok {
+	switch maxIter := config["max_iterations"].(type) {
+	case float64:
 		tc.MaxIterations = int(maxIter)
-	} else if maxIter, ok := config["max_iterations"].(int); ok {
+	case int:
 		tc.MaxIterations = maxIter
 	}
 
-	if timeout, ok := config["timeout_per_tool"].(float64); ok {
+	switch timeout := config["timeout_per_tool"].(type) {
+	case float64:
 		tc.TimeoutPerTool = int(timeout)
-	} else if timeout, ok := config["timeout_per_tool"].(int); ok {
+	case int:
 		tc.TimeoutPerTool = timeout
 	}
 
-	if totalTimeout, ok := config["total_timeout"].(float64); ok {
+	switch totalTimeout := config["total_timeout"].(type) {
+	case float64:
 		tc.TotalTimeout = int(totalTimeout)
-	} else if totalTimeout, ok := config["total_timeout"].(int); ok {
+	case int:
 		tc.TotalTimeout = totalTimeout
 	}
 

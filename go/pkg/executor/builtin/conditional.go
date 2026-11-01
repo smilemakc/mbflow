@@ -97,8 +97,7 @@ func (e *ConditionalExecutor) Validate(config map[string]any) error {
 	}
 
 	// Type-specific validation
-	switch conditionType {
-	case "expression":
+	if conditionType == "expression" {
 		if conditionExpression(config) == "" {
 			return fmt.Errorf("condition is required for expression condition")
 		}

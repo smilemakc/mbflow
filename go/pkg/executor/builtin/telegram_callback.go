@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
@@ -18,7 +17,6 @@ type TelegramCallbackExecutor struct {
 	*executor.BaseExecutor
 	httpClient *http.Client
 	baseURL    string // For testing purposes
-	mu         sync.RWMutex
 }
 
 // NewTelegramCallbackExecutor creates a new Telegram callback executor.
@@ -134,7 +132,7 @@ func (e *TelegramCallbackExecutor) executeRequest(ctx context.Context, url strin
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {

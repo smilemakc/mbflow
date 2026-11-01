@@ -128,7 +128,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		if err != nil {
 			return nil, fmt.Errorf("failed to download file from URL: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("failed to download file: HTTP %d", resp.StatusCode)
@@ -270,7 +270,7 @@ func (e *FileStorageExecutor) executeGet(ctx context.Context, config map[string]
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Read file content
 	data, err := io.ReadAll(reader)
@@ -444,12 +444,4 @@ func (e *FileStorageExecutor) Validate(config map[string]any) error {
 	}
 
 	return nil
-}
-
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

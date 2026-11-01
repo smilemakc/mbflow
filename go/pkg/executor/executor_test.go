@@ -124,10 +124,6 @@ func TestNewExecutorFunc(t *testing.T) {
 
 	assert.NotNil(t, exec)
 
-	// Verify it implements Executor interface
-	_, ok := exec.(Executor)
-	assert.True(t, ok, "NewExecutorFunc should return an Executor")
-
 	// Test execution
 	out, err := exec.Execute(context.Background(), nil, nil)
 	assert.NoError(t, err)
@@ -670,6 +666,9 @@ func TestExecutionContext_EmptyMetadata(t *testing.T) {
 		Metadata:    nil,
 	}
 
+	assert.Equal(t, "exec-123", ctx.ExecutionID)
+	assert.Equal(t, "node-456", ctx.NodeID)
+	assert.Equal(t, "workflow-789", ctx.WorkflowID)
 	assert.Nil(t, ctx.Metadata)
 }
 

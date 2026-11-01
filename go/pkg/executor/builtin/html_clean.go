@@ -338,7 +338,7 @@ func (e *HTMLCleanExecutor) postprocess(html string, _ bool) string {
 }
 
 // fallbackExtraction provides simple extraction when readability fails.
-func (e *HTMLCleanExecutor) fallbackExtraction(html string, outputFormat string, extractMetadata bool, _ bool, maxLength int) (map[string]any, error) {
+func (e *HTMLCleanExecutor) fallbackExtraction(html, outputFormat string, extractMetadata, _ bool, maxLength int) (map[string]any, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
 		return nil, err

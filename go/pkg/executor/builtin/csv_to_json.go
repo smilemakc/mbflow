@@ -69,15 +69,16 @@ func (e *CSVToJSONExecutor) Execute(_ context.Context, config map[string]any, in
 	var headers []string
 	var dataStartIndex int
 
-	if hasHeader {
+	switch {
+	case hasHeader:
 		// Use first row as headers
 		headers = records[0]
 		dataStartIndex = 1
-	} else if len(customHeaders) > 0 {
+	case len(customHeaders) > 0:
 		// Use custom headers
 		headers = customHeaders
 		dataStartIndex = 0
-	} else {
+	default:
 		// Auto-generate headers: col_0, col_1, etc.
 		if len(records) > 0 {
 			headers = make([]string, len(records[0]))
@@ -129,7 +130,7 @@ func (e *CSVToJSONExecutor) Execute(_ context.Context, config map[string]any, in
 func (e *CSVToJSONExecutor) Validate(config map[string]any) error {
 	// Validate delimiter
 	delimiter := e.GetStringDefault(config, "delimiter", ",")
-	if len(delimiter) == 0 {
+	if delimiter == "" {
 		return fmt.Errorf("delimiter cannot be empty")
 	}
 	// Allow single character or escape sequences like \t
@@ -185,7 +186,7 @@ func (e *CSVToJSONExecutor) parseDelimiter(delimiter string) rune {
 	case "\\n", "\n":
 		return '\n'
 	default:
-		if len(delimiter) > 0 {
+		if delimiter != "" {
 			return rune(delimiter[0])
 		}
 		return ','
