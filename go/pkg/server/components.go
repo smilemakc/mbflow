@@ -376,6 +376,13 @@ func (s *Server) initExecutionEngine() error {
 		registry,
 	)
 
+	// Credentials attached to workflows resolve to their decrypted values in
+	// templates ({{resource.<alias>.api_key}}); needs the encryption service,
+	// which initEncryptionServices sets up earlier.
+	if s.auth.EncryptionService != nil {
+		s.execution.ExecutionManager.SetCredentialDecryption(s.auth.EncryptionService, s.data.CredentialsRepo)
+	}
+
 	execCfg := s.config.Execution
 	s.execution.ExecutionManager.SetMaxConcurrentExecutions(execCfg.MaxConcurrentExecutions)
 

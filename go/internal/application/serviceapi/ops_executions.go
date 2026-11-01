@@ -261,6 +261,9 @@ func (o *Operations) StartEphemeralExecution(ctx context.Context, params Ephemer
 			o.Logger.Info("Ephemeral execution finished unsuccessfully", "execution_id", execution.ID, "status", execution.Status, "error", err)
 			return execution, nil
 		}
+		if errors.Is(err, engine.ErrResourceUnavailable) {
+			return nil, NewValidationError("RESOURCE_UNAVAILABLE", err.Error())
+		}
 		o.Logger.Error("Failed to start ephemeral execution", "error", err)
 		return nil, err
 	}
@@ -286,8 +289,13 @@ func normalizeEphemeralExecutionParams(params *EphemeralExecutionParams) error {
 		return NewValidationError("INVALID_MODE", "mode must be sync or async")
 	}
 
-	if len(params.CredentialIDs) > 0 {
-		return NewValidationError("UNSUPPORTED_CREDENTIAL_IDS", "credential_ids are not supported yet")
+	// Credentials are exposed to templates as {{resource.<alias>.<field>}};
+	// the alias comes from workflow.resources, else it is the credential ID.
+	for i, id := range params.CredentialIDs {
+		if _, err := uuid.Parse(id); err != nil {
+			return NewValidationError("INVALID_CREDENTIAL_ID",
+				fmt.Sprintf("credential_ids[%d]: %q is not a valid credential ID", i, id))
+		}
 	}
 
 	snapshot, err := json.Marshal(params.Workflow)

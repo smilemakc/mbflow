@@ -43,10 +43,12 @@ def respond(body):
     if forced:
         # Structured output: classify countries by latitude.
         countries = []
-        for m in re.finditer(r'"name":\s*"([^"]+)"[^{}]*?"latlng":\s*\[\s*(-?[\d.]+)', prompt):
-            lat = float(m.group(2))
-            climate = "tropical" if abs(lat) < 23.5 else ("polar" if abs(lat) > 66 else "temperate")
-            countries.append({"name": m.group(1), "climate": climate, "fun_fact": f"{m.group(1)} has a fun fact."})
+        start = prompt.find("[")
+        items = json.loads(prompt[start:prompt.rindex("]") + 1]) if start >= 0 else []
+        for item in items:
+            lat = abs(float((item.get("latlng") or [0])[0]))
+            climate = "tropical" if lat < 23.5 else ("polar" if lat > 66 else "temperate")
+            countries.append({"name": item.get("name"), "climate": climate, "fun_fact": f"{item.get('name')} has a fun fact."})
         return {"content": [{"type": "tool_use", "id": "toolu_s", "name": forced, "input": {"countries": countries}}],
                 "stop_reason": "tool_use", "usage": usage}
 
@@ -64,7 +66,7 @@ def respond(body):
         return {"content": [{"type": "text", "text": f"{len(hits)}: " + ", ".join(hits)}],
                 "stop_reason": "end_turn", "usage": usage}
 
-    words = re.findall(r"[A-Za-z]{3,}", prompt)
+    words = re.findall(r"[A-Za-z]{2,}", prompt)
     return {"content": [{"type": "text", "text": "Summary: " + " ".join(words[:25])}],
             "stop_reason": "end_turn", "usage": usage}
 

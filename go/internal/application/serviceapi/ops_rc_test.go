@@ -163,6 +163,18 @@ func TestRCStartEphemeralExecution(t *testing.T) {
 		var opErr *OperationError
 		assert.False(t, errors.As(err, &opErr), "engine errors are passed through")
 	})
+	t.Run("unavailable credential is a validation error", func(t *testing.T) {
+		ops := newTestOperations(nil, nil, nil, nil, nil, nil, nil)
+		ops.ExecutionMgr = engine.NewExecutionManager(rcExecutors(false), nil, nil, nil, nil, nil)
+		owner := uuid.New()
+		_, err := ops.StartEphemeralExecution(ctx, EphemeralExecutionParams{
+			Workflow: rcEphemeralWorkflow(), Mode: "sync", CredentialIDs: []string{uuid.NewString()}, CreatedBy: &owner,
+		})
+		var opErr *OperationError
+		require.ErrorAs(t, err, &opErr)
+		assert.Equal(t, "RESOURCE_UNAVAILABLE", opErr.Code)
+		assert.Equal(t, 400, opErr.HTTPStatus)
+	})
 	t.Run("invalid webhook", func(t *testing.T) {
 		ops := newTestOperations(nil, nil, nil, nil, nil, nil, nil)
 		_, err := ops.StartEphemeralExecution(ctx, EphemeralExecutionParams{
@@ -175,10 +187,10 @@ func TestRCStartEphemeralExecution(t *testing.T) {
 	t.Run("parameter validation", func(t *testing.T) {
 		ops := newTestOperations(nil, nil, nil, nil, nil, nil, nil)
 		cases := map[string]EphemeralExecutionParams{
-			"WORKFLOW_REQUIRED":          {Mode: "sync"},
-			"MODE_REQUIRED":              {Workflow: rcEphemeralWorkflow()},
-			"INVALID_MODE":               {Workflow: rcEphemeralWorkflow(), Mode: "later"},
-			"UNSUPPORTED_CREDENTIAL_IDS": {Workflow: rcEphemeralWorkflow(), Mode: "sync", CredentialIDs: []string{"c"}},
+			"WORKFLOW_REQUIRED":     {Mode: "sync"},
+			"MODE_REQUIRED":         {Workflow: rcEphemeralWorkflow()},
+			"INVALID_MODE":          {Workflow: rcEphemeralWorkflow(), Mode: "later"},
+			"INVALID_CREDENTIAL_ID": {Workflow: rcEphemeralWorkflow(), Mode: "sync", CredentialIDs: []string{"c"}},
 		}
 		for code, params := range cases {
 			_, err := ops.StartEphemeralExecution(ctx, params)
