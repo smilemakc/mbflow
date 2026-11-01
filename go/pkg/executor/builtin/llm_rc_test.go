@@ -672,9 +672,13 @@ func TestRC_LLMExecutor_ProviderSelection(t *testing.T) {
 	exec.RegisterProvider(models.LLMProviderOpenAI, &rcScriptedProvider{})
 	assert.True(t, exec.hasProvider(models.LLMProviderOpenAI))
 
-	_, err := exec.Execute(context.Background(), map[string]any{
-		"provider": "anthropic", "model": "m", "prompt": "p", "api_key": "k"}, nil)
+	_, err := exec.getOrCreateProvider(&models.LLMRequest{Provider: "unknown"})
 	require.ErrorContains(t, err, "unsupported provider")
+
+	anthropic, err := exec.getOrCreateProvider(&models.LLMRequest{Provider: models.LLMProviderAnthropic,
+		ProviderConfig: map[string]any{"api_key": "k"}})
+	require.NoError(t, err)
+	assert.IsType(t, &AnthropicProvider{}, anthropic)
 
 	p, err := exec.getOrCreateProvider(&models.LLMRequest{Provider: models.LLMProviderOpenAIResponses,
 		ProviderConfig: map[string]any{"api_key": "k"}})

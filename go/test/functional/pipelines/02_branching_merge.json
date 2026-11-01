@@ -1,0 +1,134 @@
+{
+  "description": "Branching: region statistics from a 1.4 MB dataset, conditional true/false branches, merge.",
+  "workflow": {
+    "name": "FT02 conditional branches",
+    "nodes": [
+      {
+        "id": "fetch",
+        "name": "Fetch countries",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://raw.githubusercontent.com/mledoze/countries/master/countries.json"
+        }
+      },
+      {
+        "id": "stats",
+        "name": "Region stats",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": "[.body[] | select(.region == \"{{input.region}}\")] | {region: \"{{input.region}}\", count: length, total_area: (map(.area) | add), largest: (max_by(.area) | .name.common)}"
+        }
+      },
+      {
+        "id": "is_big",
+        "name": "Many countries?",
+        "type": "conditional",
+        "config": {
+          "condition": "input.count > 30"
+        }
+      },
+      {
+        "id": "big",
+        "name": "Big region",
+        "type": "transform",
+        "config": {
+          "type": "template",
+          "template": "{{input.region}} is a big region with {{input.count}} countries; largest is {{input.largest}}"
+        }
+      },
+      {
+        "id": "small",
+        "name": "Small region",
+        "type": "transform",
+        "config": {
+          "type": "template",
+          "template": "{{input.region}} has only {{input.count}} countries"
+        }
+      },
+      {
+        "id": "join",
+        "name": "Merge",
+        "type": "merge",
+        "config": {
+          "merge_strategy": "all"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "fetch",
+        "to": "stats"
+      },
+      {
+        "id": "e2",
+        "from": "stats",
+        "to": "is_big"
+      },
+      {
+        "id": "e3",
+        "from": "is_big",
+        "to": "big",
+        "source_handle": "true"
+      },
+      {
+        "id": "e4",
+        "from": "is_big",
+        "to": "small",
+        "source_handle": "false"
+      },
+      {
+        "id": "e5",
+        "from": "big",
+        "to": "join"
+      },
+      {
+        "id": "e6",
+        "from": "small",
+        "to": "join"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "Africa takes the true branch",
+      "input": {
+        "region": "Africa"
+      },
+      "expect": {
+        "nodes": {
+          "big": "completed",
+          "small": "skipped"
+        },
+        "output": [
+          {
+            "path": "big",
+            "op": "eq",
+            "value": "Africa is a big region with 59 countries; largest is Algeria"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Oceania takes the false branch",
+      "input": {
+        "region": "Oceania"
+      },
+      "expect": {
+        "nodes": {
+          "big": "skipped",
+          "small": "completed"
+        },
+        "output": [
+          {
+            "path": "small",
+            "op": "eq",
+            "value": "Oceania has only 27 countries"
+          }
+        ]
+      }
+    }
+  ]
+}

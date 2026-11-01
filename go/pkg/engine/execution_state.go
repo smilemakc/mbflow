@@ -18,6 +18,10 @@ type ExecutionState struct {
 	Variables   map[string]any
 	Resources   map[string]any // alias -> resource data for template resolution
 
+	// Secrets holds secret values (e.g. decrypted credentials) that must be
+	// redacted from emitted events and persisted results. Nil redacts nothing.
+	Secrets *SecretRedactor
+
 	// Node execution tracking
 	NodeOutputs         map[string]any                        // nodeID -> output
 	NodeInputs          map[string]any                        // nodeID -> input (passed to executor)

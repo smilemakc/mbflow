@@ -39,11 +39,13 @@ func (h *WebhookHandlers) HandleWebhook(c *gin.Context) {
 		return
 	}
 
-	// Extract headers
+	// Extract headers. They become part of the execution input, which is
+	// stored and shown to anyone who can read the execution, so credentials
+	// sent by the caller are masked.
 	headers := make(map[string]string)
 	for key, values := range c.Request.Header {
 		if len(values) > 0 {
-			headers[key] = values[0]
+			headers[key] = webhookHeaderValue(key, values[0])
 		}
 	}
 
@@ -138,4 +140,22 @@ func (h *WebhookHandlers) HandleWebhookGet(c *gin.Context) {
 // headers directly would let any client spoof a whitelisted address.
 func getSourceIP(c *gin.Context) string {
 	return c.ClientIP()
+}
+
+// webhookHeaderValue masks credential-bearing headers. The HMAC signature
+// header is kept: the trigger verifies it and it reveals no secret.
+func webhookHeaderValue(name, value string) string {
+	lower := strings.ToLower(name)
+	switch lower {
+	case "x-webhook-signature":
+		return value
+	case "authorization", "proxy-authorization", "cookie", "set-cookie":
+		return "***"
+	}
+	for _, marker := range []string{"token", "secret", "password", "api-key", "apikey", "auth"} {
+		if strings.Contains(lower, marker) {
+			return "***"
+		}
+	}
+	return value
 }

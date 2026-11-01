@@ -35,7 +35,7 @@ func TestNormalizeEphemeralExecutionParams_ShouldValidateMode(t *testing.T) {
 	assert.Equal(t, "INVALID_MODE", opErr.Code)
 }
 
-func TestNormalizeEphemeralExecutionParams_ShouldRejectCredentialIDs(t *testing.T) {
+func TestNormalizeEphemeralExecutionParams_ShouldRejectInvalidCredentialIDs(t *testing.T) {
 	params := &EphemeralExecutionParams{
 		Workflow:      &models.Workflow{Name: "wf"},
 		Mode:          "sync",
@@ -47,7 +47,7 @@ func TestNormalizeEphemeralExecutionParams_ShouldRejectCredentialIDs(t *testing.
 
 	var opErr *OperationError
 	require.ErrorAs(t, err, &opErr)
-	assert.Equal(t, "UNSUPPORTED_CREDENTIAL_IDS", opErr.Code)
+	assert.Equal(t, "INVALID_CREDENTIAL_ID", opErr.Code)
 }
 
 func TestNormalizeEphemeralExecutionParams_ShouldAutoGenerateMissingEdgeIDs(t *testing.T) {
