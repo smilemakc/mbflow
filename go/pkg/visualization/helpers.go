@@ -36,16 +36,16 @@ func PrintWorkflow(workflow *models.Workflow, format string, opts *RenderOptions
 		return err
 	}
 
-	fmt.Fprintln(os.Stdout, diagram)
-	return nil
+	_, err = fmt.Fprintln(os.Stdout, diagram)
+	return err
 }
 
 // SaveWorkflowToFile saves a workflow diagram to a file.
-func SaveWorkflowToFile(workflow *models.Workflow, format string, filename string, opts *RenderOptions) error {
+func SaveWorkflowToFile(workflow *models.Workflow, format, filename string, opts *RenderOptions) error {
 	diagram, err := RenderWorkflow(workflow, format, opts)
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(filename, []byte(diagram), 0644)
+	return os.WriteFile(filename, []byte(diagram), 0o644)
 }

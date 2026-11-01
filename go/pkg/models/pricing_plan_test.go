@@ -205,8 +205,6 @@ func TestPricingModel_Values(t *testing.T) {
 
 	for _, model := range models {
 		plan := &PricingPlan{
-			ResourceType: ResourceTypeFileStorage,
-			Name:         "Test Plan",
 			PricingModel: model,
 		}
 
@@ -224,8 +222,6 @@ func TestBillingPeriod_Values(t *testing.T) {
 
 	for _, period := range periods {
 		plan := &PricingPlan{
-			ResourceType:  ResourceTypeFileStorage,
-			Name:          "Test Plan",
 			BillingPeriod: period,
 		}
 

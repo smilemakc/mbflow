@@ -299,7 +299,7 @@ func (c *Client) initializeRemote() error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to remote API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Accept any 2xx status code as healthy
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -369,7 +369,7 @@ func (c *Client) Health(ctx context.Context) (*HealthStatus, error) {
 			}
 			return status, nil
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			status.Status = "unhealthy"

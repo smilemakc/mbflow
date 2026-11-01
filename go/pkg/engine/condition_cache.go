@@ -43,8 +43,9 @@ func (cc *ConditionCache) Get(condition string) (*vm.Program, bool) {
 
 	if element, found := cc.cache[condition]; found {
 		cc.lruList.MoveToFront(element)
-		entry := element.Value.(*cacheEntry)
-		return entry.program, true
+		if entry, ok := element.Value.(*cacheEntry); ok {
+			return entry.program, true
+		}
 	}
 
 	return nil, false
@@ -57,8 +58,10 @@ func (cc *ConditionCache) Put(condition string, program *vm.Program) {
 
 	if element, found := cc.cache[condition]; found {
 		cc.lruList.MoveToFront(element)
-		element.Value.(*cacheEntry).program = program
-		return
+		if entry, ok := element.Value.(*cacheEntry); ok {
+			entry.program = program
+			return
+		}
 	}
 
 	entry := &cacheEntry{
@@ -78,8 +81,9 @@ func (cc *ConditionCache) evictOldest() {
 	oldest := cc.lruList.Back()
 	if oldest != nil {
 		cc.lruList.Remove(oldest)
-		entry := oldest.Value.(*cacheEntry)
-		delete(cc.cache, entry.key)
+		if entry, ok := oldest.Value.(*cacheEntry); ok {
+			delete(cc.cache, entry.key)
+		}
 	}
 }
 

@@ -57,12 +57,12 @@ func ValidateTransformConfig(config map[string]any) error {
 	// Check required field
 	transformType, ok := config["type"]
 	if !ok {
-		return fmt.Errorf("Transform node requires 'type' field")
+		return fmt.Errorf("transform node requires 'type' field")
 	}
 
 	typeStr, ok := transformType.(string)
 	if !ok {
-		return fmt.Errorf("Transform 'type' must be a string")
+		return fmt.Errorf("transform 'type' must be a string")
 	}
 
 	// Validate type-specific requirements
@@ -71,15 +71,15 @@ func ValidateTransformConfig(config map[string]any) error {
 		// No additional fields required
 	case "expression":
 		if _, ok := config["expression"]; !ok {
-			return fmt.Errorf("Expression transform requires 'expression' field")
+			return fmt.Errorf("expression transform requires 'expression' field")
 		}
 	case "jq":
 		if _, ok := config["filter"]; !ok {
-			return fmt.Errorf("JQ transform requires 'filter' field")
+			return fmt.Errorf("jq transform requires 'filter' field")
 		}
 	case "template":
 		if _, ok := config["template"]; !ok {
-			return fmt.Errorf("Template transform requires 'template' field")
+			return fmt.Errorf("template transform requires 'template' field")
 		}
 	default:
 		return fmt.Errorf("invalid transform type: %s", typeStr)

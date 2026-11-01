@@ -505,6 +505,9 @@ func TestFunctionCall_ErrorHandling(t *testing.T) {
 		Error:        err.Error(),
 	}
 
+	assert.Nil(t, output.Result)
+	assert.Equal(t, input.FunctionName, output.FunctionName)
+	assert.Equal(t, input.ToolCallID, output.ToolCallID)
 	assert.False(t, output.Success)
 	assert.NotEmpty(t, output.Error)
 }
