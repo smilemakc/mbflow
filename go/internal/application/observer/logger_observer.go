@@ -70,9 +70,11 @@ func (o *LoggerObserver) OnEvent(ctx context.Context, event Event) error {
 
 	// Add node fields
 	if event.NodeID != nil {
-		fields = append(fields, "node_id", *event.NodeID)
-		fields = append(fields, "node_name", *event.NodeName)
-		fields = append(fields, "node_type", *event.NodeType)
+		fields = append(fields,
+			"node_id", *event.NodeID,
+			"node_name", *event.NodeName,
+			"node_type", *event.NodeType,
+		)
 	}
 
 	// Add wave fields

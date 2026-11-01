@@ -24,10 +24,10 @@ type WebSocketHandler struct {
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
-func NewWebSocketHandler(hub *WebSocketHub, logger *logger.Logger) *WebSocketHandler {
+func NewWebSocketHandler(hub *WebSocketHub, log *logger.Logger) *WebSocketHandler {
 	h := &WebSocketHandler{
 		hub:    hub,
-		logger: logger,
+		logger: log,
 	}
 	h.upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -126,6 +126,6 @@ func (h *WebSocketHandler) HandleHealthCheck(w http.ResponseWriter, r *http.Requ
 	}
 
 	if data, err := json.Marshal(status); err == nil {
-		w.Write(data)
+		_, _ = w.Write(data)
 	}
 }

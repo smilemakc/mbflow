@@ -1,6 +1,7 @@
 package observer
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -387,7 +388,7 @@ func TestWebSocketHandler_Integration(t *testing.T) {
 			Status:      "running",
 		}
 
-		err = obs.OnEvent(nil, event)
+		err = obs.OnEvent(context.Background(), event)
 		require.NoError(t, err)
 
 		// Client should receive the event
@@ -449,7 +450,7 @@ func TestWebSocketHandler_Integration(t *testing.T) {
 		}
 
 		for _, event := range events {
-			_ = obs.OnEvent(nil, event)
+			_ = obs.OnEvent(context.Background(), event)
 			time.Sleep(10 * time.Millisecond) // Give time for event to be broadcast
 		}
 

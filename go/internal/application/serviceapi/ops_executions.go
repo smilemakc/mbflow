@@ -39,17 +39,18 @@ func (o *Operations) ListExecutions(ctx context.Context, params ListExecutionsPa
 	var execModels []*storagemodels.ExecutionModel
 	var err error
 
-	if params.OwnerID != nil {
+	switch {
+	case params.OwnerID != nil:
 		execModels, err = o.ExecutionRepo.FindWithFilters(ctx, repository.ExecutionFilters{
 			WorkflowID: params.WorkflowID,
 			Status:     params.Status,
 			OwnerID:    params.OwnerID,
 		}, params.Limit, params.Offset)
-	} else if params.WorkflowID != nil {
+	case params.WorkflowID != nil:
 		execModels, err = o.ExecutionRepo.FindByWorkflowID(ctx, *params.WorkflowID, params.Limit, params.Offset)
-	} else if params.Status != nil {
+	case params.Status != nil:
 		execModels, err = o.ExecutionRepo.FindByStatus(ctx, *params.Status, params.Limit, params.Offset)
-	} else {
+	default:
 		execModels, err = o.ExecutionRepo.FindAll(ctx, params.Limit, params.Offset)
 	}
 

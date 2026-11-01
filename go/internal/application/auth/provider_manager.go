@@ -78,12 +78,13 @@ func NewProviderManager(cfg *config.AuthConfig, authService *Service) (*Provider
 	if cfg.GRPCAddress != "" {
 		logger.Info("Initializing gRPC provider", "address", cfg.GRPCAddress)
 		grpcProvider, err := NewGRPCProvider(cfg)
-		if err != nil {
+		switch {
+		case err != nil:
 			logger.Warn("Failed to initialize gRPC provider", "error", err.Error())
-		} else if grpcProvider.IsAvailable() {
+		case grpcProvider.IsAvailable():
 			pm.providers[ProviderTypeGRPC] = grpcProvider
 			logger.Info("gRPC provider initialized successfully")
-		} else {
+		default:
 			logger.Warn("gRPC provider created but not available")
 		}
 	}

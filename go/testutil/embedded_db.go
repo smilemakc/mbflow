@@ -40,9 +40,12 @@ func freePort() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-	return uint32(port), nil
+	addr, ok := l.Addr().(*net.TCPAddr)
+	_ = l.Close()
+	if !ok {
+		return 0, fmt.Errorf("unexpected listener address type %T", l.Addr())
+	}
+	return uint32(addr.Port), nil
 }
 
 func dsnForDB(dbName string) string {
@@ -108,22 +111,22 @@ func startEmbeddedDB() error {
 	// Create template database with migrations
 	ctx := context.Background()
 	if _, err := adminDB.ExecContext(ctx, "DROP DATABASE IF EXISTS "+templateDatabase); err != nil {
-		sharedEPG.Stop()
+		_ = sharedEPG.Stop()
 		return fmt.Errorf("drop old template: %w", err)
 	}
 	if _, err := adminDB.ExecContext(ctx, "CREATE DATABASE "+templateDatabase); err != nil {
-		sharedEPG.Stop()
+		_ = sharedEPG.Stop()
 		return fmt.Errorf("create template db: %w", err)
 	}
 
 	// Connect to template DB, run migrations, then close
 	tmplDB := openDB(templateDatabase)
 	if err := runMigrations(tmplDB); err != nil {
-		tmplDB.Close()
-		sharedEPG.Stop()
+		_ = tmplDB.Close()
+		_ = sharedEPG.Stop()
 		return fmt.Errorf("migrations: %w", err)
 	}
-	tmplDB.Close()
+	_ = tmplDB.Close()
 
 	return nil
 }
@@ -138,7 +141,7 @@ func openDB(dbName string) *bun.DB {
 
 func stopSharedDB() {
 	if adminDB != nil {
-		adminDB.Close()
+		_ = adminDB.Close()
 		adminDB = nil
 	}
 	if sharedEPG != nil {
@@ -207,7 +210,7 @@ func SetupTestTx(t *testing.T) (bun.IDB, func()) {
 	db := openDB(dbName)
 
 	cleanup := func() {
-		db.Close()
+		_ = db.Close()
 		_, _ = adminDB.ExecContext(context.Background(), "DROP DATABASE IF EXISTS "+dbName)
 	}
 	t.Cleanup(cleanup)

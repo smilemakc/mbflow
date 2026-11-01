@@ -205,7 +205,7 @@ func (o *HTTPCallbackObserver) send(ctx context.Context, payload map[string]any)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("http callback returned status %d", resp.StatusCode)

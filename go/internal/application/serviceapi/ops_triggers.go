@@ -40,13 +40,14 @@ func (o *Operations) ListTriggers(ctx context.Context, params ListTriggersParams
 		OwnerID:    params.OwnerID,
 	}
 
-	if params.OwnerID != nil {
+	switch {
+	case params.OwnerID != nil:
 		triggerModels, err = o.TriggerRepo.FindWithFilters(ctx, ownerFilters, params.Limit, params.Offset)
-	} else if params.WorkflowID != nil {
+	case params.WorkflowID != nil:
 		triggerModels, err = o.TriggerRepo.FindByWorkflowID(ctx, *params.WorkflowID)
-	} else if params.Type != nil {
+	case params.Type != nil:
 		triggerModels, err = o.TriggerRepo.FindByType(ctx, *params.Type, params.Limit, params.Offset)
-	} else {
+	default:
 		triggerModels, err = o.TriggerRepo.FindAll(ctx, params.Limit, params.Offset)
 	}
 
@@ -61,13 +62,14 @@ func (o *Operations) ListTriggers(ctx context.Context, params ListTriggersParams
 	}
 
 	var total int
-	if params.OwnerID != nil {
+	switch {
+	case params.OwnerID != nil:
 		total, err = o.TriggerRepo.CountWithFilters(ctx, ownerFilters)
-	} else if params.WorkflowID != nil {
+	case params.WorkflowID != nil:
 		total, err = o.TriggerRepo.CountByWorkflowID(ctx, *params.WorkflowID)
-	} else if params.Type != nil {
+	case params.Type != nil:
 		total, err = o.TriggerRepo.CountByType(ctx, *params.Type)
-	} else {
+	default:
 		total, err = o.TriggerRepo.Count(ctx)
 	}
 	if err != nil {
