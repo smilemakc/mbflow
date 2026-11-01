@@ -53,7 +53,16 @@
 - Telegram message entities were sliced by bytes instead of UTF-16 units; malformed entities crashed the parser.
 - A deadlock in the cron scheduler shutdown, event triggers created after a start with none never firing, and several 500 responses for client errors.
 
+### Found by functional testing
+
+- A jq transform could crash the whole server ("concurrent map iteration and map write"): gojq rewrote the previous node's output while observers serialized it.
+- Nodes after a conditional lost the data: the conditional returned a bare boolean. It now passes its input through with `result`.
+- The `anthropic` LLM provider was accepted but not implemented. It now uses the Messages API with tools and structured output.
+- The UI offered LLM providers the backend does not support, and its JSON response mode was ignored.
+- Webhook executions stored callers' `Authorization`, `Cookie` and API-key headers in plain text.
+
 ### Tests and CI
 
 - Go statement coverage went from 50% to 96.9%. CI fails below 90% (`go/scripts/coverage.sh`, `make test-cover`).
+- `go/test/functional` runs pipelines (third-party APIs, branching, sub-workflows, LLM summary, structured output, tool-calling agent) against a running stack.
 - The UI has Vitest + Testing Library tests with a 90% gate on the tested modules (`npm run test:coverage`).
