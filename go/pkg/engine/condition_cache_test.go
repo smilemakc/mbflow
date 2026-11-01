@@ -255,3 +255,27 @@ func TestConditionCache_NegativeCapacity(t *testing.T) {
 		t.Error("cache with negative capacity should default to non-zero")
 	}
 }
+
+func TestConditionCache_ConcurrentGet(t *testing.T) {
+	cc := NewConditionCache(4)
+	for _, cond := range []string{"a > 1", "b > 2"} {
+		_, err := cc.CompileAndCache(cond, map[string]any{"a": 0, "b": 0})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < 200; j++ {
+				if _, ok := cc.Get([]string{"a > 1", "b > 2"}[(i+j)%2]); !ok {
+					t.Error("cached condition missing")
+					return
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+}

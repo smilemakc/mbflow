@@ -37,9 +37,10 @@ func NewConditionCache(capacity int) *ConditionCache {
 }
 
 // Get retrieves a compiled program from cache.
+// It takes the write lock: a hit moves the entry to the front of the LRU list.
 func (cc *ConditionCache) Get(condition string) (*vm.Program, bool) {
-	cc.mu.RLock()
-	defer cc.mu.RUnlock()
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
 
 	if element, found := cc.cache[condition]; found {
 		cc.lruList.MoveToFront(element)
