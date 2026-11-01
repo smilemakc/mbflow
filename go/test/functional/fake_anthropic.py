@@ -8,7 +8,11 @@ key. Its answers are canned, so a dry run says nothing about model quality.
     python3 test/functional/fake_anthropic.py 18080 EXPECTED_KEY
 
 Requests whose x-api-key differs from EXPECTED_KEY get a 401, like the real
-API, so a dry run also checks that the key reaches the provider.
+API, so a dry run also checks that the key reaches the provider. Like the
+real API for current models (the suite's default), it rejects sampling
+parameters and, for the models that refuse it, forced tool_choice; it
+answers structured output requests (output_config.format) with JSON text and
+puts a thinking block before tool calls.
 """
 import json
 import re
@@ -17,6 +21,34 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 EXPECTED_KEY = sys.argv[2] if len(sys.argv) > 2 else ""
+
+
+# Rules of the real API this stand-in enforces (current models).
+NO_FORCED_TOOLS = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-mythos-5-1")
+SAMPLING_OK = ("claude-3", "claude-opus-4-0", "claude-opus-4-1", "claude-opus-4-5", "claude-opus-4-6",
+               "claude-sonnet-4", "claude-haiku-4")
+
+
+def invalid(body):
+    model = body.get("model") or ""
+    for param in ("temperature", "top_p", "top_k"):
+        if param in body and not model.startswith(SAMPLING_OK):
+            return f"`{param}` is deprecated for this model."
+    if (body.get("tool_choice") or {}).get("type") in ("tool", "any") and model.startswith(NO_FORCED_TOOLS):
+        return 'tool_choice: type "tool" and "any" are not supported for this model.'
+    return None
+
+
+def classify(prompt):
+    """Structured output: classify countries by latitude."""
+    countries = []
+    start = prompt.find("[")
+    items = json.loads(prompt[start:prompt.rindex("]") + 1]) if start >= 0 else []
+    for item in items:
+        lat = abs(float((item.get("latlng") or [0])[0]))
+        climate = "tropical" if lat < 23.5 else ("polar" if lat > 66 else "temperate")
+        countries.append({"name": item.get("name"), "climate": climate, "fun_fact": f"{item.get('name')} has a fun fact."})
+    return {"countries": countries}
 
 
 def text_of(content):
@@ -39,24 +71,21 @@ def respond(body):
     tools = {t["name"]: t for t in body.get("tools", [])}
     usage = {"input_tokens": len(json.dumps(body)) // 4, "output_tokens": 20}
 
+    if ((body.get("output_config") or {}).get("format") or {}).get("type") == "json_schema":
+        return {"content": [{"type": "text", "text": json.dumps(classify(prompt))}],
+                "stop_reason": "end_turn", "usage": usage}
+
     forced = (body.get("tool_choice") or {}).get("name")
     if forced:
-        # Structured output: classify countries by latitude.
-        countries = []
-        start = prompt.find("[")
-        items = json.loads(prompt[start:prompt.rindex("]") + 1]) if start >= 0 else []
-        for item in items:
-            lat = abs(float((item.get("latlng") or [0])[0]))
-            climate = "tropical" if lat < 23.5 else ("polar" if lat > 66 else "temperate")
-            countries.append({"name": item.get("name"), "climate": climate, "fun_fact": f"{item.get('name')} has a fun fact."})
-        return {"content": [{"type": "tool_use", "id": "toolu_s", "name": forced, "input": {"countries": countries}}],
+        return {"content": [{"type": "tool_use", "id": "toolu_s", "name": forced, "input": classify(prompt)}],
                 "stop_reason": "tool_use", "usage": usage}
 
     if "http_request" in tools:
         results = tool_results(messages)
         if not results:
             url = re.search(r"https?://\S+", prompt).group(0).rstrip(".,)")
-            return {"content": [{"type": "text", "text": "Fetching the data."},
+            return {"content": [{"type": "thinking", "thinking": "", "signature": "fake-signature"},
+                                {"type": "text", "text": "Fetching the data."},
                                 {"type": "tool_use", "id": "toolu_1", "name": "http_request", "input": {"url": url, "method": "GET"}}],
                     "stop_reason": "tool_use", "usage": usage}
         payload = json.loads(results[-1]["content"])
@@ -78,6 +107,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(404, {"type": "error", "error": {"type": "not_found_error", "message": self.path}})
         if self.headers.get("x-api-key") != EXPECTED_KEY:
             return self.reply(401, {"type": "error", "error": {"type": "authentication_error", "message": "invalid x-api-key"}})
+        problem = invalid(body)
+        if problem:
+            return self.reply(400, {"type": "error", "error": {"type": "invalid_request_error", "message": problem}})
         result = respond(body)
         result.update({"id": "msg_fake", "type": "message", "role": "assistant", "model": body.get("model")})
         self.reply(200, result)

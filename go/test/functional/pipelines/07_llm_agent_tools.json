@@ -14,7 +14,7 @@
           "provider": "anthropic",
           "model": "${llm_model}",
           "api_key": "{{resource.anthropic.api_key}}",
-          "max_tokens": 800,
+          "max_tokens": 2048,
           "temperature": 0,
           "instruction": "You answer questions by fetching data with the http_request tool. Never guess data you can fetch.",
           "prompt": "Fetch {{input.url}} (JSON with an 'animals' array). How many animals start with the letter '{{input.letter}}'? Reply with the number first, then list them.",

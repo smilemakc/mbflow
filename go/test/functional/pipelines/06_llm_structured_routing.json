@@ -32,7 +32,7 @@
           "provider": "anthropic",
           "model": "${llm_model}",
           "api_key": "{{resource.anthropic.api_key}}",
-          "max_tokens": 1200,
+          "max_tokens": 4096,
           "temperature": 0,
           "instruction": "You are a geography assistant. Use only well-known facts.",
           "prompt": "For each country below give its dominant climate and one short fun fact.\n{{input.countries}}",
@@ -106,7 +106,7 @@
           "provider": "anthropic",
           "model": "${llm_model}",
           "api_key": "{{resource.anthropic.api_key}}",
-          "max_tokens": 200,
+          "max_tokens": 1024,
           "prompt": "Write one upbeat sentence recommending a beach holiday in: {{input.tropical}}."
         }
       },

@@ -23,12 +23,12 @@ ANTHROPIC_API_KEY=sk-ant-... python3 test/functional/run.py
 ```
 
 - Pass names to run a subset: `run.py 02 06`. `VERBOSE=1` prints execution outputs.
-- `MBFLOW_LLM_MODEL` selects the Claude model (default `claude-haiku-5-5`).
+- `MBFLOW_LLM_MODEL` selects the Claude model (default `claude-haiku-5-5`). The suite passes on `claude-haiku-5-5`, `claude-sonnet-5-5` and `claude-opus-5-5`.
 - Without `ANTHROPIC_API_KEY` the LLM pipelines are skipped. With it, the key is stored as an encrypted credential, attached to the LLM workflows as the alias `anthropic` and used as `{{resource.anthropic.api_key}}`. The runner fails if the key appears in any API response.
 
 ## Dry run without a key
 
-`fake_anthropic.py` stands in for the Messages API with canned answers. It checks MBFlow's LLM path (request format, credentials, tool loop, structured output), not model quality. The server must be allowed to call localhost (`MBFLOW_HTTP_ALLOWED_HOSTS=127.0.0.1`).
+`fake_anthropic.py` stands in for the Messages API with canned answers. It checks MBFlow's LLM path (request format, credentials, tool loop, structured output), not model quality. Like the real API it rejects sampling parameters for current models and forced `tool_choice` for the models that refuse it (set `MBFLOW_LLM_MODEL` to try one), and it returns a thinking block before tool calls. The server must be allowed to call localhost (`MBFLOW_HTTP_ALLOWED_HOSTS=127.0.0.1`).
 
 ```bash
 python3 test/functional/fake_anthropic.py 18080 dry-run-key &

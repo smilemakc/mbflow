@@ -23,7 +23,7 @@
           "provider": "anthropic",
           "model": "${llm_model}",
           "api_key": "{{resource.anthropic.api_key}}",
-          "max_tokens": 300,
+          "max_tokens": 1024,
           "temperature": 0.2,
           "instruction": "You summarize documents for engineers. Answer in plain text.",
           "prompt": "Summarize this README in at most two sentences and name the project:\n\n{{input.body}}"
