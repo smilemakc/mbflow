@@ -77,17 +77,26 @@ func startEmbeddedDB() error {
 	embeddedPort = port
 
 	// Each instance gets its own data directory to avoid conflicts
-	dataDir := filepath.Join(os.TempDir(), fmt.Sprintf("epg-%d", port))
-	os.RemoveAll(dataDir)
+	dataDir := runtimeDir(port)
+	removeRuntimeDirs(port)
 
-	sharedEPG = embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Port(port).
-			Username(embeddedUser).
-			Password(embeddedPassword).
-			Database(embeddedUser).
-			RuntimePath(dataDir),
-	)
+	cfg := embeddedpostgres.DefaultConfig().
+		Port(port).
+		Username(embeddedUser).
+		Password(embeddedPassword).
+		Database(embeddedUser).
+		RuntimePath(dataDir).
+		// pgdriver needs UTF8; initdb would otherwise follow the locale
+		// of the environment (SQL_ASCII under LANG=C).
+		Encoding("UTF8")
+	if os.Geteuid() == 0 {
+		binaries, err := prepareRootRun(port, dataDir, dataDir+"-bin")
+		if err != nil {
+			return fmt.Errorf("prepare postgres for root: %w", err)
+		}
+		cfg = cfg.BinariesPath(binaries)
+	}
+	sharedEPG = embeddedpostgres.NewDatabase(cfg)
 
 	if err := sharedEPG.Start(); err != nil {
 		return fmt.Errorf("start on port %d: %w", port, err)
@@ -136,9 +145,20 @@ func stopSharedDB() {
 		_ = sharedEPG.Stop()
 		sharedEPG = nil
 	}
-	// Clean up data directory
-	dataDir := filepath.Join(os.TempDir(), fmt.Sprintf("epg-%d", embeddedPort))
-	os.RemoveAll(dataDir)
+	removeRuntimeDirs(embeddedPort)
+}
+
+func runtimeDir(port uint32) string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("epg-%d", port))
+}
+
+// removeRuntimeDirs deletes the data directory of the instance on port and
+// the binaries and wrappers used when running as root.
+func removeRuntimeDirs(port uint32) {
+	dir := runtimeDir(port)
+	for _, d := range []string{dir, dir + "-bin", dir + "-wrap", dir + "-extract"} {
+		_ = os.RemoveAll(d)
+	}
 }
 
 func runMigrations(db *bun.DB) error {
