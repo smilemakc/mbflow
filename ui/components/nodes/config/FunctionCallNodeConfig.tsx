@@ -84,7 +84,10 @@ export const FunctionCallNodeConfigComponent: React.FC<FunctionCallNodeConfigPro
         if (JSON.stringify(localConfig) !== JSON.stringify(config)) {
             onChange(localConfig);
         }
-    }, [localConfig, onChange]);
+        // onChange is deliberately not a dependency: parents pass a new callback on every
+        // render, and re-running here would emit the stale local config after the parent
+        // switched to another node's config.
+    }, [localConfig]);
 
     return (
         <div className="flex flex-col gap-4">

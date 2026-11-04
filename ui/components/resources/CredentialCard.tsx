@@ -83,7 +83,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
 
       {/* Fields */}
       <div className="flex flex-wrap gap-1 mb-3">
-        {credential.fields.map((field) => (
+        {(credential.fields ?? []).map((field) => (
           <span
             key={field}
             className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded"

@@ -124,7 +124,7 @@ const UsageLimits: React.FC<UsageLimitsProps> = ({ rentalKey }) => {
   return (
     <div className="space-y-3 mb-3">
       {/* Daily requests limit */}
-      {rentalKey.daily_request_limit && (
+      {!!rentalKey.daily_request_limit && (
         <LimitBar
           label={t.rentalKeys?.dailyRequests || 'Daily Requests'}
           current={rentalKey.requests_today}
@@ -136,7 +136,7 @@ const UsageLimits: React.FC<UsageLimitsProps> = ({ rentalKey }) => {
       )}
 
       {/* Monthly tokens limit */}
-      {rentalKey.monthly_token_limit && (
+      {!!rentalKey.monthly_token_limit && (
         <LimitBar
           label={t.rentalKeys?.monthlyTokens || 'Monthly Tokens'}
           current={rentalKey.tokens_this_month}

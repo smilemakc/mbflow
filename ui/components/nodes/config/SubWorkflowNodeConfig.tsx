@@ -8,6 +8,14 @@ interface SubWorkflowNodeConfigProps {
     onChange: (config: SubWorkflowNodeConfig) => void;
 }
 
+const withDefaults = (config: SubWorkflowNodeConfig): SubWorkflowNodeConfig => ({
+    workflow_id: config.workflow_id || '',
+    for_each: config.for_each || 'input.items',
+    item_var: config.item_var || 'item',
+    max_parallelism: config.max_parallelism ?? 0,
+    on_error: config.on_error || 'fail_fast',
+});
+
 export const SubWorkflowNodeConfigComponent: React.FC<SubWorkflowNodeConfigProps> = ({
     config,
     onChange,
@@ -15,23 +23,13 @@ export const SubWorkflowNodeConfigComponent: React.FC<SubWorkflowNodeConfigProps
     const t = useTranslation();
     const tc = (t.nodeConfig as any).subWorkflow;
 
-    const [localConfig, setLocalConfig] = useState<SubWorkflowNodeConfig>({
-        workflow_id: config.workflow_id || '',
-        for_each: config.for_each || 'input.items',
-        item_var: config.item_var || 'item',
-        max_parallelism: config.max_parallelism ?? 0,
-        on_error: config.on_error || 'fail_fast',
-    });
+    const [localConfig, setLocalConfig] = useState<SubWorkflowNodeConfig>(() => withDefaults(config));
 
     useEffect(() => {
-        const newConfig: SubWorkflowNodeConfig = {
-            workflow_id: config.workflow_id || '',
-            for_each: config.for_each || 'input.items',
-            item_var: config.item_var || 'item',
-            max_parallelism: config.max_parallelism ?? 0,
-            on_error: config.on_error || 'fail_fast',
-        };
-        if (JSON.stringify(newConfig) !== JSON.stringify(localConfig)) {
+        // Compare with defaults applied on both sides: a field the user just cleared
+        // must not snap back to its default.
+        const newConfig = withDefaults(config);
+        if (JSON.stringify(newConfig) !== JSON.stringify(withDefaults(localConfig))) {
             setLocalConfig(newConfig);
         }
     }, [config]);
@@ -89,7 +87,7 @@ export const SubWorkflowNodeConfigComponent: React.FC<SubWorkflowNodeConfigProps
                 </label>
                 <input
                     type="text"
-                    value={localConfig.item_var || 'item'}
+                    value={localConfig.item_var ?? ''}
                     onChange={e => handleChange('item_var', e.target.value)}
                     placeholder={tc.itemVarPlaceholder}
                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent"

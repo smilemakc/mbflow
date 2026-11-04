@@ -41,6 +41,8 @@ export interface EdgeApiResponse {
     from: string;     // source node_id
     to: string;       // target node_id
     condition: Record<string, any>;
+    source_handle?: string; // branch of a conditional node: "true" / "false"
+    loop?: { max_iterations: number };
 }
 
 export interface ExecutionApiResponse {
@@ -213,8 +215,10 @@ export function edgeFromApi(api: EdgeApiResponse): AppEdge {
         type: 'smoothstep',
         animated: false,
         markerEnd: { type: MarkerType.ArrowClosed },
+        ...(api.source_handle ? {sourceHandle: api.source_handle, label: api.source_handle} : {}),
         data: {
             condition: api.condition,
+            ...(api.loop ? {loop: api.loop} : {}),
         },
     };
 }
@@ -225,6 +229,8 @@ export function edgeToApi(edge: AppEdge) {
         from: edge.source,
         to: edge.target,
         condition: (edge.data as any)?.condition || {},
+        ...(edge.sourceHandle ? {source_handle: edge.sourceHandle} : {}),
+        ...((edge.data as any)?.loop ? {loop: (edge.data as any).loop} : {}),
     };
 }
 

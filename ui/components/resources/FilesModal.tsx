@@ -270,6 +270,7 @@ const FileItem: React.FC<FileItemProps> = ({
     <div className="flex items-center gap-1 shrink-0">
       <Button
         onClick={() => onDownload(file.id)}
+        aria-label={`Download ${file.name}`}
         variant="ghost"
         size="sm"
         icon={<Download size={14} />}
@@ -277,6 +278,7 @@ const FileItem: React.FC<FileItemProps> = ({
       />
       <Button
         onClick={() => onDelete(file.id, file.name)}
+        aria-label={`Delete ${file.name}`}
         variant="ghost"
         size="sm"
         icon={<Trash2 size={14} />}

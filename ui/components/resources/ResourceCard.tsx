@@ -168,6 +168,7 @@ const ResourceActions: React.FC<ResourceActionsProps> = (
             </Button>
             <Button
                 onClick={() => onDelete(resource.id, resource.name)}
+                aria-label={`${t.common.delete} ${resource.name}`}
                 variant="ghost"
                 size="sm"
                 icon={<Trash2 size={14}/>}

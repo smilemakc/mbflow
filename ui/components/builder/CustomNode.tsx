@@ -394,11 +394,37 @@ export const CustomNode = memo(({data, selected}: NodeProps<NodeData>) => {
                 </div>
             </div>
 
-            <Handle
-                type="source"
-                position={Position.Bottom}
-                className="!w-3 !h-3 !bg-slate-400 dark:!bg-slate-600 !border-2 !border-white dark:!border-slate-900 group-hover:!bg-blue-500 transition-colors"
-            />
+            {data.type === NodeType.CONDITIONAL ? (
+                <>
+                    {/* The engine picks the branch by the edge's source handle. */}
+                    <Handle
+                        id="true"
+                        type="source"
+                        position={Position.Bottom}
+                        style={{left: '30%'}}
+                        title="true"
+                        className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-white dark:!border-slate-900"
+                    />
+                    <Handle
+                        id="false"
+                        type="source"
+                        position={Position.Bottom}
+                        style={{left: '70%'}}
+                        title="false"
+                        className="!w-3 !h-3 !bg-rose-500 !border-2 !border-white dark:!border-slate-900"
+                    />
+                    <div className="flex justify-between px-[22%] pb-1 text-[10px] font-semibold uppercase">
+                        <span className="text-emerald-600 dark:text-emerald-400">true</span>
+                        <span className="text-rose-600 dark:text-rose-400">false</span>
+                    </div>
+                </>
+            ) : (
+                <Handle
+                    type="source"
+                    position={Position.Bottom}
+                    className="!w-3 !h-3 !bg-slate-400 dark:!bg-slate-600 !border-2 !border-white dark:!border-slate-900 group-hover:!bg-blue-500 transition-colors"
+                />
+            )}
         </div>
     );
 });

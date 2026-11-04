@@ -20,5 +20,7 @@ export const edge = (id: string, source: string, target: string, label?: string)
     type: 'smoothstep',
     animated: false,
     markerEnd: {type: MarkerType.ArrowClosed},
-    ...(label ? {label, labelStyle: {fontSize: 10}} : {})
+    ...(label ? {label, labelStyle: {fontSize: 10}} : {}),
+    // "true"/"false" edges leave a conditional node by that branch's handle.
+    ...(label === 'true' || label === 'false' ? {sourceHandle: label} : {}),
 });

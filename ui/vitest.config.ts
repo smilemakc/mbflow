@@ -19,23 +19,18 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text-summary', 'text', 'html', 'json-summary'],
       reportsDirectory: './coverage',
-      // Logic modules plus the trigger and system-status UI. Thresholds apply to this set.
-      include: [
-        'lib/**/*.ts',
-        'utils/**/*.ts',
-        'services/**/*.ts',
-        'store/**/*.ts',
-        'components/triggers/**/*.tsx',
-        'components/system/**/*.tsx',
-        'hooks/useSystemOverview.ts',
-        'hooks/usePagination.ts',
-        'hooks/useTableData.ts',
-        'pages/TriggersPage.tsx',
-        'pages/MonitoringPage.tsx',
-        'pages/DashboardPage.tsx',
-        'pages/SettingsPage.tsx',
+      // The whole application. Only tests, test helpers, build/config files
+      // and type declarations are left out.
+      include: ['**/*.{ts,tsx}'],
+      exclude: [
+        '**/*.test.{ts,tsx}',
+        'test/**',
+        'node_modules/**',
+        'dist/**',
+        'coverage/**',
+        '*.config.ts',
+        '**/*.d.ts',
       ],
-      exclude: ['**/*.test.{ts,tsx}', '**/index.ts'],
       thresholds: {
         statements: 90,
         branches: 90,

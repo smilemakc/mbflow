@@ -41,6 +41,38 @@ export const authFromScheme = (scheme: ApiSecurityScheme): ApiClientAuth | null 
     }
 };
 
+const parseScopes = (text: string): string[] | undefined => {
+    const scopes = text.split(/\s+/).filter(Boolean);
+    return scopes.length > 0 ? scopes : undefined;
+};
+
+/**
+ * Space-separated scopes. The text lives in local state: deriving it from the parsed
+ * list would drop the space being typed between two scopes.
+ */
+const ScopesInput: React.FC<{scopes?: string[]; onChange: (scopes: string[] | undefined) => void}> = ({scopes, onChange}) => {
+    const [text, setText] = useState(() => (scopes ?? []).join(' '));
+
+    useEffect(() => {
+        setText((current) =>
+            (parseScopes(current) ?? []).join(' ') === (scopes ?? []).join(' ') ? current : (scopes ?? []).join(' '),
+        );
+    }, [scopes]);
+
+    return (
+        <input
+            type="text"
+            value={text}
+            onChange={(e) => {
+                setText(e.target.value);
+                onChange(parseScopes(e.target.value));
+            }}
+            className={`${configStyles.input} font-mono`}
+            placeholder="read write"
+        />
+    );
+};
+
 interface AuthSettingsFormProps {
     value: ApiClientAuth;
     onChange: (auth: ApiClientAuth) => void;
@@ -158,15 +190,9 @@ export const AuthSettingsForm: React.FC<AuthSettingsFormProps> = ({value, onChan
                         />
                     </FormField>
                     <FormField label={t.apiClients.scopes}>
-                        <input
-                            type="text"
-                            value={(value.scopes ?? []).join(' ')}
-                            onChange={(e) => {
-                                const scopes = e.target.value.split(/\s+/).filter(Boolean);
-                                onChange({...value, scopes: scopes.length > 0 ? scopes : undefined});
-                            }}
-                            className={`${configStyles.input} font-mono`}
-                            placeholder="read write"
+                        <ScopesInput
+                            scopes={value.scopes}
+                            onChange={(scopes) => onChange({...value, scopes})}
                         />
                     </FormField>
                 </>

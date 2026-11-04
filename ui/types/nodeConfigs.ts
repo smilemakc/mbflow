@@ -64,7 +64,7 @@ export interface ApiToolRef {
 
 // LLM Node
 export interface LLMNodeConfig extends BaseNodeConfig {
-  provider: "openai" | "anthropic" | "google" | "azure" | "ollama";
+  provider: "openai" | "openai-responses" | "anthropic" | "gemini";
   model: string;
   api_key: string;
 
@@ -331,7 +331,7 @@ export const DEFAULT_NODE_CONFIGS: Record<string, NodeConfig> = {
   },
   [NodeType.LLM]: {  // 'llm'
     provider: "openai",
-    model: "gpt-4",
+    model: "gpt-4.1",
     api_key: "",
     prompt: "",
     temperature: 0.7,
@@ -475,25 +475,10 @@ export const DEFAULT_NODE_CONFIGS: Record<string, NodeConfig> = {
 
 // LLM Provider models
 export const LLM_PROVIDER_MODELS: Record<string, string[]> = {
-  openai: [
-    "gpt-4",
-    "gpt-4-turbo",
-    "gpt-4-turbo-preview",
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gpt-3.5-turbo",
-    "gpt-3.5-turbo-16k",
-  ],
-  anthropic: [
-    "claude-3-opus-20240229",
-    "claude-3-sonnet-20240229",
-    "claude-3-haiku-20240307",
-    "claude-3-5-sonnet-20241022",
-    "claude-2.1",
-  ],
-  google: ["gemini-pro", "gemini-pro-vision", "gemini-1.5-pro"],
-  azure: ["gpt-4", "gpt-35-turbo"],
-  ollama: ["llama2", "llama3", "mistral", "codellama", "mixtral"],
+  openai: ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini"],
+  "openai-responses": ["gpt-5", "gpt-5-mini", "gpt-4.1", "o3-mini"],
+  anthropic: ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"],
+  gemini: ["gemini-2.5-flash", "gemini-2.5-pro"],
 };
 
 // Constants

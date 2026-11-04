@@ -43,8 +43,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Transform API response to extract names and emails',
                     config: {
-                        language: 'jq',
-                        expression: '[.[] | {name: .name, email: .email, company: .company.name}]',
+                        type: 'jq',
+                        filter: '[.[] | {name: .name, email: .email, company: .company.name}]',
                         timeout_seconds: 10
                     }
                 }
@@ -145,8 +145,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Format success log message',
                     config: {
-                        language: 'jq',
-                        expression: '{"status": "healthy", "timestamp": now | todate, "response_time_ms": .duration_ms}'
+                        type: 'jq',
+                        filter: '{"status": "healthy", "timestamp": now | todate, "response_time_ms": .duration_ms}'
                     }
                 }
             },
@@ -226,8 +226,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Process bot command',
                     config: {
-                        language: 'jq',
-                        expression: 'if .commands[0] == "/start" then "Welcome! I am your AI assistant. How can I help you today?" elif .commands[0] == "/help" then "Available commands:\n/start - Start conversation\n/help - Show this help" else "Unknown command. Try /help" end'
+                        type: 'jq',
+                        filter: 'if .commands[0] == "/start" then "Welcome! I am your AI assistant. How can I help you today?" elif .commands[0] == "/help" then "Available commands:\n/start - Start conversation\n/help - Show this help" else "Unknown command. Try /help" end'
                     }
                 }
             },
@@ -490,8 +490,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Format content for CMS API',
                     config: {
-                        language: 'jq',
-                        expression: '{"title": (.content | split("\n")[0] | gsub("^#+ "; "")), "body": .content, "status": "draft", "author": "AI Writer", "tags": ["ai-generated", "trending"]}'
+                        type: 'jq',
+                        filter: '{"title": (.content | split("\n")[0] | gsub("^#+ "; "")), "body": .content, "status": "draft", "author": "AI Writer", "tags": ["ai-generated", "trending"]}'
                     }
                 }
             },
@@ -562,8 +562,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Extract user message and context',
                     config: {
-                        language: 'jq',
-                        expression: '{"message": .text, "user_id": .from.id, "chat_id": .chat.id}'
+                        type: 'jq',
+                        filter: '{"message": .text, "user_id": .from.id, "chat_id": .chat.id}'
                     }
                 }
             },
@@ -643,8 +643,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Format direct AI response',
                     config: {
-                        language: 'jq',
-                        expression: '.json.response'
+                        type: 'jq',
+                        filter: '.json.response'
                     }
                 }
             },
@@ -711,8 +711,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Validate incoming webhook payload',
                     config: {
-                        language: 'jq',
-                        expression: 'if .event_type and .data then {valid: true, event: .event_type, data: .data} else {valid: false, error: "Missing required fields"} end'
+                        type: 'jq',
+                        filter: 'if .event_type and .data then {valid: true, event: .event_type, data: .data} else {valid: false, error: "Missing required fields"} end'
                     }
                 }
             },
@@ -771,8 +771,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Process user.created event',
                     config: {
-                        language: 'jq',
-                        expression: '.result.data | {user_id: .id, email: .email, name: .name, created_at: now | todate}'
+                        type: 'jq',
+                        filter: '.result.data | {user_id: .id, email: .email, name: .name, created_at: now | todate}'
                     }
                 }
             },
@@ -786,8 +786,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Process other events',
                     config: {
-                        language: 'jq',
-                        expression: '{event: .result.event, data: .result.data, processed_at: now | todate}'
+                        type: 'jq',
+                        filter: '{event: .result.event, data: .result.data, processed_at: now | todate}'
                     }
                 }
             },
@@ -904,8 +904,8 @@ export const TEMPLATES: WorkflowTemplate[] = [
                     status: NodeStatus.IDLE,
                     description: 'Clean and transform data',
                     config: {
-                        language: 'jq',
-                        expression: '[.records[] | select(.status == "active") | {id: .id, name: (.first_name + " " + .last_name), email: .email | ascii_downcase, created: .created_at}]'
+                        type: 'jq',
+                        filter: '[.records[] | select(.status == "active") | {id: .id, name: (.first_name + " " + .last_name), email: .email | ascii_downcase, created: .created_at}]'
                     }
                 }
             },

@@ -143,6 +143,8 @@ export const Header: React.FC<HeaderProps> = ({ onSave }) => {
                                 variant="ghost"
                                 size="sm"
                                 icon={<X size={14} />}
+                                // Keep focus in the input: its blur would save the name before the cancel runs.
+                                onMouseDown={(e) => e.preventDefault()}
                                 onClick={handleNameCancel}
                                 title="Cancel"
                             />

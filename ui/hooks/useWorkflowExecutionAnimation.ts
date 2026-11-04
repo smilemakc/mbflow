@@ -52,15 +52,14 @@ export function useWorkflowExecutionAnimation() {
 
       if (!edge) return;
 
-      if (state === 'active') {
-        edge.animated = true;
-        edge.style = { stroke: '#3b82f6', strokeWidth: 2 };
-      } else if (state === 'completed') {
-        edge.animated = false;
-        edge.style = { stroke: '#10b981', strokeWidth: 2 };
-      }
+      // Replace the edge instead of mutating it: store edges are shared with
+      // undo history snapshots, so in-place mutation would leak into them.
+      const updated =
+        state === 'active'
+          ? { ...edge, animated: true, style: { stroke: '#3b82f6', strokeWidth: 2 } }
+          : { ...edge, animated: false, style: { stroke: '#10b981', strokeWidth: 2 } };
 
-      useDagStore.setState({ edges: [...store.edges] });
+      useDagStore.setState({ edges: store.edges.map((e) => (e === edge ? updated : e)) });
     },
     []
   );

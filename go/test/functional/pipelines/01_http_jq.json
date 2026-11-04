@@ -1,0 +1,59 @@
+{
+  "description": "Simple: GET a public JSON dataset, extract with jq using a template from the input.",
+  "workflow": {
+    "name": "FT01 http + jq",
+    "nodes": [
+      {
+        "id": "fetch",
+        "name": "Fetch animals",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://raw.githubusercontent.com/dariusk/corpora/master/data/animals/common.json"
+        }
+      },
+      {
+        "id": "pick",
+        "name": "Pick first N",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": "{count: (.body.animals | length), first: .body.animals[:{{input.limit}}]}"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "fetch",
+        "to": "pick"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "limit 3",
+      "input": {
+        "limit": 3
+      },
+      "expect": {
+        "output": [
+          {
+            "path": "count",
+            "op": "gt",
+            "value": 100
+          },
+          {
+            "path": "first",
+            "op": "eq",
+            "value": [
+              "aardvark",
+              "alligator",
+              "alpaca"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

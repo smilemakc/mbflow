@@ -91,6 +91,7 @@ export const RentalKeyUsageModal: React.FC<RentalKeyUsageModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label={t.common?.close || 'Close'}
             className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
             <X size={20} className="text-slate-500" />
@@ -243,7 +244,7 @@ const UsageRecordRow: React.FC<UsageRecordRowProps> = ({ record }) => {
           <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
             <Clock size={10} className="mr-1" />
             {formattedDate}
-            {record.response_time_ms && (
+            {!!record.response_time_ms && (
               <span className="ml-2">({record.response_time_ms}ms)</span>
             )}
           </div>

@@ -64,7 +64,7 @@ export const UserSelector: React.FC<UserSelectorProps> = ({
     setSearch('');
   };
 
-  const handleClear = (e: React.MouseEvent) => {
+  const handleClear = (e: React.SyntheticEvent) => {
     e.stopPropagation();
     onChange(null);
   };
@@ -121,13 +121,22 @@ export const UserSelector: React.FC<UserSelectorProps> = ({
         )}
         <div className="flex items-center gap-1 flex-shrink-0">
           {value && showClearButton && !disabled && (
-            <button
-              type="button"
+            // A <span>, not a <button>: buttons may not be nested inside the toggle button.
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Clear selection"
               onClick={handleClear}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleClear(e);
+                }
+              }}
               className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
             >
               <X size={14} className="text-slate-400" />
-            </button>
+            </span>
           )}
           <ChevronDown
             size={16}

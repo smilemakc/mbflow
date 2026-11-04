@@ -194,7 +194,7 @@ func (e *LLMExecutor) Validate(config map[string]any) error {
 	}
 
 	// Validate response_format if present
-	if responseFormat, ok := config["response_format"].(map[string]any); ok {
+	if responseFormat, ok := responseFormatConfig(config["response_format"]); ok {
 		if err := e.validateResponseFormat(responseFormat); err != nil {
 			return err
 		}
@@ -280,7 +280,7 @@ func (e *LLMExecutor) parseConfig(config map[string]any) (*models.LLMRequest, er
 	}
 
 	// Response format
-	if responseFormat, ok := config["response_format"].(map[string]any); ok {
+	if responseFormat, ok := responseFormatConfig(config["response_format"]); ok {
 		parsedFormat, err := e.parseResponseFormat(responseFormat)
 		if err != nil {
 			return nil, err
@@ -561,6 +561,26 @@ func (e *LLMExecutor) hasProvider(providerType models.LLMProvider) bool {
 	return ok
 }
 
+// responseFormatConfig normalizes response_format. Besides the object form
+// ({"type": "json_schema", ...}) it accepts the shorthand strings the UI
+// sends: "text", "json" (= json_object), "json_object".
+func responseFormatConfig(value any) (map[string]any, bool) {
+	switch v := value.(type) {
+	case map[string]any:
+		return v, true
+	case string:
+		switch v {
+		case "":
+			return nil, false
+		case "json":
+			return map[string]any{"type": "json_object"}, true
+		default:
+			return map[string]any{"type": v}, true
+		}
+	}
+	return nil, false
+}
+
 // getOrCreateProvider creates a provider instance from the request configuration.
 // It first checks if a provider is already registered (for testing), then creates a new one from config.
 func (e *LLMExecutor) getOrCreateProvider(req *models.LLMRequest) (LLMProvider, error) {
@@ -585,6 +605,10 @@ func (e *LLMExecutor) getOrCreateProvider(req *models.LLMRequest) (LLMProvider, 
 		apiKey, _ := req.ProviderConfig["api_key"].(string)
 		baseURL, _ := req.ProviderConfig["base_url"].(string)
 		return NewGeminiProvider(apiKey, baseURL)
+	case models.LLMProviderAnthropic:
+		apiKey, _ := req.ProviderConfig["api_key"].(string)
+		baseURL, _ := req.ProviderConfig["base_url"].(string)
+		return NewAnthropicProvider(apiKey, baseURL)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", req.Provider)
 	}
