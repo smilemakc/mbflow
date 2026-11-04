@@ -59,6 +59,9 @@ export const ExecutionDetailPage: React.FC = () => {
                 updatedNodeExecs[existingIndex] = {
                     ...updatedNodeExecs[existingIndex],
                     ...nodeExec,
+                    // Completion events carry the completion time as their timestamp;
+                    // keep the original start time so duration and ordering stay correct.
+                    started_at: updatedNodeExecs[existingIndex].started_at || nodeExec.started_at,
                     input: nodeExec.input || updatedNodeExecs[existingIndex].input,
                     output: nodeExec.output || updatedNodeExecs[existingIndex].output
                 };
