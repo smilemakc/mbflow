@@ -42,31 +42,26 @@ export const KeyValueEditor: React.FC<Props> = ({
     };
 
     useEffect(() => {
-        const newItems = objectToItems(value);
-        if (newItems.length === 0) {
-            setItems([{key: '', value: ''}]);
-        } else {
-            setItems(newItems);
-        }
+        setItems((current) => {
+            // Keep local rows (including ones without a key yet) when the incoming
+            // value is just our own onChange echoed back by the parent.
+            if (current.length > 0 && JSON.stringify(itemsToObject(current)) === JSON.stringify(value)) {
+                return current;
+            }
+            const newItems = objectToItems(value);
+            return newItems.length === 0 ? [{key: '', value: ''}] : newItems;
+        });
     }, [value]);
 
-    const updateKey = (index: number, newKey: string) => {
-        const newItems = [...items];
-        if (newItems[index]) {
-            newItems[index].key = newKey;
-            setItems(newItems);
-            onChange(itemsToObject(newItems));
-        }
+    const updateItem = (index: number, patch: Partial<KeyValueItem>) => {
+        const newItems = items.map((item, i) => (i === index ? {...item, ...patch} : item));
+        setItems(newItems);
+        onChange(itemsToObject(newItems));
     };
 
-    const updateValue = (index: number, newValue: string) => {
-        const newItems = [...items];
-        if (newItems[index]) {
-            newItems[index].value = newValue;
-            setItems(newItems);
-            onChange(itemsToObject(newItems));
-        }
-    };
+    const updateKey = (index: number, newKey: string) => updateItem(index, {key: newKey});
+
+    const updateValue = (index: number, newValue: string) => updateItem(index, {value: newValue});
 
     const addItem = () => {
         setItems([...items, {key: '', value: ''}]);
