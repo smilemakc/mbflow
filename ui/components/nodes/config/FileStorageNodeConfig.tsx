@@ -67,7 +67,7 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
         file_name: config.file_name || '',
         mime_type: config.mime_type || '',
         file_id: config.file_id || '',
-        access_scope: config.access_scope || 'workflow',
+        access_scope: config.access_scope ?? 'workflow', // '' = all scopes (list filter)
         ttl: config.ttl || 0,
         tags: config.tags || [],
         limit: config.limit || 100,
@@ -91,7 +91,7 @@ export const FileStorageNodeConfigComponent: React.FC<FileStorageNodeConfigProps
             file_name: config.file_name || '',
             mime_type: config.mime_type || '',
             file_id: config.file_id || '',
-            access_scope: config.access_scope || 'workflow',
+            access_scope: config.access_scope ?? 'workflow', // '' = all scopes (list filter)
             ttl: config.ttl || 0,
             tags: config.tags || [],
             limit: config.limit || 100,

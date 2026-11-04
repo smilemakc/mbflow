@@ -47,7 +47,10 @@ export const ConditionalNodeConfigComponent: React.FC<ConditionalNodeConfigProps
             condition: config.condition || '{{input.value}} > 0',
         };
 
-        if (JSON.stringify(newConfig) !== JSON.stringify(localConfig)) {
+        // Compare with the default applied on both sides: a condition the user just
+        // cleared must not snap back to the default expression.
+        const localWithDefault = {...localConfig, condition: localConfig.condition || '{{input.value}} > 0'};
+        if (JSON.stringify(newConfig) !== JSON.stringify(localWithDefault)) {
             setLocalConfig(newConfig);
         }
     }, [config]);

@@ -17,13 +17,16 @@ export const MergeNodeConfigComponent: React.FC<Props> = ({config, nodeId, onCha
     });
 
     useEffect(() => {
-        if (JSON.stringify(config) !== JSON.stringify(localConfig)) {
-            setLocalConfig({...config});
+        const next = {merge_strategy: 'all' as const, ...config};
+        if (JSON.stringify(next) !== JSON.stringify(localConfig)) {
+            setLocalConfig(next);
         }
     }, [config]);
 
     useEffect(() => {
-        onChange(localConfig);
+        if (JSON.stringify(localConfig) !== JSON.stringify(config)) {
+            onChange(localConfig);
+        }
     }, [localConfig]);
 
     const handleStrategyChange = (strategy: 'first' | 'last' | 'all' | 'custom') => {
