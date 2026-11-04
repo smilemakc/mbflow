@@ -33,12 +33,25 @@ beforeEach(() => {
 afterEach(() => api.restore());
 
 describe('CustomNode', () => {
+  it('gives conditional nodes separate true and false outputs', () => {
+    const { container } = renderNode({ type: NodeType.CONDITIONAL });
+    const sources = container.querySelectorAll('.react-flow__handle.source');
+    expect([...sources].map((h) => h.getAttribute('data-handleid'))).toEqual(['true', 'false']);
+    expect(screen.getByText('true')).toBeInTheDocument();
+    expect(screen.getByText('false')).toBeInTheDocument();
+  });
+
+  it('gives other nodes a single output', () => {
+    const { container } = renderNode({ type: NodeType.HTTP });
+    expect(container.querySelectorAll('.react-flow__handle.source')).toHaveLength(1);
+  });
+
   it.each([...Object.values(NodeType).filter((t) => t !== NodeType.OPENAPI), 'unknown'])('renders a %s node', (type) => {
     const { container } = renderNode({ type: type as NodeType, description: 'Does work' });
     expect(screen.getByText('My node')).toBeInTheDocument();
     expect(screen.getByText(type)).toBeInTheDocument();
     expect(screen.getByText('Does work')).toBeInTheDocument();
-    expect(container.querySelectorAll('.react-flow__handle')).toHaveLength(2);
+    expect(container.querySelectorAll('.react-flow__handle')).toHaveLength(type === NodeType.CONDITIONAL ? 3 : 2);
   });
 
   it('falls back to defaults without type and description', () => {

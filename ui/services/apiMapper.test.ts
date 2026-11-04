@@ -92,6 +92,16 @@ describe('node and edge mappers', () => {
     expect(edge).toMatchObject({ id: 'db', source: 'a', target: 'b', type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } });
     expect(edgeToApi({ id: 'e', source: 'a', target: 'b' } as AppEdge)).toEqual({ id: 'e', from: 'a', to: 'b', condition: {} });
   });
+
+  it('keeps the branch and loop of an edge across a save and reload', () => {
+    const edge = edgeFromApi({
+      id: 'db', edge_id: 'e1', from: 'cond', to: 'b', condition: {}, source_handle: 'false', loop: { max_iterations: 3 },
+    });
+    expect(edge).toMatchObject({ id: 'e1', sourceHandle: 'false', label: 'false', data: { loop: { max_iterations: 3 } } });
+    expect(edgeToApi(edge)).toEqual({
+      id: 'e1', from: 'cond', to: 'b', condition: {}, source_handle: 'false', loop: { max_iterations: 3 },
+    });
+  });
 });
 
 describe('execution mappers', () => {

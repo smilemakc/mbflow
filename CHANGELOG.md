@@ -63,6 +63,6 @@
 
 ### Tests and CI
 
-- Go statement coverage went from 50% to 96.9%. CI fails below 90% (`go/scripts/coverage.sh`, `make test-cover`).
+- Go statement coverage went from 50% to 97%. CI fails below 90% (`go/scripts/coverage.sh`, `make test-cover`).
 - `go/test/functional` runs pipelines (third-party APIs, branching, sub-workflows, LLM summary, structured output, tool-calling agent) against a running stack.
-- The UI has Vitest + Testing Library tests with a 90% gate on the tested modules (`npm run test:coverage`).
+- The UI has Vitest + Testing Library tests (948 tests) covering 99.7% of all application code, from no tests at all. CI fails below 90% (`npm run test:coverage`).

@@ -34,7 +34,7 @@ VITE_BACKEND_URL=http://localhost:8585 npm run dev
 | `npm run preview`   | Serve the production build locally             |
 | `npm test`          | Run the unit and component tests once (Vitest, jsdom) |
 | `npm run test:watch`| Run the tests in watch mode                    |
-| `npm run test:coverage` | Run the tests with V8 coverage; fails below 90% for the covered set (see `vitest.config.ts`) |
+| `npm run test:coverage` | Run the tests with V8 coverage; fails below 90% for the whole application code (tests, test helpers and config files are excluded; see `vitest.config.ts`) |
 
 Tests live next to the code as `*.test.ts(x)`. They never reach the network:
 `test/setup.ts` makes unmocked HTTP requests fail, and `test/apiMock.ts` routes

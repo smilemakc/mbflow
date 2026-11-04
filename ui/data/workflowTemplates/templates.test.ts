@@ -23,7 +23,8 @@ describe('edge helper', () => {
       animated: false,
       markerEnd: { type: MarkerType.ArrowClosed },
     });
-    expect(edge('e2', 'a', 'b', 'true')).toMatchObject({ label: 'true', labelStyle: { fontSize: 10 } });
+    expect(edge('e2', 'a', 'b', 'true')).toMatchObject({ label: 'true', labelStyle: { fontSize: 10 }, sourceHandle: 'true' });
+    expect(edge('e3', 'a', 'b', 'other')).not.toHaveProperty('sourceHandle');
   });
 });
 
