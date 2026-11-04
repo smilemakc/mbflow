@@ -104,6 +104,11 @@ export const CreateRentalKeyModal: React.FC<CreateRentalKeyModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The hidden owner_id input is skipped by native form validation, so check it here.
+    if (!formData.owner_id) {
+      setError(`${t.admin?.ownerUser || 'Owner'}: ${t.admin?.selectUser || 'Select user...'}`);
+      return;
+    }
     setLoading(true);
     setError(null);
 

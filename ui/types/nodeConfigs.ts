@@ -331,7 +331,7 @@ export const DEFAULT_NODE_CONFIGS: Record<string, NodeConfig> = {
   },
   [NodeType.LLM]: {  // 'llm'
     provider: "openai",
-    model: "gpt-4",
+    model: "gpt-4.1",
     api_key: "",
     prompt: "",
     temperature: 0.7,
