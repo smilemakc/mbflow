@@ -146,7 +146,8 @@ interface TransactionRowProps {
 }
 
 const TransactionRow: React.FC<TransactionRowProps> = ({transaction: tx}) => {
-    const isPositive = tx.type === 'deposit' || tx.type === 'refund';
+    // Backend (account_repository.go): only charges debit the balance; deposits, refunds and adjustments credit it.
+    const isPositive = tx.type !== 'charge';
 
     return (
         <tr className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">

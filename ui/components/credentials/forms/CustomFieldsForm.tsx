@@ -24,9 +24,7 @@ export const CustomFieldsForm: React.FC<CustomFieldsFormProps> = ({ fields, onFi
   };
 
   const updateField = (index: number, field: 'key' | 'value', value: string) => {
-    const updated = [...fields];
-    updated[index][field] = value;
-    onFieldsChange(updated);
+    onFieldsChange(fields.map((f, i) => (i === index ? { ...f, [field]: value } : f)));
   };
 
   return (
@@ -56,6 +54,7 @@ export const CustomFieldsForm: React.FC<CustomFieldsFormProps> = ({ fields, onFi
               variant="ghost"
               size="sm"
               className="text-red-500"
+              aria-label={`Remove field ${index + 1}`}
             >
               ×
             </Button>

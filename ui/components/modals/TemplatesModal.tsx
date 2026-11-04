@@ -53,6 +53,7 @@ export const TemplatesModal: React.FC = () => {
                     </div>
                     <Button
                         onClick={() => setActiveModal(null)}
+                        aria-label={t.common.close}
                         variant="ghost"
                         size="sm"
                         icon={<X size={20}/>}
