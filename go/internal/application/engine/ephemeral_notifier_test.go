@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/internal/application/observer"
-	pkgengine "github.com/smilemakc/mbflow/go/pkg/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/application/observer"
+	pkgengine "github.com/smilemakc/mbflow/go/pkg/engine"
 )
 
 func newTestEphemeralNotifier() (*EphemeralNotifier, *observer.MockObserver) {

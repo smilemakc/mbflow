@@ -201,7 +201,7 @@ func (p Policy) CheckIP(ip netip.Addr) error {
 
 // control is a net.Dialer.Control hook: it runs after DNS resolution with the
 // concrete IP about to be connected.
-func (p Policy) control(_ string, address string, _ syscall.RawConn) error {
+func (p Policy) control(_, address string, _ syscall.RawConn) error {
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
 		return fmt.Errorf("netguard: invalid dial address %q: %w", address, err)
@@ -246,7 +246,7 @@ func (p Policy) Transport(base *http.Transport) *http.Transport {
 	t.DialContext = p.DialContext
 	t.DialTLSContext = nil
 	t.Dial = nil    //nolint:staticcheck // clear deprecated hook so DialContext is used
-	t.DialTLS = nil //nolint:staticcheck
+	t.DialTLS = nil //nolint:staticcheck // clear deprecated hook so DialTLSContext is used
 	if !p.AllowPrivate {
 		t.Proxy = nil
 	}

@@ -9,12 +9,13 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/smilemakc/mbflow/go/api/proto/authpb"
-	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+
+	pb "github.com/smilemakc/mbflow/go/api/proto/authpb"
+	"github.com/smilemakc/mbflow/go/internal/config"
 )
 
 // MockAuthServiceClient is a mock implementation of pb.AuthServiceClient

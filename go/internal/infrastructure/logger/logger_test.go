@@ -8,10 +8,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
 )
+
+// testCtxKey is a private context key type to avoid collisions in tests.
+type testCtxKey string
 
 // ==================== New() Tests ====================
 
@@ -148,7 +152,7 @@ func TestLogger_WithContext_WithValues(t *testing.T) {
 		Format: "json",
 	})
 
-	ctx := context.WithValue(context.Background(), "request_id", "123")
+	ctx := context.WithValue(context.Background(), testCtxKey("request_id"), "123")
 	contextLogger := logger.WithContext(ctx)
 	assert.NotNil(t, contextLogger)
 }
@@ -487,7 +491,7 @@ func TestLogger_Integration_ContextPropagation(t *testing.T) {
 	logger := newTestLogger(&buf, "info", "json")
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "trace_id", "xyz789")
+	ctx = context.WithValue(ctx, testCtxKey("trace_id"), "xyz789")
 
 	logger.InfoContext(ctx, "operation completed")
 

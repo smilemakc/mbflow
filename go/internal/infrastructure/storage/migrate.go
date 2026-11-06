@@ -109,7 +109,7 @@ func (m *Migrator) Up(ctx context.Context) error {
 
 	slog.Info("migrations applied successfully",
 		slog.Int64("id", group.ID),
-		slog.String("migrations", fmt.Sprintf("%v", group.Migrations.Applied())),
+		slog.String("migrations", group.Migrations.Applied().String()),
 	)
 
 	return nil
@@ -131,7 +131,7 @@ func (m *Migrator) Down(ctx context.Context) error {
 
 	slog.Info("migration rolled back successfully",
 		slog.Int64("id", group.ID),
-		slog.String("migrations", fmt.Sprintf("%v", group.Migrations.Unapplied())),
+		slog.String("migrations", group.Migrations.Unapplied().String()),
 	)
 
 	return nil

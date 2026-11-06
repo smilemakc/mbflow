@@ -145,7 +145,7 @@ func (e *BytesToJsonExecutor) extractBytes(input any) ([]byte, error) {
 		// Try to decode as base64 first, if fails use as raw bytes
 		if decoded, err := base64.StdEncoding.DecodeString(v); err == nil {
 			// Check if it looks like base64 (not just any string)
-			if len(v) > 0 && len(v)%4 == 0 {
+			if v != "" && len(v)%4 == 0 {
 				return decoded, nil
 			}
 		}

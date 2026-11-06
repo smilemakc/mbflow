@@ -72,7 +72,7 @@ func (t *transport) Do(ctx context.Context, req *internal.Request) (*internal.Re
 	if bodyReader != nil {
 		httpReq, err = http.NewRequestWithContext(ctx, string(req.Method), url, bodyReader)
 	} else {
-		httpReq, err = http.NewRequestWithContext(ctx, string(req.Method), url, nil)
+		httpReq, err = http.NewRequestWithContext(ctx, string(req.Method), url, http.NoBody)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)

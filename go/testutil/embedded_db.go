@@ -40,9 +40,12 @@ func freePort() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-	return uint32(port), nil
+	addr, ok := l.Addr().(*net.TCPAddr)
+	_ = l.Close()
+	if !ok {
+		return 0, fmt.Errorf("unexpected listener address type %T", l.Addr())
+	}
+	return uint32(addr.Port), nil
 }
 
 func dsnForDB(dbName string) string {
@@ -77,17 +80,26 @@ func startEmbeddedDB() error {
 	embeddedPort = port
 
 	// Each instance gets its own data directory to avoid conflicts
-	dataDir := filepath.Join(os.TempDir(), fmt.Sprintf("epg-%d", port))
-	os.RemoveAll(dataDir)
+	dataDir := runtimeDir(port)
+	removeRuntimeDirs(port)
 
-	sharedEPG = embeddedpostgres.NewDatabase(
-		embeddedpostgres.DefaultConfig().
-			Port(port).
-			Username(embeddedUser).
-			Password(embeddedPassword).
-			Database(embeddedUser).
-			RuntimePath(dataDir),
-	)
+	cfg := embeddedpostgres.DefaultConfig().
+		Port(port).
+		Username(embeddedUser).
+		Password(embeddedPassword).
+		Database(embeddedUser).
+		RuntimePath(dataDir).
+		// pgdriver needs UTF8; initdb would otherwise follow the locale
+		// of the environment (SQL_ASCII under LANG=C).
+		Encoding("UTF8")
+	if os.Geteuid() == 0 {
+		binaries, err := prepareRootRun(port, dataDir, dataDir+"-bin")
+		if err != nil {
+			return fmt.Errorf("prepare postgres for root: %w", err)
+		}
+		cfg = cfg.BinariesPath(binaries)
+	}
+	sharedEPG = embeddedpostgres.NewDatabase(cfg)
 
 	if err := sharedEPG.Start(); err != nil {
 		return fmt.Errorf("start on port %d: %w", port, err)
@@ -99,22 +111,22 @@ func startEmbeddedDB() error {
 	// Create template database with migrations
 	ctx := context.Background()
 	if _, err := adminDB.ExecContext(ctx, "DROP DATABASE IF EXISTS "+templateDatabase); err != nil {
-		sharedEPG.Stop()
+		_ = sharedEPG.Stop()
 		return fmt.Errorf("drop old template: %w", err)
 	}
 	if _, err := adminDB.ExecContext(ctx, "CREATE DATABASE "+templateDatabase); err != nil {
-		sharedEPG.Stop()
+		_ = sharedEPG.Stop()
 		return fmt.Errorf("create template db: %w", err)
 	}
 
 	// Connect to template DB, run migrations, then close
 	tmplDB := openDB(templateDatabase)
 	if err := runMigrations(tmplDB); err != nil {
-		tmplDB.Close()
-		sharedEPG.Stop()
+		_ = tmplDB.Close()
+		_ = sharedEPG.Stop()
 		return fmt.Errorf("migrations: %w", err)
 	}
-	tmplDB.Close()
+	_ = tmplDB.Close()
 
 	return nil
 }
@@ -129,16 +141,27 @@ func openDB(dbName string) *bun.DB {
 
 func stopSharedDB() {
 	if adminDB != nil {
-		adminDB.Close()
+		_ = adminDB.Close()
 		adminDB = nil
 	}
 	if sharedEPG != nil {
 		_ = sharedEPG.Stop()
 		sharedEPG = nil
 	}
-	// Clean up data directory
-	dataDir := filepath.Join(os.TempDir(), fmt.Sprintf("epg-%d", embeddedPort))
-	os.RemoveAll(dataDir)
+	removeRuntimeDirs(embeddedPort)
+}
+
+func runtimeDir(port uint32) string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("epg-%d", port))
+}
+
+// removeRuntimeDirs deletes the data directory of the instance on port and
+// the binaries and wrappers used when running as root.
+func removeRuntimeDirs(port uint32) {
+	dir := runtimeDir(port)
+	for _, d := range []string{dir, dir + "-bin", dir + "-wrap", dir + "-extract"} {
+		_ = os.RemoveAll(d)
+	}
 }
 
 func runMigrations(db *bun.DB) error {
@@ -187,7 +210,7 @@ func SetupTestTx(t *testing.T) (bun.IDB, func()) {
 	db := openDB(dbName)
 
 	cleanup := func() {
-		db.Close()
+		_ = db.Close()
 		_, _ = adminDB.ExecContext(context.Background(), "DROP DATABASE IF EXISTS "+dbName)
 	}
 	t.Cleanup(cleanup)

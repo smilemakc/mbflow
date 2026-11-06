@@ -1,0 +1,78 @@
+{
+  "description": "Agent with a workflow as a tool: Claude calls a child workflow (HTTP + jq lookup in a 1.4 MB dataset) through a sub_workflow function, once per country, and computes the answer from the results.",
+  "requires": ["anthropic"],
+  "dry_run": false,
+  "children": {
+    "facts": {
+      "name": "FT10 child: country facts",
+      "nodes": [
+        {
+          "id": "fetch",
+          "name": "Fetch countries",
+          "type": "http",
+          "config": {"method": "GET", "url": "https://raw.githubusercontent.com/mledoze/countries/master/countries.json"}
+        },
+        {
+          "id": "lookup",
+          "name": "Lookup",
+          "type": "transform",
+          "config": {
+            "type": "jq",
+            "filter": ". as $in | [$in.body[] | select((.name.common | ascii_downcase) == ($in.country | ascii_downcase))] | if length == 0 then {found: false, country: $in.country} else (.[0] | {found: true, name: .name.common, capital: (.capital // [] | first), area_km2: .area, region, subregion}) end"
+          }
+        }
+      ],
+      "edges": [{"id": "e1", "from": "fetch", "to": "lookup"}]
+    }
+  },
+  "workflow": {
+    "name": "FT10 LLM agent with a workflow tool",
+    "nodes": [
+      {
+        "id": "agent",
+        "name": "Analyst",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 4096,
+          "instruction": "You answer with data from the country_facts tool only. Call it once for each country you need. Never use remembered numbers.",
+          "prompt": "Which is larger by area, {{input.a}} or {{input.b}}, and how many times larger (rounded to one decimal place)? Start your answer with the larger country's name, then give the ratio as a number.",
+          "tool_call_config": {"mode": "auto", "max_iterations": 6, "timeout_per_tool": 60},
+          "functions": [
+            {
+              "type": "sub_workflow",
+              "name": "country_facts",
+              "description": "Looks up a country in the reference dataset and returns its area in km2, capital and region.",
+              "workflow_id": "${child:facts}",
+              "input_mapping": {"country": "country"},
+              "output_extractor": "{name, area_km2, found}",
+              "parameters": {
+                "type": "object",
+                "properties": {"country": {"type": "string", "description": "Common English name of the country"}},
+                "required": ["country"]
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "edges": []
+  },
+  "cases": [
+    {
+      "name": "Brazil vs Argentina",
+      "input": {"a": "Argentina", "b": "Brazil"},
+      "expect": {
+        "output": [
+          {"path": "stopped_reason", "op": "eq", "value": "finish"},
+          {"path": "tool_executions", "op": "len_gte", "value": 2},
+          {"path": "tool_executions.0.error", "op": "missing"},
+          {"path": "content", "op": "icontains", "value": "brazil"},
+          {"path": "content", "op": "contains", "value": "3.1"}
+        ]
+      }
+    }
+  ]
+}

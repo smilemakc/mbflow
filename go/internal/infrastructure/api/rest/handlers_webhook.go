@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smilemakc/mbflow/go/internal/application/trigger"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 )
@@ -39,11 +40,13 @@ func (h *WebhookHandlers) HandleWebhook(c *gin.Context) {
 		return
 	}
 
-	// Extract headers
+	// Extract headers. They become part of the execution input, which is
+	// stored and shown to anyone who can read the execution, so credentials
+	// sent by the caller are masked.
 	headers := make(map[string]string)
 	for key, values := range c.Request.Header {
 		if len(values) > 0 {
-			headers[key] = values[0]
+			headers[key] = webhookHeaderValue(key, values[0])
 		}
 	}
 
@@ -63,15 +66,16 @@ func (h *WebhookHandlers) HandleWebhook(c *gin.Context) {
 		statusCode := http.StatusInternalServerError
 		errorMsg := err.Error()
 
-		if strings.Contains(errorMsg, "not found") {
+		switch {
+		case strings.Contains(errorMsg, "not found"):
 			statusCode = http.StatusNotFound
-		} else if strings.Contains(errorMsg, "disabled") {
+		case strings.Contains(errorMsg, "disabled"):
 			statusCode = http.StatusForbidden
-		} else if strings.Contains(errorMsg, "signature validation failed") {
+		case strings.Contains(errorMsg, "signature validation failed"):
 			statusCode = http.StatusUnauthorized
-		} else if strings.Contains(errorMsg, "IP not whitelisted") {
+		case strings.Contains(errorMsg, "IP not whitelisted"):
 			statusCode = http.StatusForbidden
-		} else if strings.Contains(errorMsg, "rate limit exceeded") {
+		case strings.Contains(errorMsg, "rate limit exceeded"):
 			statusCode = http.StatusTooManyRequests
 		}
 
@@ -96,7 +100,7 @@ func (h *WebhookHandlers) HandleWebhookGet(c *gin.Context) {
 		return
 	}
 
-	trigger, exists := h.webhookRegistry.GetWebhook(triggerID)
+	webhookTrigger, exists := h.webhookRegistry.GetWebhook(triggerID)
 	if !exists {
 		h.logger.Error("Webhook trigger not found", "trigger_id", triggerID)
 		respondError(c, http.StatusNotFound, "webhook trigger not found")
@@ -105,24 +109,24 @@ func (h *WebhookHandlers) HandleWebhookGet(c *gin.Context) {
 
 	// Return webhook info (excluding sensitive data like secrets)
 	webhookInfo := gin.H{
-		"trigger_id":  trigger.ID,
-		"workflow_id": trigger.WorkflowID,
-		"enabled":     trigger.Enabled,
-		"created_at":  trigger.CreatedAt,
-		"updated_at":  trigger.UpdatedAt,
+		"trigger_id":  webhookTrigger.ID,
+		"workflow_id": webhookTrigger.WorkflowID,
+		"enabled":     webhookTrigger.Enabled,
+		"created_at":  webhookTrigger.CreatedAt,
+		"updated_at":  webhookTrigger.UpdatedAt,
 	}
 
-	if trigger.LastRun != nil {
-		webhookInfo["last_run"] = trigger.LastRun
+	if webhookTrigger.LastRun != nil {
+		webhookInfo["last_run"] = webhookTrigger.LastRun
 	}
 
 	// Include non-sensitive config
 	config := make(map[string]any)
-	if ipWhitelist, ok := trigger.Config["ip_whitelist"]; ok {
+	if ipWhitelist, ok := webhookTrigger.Config["ip_whitelist"]; ok {
 		config["ip_whitelist_enabled"] = true
 		config["ip_whitelist"] = ipWhitelist
 	}
-	if _, ok := trigger.Config["secret"]; ok {
+	if _, ok := webhookTrigger.Config["secret"]; ok {
 		config["signature_validation_enabled"] = true
 	}
 
@@ -138,4 +142,22 @@ func (h *WebhookHandlers) HandleWebhookGet(c *gin.Context) {
 // headers directly would let any client spoof a whitelisted address.
 func getSourceIP(c *gin.Context) string {
 	return c.ClientIP()
+}
+
+// webhookHeaderValue masks credential-bearing headers. The HMAC signature
+// header is kept: the trigger verifies it and it reveals no secret.
+func webhookHeaderValue(name, value string) string {
+	lower := strings.ToLower(name)
+	switch lower {
+	case "x-webhook-signature":
+		return value
+	case "authorization", "proxy-authorization", "cookie", "set-cookie":
+		return "***"
+	}
+	for _, marker := range []string{"token", "secret", "password", "api-key", "apikey", "auth"} {
+		if strings.Contains(lower, marker) {
+			return "***"
+		}
+	}
+	return value
 }

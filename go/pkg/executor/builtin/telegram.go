@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
@@ -22,7 +21,6 @@ type TelegramExecutor struct {
 	*executor.BaseExecutor
 	httpClient *http.Client
 	baseURL    string // For testing purposes
-	mu         sync.RWMutex
 }
 
 // NewTelegramExecutor creates a new Telegram executor.
@@ -343,7 +341,9 @@ func (e *TelegramExecutor) sendMediaMultipart(ctx context.Context, apiURL string
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	writer.WriteField("chat_id", req.ChatID)
+	if err := writer.WriteField("chat_id", req.ChatID); err != nil {
+		return nil, fmt.Errorf("failed to write form field chat_id: %w", err)
+	}
 
 	// Determine file name and extension
 	fileName := req.FileName
@@ -361,26 +361,34 @@ func (e *TelegramExecutor) sendMediaMultipart(ctx context.Context, apiURL string
 	}
 
 	// Add optional fields
+	var fields [][2]string
 	if req.Text != "" {
-		writer.WriteField("caption", req.Text)
+		fields = append(fields, [2]string{"caption", req.Text})
 	}
 	if req.ParseMode != "" {
-		writer.WriteField("parse_mode", req.ParseMode)
+		fields = append(fields, [2]string{"parse_mode", req.ParseMode})
 	}
 	if req.DisableNotification {
-		writer.WriteField("disable_notification", "true")
+		fields = append(fields, [2]string{"disable_notification", "true"})
 	}
 	if req.ProtectContent {
-		writer.WriteField("protect_content", "true")
+		fields = append(fields, [2]string{"protect_content", "true"})
 	}
 	if req.ReplyToMessageID > 0 {
-		writer.WriteField("reply_to_message_id", strconv.Itoa(req.ReplyToMessageID))
+		fields = append(fields, [2]string{"reply_to_message_id", strconv.Itoa(req.ReplyToMessageID)})
 	}
 	if req.MessageThreadID > 0 {
-		writer.WriteField("message_thread_id", strconv.Itoa(req.MessageThreadID))
+		fields = append(fields, [2]string{"message_thread_id", strconv.Itoa(req.MessageThreadID)})
+	}
+	for _, f := range fields {
+		if err := writer.WriteField(f[0], f[1]); err != nil {
+			return nil, fmt.Errorf("failed to write form field %s: %w", f[0], err)
+		}
 	}
 
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to finalize multipart body: %w", err)
+	}
 
 	return e.executeMultipartRequest(ctx, apiURL, body, writer.FormDataContentType(), time.Duration(req.Timeout)*time.Second)
 }
@@ -447,7 +455,7 @@ func (e *TelegramExecutor) executeAPIRequest(ctx context.Context, url string, pa
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Parse response
 	return e.parseAPIResponse(resp)
@@ -469,7 +477,7 @@ func (e *TelegramExecutor) executeMultipartRequest(ctx context.Context, url stri
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return e.parseAPIResponse(resp)
 }
@@ -520,29 +528,30 @@ func (e *TelegramExecutor) buildSuccessResponse(msg *telegramMessage) *TelegramR
 	}
 
 	// Extract file info based on message type
-	if msg.Document != nil {
+	switch {
+	case msg.Document != nil:
 		response.MessageType = "document"
 		response.FileID = msg.Document.FileID
 		response.FileUniqueID = msg.Document.FileUniqueID
 		response.FileSize = msg.Document.FileSize
-	} else if len(msg.Photo) > 0 {
+	case len(msg.Photo) > 0:
 		response.MessageType = "photo"
 		// Use largest photo size
 		largestPhoto := msg.Photo[len(msg.Photo)-1]
 		response.FileID = largestPhoto.FileID
 		response.FileUniqueID = largestPhoto.FileUniqueID
 		response.FileSize = largestPhoto.FileSize
-	} else if msg.Audio != nil {
+	case msg.Audio != nil:
 		response.MessageType = "audio"
 		response.FileID = msg.Audio.FileID
 		response.FileUniqueID = msg.Audio.FileUniqueID
 		response.FileSize = msg.Audio.FileSize
-	} else if msg.Video != nil {
+	case msg.Video != nil:
 		response.MessageType = "video"
 		response.FileID = msg.Video.FileID
 		response.FileUniqueID = msg.Video.FileUniqueID
 		response.FileSize = msg.Video.FileSize
-	} else {
+	default:
 		response.MessageType = "text"
 	}
 
@@ -602,5 +611,5 @@ func (e *TelegramExecutor) isValidBotToken(token string) bool {
 	}
 
 	// Check token is not empty
-	return len(parts[1]) > 0
+	return parts[1] != ""
 }

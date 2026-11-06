@@ -106,7 +106,9 @@ func PrepareNodeContext(
 ) *NodeContext {
 	var directParentOutput map[string]any
 
-	if loopInput, ok := execState.GetLoopInput(node.ID); ok {
+	loopInput, hasLoopInput := execState.GetLoopInput(node.ID)
+	switch {
+	case hasLoopInput:
 		directParentOutput = make(map[string]any)
 		for k, v := range execState.Input {
 			directParentOutput[k] = v
@@ -117,7 +119,7 @@ func PrepareNodeContext(
 			}
 		}
 		execState.ClearLoopInput(node.ID)
-	} else if len(parentNodes) == 1 {
+	case len(parentNodes) == 1:
 		directParentOutput = make(map[string]any)
 
 		for k, v := range execState.Input {
@@ -132,9 +134,9 @@ func PrepareNodeContext(
 				}
 			}
 		}
-	} else if len(parentNodes) > 1 {
+	case len(parentNodes) > 1:
 		directParentOutput = mergeParentOutputs(execState, parentNodes)
-	} else {
+	default:
 		directParentOutput = execState.Input
 	}
 

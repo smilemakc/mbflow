@@ -333,7 +333,7 @@ func (r *TransactionRepositoryImpl) GetByAccountIDAndType(ctx context.Context, a
 	return transactions, nil
 }
 
-func (r *TransactionRepositoryImpl) GetByReference(ctx context.Context, referenceType string, referenceID string) ([]*pkgmodels.Transaction, error) {
+func (r *TransactionRepositoryImpl) GetByReference(ctx context.Context, referenceType, referenceID string) ([]*pkgmodels.Transaction, error) {
 	var txModels []*models.TransactionModel
 	err := r.db.NewSelect().
 		Model(&txModels).

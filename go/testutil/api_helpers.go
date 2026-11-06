@@ -3,6 +3,7 @@ package testutil
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -167,10 +168,14 @@ func MockJSONServer(t *testing.T, responses map[string]any) *httptest.Server {
 
 		// Check if we have a specific response for this path
 		if pathResponse, ok := responses[r.URL.Path]; ok {
-			response = pathResponse.(map[string]any)
+			m, isMap := pathResponse.(map[string]any)
+			if !isMap {
+				panic(fmt.Sprintf("MockJSONServer: response for %s must be map[string]any, got %T", r.URL.Path, pathResponse))
+			}
+			response = m
 		}
 
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	})
 }
 
@@ -186,7 +191,7 @@ func MockErrorServer(t *testing.T, statusCode int, errorMessage string) *httptes
 			"error": errorMessage,
 		}
 
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	})
 }
 

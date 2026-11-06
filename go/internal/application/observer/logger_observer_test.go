@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smilemakc/mbflow/go/internal/config"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNewLoggerObserver(t *testing.T) {

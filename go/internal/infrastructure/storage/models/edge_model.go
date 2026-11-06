@@ -62,5 +62,5 @@ func (e *EdgeModel) BeforeUpdate(ctx any) error {
 
 // IsConditional returns true if edge has a condition
 func (e *EdgeModel) IsConditional() bool {
-	return e.Condition != nil && len(e.Condition) > 0
+	return len(e.Condition) > 0
 }

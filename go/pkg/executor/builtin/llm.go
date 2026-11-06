@@ -43,6 +43,12 @@ func (e *LLMExecutor) SetToolCallingRegistry(registry *ToolCallingRegistry) {
 	e.toolCallingRegistry = registry
 }
 
+// SetWorkflowExecutor sets what runs workflows called as tools
+// ("sub_workflow" functions). Without it such tools fail.
+func (e *LLMExecutor) SetWorkflowExecutor(exec WorkflowExecutor) {
+	e.toolRegistry().SetWorkflowExecutor(exec)
+}
+
 // toolRegistry returns the tool calling registry, creating one without
 // built-in functions when none is set.
 func (e *LLMExecutor) toolRegistry() *ToolCallingRegistry {
@@ -194,7 +200,7 @@ func (e *LLMExecutor) Validate(config map[string]any) error {
 	}
 
 	// Validate response_format if present
-	if responseFormat, ok := config["response_format"].(map[string]any); ok {
+	if responseFormat, ok := responseFormatConfig(config["response_format"]); ok {
 		if err := e.validateResponseFormat(responseFormat); err != nil {
 			return err
 		}
@@ -280,7 +286,7 @@ func (e *LLMExecutor) parseConfig(config map[string]any) (*models.LLMRequest, er
 	}
 
 	// Response format
-	if responseFormat, ok := config["response_format"].(map[string]any); ok {
+	if responseFormat, ok := responseFormatConfig(config["response_format"]); ok {
 		parsedFormat, err := e.parseResponseFormat(responseFormat)
 		if err != nil {
 			return nil, err
@@ -301,10 +307,11 @@ func (e *LLMExecutor) parseConfig(config map[string]any) (*models.LLMRequest, er
 	if background, ok := config["background"].(bool); ok {
 		req.Background = background
 	}
-	if maxToolCalls, ok := config["max_tool_calls"].(int); ok {
+	switch maxToolCalls := config["max_tool_calls"].(type) {
+	case int:
 		req.MaxToolCalls = maxToolCalls
-	} else if maxToolCallsFloat, ok := config["max_tool_calls"].(float64); ok {
-		req.MaxToolCalls = int(maxToolCallsFloat)
+	case float64:
+		req.MaxToolCalls = int(maxToolCalls)
 	}
 	if store, ok := config["store"].(bool); ok {
 		req.Store = &store
@@ -561,6 +568,26 @@ func (e *LLMExecutor) hasProvider(providerType models.LLMProvider) bool {
 	return ok
 }
 
+// responseFormatConfig normalizes response_format. Besides the object form
+// ({"type": "json_schema", ...}) it accepts the shorthand strings the UI
+// sends: "text", "json" (= json_object), "json_object".
+func responseFormatConfig(value any) (map[string]any, bool) {
+	switch v := value.(type) {
+	case map[string]any:
+		return v, true
+	case string:
+		switch v {
+		case "":
+			return nil, false
+		case "json":
+			return map[string]any{"type": "json_object"}, true
+		default:
+			return map[string]any{"type": v}, true
+		}
+	}
+	return nil, false
+}
+
 // getOrCreateProvider creates a provider instance from the request configuration.
 // It first checks if a provider is already registered (for testing), then creates a new one from config.
 func (e *LLMExecutor) getOrCreateProvider(req *models.LLMRequest) (LLMProvider, error) {
@@ -585,6 +612,10 @@ func (e *LLMExecutor) getOrCreateProvider(req *models.LLMRequest) (LLMProvider, 
 		apiKey, _ := req.ProviderConfig["api_key"].(string)
 		baseURL, _ := req.ProviderConfig["base_url"].(string)
 		return NewGeminiProvider(apiKey, baseURL)
+	case models.LLMProviderAnthropic:
+		apiKey, _ := req.ProviderConfig["api_key"].(string)
+		baseURL, _ := req.ProviderConfig["base_url"].(string)
+		return NewAnthropicProvider(apiKey, baseURL)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", req.Provider)
 	}
@@ -893,10 +924,11 @@ func (e *LLMExecutor) parseHostedTools(toolsConfig []any) ([]models.LLMHostedToo
 			if vectorStoreIDs, ok := toolMap["vector_store_ids"].([]any); ok {
 				tool.VectorStoreIDs = e.toStringSlice(vectorStoreIDs)
 			}
-			if maxResults, ok := toolMap["max_num_results"].(int); ok {
+			switch maxResults := toolMap["max_num_results"].(type) {
+			case int:
 				tool.MaxNumResults = maxResults
-			} else if maxResultsFloat, ok := toolMap["max_num_results"].(float64); ok {
-				tool.MaxNumResults = int(maxResultsFloat)
+			case float64:
+				tool.MaxNumResults = int(maxResults)
 			}
 			if rankingOptions, ok := toolMap["ranking_options"].(map[string]any); ok {
 				tool.RankingOptions = rankingOptions
@@ -925,21 +957,24 @@ func (e *LLMExecutor) parseToolCallConfig(config map[string]any) (*models.ToolCa
 		tc.Mode = models.ToolCallModeAuto
 	}
 
-	if maxIter, ok := config["max_iterations"].(float64); ok {
+	switch maxIter := config["max_iterations"].(type) {
+	case float64:
 		tc.MaxIterations = int(maxIter)
-	} else if maxIter, ok := config["max_iterations"].(int); ok {
+	case int:
 		tc.MaxIterations = maxIter
 	}
 
-	if timeout, ok := config["timeout_per_tool"].(float64); ok {
+	switch timeout := config["timeout_per_tool"].(type) {
+	case float64:
 		tc.TimeoutPerTool = int(timeout)
-	} else if timeout, ok := config["timeout_per_tool"].(int); ok {
+	case int:
 		tc.TimeoutPerTool = timeout
 	}
 
-	if totalTimeout, ok := config["total_timeout"].(float64); ok {
+	switch totalTimeout := config["total_timeout"].(type) {
+	case float64:
 		tc.TotalTimeout = int(totalTimeout)
-	} else if totalTimeout, ok := config["total_timeout"].(int); ok {
+	case int:
 		tc.TotalTimeout = totalTimeout
 	}
 
@@ -1156,6 +1191,8 @@ func (e *LLMExecutor) executeWithToolCalling(
 			Role:      "assistant",
 			Content:   response.Content,
 			ToolCalls: response.ToolCalls,
+			// Keeps the turn's thinking blocks in front of its tool calls.
+			ProviderContent: response.ProviderContent,
 		}
 		messages = append(messages, assistantMsg)
 

@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // ==================== Generic NodeBuilder Tests ====================

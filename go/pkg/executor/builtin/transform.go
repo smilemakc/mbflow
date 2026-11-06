@@ -7,6 +7,7 @@ import (
 
 	"github.com/expr-lang/expr"
 	"github.com/itchyny/gojq"
+
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 )
 
@@ -104,11 +105,15 @@ func (e *TransformExecutor) Execute(ctx context.Context, config map[string]any, 
 				inputData = string(v)
 			}
 		default:
-			inputData = v
+			// gojq normalizes numbers by writing into the maps and slices
+			// of its input. The input is another node's output, which other
+			// goroutines (observers, parallel nodes) read at the same time,
+			// so jq must work on a copy.
+			inputData = cloneJQInput(v)
 		}
 
 		// Execute jq filter
-		iter := code.Run(inputData)
+		iter := code.RunWithContext(ctx, inputData)
 		v, ok := iter.Next()
 		if !ok {
 			return nil, fmt.Errorf("jq filter produced no output")
@@ -160,4 +165,30 @@ func (e *TransformExecutor) Validate(config map[string]any) error {
 	}
 
 	return nil
+}
+
+// cloneJQInput deep-copies the maps and slices of v; other values are shared.
+func cloneJQInput(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, x := range t {
+			out[k] = cloneJQInput(x)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, x := range t {
+			out[i] = cloneJQInput(x)
+		}
+		return out
+	case []map[string]any:
+		out := make([]any, len(t))
+		for i, x := range t {
+			out[i] = cloneJQInput(x)
+		}
+		return out
+	default:
+		return v
+	}
 }

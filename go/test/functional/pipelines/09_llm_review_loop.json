@@ -1,0 +1,74 @@
+{
+  "description": "Revision loop: Claude writes a blurb, a jq check rejects drafts without a code word the writer is not told, the rejection feedback goes back to the writer through a loop edge, and the approved draft is published. The code word can only come from the feedback, so a passing run proves the loop fired and the model used the feedback.",
+  "requires": ["anthropic"],
+  "dry_run": false,
+  "workflow": {
+    "name": "FT09 LLM review loop",
+    "nodes": [
+      {
+        "id": "write",
+        "name": "Write blurb",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 2048,
+          "instruction": "You write short product blurbs. Reply with the blurb only.",
+          "prompt": "Write a two-sentence blurb for {{input.product}}. {{input.feedback}}"
+        }
+      },
+      {
+        "id": "check",
+        "name": "Check draft",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": ". as $in | {draft: $in.content, ok: ($in.content | contains($in.code))}"
+        }
+      },
+      {
+        "id": "approved",
+        "name": "Approved?",
+        "type": "conditional",
+        "config": {"condition": "input.ok == true"}
+      },
+      {
+        "id": "publish",
+        "name": "Publish",
+        "type": "transform",
+        "config": {"type": "template", "template": "PUBLISHED: {{input.draft}}"}
+      },
+      {
+        "id": "revise",
+        "name": "Request changes",
+        "type": "transform",
+        "config": {
+          "type": "jq",
+          "filter": "{feedback: (\"Your previous draft was rejected. Rewrite it and include the exact code word \" + .code + \" somewhere in the text.\")}"
+        }
+      }
+    ],
+    "edges": [
+      {"id": "e1", "from": "write", "to": "check"},
+      {"id": "e2", "from": "check", "to": "approved"},
+      {"id": "e3", "from": "approved", "to": "publish", "source_handle": "true"},
+      {"id": "e4", "from": "approved", "to": "revise", "source_handle": "false"},
+      {"id": "loop", "from": "revise", "to": "write", "loop": {"max_iterations": 2}}
+    ]
+  },
+  "cases": [
+    {
+      "name": "second draft carries the code word",
+      "input": {"product": "a solar-powered camping lantern", "code": "ZEPHYR-7", "feedback": ""},
+      "expect": {
+        "nodes": {"write": "completed", "publish": "completed", "revise": "skipped"},
+        "events": {"loop.iteration": 1},
+        "output": [
+          {"node": "publish", "path": "value", "op": "contains", "value": "PUBLISHED: "},
+          {"node": "publish", "path": "value", "op": "contains", "value": "ZEPHYR-7"}
+        ]
+      }
+    }
+  ]
+}

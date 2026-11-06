@@ -180,7 +180,7 @@ func (c *ServiceClient) doRequest(ctx context.Context, method, path string, body
 
 // decodeResponse reads and decodes a JSON response body.
 func decodeResponse[T any](resp *http.Response) (*T, error) {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		var apiErr struct {
@@ -202,7 +202,7 @@ func decodeResponse[T any](resp *http.Response) (*T, error) {
 
 // decodeListResponse reads and decodes a JSON list response.
 func decodeListResponse[T any](resp *http.Response, key string) ([]T, int, error) {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		var apiErr struct {
@@ -234,7 +234,8 @@ func decodeListResponse[T any](resp *http.Response, key string) ([]T, int, error
 
 	var total int
 	if data, ok := raw["total"]; ok {
-		json.Unmarshal(data, &total)
+		// total is optional metadata; leave it at 0 if malformed.
+		_ = json.Unmarshal(data, &total)
 	}
 
 	return items, total, nil
@@ -242,7 +243,7 @@ func decodeListResponse[T any](resp *http.Response, key string) ([]T, int, error
 
 // checkResponse checks if a response indicates an error and closes the body.
 func checkResponse(resp *http.Response) error {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		var apiErr struct {

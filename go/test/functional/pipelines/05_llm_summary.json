@@ -1,0 +1,66 @@
+{
+  "description": "Simple LLM: fetch a README from GitHub and summarize it with Claude.",
+  "requires": [
+    "anthropic"
+  ],
+  "workflow": {
+    "name": "FT05 LLM summary",
+    "nodes": [
+      {
+        "id": "fetch",
+        "name": "Fetch README",
+        "type": "http",
+        "config": {
+          "method": "GET",
+          "url": "https://raw.githubusercontent.com/golang/go/master/README.md"
+        }
+      },
+      {
+        "id": "summarize",
+        "name": "Summarize",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 1024,
+          "temperature": 0.2,
+          "instruction": "You summarize documents for engineers. Answer in plain text.",
+          "prompt": "Summarize this README in at most two sentences and name the project:\n\n{{input.body}}"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "fetch",
+        "to": "summarize"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "summary of the Go README",
+      "input": {},
+      "expect": {
+        "output": [
+          {
+            "path": "content",
+            "op": "icontains",
+            "value": "go"
+          },
+          {
+            "path": "finish_reason",
+            "op": "eq",
+            "value": "stop"
+          },
+          {
+            "path": "usage.total_tokens",
+            "op": "gt",
+            "value": 0
+          }
+        ]
+      }
+    }
+  ]
+}

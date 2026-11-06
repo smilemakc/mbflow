@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,17 +40,6 @@ func (m *mockExecutorManager) List() []string {
 func (m *mockExecutorManager) Register(string, executor.Executor) error { return nil }
 func (m *mockExecutorManager) Get(string) (executor.Executor, error)    { return nil, nil }
 func (m *mockExecutorManager) Unregister(string) error                  { return nil }
-
-// mockExecutor implements executor.Executor for testing.
-type mockExecutor struct{}
-
-func (m *mockExecutor) Execute(ctx context.Context, config map[string]any, input any) (any, error) {
-	return nil, nil
-}
-
-func (m *mockExecutor) Validate(config map[string]any) error {
-	return nil
-}
 
 func TestYAMLImporter_ImportFromYAML_BasicWorkflow(t *testing.T) {
 	yaml := `

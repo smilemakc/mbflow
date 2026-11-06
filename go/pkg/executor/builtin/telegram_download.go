@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/smilemakc/mbflow/go/pkg/executor"
@@ -18,7 +17,6 @@ type TelegramDownloadExecutor struct {
 	*executor.BaseExecutor
 	httpClient *http.Client
 	baseURL    string // For testing purposes
-	mu         sync.RWMutex
 }
 
 // NewTelegramDownloadExecutor creates a new Telegram download executor.
@@ -123,7 +121,7 @@ func (e *TelegramDownloadExecutor) getFile(ctx context.Context, botToken, fileID
 
 	url := fmt.Sprintf("%s/bot%s/getFile?file_id=%s", e.baseURL, botToken, fileID)
 
-	req, err := http.NewRequestWithContext(reqCtx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(reqCtx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -132,7 +130,7 @@ func (e *TelegramDownloadExecutor) getFile(ctx context.Context, botToken, fileID
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
 	if err != nil {
@@ -170,7 +168,7 @@ func (e *TelegramDownloadExecutor) downloadFile(ctx context.Context, url string,
 	reqCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(reqCtx, "GET", url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -179,7 +177,7 @@ func (e *TelegramDownloadExecutor) downloadFile(ctx context.Context, url string,
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("download failed with status: %d", resp.StatusCode)

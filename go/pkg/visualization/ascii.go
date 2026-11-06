@@ -5,8 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"golang.org/x/term"
+
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // ASCIIRenderer renders workflows as ASCII tree graphs.

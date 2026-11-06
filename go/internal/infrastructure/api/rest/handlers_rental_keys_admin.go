@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smilemakc/mbflow/go/internal/application/rentalkey"
 	"github.com/smilemakc/mbflow/go/internal/domain/repository"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"

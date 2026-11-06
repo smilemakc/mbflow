@@ -62,14 +62,14 @@ func (wr *WorkflowResource) Validate() error {
 }
 
 func isValidAlias(alias string) bool {
-	if len(alias) == 0 || len(alias) > 100 {
+	if alias == "" || len(alias) > 100 {
 		return false
 	}
-	if !((alias[0] >= 'a' && alias[0] <= 'z') || (alias[0] >= 'A' && alias[0] <= 'Z')) {
+	if (alias[0] < 'a' || alias[0] > 'z') && (alias[0] < 'A' || alias[0] > 'Z') {
 		return false
 	}
 	for _, c := range alias {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' {
 			return false
 		}
 	}

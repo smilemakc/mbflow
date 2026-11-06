@@ -1,8 +1,13 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -185,91 +190,84 @@ func TestHTTPExecutor_BinaryResponse_JPEG(t *testing.T) {
 	assert.NotEmpty(t, resultMap["body_base64"])
 }
 
-// ============== Integration Tests with Public APIs ==============
-// These tests use real public APIs and may be skipped in CI
+// ============== Complete images over HTTP ==============
+// Real, decodable images served locally, so the tests need no network.
 
-func TestHTTPExecutor_Integration_PlaceholderImage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+// testImage encodes a small gradient image in the given format.
+func testImage(t *testing.T, format string) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 16, 8))
+	for x := 0; x < 16; x++ {
+		for y := 0; y < 8; y++ {
+			img.Set(x, y, color.RGBA{R: uint8(x * 16), G: uint8(y * 32), B: 128, A: 255})
+		}
 	}
-
-	exec := NewHTTPExecutor()
-	config := map[string]any{
-		"method": "GET",
-		"url":    "https://httpbin.org/image/webp", // WebP image from httpbin
+	var buf bytes.Buffer
+	switch format {
+	case "png":
+		require.NoError(t, png.Encode(&buf, img))
+	case "jpeg":
+		require.NoError(t, jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}))
+	default:
+		t.Fatalf("unknown format %s", format)
 	}
+	return buf.Bytes()
+}
 
-	result, err := exec.Execute(context.Background(), config, nil)
+// webp1x1 is a complete 1x1 lossless WebP image.
+var webp1x1 = []byte("RIFF\x1a\x00\x00\x00WEBPVP8L\x0d\x00\x00\x00\x2f\x00\x00\x00\x10\x07\x10\x11\x11\x88\x88\xfe\x07\x00")
+
+func serveImage(t *testing.T, contentType string, data []byte) string {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", contentType)
+		_, _ = w.Write(data)
+	}))
+	t.Cleanup(server.Close)
+	return server.URL
+}
+
+// fetchImage runs a GET through the HTTP executor and returns the result and
+// the decoded body.
+func fetchImage(t *testing.T, url string) (map[string]any, []byte) {
+	t.Helper()
+	result, err := NewHTTPExecutor().Execute(context.Background(), map[string]any{"method": "GET", "url": url}, nil)
 	require.NoError(t, err)
-
 	resultMap := result.(map[string]any)
 	assert.Equal(t, 200, resultMap["status"])
+	require.NotEmpty(t, resultMap["body_base64"])
+	decoded, err := base64.StdEncoding.DecodeString(resultMap["body_base64"].(string))
+	require.NoError(t, err)
+	assert.Equal(t, len(decoded), resultMap["size"])
+	return resultMap, decoded
+}
+
+func TestHTTPExecutor_Image_WebP(t *testing.T) {
+	resultMap, decoded := fetchImage(t, serveImage(t, "image/webp", webp1x1))
 	assert.True(t, strings.HasPrefix(resultMap["content_type"].(string), "image/"))
-	assert.NotEmpty(t, resultMap["body_base64"])
-	assert.Greater(t, resultMap["size"].(int), 0)
-
-	// Verify it's valid base64
-	_, err = base64.StdEncoding.DecodeString(resultMap["body_base64"].(string))
-	require.NoError(t, err)
+	assert.Equal(t, webp1x1, decoded)
+	assert.Equal(t, "RIFF", string(decoded[:4]))
+	assert.Equal(t, "WEBP", string(decoded[8:12]))
 }
 
-func TestHTTPExecutor_Integration_HTTPBinImage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	exec := NewHTTPExecutor()
-	config := map[string]any{
-		"method": "GET",
-		"url":    "https://httpbin.org/image/png",
-	}
-
-	result, err := exec.Execute(context.Background(), config, nil)
-	require.NoError(t, err)
-
-	resultMap := result.(map[string]any)
-	assert.Equal(t, 200, resultMap["status"])
+func TestHTTPExecutor_Image_PNG(t *testing.T) {
+	want := testImage(t, "png")
+	resultMap, decoded := fetchImage(t, serveImage(t, "image/png", want))
 	assert.Equal(t, "image/png", resultMap["content_type"])
-	assert.NotEmpty(t, resultMap["body_base64"])
-
-	// Verify PNG signature
-	decoded, err := base64.StdEncoding.DecodeString(resultMap["body_base64"].(string))
+	assert.Equal(t, want, decoded, "the body arrives byte for byte")
+	img, err := png.Decode(bytes.NewReader(decoded))
 	require.NoError(t, err)
-	// PNG signature: 89 50 4E 47
-	assert.True(t, len(decoded) > 4)
-	assert.Equal(t, byte(0x89), decoded[0])
-	assert.Equal(t, byte(0x50), decoded[1])
-	assert.Equal(t, byte(0x4E), decoded[2])
-	assert.Equal(t, byte(0x47), decoded[3])
+	assert.Equal(t, image.Rect(0, 0, 16, 8), img.Bounds())
 }
 
-func TestHTTPExecutor_Integration_HTTPBinJPEG(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	exec := NewHTTPExecutor()
-	config := map[string]any{
-		"method": "GET",
-		"url":    "https://httpbin.org/image/jpeg",
-	}
-
-	result, err := exec.Execute(context.Background(), config, nil)
-	require.NoError(t, err)
-
-	resultMap := result.(map[string]any)
-	assert.Equal(t, 200, resultMap["status"])
+func TestHTTPExecutor_Image_JPEG(t *testing.T) {
+	want := testImage(t, "jpeg")
+	resultMap, decoded := fetchImage(t, serveImage(t, "image/jpeg", want))
 	assert.Equal(t, "image/jpeg", resultMap["content_type"])
-	assert.NotEmpty(t, resultMap["body_base64"])
-
-	// Verify JPEG signature
-	decoded, err := base64.StdEncoding.DecodeString(resultMap["body_base64"].(string))
+	assert.Equal(t, want, decoded, "the body arrives byte for byte")
+	img, err := jpeg.Decode(bytes.NewReader(decoded))
 	require.NoError(t, err)
-	// JPEG signature: FF D8 FF
-	assert.True(t, len(decoded) > 3)
-	assert.Equal(t, byte(0xFF), decoded[0])
-	assert.Equal(t, byte(0xD8), decoded[1])
-	assert.Equal(t, byte(0xFF), decoded[2])
+	assert.Equal(t, image.Rect(0, 0, 16, 8), img.Bounds())
 }
 
 // ============== Simulated Pipeline Test ==============

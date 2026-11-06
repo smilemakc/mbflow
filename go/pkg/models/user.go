@@ -129,7 +129,7 @@ func (u *User) IsOwner(resourceOwnerID string) bool {
 }
 
 // CanAccessResource checks if the user can access a resource based on ownership or permissions.
-func (u *User) CanAccessResource(resourceOwnerID string, requiredPermission string) bool {
+func (u *User) CanAccessResource(resourceOwnerID, requiredPermission string) bool {
 	if u.IsAdmin {
 		return true
 	}

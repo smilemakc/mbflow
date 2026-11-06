@@ -35,7 +35,7 @@ func SetupOpenAIMock(t *testing.T) *httptest.Server {
 			},
 		}
 
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 }
 
@@ -67,7 +67,7 @@ func SetupOpenAIToolCallMock(t *testing.T, toolCalls []map[string]any) *httptest
 			},
 		}
 
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 }
 
@@ -93,7 +93,7 @@ func SetupAnthropicMock(t *testing.T) *httptest.Server {
 			},
 		}
 
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 }
 
@@ -121,7 +121,7 @@ func SetupAnthropicToolCallMock(t *testing.T, toolUse map[string]any) *httptest.
 			},
 		}
 
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 }
 
@@ -143,7 +143,7 @@ func SetupTelegramMock(t *testing.T) *httptest.Server {
 			},
 		}
 
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 }
 
@@ -158,7 +158,7 @@ func SetupTelegramErrorMock(t *testing.T, errorCode int, description string) *ht
 			"description": description,
 		}
 
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 }
 

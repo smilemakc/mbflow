@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smilemakc/mbflow/go/internal/application/trigger"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/go/pkg/models"
@@ -226,11 +227,12 @@ func (h *TelegramWebhookHandlers) HandleTelegramWebhook(c *gin.Context) {
 		statusCode := http.StatusInternalServerError
 		errorMsg := err.Error()
 
-		if strings.Contains(errorMsg, "not found") {
+		switch {
+		case strings.Contains(errorMsg, "not found"):
 			statusCode = http.StatusNotFound
-		} else if strings.Contains(errorMsg, "disabled") {
+		case strings.Contains(errorMsg, "disabled"):
 			statusCode = http.StatusForbidden
-		} else if strings.Contains(errorMsg, "rate limit exceeded") {
+		case strings.Contains(errorMsg, "rate limit exceeded"):
 			statusCode = http.StatusTooManyRequests
 		}
 

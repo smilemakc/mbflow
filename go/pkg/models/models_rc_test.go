@@ -160,6 +160,7 @@ func TestRCEvent(t *testing.T) {
 	cases := map[string][3]bool{ // execution, node, wave
 		EventTypeExecutionStarted:   {true, false, false},
 		EventTypeExecutionResumed:   {true, false, false},
+		EventTypeExecutionTimeout:   {true, false, false},
 		EventTypeNodeRetrying:       {false, true, false},
 		EventTypeNodeSkipped:        {false, true, false},
 		EventTypeWaveStarted:        {false, false, true},

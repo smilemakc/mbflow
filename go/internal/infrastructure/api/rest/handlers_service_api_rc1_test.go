@@ -743,7 +743,7 @@ func TestRC1ServiceAPIExecutions(t *testing.T) {
 		{map[string]any{"workflow": inline, "mode": "later"}, http.StatusBadRequest, "INVALID_MODE"},
 		{map[string]any{"workflow": "not an object", "mode": "sync"}, http.StatusBadRequest, "INVALID_WORKFLOW"},
 		{map[string]any{"workflow": map[string]any{"name": strings.Repeat("x", maxWorkflowSnapshotSize)}, "mode": "sync"}, http.StatusRequestEntityTooLarge, "WORKFLOW_TOO_LARGE"},
-		{map[string]any{"workflow": inline, "mode": "sync", "credential_ids": []string{"x"}}, http.StatusBadRequest, "UNSUPPORTED_CREDENTIAL_IDS"},
+		{map[string]any{"workflow": inline, "mode": "sync", "credential_ids": []string{"x"}}, http.StatusBadRequest, "INVALID_CREDENTIAL_ID"},
 		{map[string]any{"workflow": inline, "mode": "async", "webhooks": []map[string]any{{"url": ""}}}, http.StatusBadRequest, "INVALID_WEBHOOK"},
 	} {
 		w = env.rc1Svc(t, http.MethodPost, "/executions/ephemeral", tc.body, nil)

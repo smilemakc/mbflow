@@ -3,6 +3,7 @@ package rest
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -76,12 +77,15 @@ func (h *FileStorageHandlers) UploadFile(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	buffer := make([]byte, 512)
 	n, _ := file.Read(buffer)
 	mimeType := baseMimeType(http.DetectContentType(buffer[:n]))
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		respondError(c, http.StatusInternalServerError, "failed to read uploaded file")
+		return
+	}
 
 	if !models.IsMimeTypeAllowed(mimeType) {
 		respondError(c, http.StatusBadRequest, fmt.Sprintf("MIME type not allowed: %s", mimeType))
@@ -278,9 +282,9 @@ func (h *FileStorageHandlers) DownloadFile(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "failed to retrieve file")
 		return
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileModel.Name))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileModel.Name))
 	c.Header("Content-Type", fileModel.MimeType)
 
 	c.DataFromReader(http.StatusOK, fileModel.Size, fileModel.MimeType, reader, nil)

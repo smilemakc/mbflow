@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/pkg/executor"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/pkg/executor"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // TestClient_NewClient_StandaloneMode tests creating a client in standalone mode

@@ -1,0 +1,131 @@
+{
+  "description": "Ticket triage: Claude classifies a support ticket (structured output), edge conditions on the classification route it to one of three handlers (a template, a second Claude call with structured output, a template), and a merge collects the result.",
+  "requires": ["anthropic"],
+  "dry_run": false,
+  "workflow": {
+    "name": "FT11 LLM ticket routing",
+    "nodes": [
+      {
+        "id": "classify",
+        "name": "Classify ticket",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 2048,
+          "instruction": "You triage support tickets for a SaaS product. billing = payments, invoices, refunds, plans. bug = something that worked or should work is broken. feature = a request for new functionality.",
+          "prompt": "Ticket: {{input.ticket}}",
+          "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+              "name": "triage",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": {"type": "string", "enum": ["billing", "bug", "feature"]},
+                  "urgent": {"type": "boolean"},
+                  "summary": {"type": "string"}
+                },
+                "required": ["category", "urgent", "summary"]
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "billing",
+        "name": "Billing reply",
+        "type": "transform",
+        "config": {"type": "template", "template": "Routed to billing: {{input.content.summary}}"}
+      },
+      {
+        "id": "bug",
+        "name": "Bug report",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 2048,
+          "instruction": "You turn support tickets into bug reports for engineers. Fill every field from the ticket's details; never leave placeholders.",
+          "prompt": "Turn this support ticket into a bug report: {{input.ticket}}",
+          "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+              "name": "bug_report",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {"type": "string", "description": "Short summary of the failure, naming the affected feature"},
+                  "steps": {"type": "array", "items": {"type": "string"}, "description": "Steps to reproduce, one per item, at least two"},
+                  "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]}
+                },
+                "required": ["title", "steps", "severity"]
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "feature",
+        "name": "Feature backlog",
+        "type": "transform",
+        "config": {"type": "template", "template": "Added to backlog: {{input.content.summary}}"}
+      },
+      {
+        "id": "done",
+        "name": "Collect",
+        "type": "merge",
+        "config": {"merge_strategy": "all"}
+      }
+    ],
+    "edges": [
+      {"id": "e1", "from": "classify", "to": "billing", "condition": "output.content.category == \"billing\""},
+      {"id": "e2", "from": "classify", "to": "bug", "condition": "output.content.category == \"bug\""},
+      {"id": "e3", "from": "classify", "to": "feature", "condition": "output.content.category == \"feature\""},
+      {"id": "e4", "from": "billing", "to": "done"},
+      {"id": "e5", "from": "bug", "to": "done"},
+      {"id": "e6", "from": "feature", "to": "done"}
+    ]
+  },
+  "cases": [
+    {
+      "name": "double charge goes to billing",
+      "input": {"ticket": "I was charged twice for my Pro plan this month, please refund one of the payments. Invoice INV-2291."},
+      "expect": {
+        "nodes": {"billing": "completed", "bug": "skipped", "feature": "skipped", "done": "completed"},
+        "output": [
+          {"node": "classify", "path": "content.category", "op": "eq", "value": "billing"},
+          {"path": "billing", "op": "contains", "value": "Routed to billing: "}
+        ]
+      }
+    },
+    {
+      "name": "crash goes to a structured bug report",
+      "input": {"ticket": "Since yesterday's update the app crashes every time I click Export to PDF on a report with more than 50 rows. Smaller reports export fine. This blocks our month-end close!"},
+      "expect": {
+        "nodes": {"billing": "skipped", "bug": "completed", "feature": "skipped", "done": "completed"},
+        "output": [
+          {"node": "classify", "path": "content.category", "op": "eq", "value": "bug"},
+          {"node": "classify", "path": "content.urgent", "op": "eq", "value": true},
+          {"node": "bug", "path": "content.steps", "op": "len_gte", "value": 2},
+          {"node": "bug", "path": "content.severity", "op": "in", "value": ["high", "critical"]},
+          {"node": "bug", "path": "content.title", "op": "icontains", "value": "pdf"}
+        ]
+      }
+    },
+    {
+      "name": "dark mode request goes to the backlog",
+      "input": {"ticket": "It would be great if the dashboard had a dark mode option, my eyes hurt in the evening. Not urgent at all."},
+      "expect": {
+        "nodes": {"billing": "skipped", "bug": "skipped", "feature": "completed", "done": "completed"},
+        "output": [
+          {"node": "classify", "path": "content.category", "op": "eq", "value": "feature"},
+          {"node": "classify", "path": "content.urgent", "op": "eq", "value": false},
+          {"path": "feature", "op": "contains", "value": "Added to backlog: "}
+        ]
+      }
+    }
+  ]
+}

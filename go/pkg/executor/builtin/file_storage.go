@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/application/filestorage"
 	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"github.com/smilemakc/mbflow/go/pkg/models"
@@ -119,7 +120,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		}
 	} else if fileURL := e.GetStringDefault(config, "file_url", ""); fileURL != "" {
 		// Download from URL
-		dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
+		dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("invalid file URL: %w", err)
 		}
@@ -127,7 +128,7 @@ func (e *FileStorageExecutor) executeStore(ctx context.Context, config map[strin
 		if err != nil {
 			return nil, fmt.Errorf("failed to download file from URL: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("failed to download file: HTTP %d", resp.StatusCode)
@@ -269,7 +270,7 @@ func (e *FileStorageExecutor) executeGet(ctx context.Context, config map[string]
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Read file content
 	data, err := io.ReadAll(reader)
@@ -443,12 +444,4 @@ func (e *FileStorageExecutor) Validate(config map[string]any) error {
 	}
 
 	return nil
-}
-
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

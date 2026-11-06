@@ -22,8 +22,9 @@ func TestConditionalExecutor_Execute_Success_True(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if boolResult, ok := result.(bool); !ok {
-		t.Errorf("Expected bool result, got: %T", result)
+	boolResult, ok := conditionalResult(result)
+	if !ok {
+		t.Errorf("Expected a map with a bool result, got: %T", result)
 	} else if !boolResult {
 		t.Errorf("Expected true, got false")
 	}
@@ -46,8 +47,9 @@ func TestConditionalExecutor_Execute_Success_False(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if boolResult, ok := result.(bool); !ok {
-		t.Errorf("Expected bool result, got: %T", result)
+	boolResult, ok := conditionalResult(result)
+	if !ok {
+		t.Errorf("Expected a map with a bool result, got: %T", result)
 	} else if boolResult {
 		t.Errorf("Expected false, got true")
 	}
@@ -188,8 +190,9 @@ func TestConditionalExecutor_Execute_DefaultConditionType(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if boolResult, ok := result.(bool); !ok {
-		t.Errorf("Expected bool result, got: %T", result)
+	boolResult, ok := conditionalResult(result)
+	if !ok {
+		t.Errorf("Expected a map with a bool result, got: %T", result)
 	} else if !boolResult {
 		t.Errorf("Expected true, got false")
 	}
@@ -213,8 +216,9 @@ func TestConditionalExecutor_Execute_ComplexExpression(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if boolResult, ok := result.(bool); !ok {
-		t.Errorf("Expected bool result, got: %T", result)
+	boolResult, ok := conditionalResult(result)
+	if !ok {
+		t.Errorf("Expected a map with a bool result, got: %T", result)
 	} else if !boolResult {
 		t.Errorf("Expected true, got false")
 	}
@@ -268,7 +272,7 @@ func TestConditionalExecutor_Validate_MissingExpression(t *testing.T) {
 		t.Error("Expected error for missing expression, got nil")
 	}
 
-	expectedMsg := "expression is required"
+	expectedMsg := "condition is required"
 	if err != nil && len(err.Error()) > 0 {
 		if err.Error()[:len(expectedMsg)] != expectedMsg {
 			t.Errorf("Expected error to start with '%s', got: %v", expectedMsg, err)
@@ -287,5 +291,56 @@ func TestConditionalExecutor_Validate_DefaultConditionType(t *testing.T) {
 	err := executor.Validate(config)
 	if err != nil {
 		t.Errorf("Expected valid config with default condition type, got error: %v", err)
+	}
+}
+
+// conditionalResult extracts the boolean outcome from the executor output.
+func conditionalResult(out any) (bool, bool) {
+	m, ok := out.(map[string]any)
+	if !ok {
+		return false, false
+	}
+	b, ok := m["result"].(bool)
+	return b, ok
+}
+
+func TestConditionalExecutor_PassesInputThrough(t *testing.T) {
+	executor := NewConditionalExecutor()
+
+	out, err := executor.Execute(context.Background(), map[string]any{"condition": "input.score > 1"},
+		map[string]any{"score": 5, "name": "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := out.(map[string]any)
+	if m["score"] != 5 || m["name"] != "x" || m["result"] != true {
+		t.Errorf("unexpected output: %v", m)
+	}
+
+	out, err = executor.Execute(context.Background(), map[string]any{"expression": "input > 1"}, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m = out.(map[string]any)
+	if m["input"] != 3 || m["result"] != true {
+		t.Errorf("unexpected output for scalar input: %v", m)
+	}
+
+	out, err = executor.Execute(context.Background(), map[string]any{"condition": "true"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.(map[string]any)) != 1 {
+		t.Errorf("nil input should only produce result: %v", out)
+	}
+
+	if _, err := executor.Execute(context.Background(), map[string]any{}, nil); err == nil {
+		t.Error("expected an error without a condition")
+	}
+	if err := executor.Validate(map[string]any{"condition": "true"}); err != nil {
+		t.Errorf("condition key should validate: %v", err)
+	}
+	if err := executor.Validate(map[string]any{"expression": "true"}); err != nil {
+		t.Errorf("expression key should validate: %v", err)
 	}
 }

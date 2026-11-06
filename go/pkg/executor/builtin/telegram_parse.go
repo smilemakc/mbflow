@@ -533,7 +533,7 @@ func (e *TelegramParseExecutor) extractEntities(msg map[string]any) map[string]a
 
 	// Also extract URLs using regex for cases without entities
 	if len(urls) == 0 {
-		urlRegex := regexp.MustCompile(`https?://[^\s]+`)
+		urlRegex := regexp.MustCompile(`https?://\S+`)
 		urls = urlRegex.FindAllString(text, -1)
 	}
 

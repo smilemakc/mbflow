@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 )
 
@@ -101,7 +102,8 @@ func GetRequestID(c *gin.Context) string {
 	if !exists {
 		return ""
 	}
-	return requestID.(string)
+	s, _ := requestID.(string)
+	return s
 }
 
 // sensitiveQueryParams are masked in request logs (tokens may be passed in the

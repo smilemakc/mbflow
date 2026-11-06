@@ -286,7 +286,7 @@ func (c *Client) initializeRemote() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.config.Timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create health check request: %w", err)
 	}
@@ -299,7 +299,7 @@ func (c *Client) initializeRemote() error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to remote API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Accept any 2xx status code as healthy
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -351,7 +351,7 @@ func (c *Client) Health(ctx context.Context) (*HealthStatus, error) {
 
 	case ModeRemote:
 		// Check remote API health
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.BaseURL+"/health", http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create health check request: %w", err)
 		}
@@ -369,7 +369,7 @@ func (c *Client) Health(ctx context.Context) (*HealthStatus, error) {
 			}
 			return status, nil
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			status.Status = "unhealthy"

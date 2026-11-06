@@ -61,13 +61,14 @@ func (h *ImportHandlers) HandleImportWorkflow(c *gin.Context) {
 
 	contentType := c.GetHeader("Content-Type")
 
-	// Handle multipart form file upload
-	if strings.HasPrefix(contentType, "multipart/form-data") {
+	switch {
+	case strings.HasPrefix(contentType, "multipart/form-data"):
+		// Handle multipart form file upload
 		yamlData, err = h.handleMultipartUpload(c)
 		if err != nil {
 			return // Error already responded
 		}
-	} else if strings.Contains(contentType, "yaml") || strings.Contains(contentType, "text/plain") {
+	case strings.Contains(contentType, "yaml") || strings.Contains(contentType, "text/plain"):
 		// Handle raw YAML body
 		yamlData, err = io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -75,7 +76,7 @@ func (h *ImportHandlers) HandleImportWorkflow(c *gin.Context) {
 			respondAPIError(c, NewAPIError("READ_ERROR", "Failed to read request body", http.StatusBadRequest))
 			return
 		}
-	} else {
+	default:
 		respondAPIError(c, NewAPIError("INVALID_CONTENT_TYPE",
 			"Content-Type must be multipart/form-data, application/x-yaml, or text/yaml", http.StatusBadRequest))
 		return
@@ -149,7 +150,7 @@ func (h *ImportHandlers) handleMultipartUpload(c *gin.Context) ([]byte, error) {
 		respondAPIError(c, NewAPIError("FILE_REQUIRED", "File is required in 'file' field", http.StatusBadRequest))
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Validate file extension
 	filename := strings.ToLower(header.Filename)

@@ -18,6 +18,10 @@ type ExecutionState struct {
 	Variables   map[string]any
 	Resources   map[string]any // alias -> resource data for template resolution
 
+	// Secrets holds secret values (e.g. decrypted credentials) that must be
+	// redacted from emitted events and persisted results. Nil redacts nothing.
+	Secrets *SecretRedactor
+
 	// Node execution tracking
 	NodeOutputs         map[string]any                        // nodeID -> output
 	NodeInputs          map[string]any                        // nodeID -> input (passed to executor)
@@ -86,7 +90,7 @@ func (es *ExecutionState) SetNodeError(nodeID string, err error) {
 }
 
 // GetNodeError safely gets node error.
-func (es *ExecutionState) GetNodeError(nodeID string) (error, bool) {
+func (es *ExecutionState) GetNodeError(nodeID string) (error, bool) { //nolint:revive // public API: changing the return order would break callers
 	es.mu.RLock()
 	defer es.mu.RUnlock()
 	err, ok := es.NodeErrors[nodeID]

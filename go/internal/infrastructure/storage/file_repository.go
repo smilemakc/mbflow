@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/uptrace/bun"
+
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 )
 
 // FileRepository handles file database operations
@@ -230,7 +231,7 @@ func (r *FileRepository) FindExpired(ctx context.Context, limit int) ([]*models.
 }
 
 // GetStorageUsage returns storage usage statistics
-func (r *FileRepository) GetStorageUsage(ctx context.Context, storageID string) (totalSize int64, fileCount int64, err error) {
+func (r *FileRepository) GetStorageUsage(ctx context.Context, storageID string) (totalSize, fileCount int64, err error) {
 	type result struct {
 		TotalSize int64 `bun:"total_size"`
 		FileCount int64 `bun:"file_count"`

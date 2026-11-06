@@ -311,7 +311,7 @@ func TestValidateTransformConfig_ExpressionMissingExpression(t *testing.T) {
 
 	err := ValidateTransformConfig(config)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Expression transform requires 'expression' field")
+	assert.Contains(t, err.Error(), "expression transform requires 'expression' field")
 }
 
 func TestValidateTransformConfig_JQMissingFilter(t *testing.T) {
@@ -321,7 +321,7 @@ func TestValidateTransformConfig_JQMissingFilter(t *testing.T) {
 
 	err := ValidateTransformConfig(config)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "JQ transform requires 'filter' field")
+	assert.Contains(t, err.Error(), "jq transform requires 'filter' field")
 }
 
 func TestValidateTransformConfig_TemplateMissingTemplate(t *testing.T) {
@@ -331,7 +331,7 @@ func TestValidateTransformConfig_TemplateMissingTemplate(t *testing.T) {
 
 	err := ValidateTransformConfig(config)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Template transform requires 'template' field")
+	assert.Contains(t, err.Error(), "template transform requires 'template' field")
 }
 
 // ==================== ValidateNodeConfig Tests ====================

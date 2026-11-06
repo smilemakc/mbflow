@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
+
 	"github.com/smilemakc/mbflow/go/internal/config"
 	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
-	"golang.org/x/oauth2"
 )
 
 var (
@@ -145,7 +146,9 @@ func (p *GatewayProvider) ValidateToken(ctx context.Context, token string) (*JWT
 	}
 
 	// Combine groups and roles
-	roles := append(claims.Roles, claims.Groups...)
+	roles := make([]string, 0, len(claims.Roles)+len(claims.Groups))
+	roles = append(roles, claims.Roles...)
+	roles = append(roles, claims.Groups...)
 
 	return &JWTClaims{
 		UserID:   idToken.Subject,
@@ -238,7 +241,9 @@ func (p *GatewayProvider) GetUserInfo(ctx context.Context, accessToken string) (
 		username = userInfo.Email
 	}
 
-	roles := append(claims.Roles, claims.Groups...)
+	roles := make([]string, 0, len(claims.Roles)+len(claims.Groups))
+	roles = append(roles, claims.Roles...)
+	roles = append(roles, claims.Groups...)
 
 	return &pkgmodels.User{
 		ID:       userInfo.Subject,
@@ -277,7 +282,9 @@ func (p *GatewayProvider) processOAuthToken(ctx context.Context, token *oauth2.T
 			username = userInfo.Email
 		}
 
-		roles := append(claims.Roles, claims.Groups...)
+		roles := make([]string, 0, len(claims.Roles)+len(claims.Groups))
+		roles = append(roles, claims.Roles...)
+		roles = append(roles, claims.Groups...)
 
 		return &ProviderAuthResult{
 			User: &pkgmodels.User{
@@ -320,7 +327,9 @@ func (p *GatewayProvider) processOAuthToken(ctx context.Context, token *oauth2.T
 	}
 
 	// Combine roles and groups
-	roles := append(claims.Roles, claims.Groups...)
+	roles := make([]string, 0, len(claims.Roles)+len(claims.Groups))
+	roles = append(roles, claims.Roles...)
+	roles = append(roles, claims.Groups...)
 
 	// Check for admin role
 	isAdmin := false

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/application/observer"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )

@@ -53,7 +53,7 @@ func (r *MermaidRenderer) Render(workflow *models.Workflow, opts *RenderOptions)
 			}
 			sort.Strings(keys)
 			for _, key := range keys {
-				sb.WriteString(fmt.Sprintf("    %s: \"%s\"\n", key, opts.ThemeVariables[key])) //nolint:gocritic // Mermaid quoting, not Go quoting
+				fmt.Fprintf(&sb, "    %s: \"%s\"\n", key, opts.ThemeVariables[key]) //nolint:gocritic // Mermaid quoting, not Go quoting
 			}
 		}
 
@@ -154,22 +154,22 @@ func (r *MermaidRenderer) renderNode(node *models.Node, opts *RenderOptions) str
 	switch node.Type {
 	case "http":
 		// Rectangle: ["label"]
-		return fmt.Sprintf(`%s["%s"]`, node.ID, label)
+		return node.ID + `["` + label + `"]`
 	case "llm":
 		// Stadium: (["label"])
-		return fmt.Sprintf(`%s(["%s"])`, node.ID, label)
+		return node.ID + `(["` + label + `"])`
 	case "transform":
 		// Trapezoid: [/"label"/]
-		return fmt.Sprintf(`%s[/"%s"/]`, node.ID, label)
+		return node.ID + `[/"` + label + `"/]`
 	case "conditional":
-		// Diamond: {"label"}
-		return fmt.Sprintf(`%s{"%s"}`, node.ID, label)
+		// Diamond shape
+		return node.ID + `{"` + label + `"}`
 	case "merge":
-		// Hexagon: {{"label"}}
-		return fmt.Sprintf(`%s{{"%s"}}`, node.ID, label)
+		// Hexagon shape
+		return node.ID + `{{"` + label + `"}}`
 	default:
 		// Default rectangle for custom types
-		return fmt.Sprintf(`%s["%s"]`, node.ID, label)
+		return node.ID + `["` + label + `"]`
 	}
 }
 
@@ -306,7 +306,7 @@ func (r *MermaidRenderer) renderEdge(edge *models.Edge, opts *RenderOptions) str
 	// Loop edges use dotted lines with iteration label
 	if edge.IsLoop() {
 		label := fmt.Sprintf("loop (max %d)", edge.Loop.MaxIterations)
-		return fmt.Sprintf(`%s -. "%s" .-> %s`, edge.From, label, edge.To)
+		return edge.From + ` -. "` + label + `" .-> ` + edge.To
 	}
 
 	// Check if edge has a condition
@@ -314,7 +314,7 @@ func (r *MermaidRenderer) renderEdge(edge *models.Edge, opts *RenderOptions) str
 		// Escape HTML entities in condition
 		condition := r.escapeHTML(edge.Condition)
 		// Labeled arrow with escaped condition
-		return fmt.Sprintf(`%s -- "%s" --> %s`, edge.From, condition, edge.To)
+		return edge.From + ` -- "` + condition + `" --> ` + edge.To
 	}
 
 	// Simple arrow: from --> to

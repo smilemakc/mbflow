@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smilemakc/mbflow/go/pkg/executor"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
+
+	"github.com/smilemakc/mbflow/go/pkg/executor"
 )
 
 // GoogleSheetsExecutor executes operations with Google Sheets API.
@@ -244,7 +245,7 @@ func columnToLetter(col int) string {
 		col-- // Make it 0-based
 		remainder := col % 26
 		result = string(rune('A'+remainder)) + result
-		col = col / 26
+		col /= 26
 	}
 	return result
 }
@@ -278,7 +279,7 @@ func (e *GoogleSheetsExecutor) executeRead(ctx context.Context, srv *sheets.Serv
 }
 
 // executeWrite writes data to spreadsheet (overwrites existing data).
-func (e *GoogleSheetsExecutor) executeWrite(ctx context.Context, srv *sheets.Service, spreadsheetID, sheetName, rangeNotation string, input any, valueInputOption, majorDimension string, columns []string) (*GoogleSheetsOutput, error) {
+func (e *GoogleSheetsExecutor) executeWrite(ctx context.Context, srv *sheets.Service, spreadsheetID, sheetName, _ string, input any, valueInputOption, majorDimension string, columns []string) (*GoogleSheetsOutput, error) {
 	values, err := e.extractValuesFromInput(input, columns)
 	if err != nil {
 		return nil, err
@@ -290,7 +291,7 @@ func (e *GoogleSheetsExecutor) executeWrite(ctx context.Context, srv *sheets.Ser
 
 	// Always calculate range based on actual data size and major dimension to avoid dimension mismatch errors
 	// User-provided range is ignored for write operations to prevent "tried writing to column X" errors
-	rangeNotation = e.calculateDefaultRange(values, majorDimension)
+	rangeNotation := e.calculateDefaultRange(values, majorDimension)
 
 	// Build full range with sheet name
 	fullRange := e.buildRangeNotation(sheetName, rangeNotation)
@@ -320,7 +321,7 @@ func (e *GoogleSheetsExecutor) executeWrite(ctx context.Context, srv *sheets.Ser
 }
 
 // executeAppend appends data to the end of spreadsheet.
-func (e *GoogleSheetsExecutor) executeAppend(ctx context.Context, srv *sheets.Service, spreadsheetID, sheetName, rangeNotation string, input any, valueInputOption, majorDimension string, columns []string) (*GoogleSheetsOutput, error) {
+func (e *GoogleSheetsExecutor) executeAppend(ctx context.Context, srv *sheets.Service, spreadsheetID, sheetName, _ string, input any, valueInputOption, majorDimension string, columns []string) (*GoogleSheetsOutput, error) {
 	values, err := e.extractValuesFromInput(input, columns)
 	if err != nil {
 		return nil, err
@@ -341,7 +342,7 @@ func (e *GoogleSheetsExecutor) executeAppend(ctx context.Context, srv *sheets.Se
 		maxCols := e.maxColumns(values)
 		endCol = columnToLetter(maxCols)
 	}
-	rangeNotation = fmt.Sprintf("A:%s", endCol)
+	rangeNotation := fmt.Sprintf("A:%s", endCol)
 
 	// Build full range with sheet name
 	fullRange := e.buildRangeNotation(sheetName, rangeNotation)

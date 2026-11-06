@@ -147,7 +147,7 @@ func TestMergeExecutor_Execute_WithNilInput(t *testing.T) {
 		"merge_strategy": "all",
 	}
 
-	var input any = nil
+	var input any
 
 	result, err := executor.Execute(context.Background(), config, input)
 	if err != nil {

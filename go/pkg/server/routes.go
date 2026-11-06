@@ -249,41 +249,37 @@ func (s *Server) ownershipGuard() *rest.OwnershipGuard {
 
 func (s *Server) setupAPIv1Routes() {
 	apiV1 := s.router.Group("/api/v1")
-	{
-		s.setupAuthRoutes(apiV1)
-		s.setupAdminRoutes(apiV1)
-		s.setupWorkflowRoutes(apiV1)
-		s.setupExecutionRoutes(apiV1)
-		s.setupTriggerRoutes(apiV1)
-		s.setupFileRoutes(apiV1)
-		s.setupResourceRoutes(apiV1)
-		s.setupAccountRoutes(apiV1)
-		s.setupCredentialsRoutes(apiV1)
-		s.setupAPIClientRoutes(apiV1)
-		s.setupRentalKeyRoutes(apiV1)
-		s.setupServiceKeyRoutes(apiV1)
-		s.setupWebhookRoutes(apiV1)
-		s.setupServiceAPIRoutes(apiV1)
-	}
+	s.setupAuthRoutes(apiV1)
+	s.setupAdminRoutes(apiV1)
+	s.setupWorkflowRoutes(apiV1)
+	s.setupExecutionRoutes(apiV1)
+	s.setupTriggerRoutes(apiV1)
+	s.setupFileRoutes(apiV1)
+	s.setupResourceRoutes(apiV1)
+	s.setupAccountRoutes(apiV1)
+	s.setupCredentialsRoutes(apiV1)
+	s.setupAPIClientRoutes(apiV1)
+	s.setupRentalKeyRoutes(apiV1)
+	s.setupServiceKeyRoutes(apiV1)
+	s.setupWebhookRoutes(apiV1)
+	s.setupServiceAPIRoutes(apiV1)
 }
 
 func (s *Server) setupAuthRoutes(apiV1 *gin.RouterGroup) {
 	authHandlers := rest.NewAuthHandlersWithLimiter(s.auth.AuthService, s.auth.ProviderManager, s.auth.LoginRateLimiter)
 
 	authGroup := apiV1.Group("/auth")
-	{
-		authGroup.POST("/register", authHandlers.HandleRegister)
-		authGroup.POST("/login", s.auth.LoginRateLimiter.Middleware(), authHandlers.HandleLogin)
-		authGroup.POST("/refresh", authHandlers.HandleRefresh)
-		authGroup.GET("/info", authHandlers.HandleGetAuthInfo)
+	authGroup.POST("/register", authHandlers.HandleRegister)
+	authGroup.POST("/login", s.auth.LoginRateLimiter.Middleware(), authHandlers.HandleLogin)
+	authGroup.POST("/refresh", authHandlers.HandleRefresh)
+	authGroup.GET("/info", authHandlers.HandleGetAuthInfo)
 
-		authGroup.GET("/oauth/authorize", authHandlers.HandleOAuthAuthorize)
-		authGroup.GET("/oauth/callback", authHandlers.HandleOAuthCallback)
+	authGroup.GET("/oauth/authorize", authHandlers.HandleOAuthAuthorize)
+	authGroup.GET("/oauth/callback", authHandlers.HandleOAuthCallback)
 
-		authGroup.POST("/logout", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleLogout)
-		authGroup.GET("/me", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleGetMe)
-		authGroup.POST("/password", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleChangePassword)
-	}
+	authGroup.POST("/logout", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleLogout)
+	authGroup.GET("/me", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleGetMe)
+	authGroup.POST("/password", s.auth.AuthMiddleware.RequireAuth(), authHandlers.HandleChangePassword)
 
 	s.logger.Info("Auth endpoints registered")
 }
@@ -293,19 +289,17 @@ func (s *Server) setupAdminRoutes(apiV1 *gin.RouterGroup) {
 
 	adminGroup := apiV1.Group("/admin")
 	adminGroup.Use(s.auth.AuthMiddleware.RequireAdmin())
-	{
-		adminGroup.GET("/users", authHandlers.HandleAdminListUsers)
-		adminGroup.POST("/users", authHandlers.HandleAdminCreateUser)
-		adminGroup.GET("/users/:id", authHandlers.HandleAdminGetUser)
-		adminGroup.PUT("/users/:id", authHandlers.HandleAdminUpdateUser)
-		adminGroup.DELETE("/users/:id", authHandlers.HandleAdminDeleteUser)
-		adminGroup.POST("/users/:id/reset-password", authHandlers.HandleAdminResetPassword)
+	adminGroup.GET("/users", authHandlers.HandleAdminListUsers)
+	adminGroup.POST("/users", authHandlers.HandleAdminCreateUser)
+	adminGroup.GET("/users/:id", authHandlers.HandleAdminGetUser)
+	adminGroup.PUT("/users/:id", authHandlers.HandleAdminUpdateUser)
+	adminGroup.DELETE("/users/:id", authHandlers.HandleAdminDeleteUser)
+	adminGroup.POST("/users/:id/reset-password", authHandlers.HandleAdminResetPassword)
 
-		adminGroup.GET("/roles", authHandlers.HandleListRoles)
-		adminGroup.GET("/users/:id/roles", authHandlers.HandleGetUserRoles)
-		adminGroup.POST("/users/:id/roles", authHandlers.HandleAssignRole)
-		adminGroup.DELETE("/users/:id/roles/:role_id", authHandlers.HandleRemoveRole)
-	}
+	adminGroup.GET("/roles", authHandlers.HandleListRoles)
+	adminGroup.GET("/users/:id/roles", authHandlers.HandleGetUserRoles)
+	adminGroup.POST("/users/:id/roles", authHandlers.HandleAssignRole)
+	adminGroup.DELETE("/users/:id/roles/:role_id", authHandlers.HandleRemoveRole)
 }
 
 func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
@@ -320,38 +314,36 @@ func (s *Server) setupWorkflowRoutes(apiV1 *gin.RouterGroup) {
 	workflows := apiV1.Group("/workflows")
 	workflows.Use(s.auth.AuthMiddleware.RequireAuth())
 	workflows.Use(s.ownershipGuard().RequireWorkflowAccess("workflow_id"))
-	{
-		workflows.POST("", workflowHandlers.HandleCreateWorkflow)
-		workflows.GET("", workflowHandlers.HandleListWorkflows)
-		workflows.GET("/:workflow_id", workflowHandlers.HandleGetWorkflow)
-		workflows.PUT("/:workflow_id", workflowHandlers.HandleUpdateWorkflow)
-		workflows.POST("/:workflow_id/execute", executionHandlers.HandleRunExecution)
-		workflows.DELETE("/:workflow_id", workflowHandlers.HandleDeleteWorkflow)
-		workflows.POST("/:workflow_id/publish", workflowHandlers.HandlePublishWorkflow)
-		workflows.POST("/:workflow_id/unpublish", workflowHandlers.HandleUnpublishWorkflow)
-		workflows.GET("/:workflow_id/diagram", workflowHandlers.HandleGetWorkflowDiagram)
+	workflows.POST("", workflowHandlers.HandleCreateWorkflow)
+	workflows.GET("", workflowHandlers.HandleListWorkflows)
+	workflows.GET("/:workflow_id", workflowHandlers.HandleGetWorkflow)
+	workflows.PUT("/:workflow_id", workflowHandlers.HandleUpdateWorkflow)
+	workflows.POST("/:workflow_id/execute", executionHandlers.HandleRunExecution)
+	workflows.DELETE("/:workflow_id", workflowHandlers.HandleDeleteWorkflow)
+	workflows.POST("/:workflow_id/publish", workflowHandlers.HandlePublishWorkflow)
+	workflows.POST("/:workflow_id/unpublish", workflowHandlers.HandleUnpublishWorkflow)
+	workflows.GET("/:workflow_id/diagram", workflowHandlers.HandleGetWorkflowDiagram)
 
-		workflows.POST("/:workflow_id/resources", workflowHandlers.AttachWorkflowResource)
-		workflows.GET("/:workflow_id/resources", workflowHandlers.GetWorkflowResources)
-		workflows.PUT("/:workflow_id/resources/:resource_id", workflowHandlers.UpdateWorkflowResourceAlias)
-		workflows.DELETE("/:workflow_id/resources/:resource_id", workflowHandlers.DetachWorkflowResource)
+	workflows.POST("/:workflow_id/resources", workflowHandlers.AttachWorkflowResource)
+	workflows.GET("/:workflow_id/resources", workflowHandlers.GetWorkflowResources)
+	workflows.PUT("/:workflow_id/resources/:resource_id", workflowHandlers.UpdateWorkflowResourceAlias)
+	workflows.DELETE("/:workflow_id/resources/:resource_id", workflowHandlers.DetachWorkflowResource)
 
-		workflows.POST("/:workflow_id/nodes", nodeHandlers.HandleAddNode)
-		workflows.GET("/:workflow_id/nodes", nodeHandlers.HandleListNodes)
-		workflows.GET("/:workflow_id/nodes/:node_id", nodeHandlers.HandleGetNode)
-		workflows.PUT("/:workflow_id/nodes/:node_id", nodeHandlers.HandleUpdateNode)
-		workflows.DELETE("/:workflow_id/nodes/:node_id", nodeHandlers.HandleDeleteNode)
+	workflows.POST("/:workflow_id/nodes", nodeHandlers.HandleAddNode)
+	workflows.GET("/:workflow_id/nodes", nodeHandlers.HandleListNodes)
+	workflows.GET("/:workflow_id/nodes/:node_id", nodeHandlers.HandleGetNode)
+	workflows.PUT("/:workflow_id/nodes/:node_id", nodeHandlers.HandleUpdateNode)
+	workflows.DELETE("/:workflow_id/nodes/:node_id", nodeHandlers.HandleDeleteNode)
 
-		workflows.POST("/:workflow_id/edges", edgeHandlers.HandleAddEdge)
-		workflows.GET("/:workflow_id/edges", edgeHandlers.HandleListEdges)
-		workflows.GET("/:workflow_id/edges/:edge_id", edgeHandlers.HandleGetEdge)
-		workflows.PUT("/:workflow_id/edges/:edge_id", edgeHandlers.HandleUpdateEdge)
-		workflows.DELETE("/:workflow_id/edges/:edge_id", edgeHandlers.HandleDeleteEdge)
+	workflows.POST("/:workflow_id/edges", edgeHandlers.HandleAddEdge)
+	workflows.GET("/:workflow_id/edges", edgeHandlers.HandleListEdges)
+	workflows.GET("/:workflow_id/edges/:edge_id", edgeHandlers.HandleGetEdge)
+	workflows.PUT("/:workflow_id/edges/:edge_id", edgeHandlers.HandleUpdateEdge)
+	workflows.DELETE("/:workflow_id/edges/:edge_id", edgeHandlers.HandleDeleteEdge)
 
-		workflows.POST("/import", importHandlers.HandleImportWorkflow)
-		workflows.GET("/import/types", importHandlers.HandleGetSupportedTypes)
-		workflows.GET("/:workflow_id/export", importHandlers.HandleExportWorkflow)
-	}
+	workflows.POST("/import", importHandlers.HandleImportWorkflow)
+	workflows.GET("/import/types", importHandlers.HandleGetSupportedTypes)
+	workflows.GET("/:workflow_id/export", importHandlers.HandleExportWorkflow)
 }
 
 func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
@@ -363,18 +355,16 @@ func (s *Server) setupExecutionRoutes(apiV1 *gin.RouterGroup) {
 	executions.Use(s.auth.AuthMiddleware.RequireAuth())
 	executions.Use(s.ownershipGuard().RequireExecutionAccess("id"))
 	executions.Use(s.ownershipGuard().RequireWorkflowAccess("workflow_id"))
-	{
-		executions.POST("/run/:workflow_id", executionHandlers.HandleRunExecution)
-		executions.POST("/ephemeral", executionHandlers.HandleRunEphemeralExecution)
-		executions.GET("", executionHandlers.HandleListExecutions)
-		executions.GET("/:id", executionHandlers.HandleGetExecution)
-		executions.GET("/:id/logs", executionHandlers.HandleGetLogs)
-		executions.GET("/:id/nodes/:node_id/result", executionHandlers.HandleGetNodeResult)
-		executions.POST("/:id/cancel", executionHandlers.HandleCancelExecution)
-		executions.POST("/:id/retry", executionHandlers.HandleRetryExecution)
-		executions.GET("/:id/watch", executionHandlers.HandleWatchExecution)
-		executions.GET("/:id/stream", executionHandlers.HandleStreamLogs)
-	}
+	executions.POST("/run/:workflow_id", executionHandlers.HandleRunExecution)
+	executions.POST("/ephemeral", executionHandlers.HandleRunEphemeralExecution)
+	executions.GET("", executionHandlers.HandleListExecutions)
+	executions.GET("/:id", executionHandlers.HandleGetExecution)
+	executions.GET("/:id/logs", executionHandlers.HandleGetLogs)
+	executions.GET("/:id/nodes/:node_id/result", executionHandlers.HandleGetNodeResult)
+	executions.POST("/:id/cancel", executionHandlers.HandleCancelExecution)
+	executions.POST("/:id/retry", executionHandlers.HandleRetryExecution)
+	executions.GET("/:id/watch", executionHandlers.HandleWatchExecution)
+	executions.GET("/:id/stream", executionHandlers.HandleStreamLogs)
 }
 
 func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
@@ -385,16 +375,14 @@ func (s *Server) setupTriggerRoutes(apiV1 *gin.RouterGroup) {
 	triggers := apiV1.Group("/triggers")
 	triggers.Use(s.auth.AuthMiddleware.RequireAuth())
 	triggers.Use(s.ownershipGuard().RequireTriggerAccess("id"))
-	{
-		triggers.POST("", triggerHandlers.HandleCreateTrigger)
-		triggers.GET("", triggerHandlers.HandleListTriggers)
-		triggers.GET("/:id", triggerHandlers.HandleGetTrigger)
-		triggers.PUT("/:id", triggerHandlers.HandleUpdateTrigger)
-		triggers.DELETE("/:id", triggerHandlers.HandleDeleteTrigger)
-		triggers.POST("/:id/enable", triggerHandlers.HandleEnableTrigger)
-		triggers.POST("/:id/disable", triggerHandlers.HandleDisableTrigger)
-		triggers.POST("/:id/execute", triggerHandlers.HandleTriggerManual)
-	}
+	triggers.POST("", triggerHandlers.HandleCreateTrigger)
+	triggers.GET("", triggerHandlers.HandleListTriggers)
+	triggers.GET("/:id", triggerHandlers.HandleGetTrigger)
+	triggers.PUT("/:id", triggerHandlers.HandleUpdateTrigger)
+	triggers.DELETE("/:id", triggerHandlers.HandleDeleteTrigger)
+	triggers.POST("/:id/enable", triggerHandlers.HandleEnableTrigger)
+	triggers.POST("/:id/disable", triggerHandlers.HandleDisableTrigger)
+	triggers.POST("/:id/execute", triggerHandlers.HandleTriggerManual)
 }
 
 func (s *Server) setupFileRoutes(apiV1 *gin.RouterGroup) {
@@ -403,14 +391,12 @@ func (s *Server) setupFileRoutes(apiV1 *gin.RouterGroup) {
 	files := apiV1.Group("/files")
 	files.Use(s.auth.AuthMiddleware.RequireAuth())
 	files.Use(s.ownershipGuard().RequireFileAccess("id"))
-	{
-		files.POST("", fileHandlers.HandleUploadFile)
-		files.GET("", fileHandlers.HandleListFiles)
-		files.GET("/:id", fileHandlers.HandleGetFile)
-		files.GET("/:id/metadata", fileHandlers.HandleGetFileMetadata)
-		files.DELETE("/:id", fileHandlers.HandleDeleteFile)
-		files.GET("/storage/:storage_id/usage", fileHandlers.HandleGetStorageUsage)
-	}
+	files.POST("", fileHandlers.HandleUploadFile)
+	files.GET("", fileHandlers.HandleListFiles)
+	files.GET("/:id", fileHandlers.HandleGetFile)
+	files.GET("/:id/metadata", fileHandlers.HandleGetFileMetadata)
+	files.DELETE("/:id", fileHandlers.HandleDeleteFile)
+	files.GET("/storage/:storage_id/usage", fileHandlers.HandleGetStorageUsage)
 }
 
 func (s *Server) setupResourceRoutes(apiV1 *gin.RouterGroup) {
@@ -427,20 +413,18 @@ func (s *Server) setupResourceRoutes(apiV1 *gin.RouterGroup) {
 
 	resources := apiV1.Group("/resources")
 	resources.Use(s.auth.AuthMiddleware.RequireAuth())
-	{
-		resources.POST("/file-storage", resourceHandlers.CreateFileStorage)
-		resources.GET("", resourceHandlers.ListResources)
-		resources.GET("/:id", resourceHandlers.GetResource)
-		resources.PUT("/:id", resourceHandlers.UpdateResource)
-		resources.DELETE("/:id", resourceHandlers.DeleteResource)
-		resources.GET("/pricing-plans", resourceHandlers.ListPricingPlans)
+	resources.POST("/file-storage", resourceHandlers.CreateFileStorage)
+	resources.GET("", resourceHandlers.ListResources)
+	resources.GET("/:id", resourceHandlers.GetResource)
+	resources.PUT("/:id", resourceHandlers.UpdateResource)
+	resources.DELETE("/:id", resourceHandlers.DeleteResource)
+	resources.GET("/pricing-plans", resourceHandlers.ListPricingPlans)
 
-		resources.POST("/:id/files", fileStorageHandlers.UploadFile)
-		resources.GET("/:id/files", fileStorageHandlers.ListFiles)
-		resources.GET("/:id/files/:file_id", fileStorageHandlers.GetFileMetadata)
-		resources.GET("/:id/files/:file_id/download", fileStorageHandlers.DownloadFile)
-		resources.DELETE("/:id/files/:file_id", fileStorageHandlers.DeleteFile)
-	}
+	resources.POST("/:id/files", fileStorageHandlers.UploadFile)
+	resources.GET("/:id/files", fileStorageHandlers.ListFiles)
+	resources.GET("/:id/files/:file_id", fileStorageHandlers.GetFileMetadata)
+	resources.GET("/:id/files/:file_id/download", fileStorageHandlers.DownloadFile)
+	resources.DELETE("/:id/files/:file_id", fileStorageHandlers.DeleteFile)
 }
 
 func (s *Server) setupAccountRoutes(apiV1 *gin.RouterGroup) {
@@ -448,12 +432,10 @@ func (s *Server) setupAccountRoutes(apiV1 *gin.RouterGroup) {
 
 	account := apiV1.Group("/account")
 	account.Use(s.auth.AuthMiddleware.RequireAuth())
-	{
-		account.GET("", accountHandlers.GetAccount)
-		account.POST("/deposit", accountHandlers.Deposit)
-		account.GET("/transactions", accountHandlers.ListTransactions)
-		account.GET("/transactions/:id", accountHandlers.GetTransaction)
-	}
+	account.GET("", accountHandlers.GetAccount)
+	account.POST("/deposit", accountHandlers.Deposit)
+	account.GET("/transactions", accountHandlers.ListTransactions)
+	account.GET("/transactions/:id", accountHandlers.GetTransaction)
 }
 
 func (s *Server) setupCredentialsRoutes(apiV1 *gin.RouterGroup) {
@@ -466,19 +448,17 @@ func (s *Server) setupCredentialsRoutes(apiV1 *gin.RouterGroup) {
 
 	credentials := apiV1.Group("/credentials")
 	credentials.Use(s.auth.AuthMiddleware.RequireAuth())
-	{
-		credentials.POST("/api-key", credentialsHandlers.CreateAPIKey)
-		credentials.POST("/basic-auth", credentialsHandlers.CreateBasicAuth)
-		credentials.POST("/oauth2", credentialsHandlers.CreateOAuth2)
-		credentials.POST("/service-account", credentialsHandlers.CreateServiceAccount)
-		credentials.POST("/custom", credentialsHandlers.CreateCustom)
+	credentials.POST("/api-key", credentialsHandlers.CreateAPIKey)
+	credentials.POST("/basic-auth", credentialsHandlers.CreateBasicAuth)
+	credentials.POST("/oauth2", credentialsHandlers.CreateOAuth2)
+	credentials.POST("/service-account", credentialsHandlers.CreateServiceAccount)
+	credentials.POST("/custom", credentialsHandlers.CreateCustom)
 
-		credentials.GET("", credentialsHandlers.ListCredentials)
-		credentials.GET("/:id", credentialsHandlers.GetCredential)
-		credentials.GET("/:id/secrets", credentialsHandlers.GetCredentialSecrets)
-		credentials.PUT("/:id", credentialsHandlers.UpdateCredential)
-		credentials.DELETE("/:id", credentialsHandlers.DeleteCredential)
-	}
+	credentials.GET("", credentialsHandlers.ListCredentials)
+	credentials.GET("/:id", credentialsHandlers.GetCredential)
+	credentials.GET("/:id/secrets", credentialsHandlers.GetCredentialSecrets)
+	credentials.PUT("/:id", credentialsHandlers.UpdateCredential)
+	credentials.DELETE("/:id", credentialsHandlers.DeleteCredential)
 
 	s.logger.Info("Credentials endpoints registered")
 }
@@ -513,26 +493,22 @@ func (s *Server) setupRentalKeyRoutes(apiV1 *gin.RouterGroup) {
 
 	rentalKeys := apiV1.Group("/rental-keys")
 	rentalKeys.Use(s.auth.AuthMiddleware.RequireAuth())
-	{
-		rentalKeys.GET("", rentalKeyHandlers.ListRentalKeys)
-		rentalKeys.GET("/:id", rentalKeyHandlers.GetRentalKey)
-		rentalKeys.GET("/:id/usage", rentalKeyHandlers.GetRentalKeyUsage)
-		rentalKeys.GET("/:id/summary", rentalKeyHandlers.GetRentalKeyUsageSummary)
-	}
+	rentalKeys.GET("", rentalKeyHandlers.ListRentalKeys)
+	rentalKeys.GET("/:id", rentalKeyHandlers.GetRentalKey)
+	rentalKeys.GET("/:id/usage", rentalKeyHandlers.GetRentalKeyUsage)
+	rentalKeys.GET("/:id/summary", rentalKeyHandlers.GetRentalKeyUsageSummary)
 
 	adminRentalKeys := apiV1.Group("/admin/rental-keys")
 	adminRentalKeys.Use(s.auth.AuthMiddleware.RequireAuth())
 	adminRentalKeys.Use(s.auth.AuthMiddleware.RequireAdmin())
-	{
-		adminRentalKeys.POST("", rentalKeyAdminHandlers.CreateRentalKey)
-		adminRentalKeys.GET("", rentalKeyAdminHandlers.ListAllRentalKeys)
-		adminRentalKeys.GET("/:id", rentalKeyAdminHandlers.GetRentalKey)
-		adminRentalKeys.PUT("/:id", rentalKeyAdminHandlers.UpdateRentalKey)
-		adminRentalKeys.DELETE("/:id", rentalKeyAdminHandlers.DeleteRentalKey)
-		adminRentalKeys.POST("/:id/rotate-key", rentalKeyAdminHandlers.RotateRentalKeyAPIKey)
-		adminRentalKeys.POST("/reset-daily", rentalKeyAdminHandlers.ResetDailyUsage)
-		adminRentalKeys.POST("/reset-monthly", rentalKeyAdminHandlers.ResetMonthlyUsage)
-	}
+	adminRentalKeys.POST("", rentalKeyAdminHandlers.CreateRentalKey)
+	adminRentalKeys.GET("", rentalKeyAdminHandlers.ListAllRentalKeys)
+	adminRentalKeys.GET("/:id", rentalKeyAdminHandlers.GetRentalKey)
+	adminRentalKeys.PUT("/:id", rentalKeyAdminHandlers.UpdateRentalKey)
+	adminRentalKeys.DELETE("/:id", rentalKeyAdminHandlers.DeleteRentalKey)
+	adminRentalKeys.POST("/:id/rotate-key", rentalKeyAdminHandlers.RotateRentalKeyAPIKey)
+	adminRentalKeys.POST("/reset-daily", rentalKeyAdminHandlers.ResetDailyUsage)
+	adminRentalKeys.POST("/reset-monthly", rentalKeyAdminHandlers.ResetMonthlyUsage)
 
 	s.logger.Info("Rental Keys endpoints registered")
 }
@@ -543,20 +519,16 @@ func (s *Server) setupServiceKeyRoutes(apiV1 *gin.RouterGroup) {
 
 	serviceKeys := apiV1.Group("/service-keys")
 	serviceKeys.Use(s.auth.AuthMiddleware.RequireAuth())
-	{
-		serviceKeys.GET("", serviceKeyHandlers.ListMyServiceKeys)
-		serviceKeys.GET("/:id", serviceKeyHandlers.GetMyServiceKey)
-	}
+	serviceKeys.GET("", serviceKeyHandlers.ListMyServiceKeys)
+	serviceKeys.GET("/:id", serviceKeyHandlers.GetMyServiceKey)
 
 	adminServiceKeys := apiV1.Group("/admin/service-keys")
 	adminServiceKeys.Use(s.auth.AuthMiddleware.RequireAdmin())
-	{
-		adminServiceKeys.POST("", serviceKeyAdminHandlers.CreateServiceKey)
-		adminServiceKeys.GET("", serviceKeyAdminHandlers.ListServiceKeys)
-		adminServiceKeys.GET("/:id", serviceKeyAdminHandlers.GetServiceKey)
-		adminServiceKeys.DELETE("/:id", serviceKeyAdminHandlers.DeleteServiceKey)
-		adminServiceKeys.POST("/:id/revoke", serviceKeyAdminHandlers.RevokeServiceKey)
-	}
+	adminServiceKeys.POST("", serviceKeyAdminHandlers.CreateServiceKey)
+	adminServiceKeys.GET("", serviceKeyAdminHandlers.ListServiceKeys)
+	adminServiceKeys.GET("/:id", serviceKeyAdminHandlers.GetServiceKey)
+	adminServiceKeys.DELETE("/:id", serviceKeyAdminHandlers.DeleteServiceKey)
+	adminServiceKeys.POST("/:id/revoke", serviceKeyAdminHandlers.RevokeServiceKey)
 
 	s.logger.Info("Service Keys endpoints registered")
 }
@@ -582,13 +554,11 @@ func (s *Server) setupServiceAPIRoutes(apiV1 *gin.RouterGroup) {
 	systemKeyHandlers := rest.NewServiceAPISystemKeyHandlers(s.serviceAPI.SystemKeyService, s.logger)
 	adminSystemKeys := apiV1.Group("/service/system-keys")
 	adminSystemKeys.Use(s.auth.AuthMiddleware.RequireAdmin())
-	{
-		adminSystemKeys.POST("", systemKeyHandlers.CreateSystemKey)
-		adminSystemKeys.GET("", systemKeyHandlers.ListSystemKeys)
-		adminSystemKeys.GET("/:id", systemKeyHandlers.GetSystemKey)
-		adminSystemKeys.DELETE("/:id", systemKeyHandlers.DeleteSystemKey)
-		adminSystemKeys.POST("/:id/revoke", systemKeyHandlers.RevokeSystemKey)
-	}
+	adminSystemKeys.POST("", systemKeyHandlers.CreateSystemKey)
+	adminSystemKeys.GET("", systemKeyHandlers.ListSystemKeys)
+	adminSystemKeys.GET("/:id", systemKeyHandlers.GetSystemKey)
+	adminSystemKeys.DELETE("/:id", systemKeyHandlers.DeleteSystemKey)
+	adminSystemKeys.POST("/:id/revoke", systemKeyHandlers.RevokeSystemKey)
 
 	serviceAPI := apiV1.Group("/service")
 	serviceAPI.Use(s.serviceAPI.SystemAuthMiddleware.RequireSystemAccess())

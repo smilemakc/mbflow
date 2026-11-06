@@ -3,9 +3,10 @@ package engine
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	pkgengine "github.com/smilemakc/mbflow/go/pkg/engine"
 	"github.com/smilemakc/mbflow/go/pkg/models"
-	"github.com/stretchr/testify/assert"
 )
 
 // ==================== MergeVariables Tests ====================

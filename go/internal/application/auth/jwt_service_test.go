@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/smilemakc/mbflow/go/internal/config"
-	"github.com/smilemakc/mbflow/go/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/config"
+	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 // --- Helpers ---
@@ -160,11 +161,11 @@ func TestJWTGenerateAccessToken_ShouldSetCorrectClaims_WhenTokenParsed(t *testin
 	assert.Equal(t, "user-123", claims.Subject)
 	assert.Equal(t, "https://test.example.com", claims.Issuer)
 	require.NotNil(t, claims.IssuedAt)
-	assert.True(t, claims.IssuedAt.Time.After(beforeGeneration))
+	assert.True(t, claims.IssuedAt.After(beforeGeneration))
 	require.NotNil(t, claims.ExpiresAt)
-	assert.True(t, claims.ExpiresAt.Time.After(time.Now()))
+	assert.True(t, claims.ExpiresAt.After(time.Now()))
 	require.NotNil(t, claims.NotBefore)
-	assert.True(t, claims.NotBefore.Time.Before(time.Now().Add(1*time.Second)))
+	assert.True(t, claims.NotBefore.Before(time.Now().Add(1*time.Second)))
 }
 
 func TestJWTGenerateAccessToken_ShouldSetAdminFlag_WhenUserIsAdmin(t *testing.T) {

@@ -1,0 +1,40 @@
+{
+  "description": "Failure handling: an LLM node with a model the provider does not know fails the execution with the provider's error, the downstream node is not run, and the key does not leak into the error.",
+  "requires": ["anthropic"],
+  "workflow": {
+    "name": "FT13 LLM failure",
+    "nodes": [
+      {
+        "id": "ask",
+        "name": "Ask an unknown model",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "claude-no-such-model",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 256,
+          "prompt": "Say hello."
+        }
+      },
+      {
+        "id": "after",
+        "name": "After",
+        "type": "transform",
+        "config": {"type": "template", "template": "should not run: {{input.content}}"}
+      }
+    ],
+    "edges": [{"id": "e1", "from": "ask", "to": "after"}]
+  },
+  "cases": [
+    {
+      "name": "unknown model fails cleanly",
+      "input": {},
+      "expect": {
+        "status": "failed",
+        "nodes": {"ask": "failed"},
+        "not_nodes": {"after": "completed"},
+        "error_contains": "claude-no-such-model"
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/pkg/engine"
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
@@ -153,9 +154,7 @@ func (w *WorkflowAPI) ValidateDAG(ctx context.Context, workflow *models.Workflow
 	// Check for invalid edge connections
 	if invalidEdges := findInvalidEdges(workflow); len(invalidEdges) > 0 {
 		result.Valid = false
-		for _, e := range invalidEdges {
-			result.Errors = append(result.Errors, e)
-		}
+		result.Errors = append(result.Errors, invalidEdges...)
 	}
 
 	return result, nil

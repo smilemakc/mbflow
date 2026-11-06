@@ -84,7 +84,7 @@ func (de *DAGExecutor) executeWave(
 	sortedWave := SortNodesByPriority(wave)
 
 	nodeCount := len(sortedWave)
-	de.safeNotify(ctx, ExecutionEvent{
+	de.safeNotify(ctx, execState, ExecutionEvent{
 		Type:        EventTypeWaveStarted,
 		ExecutionID: execState.ExecutionID,
 		WorkflowID:  execState.WorkflowID,
@@ -116,7 +116,7 @@ func (de *DAGExecutor) executeWave(
 			select {
 			case <-ctx.Done():
 				execState.SetNodeStatus(n.ID, models.NodeExecutionStatusSkipped)
-				de.safeNotify(ctx, ExecutionEvent{
+				de.safeNotify(ctx, execState, ExecutionEvent{
 					Type:        EventTypeNodeSkipped,
 					ExecutionID: execState.ExecutionID,
 					WorkflowID:  execState.WorkflowID,
@@ -137,7 +137,7 @@ func (de *DAGExecutor) executeWave(
 			shouldExec, skipReason := de.shouldExecuteNode(execState, n)
 			if !shouldExec {
 				execState.SetNodeStatus(n.ID, models.NodeExecutionStatusSkipped)
-				de.safeNotify(ctx, ExecutionEvent{
+				de.safeNotify(ctx, execState, ExecutionEvent{
 					Type:        EventTypeNodeSkipped,
 					ExecutionID: execState.ExecutionID,
 					WorkflowID:  execState.WorkflowID,
@@ -191,7 +191,7 @@ func (de *DAGExecutor) executeWave(
 		status = "completed_with_errors"
 	}
 
-	de.safeNotify(ctx, ExecutionEvent{
+	de.safeNotify(ctx, execState, ExecutionEvent{
 		Type:        EventTypeWaveCompleted,
 		ExecutionID: execState.ExecutionID,
 		WorkflowID:  execState.WorkflowID,
@@ -258,7 +258,7 @@ func (de *DAGExecutor) executeNode(
 	execState.SetNodeStatus(node.ID, models.NodeExecutionStatusRunning)
 	execState.SetNodeStartTime(node.ID, nodeStartTime)
 
-	de.safeNotify(ctx, ExecutionEvent{
+	de.safeNotify(ctx, execState, ExecutionEvent{
 		Type:        EventTypeNodeStarted,
 		ExecutionID: execState.ExecutionID,
 		WorkflowID:  execState.WorkflowID,
@@ -297,7 +297,7 @@ func (de *DAGExecutor) executeNode(
 	retryPolicy := convertRetryPolicy(opts.RetryPolicy)
 
 	retryPolicy.OnRetry = func(attempt int, err error) {
-		de.safeNotify(ctx, ExecutionEvent{
+		de.safeNotify(ctx, execState, ExecutionEvent{
 			Type:        EventTypeNodeRetrying,
 			ExecutionID: execState.ExecutionID,
 			WorkflowID:  execState.WorkflowID,
@@ -331,7 +331,7 @@ func (de *DAGExecutor) executeNode(
 		}
 
 		nodeDuration := time.Since(nodeStartTime).Milliseconds()
-		de.safeNotify(ctx, ExecutionEvent{
+		de.safeNotify(ctx, execState, ExecutionEvent{
 			Type:        EventTypeNodeFailed,
 			ExecutionID: execState.ExecutionID,
 			WorkflowID:  execState.WorkflowID,
@@ -372,7 +372,7 @@ func (de *DAGExecutor) executeNode(
 	if opts.MaxTotalMemory > 0 {
 		totalMemory := execState.GetTotalMemoryUsage()
 		if totalMemory > opts.MaxTotalMemory {
-			de.safeNotify(ctx, ExecutionEvent{
+			de.safeNotify(ctx, execState, ExecutionEvent{
 				Type:        EventTypeNodeCompleted,
 				ExecutionID: execState.ExecutionID,
 				WorkflowID:  execState.WorkflowID,
@@ -385,7 +385,7 @@ func (de *DAGExecutor) executeNode(
 	}
 
 	nodeDuration := time.Since(nodeStartTime).Milliseconds()
-	de.safeNotify(ctx, ExecutionEvent{
+	de.safeNotify(ctx, execState, ExecutionEvent{
 		Type:        EventTypeNodeCompleted,
 		ExecutionID: execState.ExecutionID,
 		WorkflowID:  execState.WorkflowID,
@@ -426,7 +426,7 @@ func (de *DAGExecutor) processLoopEdges(
 		currentIter := execState.GetLoopIteration(edge.ID)
 
 		if currentIter >= maxIter {
-			de.safeNotify(ctx, ExecutionEvent{
+			de.safeNotify(ctx, execState, ExecutionEvent{
 				Type:          EventTypeLoopExhausted,
 				ExecutionID:   execState.ExecutionID,
 				WorkflowID:    execState.WorkflowID,
@@ -455,7 +455,7 @@ func (de *DAGExecutor) processLoopEdges(
 
 		de.resetWaveRange(execState, waves, targetWave, currentWave)
 
-		de.safeNotify(ctx, ExecutionEvent{
+		de.safeNotify(ctx, execState, ExecutionEvent{
 			Type:          EventTypeLoopIteration,
 			ExecutionID:   execState.ExecutionID,
 			WorkflowID:    execState.WorkflowID,
@@ -489,8 +489,9 @@ func (de *DAGExecutor) resetWaveRange(
 	}
 }
 
-// safeNotify wraps notifications with panic recovery.
-func (de *DAGExecutor) safeNotify(ctx context.Context, event ExecutionEvent) {
+// safeNotify redacts the execution's secrets from event and dispatches it
+// with panic recovery.
+func (de *DAGExecutor) safeNotify(ctx context.Context, execState *ExecutionState, event ExecutionEvent) {
 	if de.notifier == nil {
 		return
 	}
@@ -501,6 +502,9 @@ func (de *DAGExecutor) safeNotify(ctx context.Context, event ExecutionEvent) {
 		}
 	}()
 
+	if execState != nil {
+		event = execState.Secrets.Event(event)
+	}
 	de.notifier.Notify(ctx, event)
 }
 

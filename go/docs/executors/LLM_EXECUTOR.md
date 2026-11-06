@@ -234,12 +234,14 @@ Special features:
 - Background processing for long-running tasks
 - Response storage and continuation
 
-### Anthropic (Coming Soon)
+### Anthropic
 
-Provider ID: `anthropic`
+Provider ID: `anthropic` (Messages API). Use any Claude model ID, for example `claude-opus-5-5`, `claude-sonnet-5-5` or `claude-haiku-5-5`.
 
-Supported models:
-- Claude 3 family: `claude-3-opus`, `claude-3-sonnet`, `claude-3-haiku`
+- `temperature` and `top_p` are sent only to older models that accept them (Claude 3, Claude 4 up to Opus 4.6). Current models return an error for them, so the provider leaves them out.
+- `response_format` `json_schema` uses native structured outputs (`output_config.format`): the answer is JSON text that matches the schema. Every object in the schema gets `additionalProperties: false`, and constraints that structured outputs do not support (`minimum`, `maximum`, `minLength`, `maxLength`, `multipleOf`) are removed. Models without structured outputs (Claude 3, Opus 4, Sonnet 4) get a forced tool call instead.
+- Current models think before they answer, and thinking tokens count toward `max_tokens`. If the budget is too small, the response stops with `finish_reason: "length"` and empty `content`; allow at least about 1,000 tokens.
+- In auto tool-calling mode, each assistant turn is sent back as the API returned it, including its thinking blocks.
 
 ## Examples
 

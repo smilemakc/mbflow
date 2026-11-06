@@ -1,0 +1,95 @@
+{
+  "description": "LLM agent: Claude calls the built-in http_request tool itself (auto tool-calling loop) to read a third-party dataset and answer.",
+  "requires": [
+    "anthropic"
+  ],
+  "workflow": {
+    "name": "FT07 LLM agent with tools",
+    "nodes": [
+      {
+        "id": "agent",
+        "name": "Research agent",
+        "type": "llm",
+        "config": {
+          "provider": "anthropic",
+          "model": "${llm_model}",
+          "api_key": "{{resource.anthropic.api_key}}",
+          "max_tokens": 2048,
+          "temperature": 0,
+          "instruction": "You answer questions by fetching data with the http_request tool. Never guess data you can fetch.",
+          "prompt": "Fetch {{input.url}} (JSON with an 'animals' array). How many animals start with the letter '{{input.letter}}'? Reply with the number first, then list them.",
+          "tool_call_config": {
+            "mode": "auto",
+            "max_iterations": 5,
+            "timeout_per_tool": 30
+          },
+          "functions": [
+            {
+              "type": "builtin",
+              "name": "http_request",
+              "builtin_name": "http_request",
+              "description": "Performs an HTTP request and returns the status and body.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "Absolute URL"
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "GET"
+                    ]
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "edges": []
+  },
+  "cases": [
+    {
+      "name": "count animals starting with h",
+      "input": {
+        "url": "https://raw.githubusercontent.com/dariusk/corpora/master/data/animals/common.json",
+        "letter": "h"
+      },
+      "expect": {
+        "output": [
+          {
+            "path": "content",
+            "op": "regex",
+            "value": "^\\W*6\\b"
+          },
+          {
+            "path": "content",
+            "op": "icontains",
+            "value": "hippopotamus"
+          },
+          {
+            "path": "content",
+            "op": "icontains",
+            "value": "hedgehog"
+          },
+          {
+            "path": "tool_executions",
+            "op": "len_gte",
+            "value": 1
+          },
+          {
+            "path": "stopped_reason",
+            "op": "eq",
+            "value": "finish"
+          }
+        ]
+      }
+    }
+  ]
+}

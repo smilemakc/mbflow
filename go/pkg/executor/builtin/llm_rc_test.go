@@ -672,9 +672,13 @@ func TestRC_LLMExecutor_ProviderSelection(t *testing.T) {
 	exec.RegisterProvider(models.LLMProviderOpenAI, &rcScriptedProvider{})
 	assert.True(t, exec.hasProvider(models.LLMProviderOpenAI))
 
-	_, err := exec.Execute(context.Background(), map[string]any{
-		"provider": "anthropic", "model": "m", "prompt": "p", "api_key": "k"}, nil)
+	_, err := exec.getOrCreateProvider(&models.LLMRequest{Provider: "unknown"})
 	require.ErrorContains(t, err, "unsupported provider")
+
+	anthropic, err := exec.getOrCreateProvider(&models.LLMRequest{Provider: models.LLMProviderAnthropic,
+		ProviderConfig: map[string]any{"api_key": "k"}})
+	require.NoError(t, err)
+	assert.IsType(t, &AnthropicProvider{}, anthropic)
 
 	p, err := exec.getOrCreateProvider(&models.LLMRequest{Provider: models.LLMProviderOpenAIResponses,
 		ProviderConfig: map[string]any{"api_key": "k"}})
@@ -828,6 +832,28 @@ func TestRC_LLMExecutor_AutoToolCalling_ProviderError(t *testing.T) {
 		"tool_call_config": map[string]any{"mode": "auto"},
 	}), nil)
 	require.ErrorContains(t, err, "LLM call failed at iteration 0")
+}
+
+func TestRC_LLMExecutor_AutoToolCalling_KeepsProviderContent(t *testing.T) {
+	exec := NewLLMExecutor()
+	exec.SetToolCallingRegistry(rcRegistryWithAdd())
+	call := toolCallResponse("c", "add", `{"a":1,"b":2}`)
+	call.ProviderContent = json.RawMessage(`[{"type":"thinking","signature":"s"}]`)
+	prov := &rcScriptedProvider{responses: []*models.LLMResponse{call, {Content: "3", FinishReason: "stop"}}}
+	_, err := exec.executeWithToolCalling(context.Background(), &models.LLMRequest{
+		Prompt:    "p",
+		Functions: []models.FunctionDefinition{{Type: models.FunctionTypeBuiltin, Name: "add", BuiltinName: "add"}},
+	}, prov)
+	require.NoError(t, err)
+	require.Len(t, prov.requests, 2)
+	var assistant *models.LLMMessage
+	for i, m := range prov.requests[1].Messages {
+		if m.Role == "assistant" {
+			assistant = &prov.requests[1].Messages[i]
+		}
+	}
+	require.NotNil(t, assistant)
+	assert.JSONEq(t, string(call.ProviderContent), string(assistant.ProviderContent))
 }
 
 func TestRC_LLMExecutor_AutoToolCalling_NoRegistry(t *testing.T) {

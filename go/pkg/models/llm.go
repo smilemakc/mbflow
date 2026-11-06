@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // LLMProvider represents the LLM provider type.
 type LLMProvider string
@@ -128,6 +131,10 @@ type LLMResponse struct {
 	ToolExecutions  []ToolExecutionResult `json:"tool_executions,omitempty"`  // Tool execution results
 	TotalIterations int                   `json:"total_iterations,omitempty"` // Number of iterations in auto mode
 	StoppedReason   string                `json:"stopped_reason,omitempty"`   // "finish" | "max_iterations" | "error" | "tool_failure"
+
+	// ProviderContent is the assistant turn as the provider returned it; the
+	// tool-calling loop sends it back unchanged (see LLMMessage).
+	ProviderContent json.RawMessage `json:"-"`
 }
 
 // LLMUsage represents token usage statistics.

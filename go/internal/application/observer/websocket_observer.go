@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 )
 
@@ -17,7 +18,6 @@ type WebSocketObserver struct {
 	filter EventFilter
 	logger *logger.Logger
 	hub    *WebSocketHub
-	mu     sync.RWMutex
 }
 
 // WebSocketClient represents a connected WebSocket client
@@ -84,13 +84,13 @@ func WithWebSocketLogger(l *logger.Logger) WebSocketObserverOption {
 }
 
 // NewWebSocketHub creates a new WebSocket hub
-func NewWebSocketHub(logger *logger.Logger) *WebSocketHub {
+func NewWebSocketHub(log *logger.Logger) *WebSocketHub {
 	hub := &WebSocketHub{
 		clients:    make(map[*WebSocketClient]bool),
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *WebSocketClient),
 		unregister: make(chan *WebSocketClient),
-		logger:     logger,
+		logger:     log,
 	}
 
 	// Start hub in background
@@ -301,14 +301,14 @@ const maxClientMessageSize = 64 * 1024
 func (c *WebSocketClient) ReadPump() {
 	defer func() {
 		c.hub.Unregister(c)
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 
 	// Clients only send small control messages (ping/subscribe).
 	c.conn.SetReadLimit(maxClientMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	_ = c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		_ = c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
 
@@ -336,16 +336,16 @@ func (c *WebSocketClient) WritePump() {
 	ticker := time.NewTicker(54 * time.Second)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if !ok {
 				// Hub closed the channel
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
@@ -353,13 +353,13 @@ func (c *WebSocketClient) WritePump() {
 			if err != nil {
 				return
 			}
-			w.Write(message)
+			_, _ = w.Write(message)
 
 			// Add queued messages to current WebSocket message
 			n := len(c.send)
 			for i := 0; i < n; i++ {
-				w.Write([]byte{'\n'})
-				w.Write(<-c.send)
+				_, _ = w.Write([]byte{'\n'})
+				_, _ = w.Write(<-c.send)
 			}
 
 			if err := w.Close(); err != nil {
@@ -367,7 +367,7 @@ func (c *WebSocketClient) WritePump() {
 			}
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

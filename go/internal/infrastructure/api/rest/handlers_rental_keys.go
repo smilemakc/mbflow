@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smilemakc/mbflow/go/internal/application/rentalkey"
 	"github.com/smilemakc/mbflow/go/internal/infrastructure/logger"
 	"github.com/smilemakc/mbflow/go/pkg/models"

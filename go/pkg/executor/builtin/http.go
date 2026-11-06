@@ -91,7 +91,7 @@ func (e *HTTPExecutor) Execute(ctx context.Context, config map[string]any, input
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	respBody, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)

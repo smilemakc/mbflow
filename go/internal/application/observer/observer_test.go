@@ -423,14 +423,14 @@ func TestCompoundEventFilter_SingleFilter(t *testing.T) {
 
 func TestCompoundEventFilter_NilFiltersIgnored(t *testing.T) {
 	// Arrange – two nils around one real filter
-	real := NewEventTypeFilter(EventTypeExecutionStarted)
+	nonNil := NewEventTypeFilter(EventTypeExecutionStarted)
 
 	// Act
-	result := NewCompoundEventFilter(nil, real, nil)
+	result := NewCompoundEventFilter(nil, nonNil, nil)
 
 	// Assert – nils stripped; single surviving filter returned directly
 	assert.NotNil(t, result, "Nil filters should be ignored; result must not be nil")
-	assert.Equal(t, real, result, "Only the non-nil filter should survive stripping")
+	assert.Equal(t, nonNil, result, "Only the non-nil filter should survive stripping")
 }
 
 func TestCompoundEventFilter_RealWorldScenario(t *testing.T) {

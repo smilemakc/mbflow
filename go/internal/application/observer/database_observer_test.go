@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smilemakc/mbflow/go/internal/infrastructure/storage/models"
 )
 
 // MockEventRepository is a mock implementation of EventRepository

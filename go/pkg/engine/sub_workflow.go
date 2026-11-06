@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/pkg/models"
 )
 
@@ -122,9 +123,10 @@ func (de *DAGExecutor) executeSubWorkflow(
 			result := de.executeSubWorkflowItem(cancelCtx, execState, node, childWF, cfg, idx, len(items), itm, opts)
 			results[idx] = result
 
-			if result.Status == "completed" {
+			switch result.Status {
+			case "completed":
 				newCompleted := atomic.AddInt64(&completed, 1)
-				de.safeNotify(ctx, ExecutionEvent{
+				de.safeNotify(ctx, execState, ExecutionEvent{
 					Type:                  EventTypeSubWorkflowItemCompleted,
 					ExecutionID:           execState.ExecutionID,
 					WorkflowID:            execState.WorkflowID,
@@ -137,9 +139,9 @@ func (de *DAGExecutor) executeSubWorkflow(
 					SubWorkflowItemExecID: result.ExecutionID,
 					DurationMs:            result.DurationMs,
 				})
-			} else if result.Status == "failed" {
+			case "failed":
 				newFailed := atomic.AddInt64(&failed, 1)
-				de.safeNotify(ctx, ExecutionEvent{
+				de.safeNotify(ctx, execState, ExecutionEvent{
 					Type:                  EventTypeSubWorkflowItemFailed,
 					ExecutionID:           execState.ExecutionID,
 					WorkflowID:            execState.WorkflowID,
@@ -163,7 +165,7 @@ func (de *DAGExecutor) executeSubWorkflow(
 			}
 
 			// Progress event
-			de.safeNotify(ctx, ExecutionEvent{
+			de.safeNotify(ctx, execState, ExecutionEvent{
 				Type:                 EventTypeSubWorkflowProgress,
 				ExecutionID:          execState.ExecutionID,
 				WorkflowID:           execState.WorkflowID,
@@ -265,6 +267,7 @@ func (de *DAGExecutor) executeSubWorkflowItem(
 	idx := index
 	childState.ItemIndex = &idx
 	childState.Resources = parentState.Resources
+	childState.Secrets = parentState.Secrets
 
 	// Apply per-item timeout
 	execCtx := ctx

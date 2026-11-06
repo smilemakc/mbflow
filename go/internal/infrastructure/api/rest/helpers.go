@@ -126,7 +126,7 @@ func getParam(c *gin.Context, name string) (string, bool) {
 }
 
 // getQuery gets a query parameter with a default value
-func getQuery(c *gin.Context, name string, defaultValue string) string {
+func getQuery(c *gin.Context, name, defaultValue string) string {
 	value := c.Query(name)
 	if value == "" {
 		return defaultValue

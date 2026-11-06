@@ -66,7 +66,7 @@ func (p *GeminiProvider) Execute(ctx context.Context, req *models.LLMRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	respBody, err := netguard.ReadAllLimited(resp.Body, netguard.MaxResponseBytes)
@@ -85,7 +85,7 @@ func (p *GeminiProvider) Execute(ctx context.Context, req *models.LLMRequest) (*
 				Type:     errorResp.Error.Status,
 			}
 		}
-		return nil, fmt.Errorf("Gemini API error (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("gemini API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
 	// Parse response
@@ -274,11 +274,13 @@ func (p *GeminiProvider) userParts(req *models.LLMRequest, text string) []map[st
 	// Add images from URLs (file_data)
 	for _, imageURL := range req.ImageURLs {
 		mimeType := "image/jpeg"
-		if strings.HasSuffix(strings.ToLower(imageURL), ".png") {
+		lowerURL := strings.ToLower(imageURL)
+		switch {
+		case strings.HasSuffix(lowerURL, ".png"):
 			mimeType = "image/png"
-		} else if strings.HasSuffix(strings.ToLower(imageURL), ".gif") {
+		case strings.HasSuffix(lowerURL, ".gif"):
 			mimeType = "image/gif"
-		} else if strings.HasSuffix(strings.ToLower(imageURL), ".webp") {
+		case strings.HasSuffix(lowerURL, ".webp"):
 			mimeType = "image/webp"
 		}
 

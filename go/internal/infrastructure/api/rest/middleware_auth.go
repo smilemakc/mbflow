@@ -7,10 +7,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
 	"github.com/smilemakc/mbflow/go/internal/application/auth"
 	"github.com/smilemakc/mbflow/go/internal/application/servicekey"
 	"github.com/smilemakc/mbflow/go/pkg/models"
-	pkgmodels "github.com/smilemakc/mbflow/go/pkg/models"
 )
 
 const (
@@ -55,11 +55,12 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		if strings.HasPrefix(token, "sk_") && m.serviceKeyService != nil {
 			serviceKey, err := m.serviceKeyService.ValidateKey(c.Request.Context(), token)
 			if err != nil {
-				if errors.Is(err, models.ErrServiceKeyRevoked) {
+				switch {
+				case errors.Is(err, models.ErrServiceKeyRevoked):
 					respondError(c, http.StatusUnauthorized, "service key has been revoked")
-				} else if errors.Is(err, models.ErrServiceKeyExpired) {
+				case errors.Is(err, models.ErrServiceKeyExpired):
 					respondError(c, http.StatusUnauthorized, "service key has expired")
-				} else {
+				default:
 					respondError(c, http.StatusUnauthorized, "invalid service key")
 				}
 				c.Abort()
@@ -320,7 +321,8 @@ func GetUserID(c *gin.Context) (string, bool) {
 	if !exists {
 		return "", false
 	}
-	return userID.(string), true
+	s, ok := userID.(string)
+	return s, ok
 }
 
 // GetUserIDAsUUID extracts user ID from gin context as UUID
@@ -342,7 +344,8 @@ func GetClaims(c *gin.Context) (*auth.JWTClaims, bool) {
 	if !exists {
 		return nil, false
 	}
-	return claims.(*auth.JWTClaims), true
+	jwtClaims, ok := claims.(*auth.JWTClaims)
+	return jwtClaims, ok
 }
 
 // GetToken extracts token from gin context
@@ -351,7 +354,8 @@ func GetToken(c *gin.Context) (string, bool) {
 	if !exists {
 		return "", false
 	}
-	return token.(string), true
+	s, ok := token.(string)
+	return s, ok
 }
 
 // IsAdmin checks if the current user is admin
@@ -360,16 +364,18 @@ func IsAdmin(c *gin.Context) bool {
 	if !exists {
 		return false
 	}
-	return isAdmin.(bool)
+	b, _ := isAdmin.(bool)
+	return b
 }
 
 // GetUser extracts full user from gin context
-func GetUser(c *gin.Context) (*pkgmodels.User, bool) {
+func GetUser(c *gin.Context) (*models.User, bool) {
 	user, exists := c.Get(ContextKeyUser)
 	if !exists {
 		return nil, false
 	}
-	return user.(*pkgmodels.User), true
+	u, ok := user.(*models.User)
+	return u, ok
 }
 
 // GetAuthMethod returns the authentication method used
@@ -378,7 +384,11 @@ func GetAuthMethod(c *gin.Context) string {
 	if !exists {
 		return "jwt"
 	}
-	return method.(string)
+	s, ok := method.(string)
+	if !ok {
+		return "jwt"
+	}
+	return s
 }
 
 // GetServiceKeyID returns the service key ID if authenticated via service key
@@ -387,7 +397,8 @@ func GetServiceKeyID(c *gin.Context) (string, bool) {
 	if !exists {
 		return "", false
 	}
-	return id.(string), true
+	s, ok := id.(string)
+	return s, ok
 }
 
 // IsServiceKeyAuth returns true if the request is authenticated via service key

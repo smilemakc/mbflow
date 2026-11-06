@@ -155,7 +155,7 @@ func (s *ServiceAPIServer) streamEphemeralExecutionEvents(
 	if err := manager.Register(observer); err != nil {
 		return status.Error(codes.Internal, "failed to register execution stream observer")
 	}
-	defer manager.Unregister(observer.Name())
+	defer func() { _ = manager.Unregister(observer.Name()) }()
 
 	lastSequence := req.GetAfterSequence()
 	terminalTicker := time.NewTicker(500 * time.Millisecond)
@@ -323,8 +323,8 @@ func isTerminalEventType(eventType string) bool {
 	}
 }
 
-func isTerminalExecutionStatus(status string) bool {
-	switch strings.ToLower(status) {
+func isTerminalExecutionStatus(executionStatus string) bool {
+	switch strings.ToLower(executionStatus) {
 	case string(models.ExecutionStatusCompleted), string(models.ExecutionStatusFailed), string(models.ExecutionStatusCancelled), string(models.ExecutionStatusTimeout):
 		return true
 	default:
